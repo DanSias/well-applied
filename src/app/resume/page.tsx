@@ -25,7 +25,7 @@ import PromptButtonGroup from "@/components/resume/PromptButtonGroup";
 
 export default function ResumePage() {
   const [selectedTab, setSelectedTab] = useState<"simple" | "structured">(
-    "simple"
+    "structured"
   );
 
   return (
