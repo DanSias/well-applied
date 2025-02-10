@@ -7,6 +7,7 @@
  * Key Features:
  * - `saveResume`, `getResume`, `clearResume`: Handle simple, full-text resume storage.
  * - `saveStructuredResume`, `getStructuredResume`, `clearStructuredResume`: Manage structured resume data with type safety.
+ * - Client-Side Check: Ensures safe usage with SSR in Next.js.
  */
 
 const RESUME_KEY = "userResume";
@@ -16,7 +17,9 @@ const RESUME_KEY = "userResume";
  * @param resumeText - The text content of the resume.
  */
 export const saveResume = (resumeText: string) => {
-  localStorage.setItem(RESUME_KEY, resumeText);
+  if (typeof window !== "undefined") {
+    localStorage.setItem(RESUME_KEY, resumeText);
+  }
 };
 
 /**
@@ -24,14 +27,19 @@ export const saveResume = (resumeText: string) => {
  * @returns The saved resume text or an empty string if not found.
  */
 export const getResume = (): string => {
-  return localStorage.getItem(RESUME_KEY) || "";
+  if (typeof window !== "undefined") {
+    return localStorage.getItem(RESUME_KEY) || "";
+  }
+  return "";
 };
 
 /**
  * Clear the user's saved resume from localStorage.
  */
 export const clearResume = () => {
-  localStorage.removeItem(RESUME_KEY);
+  if (typeof window !== "undefined") {
+    localStorage.removeItem(RESUME_KEY);
+  }
 };
 
 // Structured Resume - Split by Section
@@ -41,10 +49,12 @@ const STRUCTURED_RESUME_KEY = "structuredResume";
 
 /**
  * Save structured resume data to localStorage.
- * @param resumeData The structured resume data object.
+ * @param resumeData - The structured resume data object (type-safe).
  */
 export const saveStructuredResume = (resumeData: ResumeData) => {
-  localStorage.setItem(STRUCTURED_RESUME_KEY, JSON.stringify(resumeData));
+  if (typeof window !== "undefined") {
+    localStorage.setItem(STRUCTURED_RESUME_KEY, JSON.stringify(resumeData));
+  }
 };
 
 /**
@@ -52,13 +62,18 @@ export const saveStructuredResume = (resumeData: ResumeData) => {
  * @returns The saved structured resume data or null if not found.
  */
 export const getStructuredResume = (): ResumeData | null => {
-  const data = localStorage.getItem(STRUCTURED_RESUME_KEY);
-  return data ? (JSON.parse(data) as ResumeData) : null;
+  if (typeof window !== "undefined") {
+    const data = localStorage.getItem(STRUCTURED_RESUME_KEY);
+    return data ? (JSON.parse(data) as ResumeData) : null;
+  }
+  return null;
 };
 
 /**
  * Clear the structured resume data from localStorage.
  */
 export const clearStructuredResume = () => {
-  localStorage.removeItem(STRUCTURED_RESUME_KEY);
+  if (typeof window !== "undefined") {
+    localStorage.removeItem(STRUCTURED_RESUME_KEY);
+  }
 };
