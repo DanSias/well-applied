@@ -14,11 +14,13 @@
 
 import JobOverview from "@/components/dashboard/JobOverview";
 import Link from "next/link";
-import { getResume } from "@/utils/resumeStorage";
+import { getResume, getStructuredResume } from "@/utils/resumeStorage";
 import { getCoverLetter } from "@/utils/coverLetterStorage";
 
 export default function DashboardPage() {
-  const resume = getResume();
+  const simpleResume = getResume();
+  const structuredResume = getStructuredResume();
+  const hasResume = simpleResume || structuredResume;
   const coverLetter = getCoverLetter();
 
   return (
@@ -40,7 +42,7 @@ export default function DashboardPage() {
         {/* Resume Overview Section */}
         <section className="mb-6">
           <h2 className="text-2xl font-semibold mb-2">Resume</h2>
-          {resume ? (
+          {hasResume ? (
             <Link href="/resume">
               <button className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition">
                 View/Edit Resume
