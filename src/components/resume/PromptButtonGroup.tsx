@@ -19,6 +19,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { getResume, getStructuredResume } from "@/utils";
 import { toast } from "react-hot-toast";
 import {
   DocumentTextIcon,
@@ -47,23 +48,32 @@ export default function PromptButtonGroup({
   // Fetch resume data from localStorage or use provided formatted resume
   useEffect(() => {
     if (resumeType === "simple") {
-      const simpleResume = localStorage.getItem("userResume");
+      // Use utility function to get simple resume
+      const simpleResume = getResume();
       setResumeData(simpleResume || "");
     } else if (formattedResume) {
+      // Use provided formatted resume if available
       setResumeData(formattedResume);
     } else {
-      const structuredResume = JSON.parse(
-        localStorage.getItem("structuredResume") || "{}"
-      ) as Record<string, string>;
-      const formattedStructuredResume = Object.entries(structuredResume)
-        .filter(
-          ([, content]) => typeof content === "string" && content.trim() !== ""
-        ) // Filter out empty fields
-        .map(
-          ([section, content]) => `${formatSectionHeading(section)}\n${content}`
-        )
-        .join("\n\n");
-      setResumeData(formattedStructuredResume);
+      // Use utility function to get structured resume
+      const structuredResume = getStructuredResume();
+
+      if (structuredResume) {
+        // Format structured resume sections
+        const formattedStructuredResume = Object.entries(structuredResume)
+          .filter(
+            ([, content]) =>
+              typeof content === "string" && content.trim() !== ""
+          )
+          .map(
+            ([section, content]) =>
+              `${formatSectionHeading(section)}\n${content}`
+          )
+          .join("\n\n");
+        setResumeData(formattedStructuredResume);
+      } else {
+        setResumeData("");
+      }
     }
   }, [resumeType, formattedResume]);
 

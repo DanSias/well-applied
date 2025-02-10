@@ -12,6 +12,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { getCoverLetter } from "@/utils";
 import { toast } from "react-hot-toast";
 import { Menu, Transition } from "@headlessui/react";
 import { PencilSquareIcon, ChevronDownIcon } from "@heroicons/react/24/solid";
@@ -19,14 +20,9 @@ import { PencilSquareIcon, ChevronDownIcon } from "@heroicons/react/24/solid";
 export default function CoverLetterPrompts() {
   const [coverLetterData, setCoverLetterData] = useState<string>("");
 
-  // Fetch cover letter data from localStorage
   useEffect(() => {
-    const savedCoverLetter = localStorage.getItem("coverLetter");
-    if (savedCoverLetter) {
-      setCoverLetterData(savedCoverLetter);
-    } else {
-      setCoverLetterData("");
-    }
+    const savedCoverLetter = getCoverLetter();
+    setCoverLetterData(savedCoverLetter);
   }, []);
 
   // Generate the comprehensive prompt
