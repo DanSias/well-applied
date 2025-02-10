@@ -8,7 +8,7 @@ const navItems = [
   { title: "Jobs", href: "/jobs" },
   { title: "Resume", href: "/resume" },
   { title: "Cover Letter", href: "/cover-letter" },
-  { title: "Prompts", href: "/prompts" },
+  // { title: "Prompts", href: "/prompts" },
 ];
 
 export default function Navbar() {
