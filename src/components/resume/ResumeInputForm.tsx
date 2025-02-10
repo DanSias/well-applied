@@ -8,6 +8,7 @@
  * - Uses React hooks (`useState`, `useEffect`) for managing state and side effects.
  * - Integrates with localStorage utilities to persist resume data.
  * - Provides an option to clear the saved resume.
+ * - Integrates with the PromptButtonGroup component to generate tailored prompts.
  */
 
 "use client";
@@ -32,13 +33,15 @@ const ResumeInputForm = () => {
   };
 
   return (
-    <div className="h-full pb-28">
+    <div className="h-full mt-6">
       <textarea
         value={resumeText}
         onChange={handleResumeChange}
-        className="w-full p-4 border rounded-md h-full"
+        className="w-full p-4 border rounded-md h-full min-h-screen"
         placeholder="Paste your resume here..."
       />
+
+      {/* Prompt Button Group for Generating Prompts */}
     </div>
   );
 };

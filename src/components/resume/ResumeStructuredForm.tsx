@@ -8,6 +8,7 @@
  * - Uses TypeScript with strict type definitions (`ResumeData`) for type safety.
  * - Automatically saves each section to localStorage, ensuring persistence across sessions.
  * - Provides an option to clear all structured resume data.
+ * - Integrates with the PromptButtonGroup component to generate tailored prompts.
  */
 
 "use client";
@@ -38,7 +39,7 @@ export default function ResumeStructuredForm() {
   // Load saved structured resume data
   useEffect(() => {
     const savedData = getStructuredResume();
-    if (savedData) setResumeData(savedData); // This should now match the expected type
+    if (savedData) setResumeData(savedData);
   }, []);
 
   // Handle input changes
@@ -55,7 +56,7 @@ export default function ResumeStructuredForm() {
   };
 
   return (
-    <div className="p-6 bg-white shadow-lg rounded-xl">
+    <div className="p-6">
       <h2 className="text-xl font-bold mb-4">Advanced Resume Input</h2>
       <p className="text-gray-600 mb-4">
         Enter your resume details section-by-section for more targeted prompt
