@@ -1,4 +1,4 @@
-const COVER_LETTER_KEY = "userCoverLetter";
+const COVER_LETTER_KEY = "coverLetter";
 
 /**
  * Save the user's cover letter to localStorage.
