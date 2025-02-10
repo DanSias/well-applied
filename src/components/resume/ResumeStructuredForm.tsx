@@ -89,7 +89,7 @@ export default function ResumeStructuredForm() {
 
       <button
         onClick={handleClear}
-        className="w-full bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 transition">
+        className="hidden w-full bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 transition">
         Clear Resume
       </button>
     </div>
