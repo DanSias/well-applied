@@ -1,5 +1,7 @@
 # Well Applied
 
+[![Live Demo](https://img.shields.io/badge/Live_Demo-Visit-blue)](https://wellapplied.danielsias.dev)
+
 **Well Applied** is an AI-powered tool designed to assist job seekers in optimizing their job search process. By generating structured AI prompts, users can tailor resumes, conduct company research, and prepare for interviews efficiently. This project demonstrates advanced knowledge of **Next.js**, **React**, **TypeScript**, and **Tailwind CSS**, while showcasing skills in modular UI design and state management with **localStorage**.
 
 ---
