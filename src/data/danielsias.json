@@ -1,0 +1,171 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "last_updated": "2025-05-13",
+    "llm_instructions": "Please tailor the resume for the provided job description. Emphasize the most relevant experiences and reorder sections if needed to prioritize alignment with the job. Keep the structure the same. DO NOT remove sections unless instructed. Adjust wording to match the tone and keywords from the job description."
+  },
+  "contact": {
+    "name": "Daniel Sias",
+    "email": "daniel.sias@gmail.com",
+    "phone": "(407) 272-1720",
+    "website": "danielsias.dev"
+  },
+  "summary": {
+    "text": "Full-Stack Developer specializing in scalable, data-driven applications with expertise in React, Node.js, TypeScript, and cloud platforms...",
+    "adjustment_instructions": "Update to align with the job description focus areas such as AI, leadership, frontend/backend balance, or domain expertise."
+  },
+  "skills": {
+    "frontend": [
+      "React.js",
+      "Next.js",
+      "TypeScript",
+      "API Integration",
+      "TailwindCSS",
+      "User-Centered Design"
+    ],
+    "backend": [
+      "Node.js",
+      "Express.js",
+      "FastAPI",
+      "Django",
+      "PostgreSQL",
+      "BigQuery",
+      "RESTful APIs",
+      "OAuth",
+      "PHP"
+    ],
+    "cloud_devops": [
+      "Google Cloud",
+      "AWS",
+      "Microsoft Azure",
+      "Supabase",
+      "CI/CD Pipelines",
+      "Docker"
+    ],
+    "data_analytics": [
+      "Python",
+      "Marketing Automation",
+      "Data Engineering",
+      "Business Intelligence",
+      "AI-Powered Tools"
+    ],
+    "tools_workflow": [
+      "Git",
+      "Agile/Scrum",
+      "API Design",
+      "Performance Optimization",
+      "Automation"
+    ],
+    "adjustment_instructions": "If appropriate, prioritize or re-order the most job-relevant skills higher in the list. Do not remove any skills unless specified."
+  },
+  "professional_experience": [
+    {
+      "title": "Data & Analytics Lead Developer / Data Analyst",
+      "company": "Pearson Online Learning Services",
+      "start_date": "2015-09",
+      "end_date": "2024-07",
+      "description": "Developed data-driven applications, automation tools, and real-time analytics dashboards to optimize marketing performance, finance forecasting, and sales operations...",
+      "achievements": [
+        "Built a React/Node analytics platform integrating BigQuery & Salesforce, cutting report generation time by 85%...",
+        "Developed a marketing spend forecasting system...",
+        "Designed and deployed API-driven automation...",
+        "Led creation of an email marketing performance tracker...",
+        "Built a PPC tracking link generator...",
+        "Collaborated on Salesforce migration and data warehouse setup..."
+      ],
+      "relevance_hint": "High",
+      "adjustment_instructions": "Tailor language toward technical leadership, AI tools, data platform modernization if relevant to the job."
+    },
+    {
+      "title": "Search Engine Optimization Analyst",
+      "company": "Pearson Online Learning Services",
+      "start_date": "2013-06",
+      "end_date": "2015-09",
+      "description": "Drove organic growth strategies, data-driven SEO analysis, and performance tracking...",
+      "achievements": [
+        "Managed a $1.3MM SEO budget...",
+        "Developed real-time SEO performance dashboards...",
+        "Automated keyword monitoring and site audits...",
+        "Optimized conversion funnels...",
+        "Standardized reporting workflows..."
+      ],
+      "relevance_hint": "Medium",
+      "adjustment_instructions": "Frame SEO and analytics experience as part of broader data-driven decision making."
+    },
+    {
+      "title": "Founder & Full Stack Developer / Marketing Consultant",
+      "company": "Liquid Gravity Engineering",
+      "start_date": "2005-07",
+      "end_date": "2013-06",
+      "description": "Founded and led a marketing technology firm...",
+      "achievements": [
+        "Engineered a one-click upsell system...",
+        "Developed CRM integrations...",
+        "Built and automated A/B testing frameworks...",
+        "Designed and deployed marketing automation workflows...",
+        "Implemented real-time performance dashboards...",
+        "Consulted on strategic marketing initiatives..."
+      ],
+      "relevance_hint": "Medium",
+      "adjustment_instructions": "Emphasize entrepreneurship, technical breadth, and marketing-tech integrations."
+    }
+  ],
+  "projects": [
+    {
+      "title": "Nexus: Data-Driven Analytics & Reporting System",
+      "description": "Led development of enterprise analytics platform that automated KPI tracking across 5 departments...",
+      "technologies": [
+        "React.js",
+        "Node.js",
+        "BigQuery",
+        "Prisma",
+        "PostgreSQL",
+        "Salesforce API"
+      ],
+      "achievements": [
+        "Automated data processing...",
+        "Integrated Salesforce data into BigQuery...",
+        "Built custom API endpoints...",
+        "Replaced spreadsheet-based workflows..."
+      ],
+      "relevance_hint": "High",
+      "adjustment_instructions": "Emphasize KPI tracking, automation, and scale if relevant to the job."
+    },
+    {
+      "title": "SEO Analytics & Competitive Insights Dashboard",
+      "description": "Developed a custom dashboard to track keyword rankings, competitor insights, and backlink health...",
+      "technologies": [
+        "Node.js",
+        "React.js",
+        "Ahrefs API",
+        "PostgreSQL",
+        "Express.js"
+      ],
+      "achievements": [
+        "Integrated Ahrefs API to automate SEO tracking...",
+        "Developed a real-time reporting dashboard...",
+        "Enabled marketing teams to refine SEO strategies...",
+        "Replaced manual spreadsheets with automated insights..."
+      ],
+      "relevance_hint": "Medium",
+      "adjustment_instructions": "Frame SEO work as part of broader data analytics and performance tracking."
+    }
+  ],
+  "education": [
+    {
+      "degree": "Master of Science in Optics",
+      "institution": "University of Central Florida"
+    },
+    {
+      "degree": "Master of Science in Management",
+      "institution": "University of Florida"
+    },
+    {
+      "degree": "BS in Engineering Physics",
+      "institution": "Embry-Riddle Aeronautical University"
+    }
+  ],
+  "notes": {
+    "final_instructions": "Once the object is updated, ensure that field names remain exactly the same. Do not add new fields. Do not remove required fields. Only adjust content."
+  }
+}
