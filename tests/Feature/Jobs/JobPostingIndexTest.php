@@ -52,7 +52,12 @@ it('lists jobs newest first', function () {
 
 it('exposes only summary fields on the index, not the full description', function () {
     $profile = CareerProfile::factory()->create();
-    JobPosting::factory()->for($profile)->create(['company' => 'Acme', 'title' => 'Engineer', 'location' => 'Remote']);
+    JobPosting::factory()->for($profile)->create([
+        'company' => 'Acme',
+        'title' => 'Engineer',
+        'location' => 'Remote',
+        'source_url' => 'https://acme.example/careers/engineer',
+    ]);
 
     $this->get(route('jobs.index'))
         ->assertOk()
@@ -60,6 +65,8 @@ it('exposes only summary fields on the index, not the full description', functio
             ->where('jobs.0.company', 'Acme')
             ->where('jobs.0.title', 'Engineer')
             ->where('jobs.0.location', 'Remote')
+            ->where('jobs.0.source_url', 'https://acme.example/careers/engineer')
+            ->where('jobs.0.has_source_url', true)
             ->missing('jobs.0.description')
         );
 });
