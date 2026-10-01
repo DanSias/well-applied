@@ -11,6 +11,7 @@ use App\Models\JobPosting;
 use App\Support\ApplicationInspection\SummarizeInspectionStates;
 use App\Support\CurrentCareerProfile;
 use App\Support\GenerationAttempt\PresentGenerationAttempt;
+use App\Support\OpportunityTriage\SummarizeTriageStates;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -28,7 +29,7 @@ class JobPostingController extends Controller
      * unchanged; only the product-facing label differs. See
      * docs/application-inspector.md "Opportunities index".
      */
-    public function index(Request $request, SummarizeInspectionStates $summarizer): Response
+    public function index(Request $request, SummarizeInspectionStates $summarizer, SummarizeTriageStates $triageSummarizer): Response
     {
         $search = trim((string) $request->query('q', ''));
         $status = (string) $request->query('status', 'all');
@@ -44,6 +45,7 @@ class JobPostingController extends Controller
 
         $jobs = $query->get();
         $inspectionStates = $summarizer->forJobPostings($jobs->pluck('id'));
+        $triageStates = $triageSummarizer->forJobPostings($jobs->pluck('id'));
 
         if ($status === 'not_inspected') {
             $jobs = $jobs->filter(fn (JobPosting $job) => $inspectionStates[$job->id]['state'] === 'not_inspected');
@@ -52,7 +54,7 @@ class JobPostingController extends Controller
         }
 
         return Inertia::render('jobs/index', [
-            'jobs' => $jobs->map(fn (JobPosting $job) => $this->transformSummary($job, $inspectionStates[$job->id]))->values()->all(),
+            'jobs' => $jobs->map(fn (JobPosting $job) => $this->transformSummary($job, $inspectionStates[$job->id], $triageStates[$job->id]))->values()->all(),
             'filters' => ['q' => $search, 'status' => $status],
         ]);
     }
@@ -80,9 +82,10 @@ class JobPostingController extends Controller
 
     /**
      * @param  array<string, mixed>  $inspection
+     * @param  array<string, mixed>  $triage
      * @return array<string, mixed>
      */
-    private function transformSummary(JobPosting $job, array $inspection): array
+    private function transformSummary(JobPosting $job, array $inspection, array $triage): array
     {
         return [
             'id' => $job->id,
@@ -93,6 +96,7 @@ class JobPostingController extends Controller
             'source_url' => $job->source_url,
             'captured_at' => $job->created_at?->toDateString(),
             'inspection' => $inspection,
+            'triage' => $triage,
             'discovery' => $this->transformDiscoveryMetadata($job),
         ];
     }
