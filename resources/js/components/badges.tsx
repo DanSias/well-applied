@@ -5,7 +5,11 @@ import type {
     Verification,
     Visibility,
 } from '@/types/career-data';
-import type { DescriptionCompleteness } from '@/types/job-posting';
+import type {
+    DescriptionCompleteness,
+    OpportunityTriageCoverage,
+    OpportunityTriageStage,
+} from '@/types/job-posting';
 
 const badgeClass =
     'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset whitespace-nowrap';
@@ -168,6 +172,95 @@ export function InspectionStateBadge({
                     Latest attempt failed
                 </span>
             )}
+        </span>
+    );
+}
+
+/**
+ * Pipeline position of an opportunity in Opportunity Triage (raw → … →
+ * matched). A workflow/process state, deliberately reusing this repository's
+ * established treatment for workflow stages from App\Support\OpportunityTriage
+ * \ SummarizeTriageStates: sky = in flight, emerald = a step completed and
+ * produced a result (matching the `inspected` convention), rose = a step
+ * failed, neutral = not yet started. None of these imply candidate fit or
+ * whether the opportunity is worth pursuing.
+ */
+const TRIAGE_STAGE_STYLES: Record<OpportunityTriageStage, string> = {
+    // Not started — calm/neutral on purpose, not an error.
+    raw: 'bg-neutral-100 text-neutral-500 ring-neutral-500/20 dark:bg-neutral-800 dark:text-neutral-400 dark:ring-neutral-400/10',
+    // In flight — the repo's established in-progress treatment.
+    analyzing:
+        'bg-sky-50 text-sky-700 ring-sky-600/20 dark:bg-sky-500/10 dark:text-sky-300 dark:ring-sky-400/20',
+    // Analysis complete and produced a snapshot — same "completed step"
+    // emerald as `inspected`, signaling a finished step, not quality.
+    analyzed:
+        'bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-400/20',
+    // In flight — the repo's established in-progress treatment.
+    matching:
+        'bg-sky-50 text-sky-700 ring-sky-600/20 dark:bg-sky-500/10 dark:text-sky-300 dark:ring-sky-400/20',
+    // Pipeline completed successfully — emerald "workflow done", never "good
+    // match" or "recommended opportunity".
+    matched:
+        'bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-400/20',
+    // A step failed — the repo's established failure treatment.
+    'analysis-failed':
+        'bg-rose-50 text-rose-700 ring-rose-600/20 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-400/20',
+    'match-failed':
+        'bg-rose-50 text-rose-700 ring-rose-600/20 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-400/20',
+};
+
+const TRIAGE_STAGE_LABELS: Record<OpportunityTriageStage, string> = {
+    raw: 'Raw',
+    analyzing: 'Analyzing',
+    'analysis-failed': 'Analysis failed',
+    analyzed: 'Analyzed',
+    matching: 'Matching',
+    'match-failed': 'Match failed',
+    matched: 'Matched',
+};
+
+export function TriageStageBadge({ value }: { value: OpportunityTriageStage }) {
+    return (
+        <span className={cn(badgeClass, TRIAGE_STAGE_STYLES[value])}>
+            {TRIAGE_STAGE_LABELS[value]}
+        </span>
+    );
+}
+
+/**
+ * The four evidence-coverage counts for a `matched` opportunity. Factual
+ * counts of findings by classification — deliberately a single neutral
+ * treatment across all four, with explicit text labels so color never
+ * carries the meaning. Not a score, percentage, rank, or recommendation.
+ */
+const COVERAGE_ITEMS: {
+    key: keyof OpportunityTriageCoverage;
+    label: string;
+}[] = [
+    { key: 'supported', label: 'Supported' },
+    { key: 'partial', label: 'Partial' },
+    { key: 'no_evidence', label: 'No evidence' },
+    { key: 'not_assessable', label: 'Not assessable' },
+];
+
+export function TriageCoverageGroup({
+    coverage,
+}: {
+    coverage: OpportunityTriageCoverage;
+}) {
+    return (
+        <span className="inline-flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+            {COVERAGE_ITEMS.map((item) => (
+                <span
+                    key={item.key}
+                    className="inline-flex items-baseline gap-1 whitespace-nowrap"
+                >
+                    {item.label}
+                    <span className="font-medium text-neutral-700 tabular-nums dark:text-neutral-300">
+                        {coverage[item.key]}
+                    </span>
+                </span>
+            ))}
         </span>
     );
 }

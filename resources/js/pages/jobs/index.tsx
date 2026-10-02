@@ -3,6 +3,8 @@ import { type FormEvent, useState } from 'react';
 import {
     DescriptionCompletenessBadge,
     InspectionStateBadge,
+    TriageCoverageGroup,
+    TriageStageBadge,
 } from '@/components/badges';
 import { cn } from '@/lib/utils';
 import {
@@ -223,8 +225,21 @@ export default function JobsIndex({ jobs, filters }: JobsIndexProps) {
                                             </span>
                                         )}
                                     </p>
+                                    {job.triage.coverage !== null && (
+                                        <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                                            <span className="text-neutral-400 dark:text-neutral-500">
+                                                Coverage:
+                                            </span>{' '}
+                                            <TriageCoverageGroup
+                                                coverage={job.triage.coverage}
+                                            />
+                                        </p>
+                                    )}
                                 </div>
-                                <div className="flex items-center gap-3">
+                                <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1.5">
+                                    <TriageStageBadge
+                                        value={job.triage.stage}
+                                    />
                                     <DescriptionCompletenessBadge
                                         value={
                                             job.discovery

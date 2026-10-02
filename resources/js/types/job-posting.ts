@@ -21,6 +21,47 @@ export type JobPostingDiscoveryMetadata = {
     description_completeness: DescriptionCompleteness;
 };
 
+/**
+ * Position of a posting in the Opportunity Triage pipeline. A workflow
+ * state derived live from the durable generation history — never a measure
+ * of fit, desirability, or recommendation. Mirrors the backend's Stage
+ * precedence (raw → analyzing → analyzed → matching → matched), with the
+ * failed arms (analysis-failed, match-failed) when a step errored.
+ */
+export type OpportunityTriageStage =
+    | 'raw'
+    | 'analyzing'
+    | 'analysis-failed'
+    | 'analyzed'
+    | 'matching'
+    | 'match-failed'
+    | 'matched';
+
+/**
+ * Factual counts of a matched opportunity's findings by their holistic
+ * evidence classification. Present (zero-filled) only in the `matched`
+ * stage. These are availability counts, NOT a fit score, percentage, rank
+ * or recommendation — never compute or present any of those from them.
+ */
+export type OpportunityTriageCoverage = {
+    supported: number;
+    partial: number;
+    no_evidence: number;
+    not_assessable: number;
+};
+
+/**
+ * Matches SummarizeTriageStates::summary() exactly. Present on every
+ * /jobs summary item. `coverage` is non-null only in `matched`; the
+ * `*_at` fields are each snapshot's own generated_at (or null).
+ */
+export type OpportunityTriage = {
+    stage: OpportunityTriageStage;
+    coverage: OpportunityTriageCoverage | null;
+    analysis_at: string | null;
+    match_at: string | null;
+};
+
 export type JobPostingSummary = {
     id: number;
     company: string;
@@ -30,6 +71,7 @@ export type JobPostingSummary = {
     source_url: string | null;
     captured_at: string | null;
     inspection: InspectionSummary;
+    triage: OpportunityTriage;
     discovery: JobPostingDiscoveryMetadata;
 };
 
