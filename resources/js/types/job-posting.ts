@@ -97,9 +97,24 @@ export type JobPostingDetail = {
     discovery: JobPostingDiscoveryMetadata;
 };
 
+/**
+ * Triage-stage filter groups for the /jobs index. A deterministic UI
+ * grouping over the seven canonical OpportunityTriageStage values (each
+ * group maps to one or more stages on the backend) — a navigation filter,
+ * not a score, rank, or recommendation.
+ */
+export type OpportunityTriageFilter =
+    | 'all'
+    | 'raw'
+    | 'in-progress'
+    | 'analyzed'
+    | 'matched'
+    | 'failed';
+
 export type JobsIndexFilters = {
     q: string;
     status: 'all' | 'not_inspected' | 'inspected';
+    triage: OpportunityTriageFilter;
 };
 
 export type JobsIndexProps = {

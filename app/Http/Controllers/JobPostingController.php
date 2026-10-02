@@ -33,6 +33,8 @@ class JobPostingController extends Controller
     {
         $search = trim((string) $request->query('q', ''));
         $status = (string) $request->query('status', 'all');
+        $triage = (string) $request->query('triage', 'all');
+        $triageStages = $this->triageStagesForFilter($triage);
 
         $query = CurrentCareerProfile::resolve()->jobPostings()->latest();
 
@@ -53,10 +55,42 @@ class JobPostingController extends Controller
             $jobs = $jobs->filter(fn (JobPosting $job) => in_array($inspectionStates[$job->id]['state'], ['inspected', 'unsupported'], true));
         }
 
+        if ($triageStages !== null) {
+            $jobs = $jobs->filter(
+                fn (JobPosting $job) => in_array($triageStates[$job->id]['stage'], $triageStages, true),
+            );
+        }
+
         return Inertia::render('jobs/index', [
             'jobs' => $jobs->map(fn (JobPosting $job) => $this->transformSummary($job, $inspectionStates[$job->id], $triageStates[$job->id]))->values()->all(),
-            'filters' => ['q' => $search, 'status' => $status],
+            // `triage` is normalized so the echoed filter always reflects
+            // what was actually applied — an invalid value degrades to
+            // `all` in both behavior and props.
+            'filters' => ['q' => $search, 'status' => $status, 'triage' => $triageStages === null ? 'all' : $triage],
         ]);
+    }
+
+    /**
+     * The canonical triage stages allowed by each triage filter value —
+     * a deterministic UI grouping over the seven stages
+     * SummarizeTriageStates derives from the durable generation history.
+     * `all` (and any unrecognized value, for safe degradation) means no
+     * triage-stage restriction, so they map to null. Navigation grouping
+     * only: never a score, rank, or recommendation, and never a persisted
+     * column — the stage itself always comes from the summarizer.
+     *
+     * @return list<string>|null
+     */
+    private function triageStagesForFilter(string $triage): ?array
+    {
+        return match ($triage) {
+            'raw' => ['raw'],
+            'in-progress' => ['analyzing', 'matching'],
+            'analyzed' => ['analyzed'],
+            'matched' => ['matched'],
+            'failed' => ['analysis-failed', 'match-failed'],
+            default => null,
+        };
     }
 
     public function create(): Response

@@ -19,6 +19,7 @@ import type {
     JobPostingDiscoveryMetadata,
     JobPostingSummary,
     JobsIndexProps,
+    OpportunityTriageFilter,
 } from '@/types/job-posting';
 
 const DISCOVERY_SOURCE_LABELS: Record<string, string> = {
@@ -59,6 +60,18 @@ const STATUS_TABS: {
     { value: 'all', label: 'All' },
     { value: 'not_inspected', label: 'Not inspected' },
     { value: 'inspected', label: 'Inspected' },
+];
+
+const TRIAGE_STAGES: {
+    value: OpportunityTriageFilter;
+    label: string;
+}[] = [
+    { value: 'all', label: 'All stages' },
+    { value: 'raw', label: 'Raw' },
+    { value: 'in-progress', label: 'In progress' },
+    { value: 'analyzed', label: 'Analyzed' },
+    { value: 'matched', label: 'Matched' },
+    { value: 'failed', label: 'Failed' },
 ];
 
 function InspectAction({ job }: { job: JobPostingSummary }) {
@@ -106,7 +119,7 @@ export default function JobsIndex({ jobs, filters }: JobsIndexProps) {
     const applyFilters = (next: Partial<typeof filters>) => {
         router.get(
             jobsIndex.url(),
-            { q, status: filters.status, ...next },
+            { q, status: filters.status, triage: filters.triage, ...next },
             { preserveState: true, replace: true },
         );
     };
@@ -169,23 +182,49 @@ export default function JobsIndex({ jobs, filters }: JobsIndexProps) {
                         </button>
                     ))}
                 </div>
+
+                <div className="h-4 w-px bg-neutral-200 dark:bg-neutral-800" />
+
+                <div className="flex items-center gap-1 text-sm">
+                    {TRIAGE_STAGES.map((stage) => (
+                        <button
+                            key={stage.value}
+                            type="button"
+                            onClick={() =>
+                                applyFilters({ triage: stage.value })
+                            }
+                            className={cn(
+                                'rounded-md px-2.5 py-1 font-medium',
+                                filters.triage === stage.value
+                                    ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900'
+                                    : 'text-neutral-500 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800',
+                            )}
+                        >
+                            {stage.label}
+                        </button>
+                    ))}
+                </div>
             </div>
 
             {jobs.length === 0 ? (
                 <div className="mt-6 rounded-lg border border-dashed border-neutral-300 p-8 text-center dark:border-neutral-700">
                     <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                        {filters.q || filters.status !== 'all'
+                        {filters.q ||
+                        filters.status !== 'all' ||
+                        filters.triage !== 'all'
                             ? 'No opportunities match this search/filter.'
                             : 'No jobs captured yet.'}
                     </p>
-                    {!filters.q && filters.status === 'all' && (
-                        <Link
-                            href={createJob.url()}
-                            className="mt-3 inline-flex items-center text-sm font-medium text-neutral-900 underline underline-offset-2 dark:text-neutral-100"
-                        >
-                            Add your first job
-                        </Link>
-                    )}
+                    {!filters.q &&
+                        filters.status === 'all' &&
+                        filters.triage === 'all' && (
+                            <Link
+                                href={createJob.url()}
+                                className="mt-3 inline-flex items-center text-sm font-medium text-neutral-900 underline underline-offset-2 dark:text-neutral-100"
+                            >
+                                Add your first job
+                            </Link>
+                        )}
                 </div>
             ) : (
                 <ul className="mt-6 divide-y divide-neutral-200 rounded-lg border border-neutral-200 bg-white dark:divide-neutral-800 dark:border-neutral-800 dark:bg-neutral-900">

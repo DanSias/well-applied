@@ -63,6 +63,56 @@ function indexTriageAttempt(JobPosting $jobPosting, GenerationType $generationTy
     ]);
 }
 
+function indexTriageMatchAttempt(JobAnalysis $analysis, GenerationStatus $status): GenerationAttempt
+{
+    return GenerationAttempt::factory()->create([
+        'subject_type' => $analysis->getMorphClass(),
+        'subject_id' => $analysis->id,
+        'generation_type' => GenerationType::JobMatch,
+        'status' => $status,
+    ]);
+}
+
+/**
+ * Seeds one JobPosting per canonical triage stage on the given profile,
+ * each with a distinct created_at so the index's "newest first" ordering
+ * is deterministic (Matched newest, Raw oldest). Every fixture uses the
+ * same durable models the SummarizeTriageStates tests use — snapshots,
+ * completed matches, GenerationAttempts — never a persisted stage.
+ *
+ * @return array<string, JobPosting> keyed by canonical stage
+ */
+function indexTriageStages(CareerProfile $profile): array
+{
+    $stages = [
+        'raw' => JobPosting::factory()->for($profile)->create(['title' => 'Raw Role', 'created_at' => now()->subDays(7)]),
+    ];
+
+    $stages['analyzing'] = JobPosting::factory()->for($profile)->create(['title' => 'Analyzing Role', 'created_at' => now()->subDays(6)]);
+    indexTriageAttempt($stages['analyzing'], GenerationType::JobAnalysis, GenerationStatus::Queued);
+
+    $stages['analysis-failed'] = JobPosting::factory()->for($profile)->create(['title' => 'Analysis Failed Role', 'created_at' => now()->subDays(5)]);
+    indexTriageAttempt($stages['analysis-failed'], GenerationType::JobAnalysis, GenerationStatus::Failed);
+
+    $stages['analyzed'] = JobPosting::factory()->for($profile)->create(['title' => 'Analyzed Role', 'created_at' => now()->subDays(4)]);
+    indexTriageAnalysis($stages['analyzed'], '2026-09-01 08:00:00');
+
+    $stages['matching'] = JobPosting::factory()->for($profile)->create(['title' => 'Matching Role', 'created_at' => now()->subDays(3)]);
+    $matchingAnalysis = indexTriageAnalysis($stages['matching'], '2026-09-01 08:00:00');
+    indexTriageMatchAttempt($matchingAnalysis, GenerationStatus::Running);
+
+    $stages['match-failed'] = JobPosting::factory()->for($profile)->create(['title' => 'Match Failed Role', 'created_at' => now()->subDays(2)]);
+    $matchFailedAnalysis = indexTriageAnalysis($stages['match-failed'], '2026-09-01 08:00:00');
+    indexTriageMatchAttempt($matchFailedAnalysis, GenerationStatus::Failed);
+
+    $stages['matched'] = JobPosting::factory()->for($profile)->create(['title' => 'Matched Role', 'created_at' => now()->subDays(1)]);
+    $matchedAnalysis = indexTriageAnalysis($stages['matched'], '2026-09-01 08:00:00');
+    $match = indexTriageMatch($profile, $matchedAnalysis, '2026-09-02 08:00:00');
+    indexTriageMatchFinding($match, $matchedAnalysis, JobMatchCoverage::Supported);
+
+    return $stages;
+}
+
 it('renders the jobs index successfully', function () {
     CareerProfile::factory()->create();
 
@@ -357,4 +407,197 @@ it('keeps triage summaries scoped to the current CareerProfile', function () {
             ->where('jobs.0.triage.coverage', null)
             ->where('jobs.0.triage.match_at', null)
         );
+});
+
+it('treats a missing triage filter as all, returning every stage', function () {
+    $profile = CareerProfile::factory()->create();
+    indexTriageStages($profile);
+
+    $this->get(route('jobs.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('jobs', 7)
+            ->where('filters.triage', 'all')
+        );
+});
+
+it('treats triage=all as no restriction over the triage stages', function () {
+    $profile = CareerProfile::factory()->create();
+    $stages = indexTriageStages($profile);
+
+    $this->get(route('jobs.index', ['triage' => 'all']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('jobs', 7)
+            ->where('jobs.0.id', $stages['matched']->id)
+            ->where('jobs.6.id', $stages['raw']->id)
+            ->where('filters.triage', 'all')
+        );
+});
+
+it('filters to only raw opportunities on the raw triage stage', function () {
+    $profile = CareerProfile::factory()->create();
+    $stages = indexTriageStages($profile);
+
+    $this->get(route('jobs.index', ['triage' => 'raw']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('jobs', 1)
+            ->where('jobs.0.id', $stages['raw']->id)
+            ->where('jobs.0.triage.stage', 'raw')
+            ->where('jobs.0.triage.coverage', null)
+            ->where('filters.triage', 'raw')
+        );
+});
+
+it('includes analyzing and matching on the in-progress triage stage and excludes the others, keeping ordering', function () {
+    $profile = CareerProfile::factory()->create();
+    $stages = indexTriageStages($profile);
+
+    // Matching was created after Analyzing, so the newest-first ordering
+    // is preserved within the filtered result.
+    $this->get(route('jobs.index', ['triage' => 'in-progress']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('jobs', 2)
+            ->where('jobs.0.id', $stages['matching']->id)
+            ->where('jobs.0.triage.stage', 'matching')
+            ->where('jobs.1.id', $stages['analyzing']->id)
+            ->where('jobs.1.triage.stage', 'analyzing')
+            ->where('filters.triage', 'in-progress')
+        );
+});
+
+it('filters to only analyzed opportunities on the analyzed triage stage', function () {
+    $profile = CareerProfile::factory()->create();
+    $stages = indexTriageStages($profile);
+
+    $this->get(route('jobs.index', ['triage' => 'analyzed']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('jobs', 1)
+            ->where('jobs.0.id', $stages['analyzed']->id)
+            ->where('jobs.0.triage.stage', 'analyzed')
+            ->where('jobs.0.triage.analysis_at', '2026-09-01 08:00:00')
+            ->where('jobs.0.triage.coverage', null)
+            ->where('jobs.0.triage.match_at', null)
+            ->where('filters.triage', 'analyzed')
+        );
+});
+
+it('filters to only matched opportunities on the matched triage stage', function () {
+    $profile = CareerProfile::factory()->create();
+    $stages = indexTriageStages($profile);
+
+    $this->get(route('jobs.index', ['triage' => 'matched']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('jobs', 1)
+            ->where('jobs.0.id', $stages['matched']->id)
+            ->where('jobs.0.triage.stage', 'matched')
+            ->where('jobs.0.triage.coverage.supported', 1)
+            ->where('jobs.0.triage.coverage.partial', 0)
+            ->where('jobs.0.triage.coverage.no_evidence', 0)
+            ->where('jobs.0.triage.coverage.not_assessable', 0)
+            ->where('jobs.0.triage.match_at', '2026-09-02 08:00:00')
+            ->where('filters.triage', 'matched')
+        );
+});
+
+it('includes both failure stages on the failed triage stage and excludes the others', function () {
+    $profile = CareerProfile::factory()->create();
+    $stages = indexTriageStages($profile);
+
+    // Match-failed was created after Analysis-failed, so the filter
+    // result keeps the index newest-first ordering.
+    $this->get(route('jobs.index', ['triage' => 'failed']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('jobs', 2)
+            ->where('jobs.0.id', $stages['match-failed']->id)
+            ->where('jobs.0.triage.stage', 'match-failed')
+            ->where('jobs.0.triage.coverage', null)
+            ->where('jobs.1.id', $stages['analysis-failed']->id)
+            ->where('jobs.1.triage.stage', 'analysis-failed')
+            ->where('filters.triage', 'failed')
+        );
+});
+
+it('treats an invalid triage filter value as all instead of erroring', function () {
+    $profile = CareerProfile::factory()->create();
+    indexTriageStages($profile);
+
+    $this->get(route('jobs.index', ['triage' => 'bogus-value']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('jobs', 7)
+            ->where('filters.triage', 'all')
+        );
+});
+
+it('composes the triage filter with the inspection status filter as an intersection', function () {
+    $profile = CareerProfile::factory()->create();
+    $stages = indexTriageStages($profile);
+
+    // Promote one raw and one analyzed job to inspected, leaving the
+    // rest not-inspected.
+    foreach ([$stages['raw'], $stages['analyzed']] as $job) {
+        $application = Application::factory()->for($job, 'jobPosting')->create();
+        $workflowRun = WorkflowRun::factory()->for($application)->create(['status' => WorkflowStatus::Succeeded]);
+        $step = WorkflowStep::factory()->for($workflowRun, 'workflowRun')->create(['status' => WorkflowStatus::Succeeded]);
+        AgentRun::factory()->for($step, 'workflowStep')->create([
+            'status' => AgentRunStatus::Succeeded,
+            'inspection_outcome' => 'complete',
+        ]);
+    }
+
+    $this->get(route('jobs.index', ['status' => 'inspected', 'triage' => 'raw']))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('jobs', 1)
+            ->where('jobs.0.id', $stages['raw']->id));
+
+    $this->get(route('jobs.index', ['status' => 'not_inspected', 'triage' => 'analyzed']))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('jobs', 0));
+
+    // The composed filters stay active independently — flipping one
+    // leaves the other in place.
+    $this->get(route('jobs.index', ['status' => 'inspected', 'triage' => 'matched']))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('jobs', 0)
+            ->where('filters.status', 'inspected')
+            ->where('filters.triage', 'matched'));
+});
+
+it('composes the triage filter with the search query', function () {
+    $profile = CareerProfile::factory()->create();
+    $raw = JobPosting::factory()->for($profile)->create(['title' => 'Staff Engineer', 'created_at' => now()->subDays(2)]);
+    $analyzed = JobPosting::factory()->for($profile)->create(['title' => 'Senior Engineer', 'created_at' => now()->subDays(1)]);
+    indexTriageAnalysis($analyzed, '2026-09-01 08:00:00');
+
+    $this->get(route('jobs.index', ['q' => 'engineer', 'triage' => 'raw']))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('jobs', 1)
+            ->where('jobs.0.id', $raw->id)
+            ->where('filters.q', 'engineer')
+            ->where('filters.triage', 'raw'));
+
+    $this->get(route('jobs.index', ['q' => 'engineer', 'triage' => 'analyzed']))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('jobs', 1)
+            ->where('jobs.0.id', $analyzed->id)
+            ->where('filters.triage', 'analyzed'));
+});
+
+it('returns each active triage filter value in the filters props', function () {
+    $profile = CareerProfile::factory()->create();
+    indexTriageStages($profile);
+
+    foreach (['raw', 'in-progress', 'analyzed', 'matched', 'failed'] as $value) {
+        $this->get(route('jobs.index', ['triage' => $value]))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('filters.triage', $value)
+                ->where('filters.q', '')
+                ->where('filters.status', 'all'));
+    }
 });
