@@ -99,6 +99,7 @@ it('reports raw for a JobPosting with no analysis or match activity at all', fun
     expect($summary)->toBe([
         'stage' => 'raw',
         'coverage' => null,
+        'analysis_id' => null,
         'analysis_at' => null,
         'match_at' => null,
     ]);
@@ -188,6 +189,7 @@ it('reports analysis-failed when the only analysis attempt failed and no snapsho
     expect($summary)->toBe([
         'stage' => 'analysis-failed',
         'coverage' => null,
+        'analysis_id' => null,
         'analysis_at' => null,
         'match_at' => null,
     ]);
@@ -208,12 +210,13 @@ it('keeps a prior snapshot as analyzed when the re-analysis attempt failed', fun
 
 it('reports analyzed for a JobPosting with an analysis snapshot but no match activity', function () {
     $jobPosting = postingFor(careerProfile());
-    analysisFor($jobPosting, '2026-09-01 08:00:00');
+    $analysis = analysisFor($jobPosting, '2026-09-01 08:00:00');
 
     $summary = triage($jobPosting)[$jobPosting->id];
 
     expect($summary['stage'])->toBe('analyzed')
         ->and($summary['coverage'])->toBeNull()
+        ->and($summary['analysis_id'])->toBe($analysis->id)
         ->and($summary['analysis_at'])->toBe('2026-09-01 08:00:00')
         ->and($summary['match_at'])->toBeNull();
 });
@@ -394,7 +397,7 @@ it('selects the latest analysis by generated_at even when an older analysis has 
     $profile = careerProfile();
     $jobPosting = postingFor($profile);
 
-    analysisFor($jobPosting, '2026-10-01 08:00:00'); // newer, lower id — the selected one
+    $selected = analysisFor($jobPosting, '2026-10-01 08:00:00'); // newer, lower id — the selected one
     $older = analysisFor($jobPosting, '2026-08-01 08:00:00'); // older, higher id
     $staleMatch = matchFor($profile, $older, '2026-08-02 08:00:00');
     coverageRow($staleMatch, $older, JobMatchCoverage::Supported);
@@ -403,6 +406,7 @@ it('selects the latest analysis by generated_at even when an older analysis has 
 
     expect($summary['stage'])->toBe('analyzed')
         ->and($summary['coverage'])->toBeNull()
+        ->and($summary['analysis_id'])->toBe($selected->id)
         ->and($summary['analysis_at'])->toBe('2026-10-01 08:00:00')
         ->and($summary['match_at'])->toBeNull();
 });
@@ -430,6 +434,7 @@ it('breaks a generated_at tie by higher id, as the detail pages do', function ()
             'no_evidence' => 0,
             'not_assessable' => 0,
         ])
+        ->and($summary['analysis_id'])->toBe($second->id)
         ->and($summary['analysis_at'])->toBe('2026-09-01 08:00:00')
         ->and($summary['match_at'])->toBe('2026-09-02 08:00:00');
 });

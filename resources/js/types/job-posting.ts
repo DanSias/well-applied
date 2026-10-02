@@ -52,12 +52,15 @@ export type OpportunityTriageCoverage = {
 
 /**
  * Matches SummarizeTriageStates::summary() exactly. Present on every
- * /jobs summary item. `coverage` is non-null only in `matched`; the
- * `*_at` fields are each snapshot's own generated_at (or null).
+ * /jobs summary item. `coverage` is non-null only in `matched`;
+ * `analysis_id` is the selected JobAnalysis snapshot's id (null when the
+ * stage has no selected snapshot); the `*_at` fields are each snapshot's
+ * own generated_at (or null).
  */
 export type OpportunityTriage = {
     stage: OpportunityTriageStage;
     coverage: OpportunityTriageCoverage | null;
+    analysis_id: number | null;
     analysis_at: string | null;
     match_at: string | null;
 };

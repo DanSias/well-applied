@@ -268,6 +268,7 @@ it('exposes a raw triage summary for a JobPosting with no analysis or match acti
         ->assertInertia(fn (Assert $page) => $page
             ->where('jobs.0.triage.stage', 'raw')
             ->where('jobs.0.triage.coverage', null)
+            ->where('jobs.0.triage.analysis_id', null)
             ->where('jobs.0.triage.analysis_at', null)
             ->where('jobs.0.triage.match_at', null)
         );
@@ -291,13 +292,14 @@ it('creates no analysis, match, or generation side effects while rendering the i
 it('exposes an analyzed triage summary with the selected analysis snapshot timestamp', function () {
     $profile = CareerProfile::factory()->create();
     $job = JobPosting::factory()->for($profile)->create();
-    indexTriageAnalysis($job, '2026-09-01 08:00:00');
+    $analysis = indexTriageAnalysis($job, '2026-09-01 08:00:00');
 
     $this->get(route('jobs.index'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('jobs.0.triage.stage', 'analyzed')
             ->where('jobs.0.triage.coverage', null)
+            ->where('jobs.0.triage.analysis_id', $analysis->id)
             ->where('jobs.0.triage.analysis_at', '2026-09-01 08:00:00')
             ->where('jobs.0.triage.match_at', null)
         );
@@ -313,6 +315,7 @@ it('exposes an analyzing triage summary while a job_analysis attempt is in fligh
         ->assertInertia(fn (Assert $page) => $page
             ->where('jobs.0.triage.stage', 'analyzing')
             ->where('jobs.0.triage.coverage', null)
+            ->where('jobs.0.triage.analysis_id', null)
             ->where('jobs.0.triage.analysis_at', null)
             ->where('jobs.0.triage.match_at', null)
         );
@@ -339,6 +342,7 @@ it('exposes a matched triage summary with zero-filled coverage buckets and snaps
             ->where('jobs.0.triage.coverage.partial', 1)
             ->where('jobs.0.triage.coverage.no_evidence', 1)
             ->where('jobs.0.triage.coverage.not_assessable', 1)
+            ->where('jobs.0.triage.analysis_id', $analysis->id)
             ->where('jobs.0.triage.analysis_at', '2026-09-01 08:00:00')
             ->where('jobs.0.triage.match_at', '2026-09-02 08:00:00')
             ->where('jobs.0.source_url', 'https://acme.example/careers/engineer')
@@ -370,16 +374,19 @@ it('attaches each posting its own triage summary across a mixed result set', fun
             ->where('jobs.0.triage.coverage.partial', 0)
             ->where('jobs.0.triage.coverage.no_evidence', 0)
             ->where('jobs.0.triage.coverage.not_assessable', 0)
+            ->where('jobs.0.triage.analysis_id', $matchedAnalysis->id)
             ->where('jobs.0.triage.analysis_at', '2026-09-01 08:00:00')
             ->where('jobs.0.triage.match_at', '2026-09-02 08:00:00')
             ->where('jobs.1.id', $analyzed->id)
             ->where('jobs.1.triage.stage', 'analyzed')
             ->where('jobs.1.triage.coverage', null)
+            ->where('jobs.1.triage.analysis_id', $analyzedAnalysis->id)
             ->where('jobs.1.triage.analysis_at', '2026-09-01 08:00:00')
             ->where('jobs.1.triage.match_at', null)
             ->where('jobs.2.id', $raw->id)
             ->where('jobs.2.triage.stage', 'raw')
             ->where('jobs.2.triage.coverage', null)
+            ->where('jobs.2.triage.analysis_id', null)
             ->where('jobs.2.triage.analysis_at', null)
             ->where('jobs.2.triage.match_at', null)
         );
@@ -405,6 +412,7 @@ it('keeps triage summaries scoped to the current CareerProfile', function () {
             ->where('jobs.0.id', $job->id)
             ->where('jobs.0.triage.stage', 'analyzed')
             ->where('jobs.0.triage.coverage', null)
+            ->where('jobs.0.triage.analysis_id', $analysis->id)
             ->where('jobs.0.triage.match_at', null)
         );
 });

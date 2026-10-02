@@ -233,6 +233,11 @@ final class SummarizeTriageStates
      */
     private function summary(string $stage, ?JobAnalysis $analysis, ?JobMatch $match, ?array $coverage): array
     {
+        // analysis_id is the selected snapshot's own id (null when the
+        // stage has no selected snapshot) — the very same snapshot whose
+        // generated_at fills analysis_at below, so its identity and its
+        // stage/timestamps can never disagree.
+        //
         // analysis_at / match_at are always the selected snapshot's
         // own generated_at (null when that stage's snapshot does not
         // exist) — never a GenerationAttempt lifecycle timestamp, even
@@ -240,6 +245,7 @@ final class SummarizeTriageStates
         return [
             'stage' => $stage,
             'coverage' => $coverage,
+            'analysis_id' => $analysis?->id,
             'analysis_at' => $analysis?->generated_at?->toDateTimeString(),
             'match_at' => $match?->generated_at?->toDateTimeString(),
         ];
@@ -253,6 +259,7 @@ final class SummarizeTriageStates
         return [
             'stage' => 'raw',
             'coverage' => null,
+            'analysis_id' => null,
             'analysis_at' => null,
             'match_at' => null,
         ];
