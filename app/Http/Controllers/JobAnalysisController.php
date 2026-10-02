@@ -6,7 +6,6 @@ use App\Enums\DescriptionCompleteness;
 use App\Enums\GenerationStatus;
 use App\Enums\GenerationType;
 use App\Enums\JobAnalysisFindingCategory;
-use App\Jobs\GenerateJobAnalysisJob;
 use App\Models\JobAnalysis;
 use App\Models\JobAnalysisFinding;
 use App\Models\JobAnalysisFindingEvidence;
@@ -14,6 +13,7 @@ use App\Models\JobMatch;
 use App\Models\JobPosting;
 use App\Support\CurrentCareerProfile;
 use App\Support\GenerationAttempt\PresentGenerationAttempt;
+use App\Support\GenerationAttempt\QueueGenerationAttempt;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -29,9 +29,10 @@ use Inertia\Response;
  * read-only inspection surface over App\Support\JobAnalysis's
  * generation pipeline. See docs/job-analysis-generation.md.
  *
- * store() itself never calls the generation pipeline — it only
- * creates/looks up a GenerationAttempt and dispatches
- * GenerateJobAnalysisJob, which owns the actual
+ * store() itself never calls the generation pipeline — it only asks
+ * QueueGenerationAttempt to claim a GenerationAttempt for this
+ * posting (atomic duplicate check, Queued row, and dispatch of
+ * GenerateJobAnalysisJob). The job owns the actual
  * GenerateJobAnalysis::generate() call and every outcome (success,
  * provider failure, validation failure, evidence-verification failure,
  * unexpected failure) durably on that attempt. See "Async Job
@@ -39,7 +40,7 @@ use Inertia\Response;
  */
 class JobAnalysisController extends Controller
 {
-    public function store(Request $request, JobPosting $jobPosting): RedirectResponse
+    public function store(Request $request, JobPosting $jobPosting, QueueGenerationAttempt $claims): RedirectResponse
     {
         $request->validate(['allow_incomplete_description' => ['sometimes', 'boolean']]);
 
@@ -50,20 +51,12 @@ class JobAnalysisController extends Controller
             ]);
         }
 
-        $hasActiveAttempt = $jobPosting->generationAttempts()
-            ->active()
-            ->where('generation_type', GenerationType::JobAnalysis)
-            ->exists();
-
-        if (! $hasActiveAttempt) {
-            $attempt = $jobPosting->generationAttempts()->create([
-                'generation_type' => GenerationType::JobAnalysis,
-                'status' => GenerationStatus::Queued,
-                'queued_at' => now(),
-            ]);
-
-            GenerateJobAnalysisJob::dispatch($attempt);
-        }
+        // QueueGenerationAttempt owns the duplicate check, the Queued row,
+        // and the job dispatch — atomically under one per
+        // (type, subject) claim lock. null simply means an attempt is
+        // already in flight, which is fine here: the redirect below
+        // takes the caller to the page where it's watched either way.
+        $claims->claim(GenerationType::JobAnalysis, $jobPosting);
 
         return redirect()->route('jobs.show', $jobPosting);
     }
