@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { type FormEvent, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     DescriptionCompletenessBadge,
     InspectionStateBadge,
@@ -74,6 +74,9 @@ const TRIAGE_STAGES: {
     { value: 'failed', label: 'Failed' },
 ];
 
+/** Pause between the last keystroke and the search hitting the server. */
+const SEARCH_DEBOUNCE_MS = 300;
+
 function InspectAction({ job }: { job: JobPostingSummary }) {
     const form = useForm({});
 
@@ -115,8 +118,33 @@ function InspectAction({ job }: { job: JobPostingSummary }) {
 
 export default function JobsIndex({ jobs, filters }: JobsIndexProps) {
     const [q, setQ] = useState(filters.q);
+    const searchInputRef = useRef<HTMLInputElement>(null);
+
+    // The input text is local typing state, while `filters.q` is what the
+    // server is actually filtering on. The refs below keep the two from
+    // fighting:
+    //
+    // - `qRef` mirrors `q` so the sync effect can compare them without
+    //   re-running on every keystroke.
+    // - `sentQ` holds the search text of the last navigation we started.
+    //   A new visit supersedes the in-flight one — Inertia drops the stale
+    //   response — so a `filters.q` update matching `sentQ` is always our
+    //   own (possibly late) response and must not clobber text the user is
+    //   still typing.
+    const qRef = useRef(q);
+    const sentQ = useRef(filters.q);
+    const pendingSearchId = useRef<number | null>(null);
+
+    const cancelPendingSearch = useCallback(() => {
+        if (pendingSearchId.current !== null) {
+            window.clearTimeout(pendingSearchId.current);
+            pendingSearchId.current = null;
+        }
+    }, []);
 
     const applyFilters = (next: Partial<typeof filters>) => {
+        cancelPendingSearch();
+        sentQ.current = next.q ?? q;
         router.get(
             jobsIndex.url(),
             { q, status: filters.status, triage: filters.triage, ...next },
@@ -124,10 +152,34 @@ export default function JobsIndex({ jobs, filters }: JobsIndexProps) {
         );
     };
 
-    const onSearchSubmit = (e: FormEvent) => {
-        e.preventDefault();
-        applyFilters({ q });
+    const scheduleSearch = (value: string) => {
+        cancelPendingSearch();
+        pendingSearchId.current = window.setTimeout(() => {
+            pendingSearchId.current = null;
+            applyFilters({ q: value });
+        }, SEARCH_DEBOUNCE_MS);
     };
+
+    const clearSearch = () => {
+        qRef.current = '';
+        setQ('');
+        searchInputRef.current?.focus();
+        applyFilters({ q: '' });
+    };
+
+    // Drop any pending search if the page unmounts mid-debounce.
+    useEffect(() => cancelPendingSearch, [cancelPendingSearch]);
+
+    // A `filters.q` change that did not come from this input (browser
+    // back/forward) is adopted; our own responses are skipped so a slow
+    // server can't clobber text the user is still typing.
+    useEffect(() => {
+        if (filters.q !== qRef.current && filters.q !== sentQ.current) {
+            cancelPendingSearch();
+            qRef.current = filters.q;
+            setQ(filters.q);
+        }
+    }, [cancelPendingSearch, filters.q]);
 
     return (
         <AppShell>
@@ -146,24 +198,32 @@ export default function JobsIndex({ jobs, filters }: JobsIndexProps) {
             </div>
 
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                <form
-                    onSubmit={onSearchSubmit}
-                    className="flex items-center gap-2"
-                >
+                <div className="relative">
                     <input
+                        ref={searchInputRef}
                         type="text"
                         value={q}
-                        onChange={(e) => setQ(e.target.value)}
+                        onChange={(e) => {
+                            const value = e.target.value;
+                            qRef.current = value;
+                            setQ(value);
+                            scheduleSearch(value);
+                        }}
                         placeholder="Search title or company…"
-                        className="w-64 rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+                        aria-label="Search opportunities"
+                        className="w-64 rounded-md border border-neutral-300 bg-white py-1.5 pr-8 pl-3 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
                     />
-                    <button
-                        type="submit"
-                        className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
-                    >
-                        Search
-                    </button>
-                </form>
+                    {q !== '' && (
+                        <button
+                            type="button"
+                            onClick={clearSearch}
+                            aria-label="Clear search"
+                            className="absolute inset-y-0 right-0 flex w-7 items-center justify-center text-sm text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300"
+                        >
+                            ×
+                        </button>
+                    )}
+                </div>
 
                 <div className="flex items-center gap-1 text-sm">
                     {STATUS_TABS.map((tab) => (
