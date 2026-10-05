@@ -1,4 +1,11 @@
-import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
+import {
+    Head,
+    Link,
+    router,
+    useForm,
+    usePage,
+    usePoll,
+} from '@inertiajs/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     DescriptionCompletenessBadge,
@@ -253,18 +260,122 @@ export default function JobsIndex({ jobs, filters }: JobsIndexProps) {
     const [pendingOp, setPendingOp] = useState<BatchOperation | null>(null);
     const batchForm = useForm<{ job_ids: number[] }>({ job_ids: [] });
 
-    // The batch result is one-shot Inertia flash data: read at the top
-    // level, never copied into local state. A new arrival (a new object
-    // from the server) re-shows the panel after a prior dismissal.
-    const batchResult = usePage().flash?.batch_result;
+    // The batch result arrives as one-shot Inertia flash data. E5
+    // intentionally copies the latest arrival into page-local state: a
+    // jobs-only poll response clears `page.flash` (to `{}`), which would
+    // otherwise make the banner vanish ~4s after the batch completes. The
+    // copy is ephemeral page state — no storage of any kind, and leaving
+    // /jobs loses it with the unmount. A later new arrival (a new object
+    // in the flash) replaces it and re-shows the panel after a dismissal.
+    const flashBatchResult = usePage().flash?.batch_result;
+    const [batchResult, setBatchResult] = useState<BatchResult | undefined>(
+        flashBatchResult,
+    );
     const [batchResultDismissed, setBatchResultDismissed] = useState(false);
-    const seenBatchResult = useRef(batchResult);
+    const seenBatchResult = useRef<BatchResult | undefined>(flashBatchResult);
     useEffect(() => {
-        if (seenBatchResult.current !== batchResult) {
-            seenBatchResult.current = batchResult;
+        // Copy only genuine new arrivals — an object currently present in
+        // the flash and different from the previous arrival. Ignoring the
+        // flash clearing (undefined) is deliberate: the poll clearing
+        // `page.flash` must not dismiss a result the user is looking at.
+        if (
+            flashBatchResult !== undefined &&
+            seenBatchResult.current !== flashBatchResult
+        ) {
+            seenBatchResult.current = flashBatchResult;
+            setBatchResult(flashBatchResult);
             setBatchResultDismissed(false);
         }
-    }, [batchResult]);
+    }, [flashBatchResult]);
+
+    // E5 lightweight polling: while any *visible* opportunity is actively
+    // analyzing or matching, refresh only `jobs` every few seconds so rows
+    // settle (analyzing → analyzed / analysis-failed, matching → matched /
+    // match-failed) without a manual refresh. Derived purely from the
+    // current visible jobs — hidden rows, batch-form state and history
+    // never drive the polling.
+    const hasInFlight = jobs.some(
+        (job) =>
+            job.triage.stage === 'analyzing' || job.triage.stage === 'matching',
+    );
+
+    // A poll fired while a *synchronous* user visit (search, filter, batch
+    // post, navigation) is still in flight would target the pre-navigation
+    // window.location.href and could apply stale rows on top of it. Inertia
+    // fires exactly one `finish` per `start` — success, network error and
+    // cancellation all funnel through it — so a plain start/finish pair
+    // cannot leave this flag stuck.
+    const userVisitInFlight = useRef(false);
+    useEffect(() => {
+        const onStart = router.on('start', (event) => {
+            if (event.detail.visit.async === false) {
+                userVisitInFlight.current = true;
+            }
+        });
+        const onFinish = router.on('finish', (event) => {
+            if (event.detail.visit.async === false) {
+                userVisitInFlight.current = false;
+            }
+        });
+        return () => {
+            onStart();
+            onFinish();
+        };
+    }, []);
+
+    // `cancel` mode prevents overlapping poll requests and stale poll
+    // responses; `autoStart: false` because starts/stops below are the sole
+    // gate. `router.reload` already implies preserveState/preserveScroll, so
+    // rows keep their scroll position and E4 selection.
+    const { start: startPolling, stop: stopPolling } = usePoll(
+        4000,
+        () => ({
+            only: ['jobs'],
+            showProgress: false,
+            onBefore: () => !userVisitInFlight.current,
+        }),
+        {
+            autoStart: false,
+            keepAlive: false,
+            mode: 'cancel',
+        },
+    );
+
+    // keepAlive: false only *throttles* hidden-tab polling; E5 requires a
+    // real pause, so the start/stop gate on tab visibility too.
+    useEffect(() => {
+        if (hasInFlight && !document.hidden) {
+            startPolling();
+        } else {
+            stopPolling();
+        }
+
+        const onVisibilityChange = () => {
+            if (document.hidden) {
+                stopPolling();
+                return;
+            }
+            if (!hasInFlight) {
+                return;
+            }
+            // Back on the tab: one immediate refresh, then let the interval
+            // take over. A new visit supersedes any in-flight poll request,
+            // so nothing overlaps.
+            router.reload({
+                only: ['jobs'],
+                showProgress: false,
+                onBefore: () => !userVisitInFlight.current,
+            });
+            startPolling();
+        };
+
+        document.addEventListener('visibilitychange', onVisibilityChange);
+        return () =>
+            document.removeEventListener(
+                'visibilitychange',
+                onVisibilityChange,
+            );
+    }, [hasInFlight, startPolling, stopPolling]);
 
     const selectedVisible = useMemo(
         () =>
