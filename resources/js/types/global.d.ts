@@ -1,4 +1,5 @@
 import type { Auth } from '@/types/auth';
+import type { BatchResult } from '@/types/job-posting';
 
 declare module 'react' {
     interface InputHTMLAttributes<T> {
@@ -13,6 +14,9 @@ declare module '@inertiajs/core' {
             auth: Auth;
             sidebarOpen: boolean;
             [key: string]: unknown;
+        };
+        flashDataType: {
+            batch_result?: BatchResult;
         };
     }
 }

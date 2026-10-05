@@ -326,6 +326,42 @@ it('starts analysis for a raw posting with a complete description', function () 
     Queue::assertPushed(GenerateJobAnalysisJob::class, fn (GenerateJobAnalysisJob $job) => $job->attempt->is($attempt));
 });
 
+it('flashes the batch result to Inertia flash data alongside the session flash', function () {
+    Queue::fake();
+
+    $profile = batchProfile();
+    $started = batchPosting($profile, ['description_completeness' => 'complete']);
+
+    // Second requested item: already in flight → `skipped`/`in_flight`,
+    // so this case also exercises a non-null reason in the flash payload.
+    $inFlight = batchPosting($profile);
+    batchAttempt($inFlight, GenerationType::JobAnalysis, GenerationStatus::Queued);
+
+    $response = $this->post(route('jobs.batch.analyze'), ['job_ids' => [$started->id, $inFlight->id]], ['Referer' => '/jobs']);
+
+    // Classic session-flash channel — same payload, strict equality.
+    assertBatchResult($response, 'analyze', [
+        ['job_id' => $started->id, 'outcome' => 'started', 'reason' => null],
+        ['job_id' => $inFlight->id, 'outcome' => 'skipped', 'reason' => 'in_flight'],
+    ]);
+
+    // Inertia v3 flash channel: assertInertiaFlash with an expected value
+    // delegates to AssertableInertia::assertFlashHas — assertSame, so key
+    // order and types above matter (int job ids, string|null reasons).
+    $response->assertInertiaFlash('batch_result', [
+        'operation' => 'analyze',
+        'requested' => 2,
+        'started' => 1,
+        'skipped' => 1,
+        'failed' => 0,
+        'not_found' => 0,
+        'items' => [
+            ['job_id' => $started->id, 'outcome' => 'started', 'reason' => null],
+            ['job_id' => $inFlight->id, 'outcome' => 'skipped', 'reason' => 'in_flight'],
+        ],
+    ]);
+});
+
 it('starts analysis for an analysis-failed posting with a complete description', function () {
     Queue::fake();
 

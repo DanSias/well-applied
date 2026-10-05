@@ -128,3 +128,43 @@ export type JobsIndexProps = {
 export type JobShowProps = {
     job: JobPostingDetail;
 };
+
+/**
+ * One human-initiated batch operation over /jobs. Mirrors the two
+ * endpoints JobBatchController exposes and the `operation` field of the
+ * batch result payload.
+ */
+export type BatchOperation = 'analyze' | 'match';
+
+/**
+ * Outcome of a single item in a batch result. Mirrors the fixed outcome
+ * set ProcessBatchOpportunities::run() reports for each requested id.
+ */
+export type BatchOutcome = 'started' | 'skipped' | 'failed' | 'not_found';
+
+/**
+ * One requested id's result. `reason` is null except for `skipped` and
+ * `failed`, where it is one of the backend's safe, small reason literals
+ * (`in_flight`, `claim_failed`, `analysis_unavailable`).
+ */
+export type BatchItem = {
+    job_id: number;
+    outcome: BatchOutcome;
+    reason: string | null;
+};
+
+/**
+ * Matches JobBatchController's batch result exactly, as flashed to the
+ * page under `batch_result` (Inertia flash data, one-time). Counts and
+ * items always agree: items are in requested order and the counts sum to
+ * `requested`.
+ */
+export type BatchResult = {
+    operation: BatchOperation;
+    requested: number;
+    started: number;
+    skipped: number;
+    failed: number;
+    not_found: number;
+    items: BatchItem[];
+};

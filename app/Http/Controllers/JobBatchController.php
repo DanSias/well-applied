@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\BatchOpportunitiesRequest;
 use App\Support\OpportunityTriage\ProcessBatchOpportunities;
 use Illuminate\Http\RedirectResponse;
+use Inertia\Inertia;
 
 /**
  * Human-initiated batch actions for the Opportunity Triage surface —
@@ -18,9 +19,11 @@ use Illuminate\Http\RedirectResponse;
  * (App\Support\OpportunityTriage\ProcessBatchOpportunities), keeping the
  * controllers deliberately thin: validate the explicit id list, run the
  * batch, and flash the structured result under `batch_result` before
- * redirecting back. No polling, no "all filtered" mode, and nothing is
- * persisted beyond the per-item GenerationAttempt claims the orchestrator
- * already makes for started items.
+ * redirecting back. The result is exposed through both channels: the
+ * Inertia v3 flash (consumed by the /jobs batch result panel, Phase E4)
+ * and the classic session flash. No polling, no "all filtered" mode, and
+ * nothing is persisted beyond the per-item GenerationAttempt claims the
+ * orchestrator already makes for started items.
  */
 class JobBatchController extends Controller
 {
@@ -35,6 +38,8 @@ class JobBatchController extends Controller
     {
         $result = $this->batch->run('analyze', $request->jobIds());
 
+        Inertia::flash('batch_result', $result);
+
         return back()->with('batch_result', $result);
     }
 
@@ -45,6 +50,8 @@ class JobBatchController extends Controller
     public function match(BatchOpportunitiesRequest $request): RedirectResponse
     {
         $result = $this->batch->run('match', $request->jobIds());
+
+        Inertia::flash('batch_result', $result);
 
         return back()->with('batch_result', $result);
     }
