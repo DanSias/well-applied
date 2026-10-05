@@ -6,6 +6,7 @@ use App\Http\Controllers\BrowserWorkerStatusController;
 use App\Http\Controllers\CareerDataController;
 use App\Http\Controllers\GenerationAttemptController;
 use App\Http\Controllers\JobAnalysisController;
+use App\Http\Controllers\JobBatchController;
 use App\Http\Controllers\JobMatchController;
 use App\Http\Controllers\JobPostingController;
 use App\Http\Controllers\ResumeVariantController;
@@ -21,6 +22,16 @@ Route::get('/jobs', [JobPostingController::class, 'index'])->name('jobs.index');
 Route::get('/jobs/create', [JobPostingController::class, 'create'])->name('jobs.create');
 Route::post('/jobs', [JobPostingController::class, 'store'])->name('jobs.store');
 Route::get('/jobs/{jobPosting}', [JobPostingController::class, 'show'])->name('jobs.show');
+
+// Phase E3 batch actions (Opportunity Triage): human-initiated, backend-only
+// analyze/match over an explicitly selected set of job postings by id. Both
+// are POST (they perform claims/dispatches), route to the single
+// JobBatchController, and flash a structured result under `batch_result`
+// before redirecting back. No polling, no "all filtered" mode — see
+// App\Http\Controllers\JobBatchController and
+// App\Support\OpportunityTriage\ProcessBatchOpportunities.
+Route::post('/jobs/batch/analyze', [JobBatchController::class, 'analyze'])->name('jobs.batch.analyze');
+Route::post('/jobs/batch/match', [JobBatchController::class, 'match'])->name('jobs.batch.match');
 
 // Job Analysis generation is queued (GenerateJobAnalysisJob) — this
 // POST only creates/looks up a GenerationAttempt and dispatches, so it
