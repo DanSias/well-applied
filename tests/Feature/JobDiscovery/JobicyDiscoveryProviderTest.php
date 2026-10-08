@@ -3,8 +3,10 @@
 use App\Enums\DescriptionCompleteness;
 use App\Enums\JobDiscoverySource;
 use App\Enums\JobRemoteStatus;
+use App\Support\JobDiscovery\LoadSearchProfiles;
 use App\Support\JobDiscovery\Providers\DiscoveryProviderException;
 use App\Support\JobDiscovery\Providers\JobicyDiscoveryProvider;
+use App\Support\JobDiscovery\Providers\ProviderDiscoveryContext;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Sleep;
@@ -180,3 +182,18 @@ it('decodes numeric and named ampersands in both display fields', function (stri
     ['hims &#038; hers', 'hims & hers'],
     ['Foo &amp; Bar', 'Foo & Bar'],
 ]);
+
+it('accepts a discovery context without changing its request or its results', function () {
+    Http::fake(['jobicy.test/*' => Http::response(['jobs' => [fakeJobicyJob()]])]);
+
+    // The data_analytics profile's terms and maxResults=1 are
+    // deliberately IGNORED: nothing of them reaches this provider's query.
+    $context = new ProviderDiscoveryContext(profile: LoadSearchProfiles::byId('data_analytics'), maxResults: 1);
+
+    $candidates = (new JobicyDiscoveryProvider)->retrieve($context);
+
+    expect($candidates)->toHaveCount(1);
+
+    // ...and the request is byte-identical to the V1 default.
+    Http::assertSent(fn ($request) => $request['count'] == 200 && $request['geo'] === 'usa');
+});

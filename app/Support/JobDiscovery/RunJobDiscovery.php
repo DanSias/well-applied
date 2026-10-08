@@ -20,6 +20,7 @@ use App\Support\JobDiscovery\Providers\DiscoveryProviderContract;
 use App\Support\JobDiscovery\Providers\DiscoveryProviderException;
 use App\Support\JobDiscovery\Providers\HimalayasDiscoveryProvider;
 use App\Support\JobDiscovery\Providers\JobicyDiscoveryProvider;
+use App\Support\JobDiscovery\Providers\ProviderDiscoveryContext;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -78,8 +79,13 @@ final class RunJobDiscovery
      * @param  JobDiscoverySource[]|null  $only  Restrict this run to these
      *                                           providers (the scheduler passes only those currently due);
      *                                           null runs every registered provider, as manual execution does.
+     * @param  ProviderDiscoveryContext|null  $context  Optional discovery context
+     *                                                  forwarded verbatim to each provider's retrieve();
+     *                                                  V1 providers ignore it (their requests are
+     *                                                  unchanged). null preserves the original
+     *                                                  zero-context behavior exactly.
      */
-    public function run(?array $only = null): DiscoveryRun
+    public function run(?array $only = null, ?ProviderDiscoveryContext $context = null): DiscoveryRun
     {
         $careerProfile = CurrentCareerProfile::resolve();
         $criteria = DiscoverySearchCriteria::fromConfig();
@@ -101,7 +107,7 @@ final class RunJobDiscovery
                 if ($only !== null && ! in_array(JobDiscoverySource::from($source), $only, true)) {
                     continue;
                 }
-                $this->runProviderAttempt($discoveryRun, JobDiscoverySource::from($source), $provider, $criteria, $careerProfile, $boardCache);
+                $this->runProviderAttempt($discoveryRun, JobDiscoverySource::from($source), $provider, $criteria, $careerProfile, $boardCache, $context);
             }
         } catch (Throwable) {
             $orchestrationFailed = true;
@@ -132,6 +138,7 @@ final class RunJobDiscovery
         DiscoverySearchCriteria $criteria,
         CareerProfile $careerProfile,
         array &$boardCache,
+        ?ProviderDiscoveryContext $context = null,
     ): void {
         $attempt = $discoveryRun->providerAttempts()->create([
             'provider' => $source,
@@ -144,7 +151,7 @@ final class RunJobDiscovery
         $candidate = null;
 
         try {
-            $candidates = $provider->retrieve();
+            $candidates = $provider->retrieve($context);
             $retrieved = count($candidates);
             foreach ($candidates as $candidate) {
                 if (! $this->filter->accepts($candidate, $criteria)) {

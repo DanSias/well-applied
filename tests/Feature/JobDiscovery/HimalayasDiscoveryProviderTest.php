@@ -3,8 +3,10 @@
 use App\Enums\DescriptionCompleteness;
 use App\Enums\JobDiscoverySource;
 use App\Enums\JobRemoteStatus;
+use App\Support\JobDiscovery\LoadSearchProfiles;
 use App\Support\JobDiscovery\Providers\DiscoveryProviderException;
 use App\Support\JobDiscovery\Providers\HimalayasDiscoveryProvider;
+use App\Support\JobDiscovery\Providers\ProviderDiscoveryContext;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Sleep;
@@ -119,4 +121,25 @@ it('throws on a persistent 500 after retries', function () {
 
     expect(fn () => (new HimalayasDiscoveryProvider)->retrieve())
         ->toThrow(DiscoveryProviderException::class);
+});
+
+it('accepts a discovery context without changing its request or its results', function () {
+    Http::fake(['himalayas.test/*' => Http::response([
+        'jobs' => [
+            fakeHimalayasJob(),
+            fakeHimalayasJob(['guid' => 'https://himalayas.app/2', 'applicationLink' => 'https://himalayas.app/2']),
+        ],
+        'totalCount' => 2,
+    ])]);
+
+    // Both the profile and maxResults=1 are deliberately IGNORED:
+    // every job comes back, not one.
+    $context = new ProviderDiscoveryContext(profile: LoadSearchProfiles::byId('data_analytics'), maxResults: 1);
+
+    $candidates = (new HimalayasDiscoveryProvider)->retrieve($context);
+
+    expect($candidates)->toHaveCount(2);
+
+    // ...and the request is byte-identical to the V1 default.
+    Http::assertSent(fn ($request) => $request['limit'] == 200 && $request['offset'] == 0);
 });

@@ -2,8 +2,10 @@
 
 use App\Enums\DescriptionCompleteness;
 use App\Enums\JobDiscoverySource;
+use App\Support\JobDiscovery\LoadSearchProfiles;
 use App\Support\JobDiscovery\Providers\AdzunaDiscoveryProvider;
 use App\Support\JobDiscovery\Providers\DiscoveryProviderException;
+use App\Support\JobDiscovery\Providers\ProviderDiscoveryContext;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Sleep;
 
@@ -112,4 +114,20 @@ it('throws on a malformed response shape', function () {
 
     expect(fn () => (new AdzunaDiscoveryProvider)->retrieve())
         ->toThrow(DiscoveryProviderException::class);
+});
+
+it('accepts a discovery context without changing its request or its results', function () {
+    Http::fake(['api.adzuna.com/*' => Http::response(['results' => [fakeAdzunaJob()]])]);
+
+    // The marketing_technology profile's terms and maxResults=5 are
+    // deliberately IGNORED: Adzuna's hardcoded `what=software engineer`
+    // and default page size are untouched by either.
+    $context = new ProviderDiscoveryContext(profile: LoadSearchProfiles::byId('marketing_technology'), maxResults: 5);
+
+    $candidates = (new AdzunaDiscoveryProvider)->retrieve($context);
+
+    expect($candidates)->toHaveCount(1);
+
+    // ...and the request is byte-identical to the V1 default.
+    Http::assertSent(fn ($request) => $request['what'] === 'software engineer' && $request['results_per_page'] == 50);
 });

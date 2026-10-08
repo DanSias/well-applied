@@ -56,9 +56,15 @@ final class HimalayasDiscoveryProvider implements DiscoveryProviderContract
     ) {}
 
     /**
+     * Accepts the optional discovery context for contract compatibility
+     * but deliberately IGNORES it in V1: the request below is
+     * byte-identical with or without a profile/maxResults. Translating a
+     * SearchProfile into a native query is a later provider capability,
+     * not a behavior change here (see DiscoveryProviderContract::retrieve).
+     *
      * @return DiscoveredJobCandidate[]
      */
-    public function retrieve(): array
+    public function retrieve(?ProviderDiscoveryContext $context = null): array
     {
         $baseUrl = (string) config('services.himalayas.base_url');
 
