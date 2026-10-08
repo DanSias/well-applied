@@ -167,7 +167,7 @@ final class IngestDiscoveredCandidate
         // A successful same-identity refresh may update it again later.
         if ($existing->canonical_source === null || $canonicalMatch !== null) {
             $fields = [
-                'title' => 'title', 'description' => 'description', 'location' => 'location',
+                'title' => 'title', 'location' => 'location',
                 'source_url' => 'applicationUrl', 'remote_status' => 'remoteStatus',
                 'employment_type' => 'employmentType', 'compensation_min' => 'compensationMin',
                 'compensation_max' => 'compensationMax', 'compensation_currency' => 'compensationCurrency',
@@ -182,15 +182,22 @@ final class IngestDiscoveredCandidate
                     $updates[$column] = $value;
                 }
             }
-            // Completeness must describe whichever description text
-            // just won above — not merely whether a canonical match
-            // exists (its own description can itself be null; see
-            // resolveDescriptionCompleteness()). Only set when
-            // 'description' was actually updated this pass, so an
-            // unchanged stored description never gets its
-            // completeness flipped for no reason.
-            if (array_key_exists('description', $updates)) {
-                $updates['description_completeness'] = $this->resolveDescriptionCompleteness($candidate, $canonicalMatch);
+            // Description is NOT a plain "latest non-null wins" field: it
+            // carries a quality (DescriptionCompleteness) that must stay
+            // consistent with the stored text, and a lower-quality
+            // rediscovery must never degrade it. Every other field above
+            // keeps its ordinary update behavior regardless of the
+            // incoming description's quality.
+            $incomingDescription = $canonicalMatch?->description;
+            if ($incomingDescription === null && $existing->canonical_source === null) {
+                $incomingDescription = $candidate->description;
+            }
+            if ($incomingDescription !== null && trim($incomingDescription) !== '') {
+                $incomingCompleteness = $this->resolveDescriptionCompleteness($candidate, $canonicalMatch);
+                if ($this->mayReplaceDescription($existing, $incomingCompleteness)) {
+                    $updates['description'] = $incomingDescription;
+                    $updates['description_completeness'] = $incomingCompleteness;
+                }
             }
             if ($canonicalMatch !== null) {
                 $updates['canonical_source'] = $canonicalMatch->canonicalSource;
@@ -200,6 +207,23 @@ final class IngestDiscoveredCandidate
         $existing->update($updates);
 
         return $existing;
+    }
+
+    /**
+     * Complete > Preview > Unknown. An incoming description replaces the
+     * stored one only when it is at least as trustworthy — equal quality
+     * still replaces, so ordinary same-source refreshes keep updating —
+     * or when nothing useful is stored yet. Empty incoming text never
+     * reaches here (the caller skips it), so useful content is never
+     * erased.
+     */
+    private function mayReplaceDescription(JobPosting $existing, DescriptionCompleteness $incoming): bool
+    {
+        if (trim($existing->description) === '') {
+            return true;
+        }
+
+        return $incoming->rank() >= $existing->description_completeness->rank();
     }
 
     /**

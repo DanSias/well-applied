@@ -35,4 +35,19 @@ enum DescriptionCompleteness: string
      * Completeness cannot be established for this source.
      */
     case Unknown = 'unknown';
+
+    /**
+     * Relative trustworthiness of the text this level describes:
+     * Complete > Preview > Unknown. Used by ingestion so a lower-quality
+     * rediscovery never replaces a higher-quality stored description —
+     * see App\Support\JobDiscovery\IngestDiscoveredCandidate.
+     */
+    public function rank(): int
+    {
+        return match ($this) {
+            self::Complete => 2,
+            self::Preview => 1,
+            self::Unknown => 0,
+        };
+    }
 }

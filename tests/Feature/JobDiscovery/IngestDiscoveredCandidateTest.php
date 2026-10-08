@@ -336,3 +336,131 @@ it('does not let a null canonical description claim ownership of preview text', 
     expect($job->description)->toBe('Canonical description.')
         ->and($job->description_completeness)->toBe(DescriptionCompleteness::Complete);
 });
+
+// Description-quality protection (Complete > Preview > Unknown). A second
+// provider rediscovering the same posting reaches the existing row through
+// tier 3 (shared application URL), as in the real Himalayas -> Adzuna case.
+function rediscoverVia(JobDiscoverySource $source, DescriptionCompleteness $completeness, array $overrides = []): JobPosting
+{
+    return (new IngestDiscoveredCandidate)->ingest(discoveryCandidate($overrides + [
+        'source' => $source,
+        'sourceJobId' => "{$source->value}-1",
+        'descriptionCompleteness' => $completeness,
+    ]), null, CareerProfile::query()->firstOrFail())->jobPosting->fresh();
+}
+
+it('applies the Complete > Preview > Unknown hierarchy when another provider rediscovers a posting', function (
+    DescriptionCompleteness $existing,
+    DescriptionCompleteness $incoming,
+    bool $replaced,
+) {
+    CareerProfile::factory()->create();
+    rediscoverVia(JobDiscoverySource::Himalayas, $existing, ['description' => 'Existing text.']);
+
+    $job = rediscoverVia(JobDiscoverySource::Adzuna, $incoming, ['description' => 'Incoming text.']);
+
+    expect(JobPosting::count())->toBe(1)
+        ->and($job->description)->toBe($replaced ? 'Incoming text.' : 'Existing text.')
+        // Completeness always describes the text actually stored.
+        ->and($job->description_completeness)->toBe($replaced ? $incoming : $existing);
+})->with([
+    'complete then preview is protected' => [DescriptionCompleteness::Complete, DescriptionCompleteness::Preview, false],
+    'complete then unknown is protected' => [DescriptionCompleteness::Complete, DescriptionCompleteness::Unknown, false],
+    'preview then unknown is protected' => [DescriptionCompleteness::Preview, DescriptionCompleteness::Unknown, false],
+    'preview then complete upgrades' => [DescriptionCompleteness::Preview, DescriptionCompleteness::Complete, true],
+    'unknown then complete upgrades' => [DescriptionCompleteness::Unknown, DescriptionCompleteness::Complete, true],
+    'unknown then preview upgrades' => [DescriptionCompleteness::Unknown, DescriptionCompleteness::Preview, true],
+    'complete then complete refreshes' => [DescriptionCompleteness::Complete, DescriptionCompleteness::Complete, true],
+    'preview then preview refreshes' => [DescriptionCompleteness::Preview, DescriptionCompleteness::Preview, true],
+    'unknown then unknown refreshes' => [DescriptionCompleteness::Unknown, DescriptionCompleteness::Unknown, true],
+]);
+
+it('keeps a Complete description analyzable after a Preview rediscovery', function () {
+    CareerProfile::factory()->create();
+    rediscoverVia(JobDiscoverySource::Himalayas, DescriptionCompleteness::Complete, ['description' => 'The full posting.']);
+
+    $job = rediscoverVia(JobDiscoverySource::Adzuna, DescriptionCompleteness::Preview, ['description' => 'Snippet…']);
+
+    // ProcessBatchOpportunities::decideAnalyze requires Complete.
+    expect($job->description_completeness)->toBe(DescriptionCompleteness::Complete)
+        ->and($job->description)->toBe('The full posting.');
+});
+
+it('never erases useful description content with a null, empty or blank incoming description', function (?string $incoming) {
+    CareerProfile::factory()->create();
+    rediscoverVia(JobDiscoverySource::Himalayas, DescriptionCompleteness::Complete, ['description' => 'The full posting.']);
+
+    $sameProvider = rediscoverVia(JobDiscoverySource::Himalayas, DescriptionCompleteness::Complete, ['description' => $incoming]);
+    $otherProvider = rediscoverVia(JobDiscoverySource::Adzuna, DescriptionCompleteness::Complete, ['description' => $incoming]);
+
+    expect($sameProvider->description)->toBe('The full posting.')
+        ->and($otherProvider->description)->toBe('The full posting.')
+        ->and($otherProvider->description_completeness)->toBe(DescriptionCompleteness::Complete);
+})->with([null, '', "  \n "]);
+
+it('fills an empty stored description from any non-empty incoming description', function () {
+    CareerProfile::factory()->create();
+    rediscoverVia(JobDiscoverySource::Adzuna, DescriptionCompleteness::Preview, ['description' => null]);
+
+    $job = rediscoverVia(JobDiscoverySource::Himalayas, DescriptionCompleteness::Unknown, ['description' => 'Something.']);
+
+    expect($job->description)->toBe('Something.')
+        ->and($job->description_completeness)->toBe(DescriptionCompleteness::Unknown);
+});
+
+it('still accepts improvements to other fields while protecting a Complete description', function () {
+    CareerProfile::factory()->create();
+    rediscoverVia(JobDiscoverySource::Himalayas, DescriptionCompleteness::Complete, [
+        'description' => 'The full posting.',
+        'location' => 'Remote',
+        'sourceMetadata' => ['seniority' => 'senior'],
+    ]);
+
+    $job = rediscoverVia(JobDiscoverySource::Adzuna, DescriptionCompleteness::Preview, [
+        'description' => 'Snippet…',
+        'location' => 'Austin, TX',
+        'compensationMin' => 140000,
+        'compensationMax' => 180000,
+        'compensationCurrency' => 'USD',
+        'compensationInterval' => 'year',
+        'sourceMetadata' => ['category' => 'IT Jobs'],
+    ]);
+
+    expect($job->description)->toBe('The full posting.')
+        ->and($job->description_completeness)->toBe(DescriptionCompleteness::Complete)
+        ->and($job->location)->toBe('Austin, TX')
+        ->and($job->compensation_min)->toBe(140000)
+        ->and($job->compensation_max)->toBe(180000)
+        // Existing metadata merge behavior is unchanged: only the original
+        // discovery source's metadata is kept.
+        ->and($job->discovery_metadata['discovery'])->toBe(['seniority' => 'senior'])
+        ->and($job->discovery_source)->toBe(JobDiscoverySource::Himalayas);
+});
+
+it('is idempotent when the same candidate is ingested repeatedly', function () {
+    CareerProfile::factory()->create();
+    $first = rediscoverVia(JobDiscoverySource::Himalayas, DescriptionCompleteness::Complete, ['description' => 'The full posting.']);
+    $before = $first->only(['description', 'description_completeness', 'title', 'location', 'source_url', 'discovery_metadata']);
+
+    foreach (range(1, 3) as $_) {
+        $again = rediscoverVia(JobDiscoverySource::Himalayas, DescriptionCompleteness::Complete, ['description' => 'The full posting.']);
+    }
+
+    expect($again->only(array_keys($before)))->toBe($before)
+        ->and(JobPosting::count())->toBe(1);
+});
+
+it('protects a Complete canonical description from a Preview canonical match and a later preview candidate', function () {
+    $profile = CareerProfile::factory()->create();
+    $ingest = new IngestDiscoveredCandidate;
+    $ingest->ingest(discoveryCandidate(), canonicalMatch(['description' => 'Canonical full.']), $profile);
+
+    $viaPreviewCanonical = $ingest->ingest(
+        discoveryCandidate(['source' => JobDiscoverySource::Adzuna, 'sourceJobId' => 'adzuna-1', 'descriptionCompleteness' => DescriptionCompleteness::Preview]),
+        canonicalMatch(['description' => 'Canonical snippet.', 'descriptionCompleteness' => DescriptionCompleteness::Preview]),
+        $profile,
+    )->jobPosting->fresh();
+
+    expect($viaPreviewCanonical->description)->toBe('Canonical full.')
+        ->and($viaPreviewCanonical->description_completeness)->toBe(DescriptionCompleteness::Complete);
+});
