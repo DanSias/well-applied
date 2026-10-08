@@ -32,3 +32,9 @@ it('invokes the same discovery:run command the manual trigger uses', function ()
 
     expect($commands)->toHaveCount(1);
 });
+
+it('schedules the --due variant so only currently due providers run', function () {
+    $command = collect(app(Schedule::class)->events())->pluck('command')->first(fn ($c) => str_contains($c, 'discovery:run'));
+
+    expect($command)->toContain('discovery:run --due');
+});

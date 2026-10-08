@@ -74,7 +74,12 @@ final class RunJobDiscovery
         ];
     }
 
-    public function run(): DiscoveryRun
+    /**
+     * @param  JobDiscoverySource[]|null  $only  Restrict this run to these
+     *                                           providers (the scheduler passes only those currently due);
+     *                                           null runs every registered provider, as manual execution does.
+     */
+    public function run(?array $only = null): DiscoveryRun
     {
         $careerProfile = CurrentCareerProfile::resolve();
         $criteria = DiscoverySearchCriteria::fromConfig();
@@ -93,6 +98,9 @@ final class RunJobDiscovery
         $orchestrationFailed = false;
         try {
             foreach ($this->providers as $source => $provider) {
+                if ($only !== null && ! in_array(JobDiscoverySource::from($source), $only, true)) {
+                    continue;
+                }
                 $this->runProviderAttempt($discoveryRun, JobDiscoverySource::from($source), $provider, $criteria, $careerProfile, $boardCache);
             }
         } catch (Throwable) {

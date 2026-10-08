@@ -17,15 +17,17 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withSchedule(function (Schedule $schedule): void {
-        // Checked hourly, but only actually runs discovery when
-        // DiscoveryScheduleIsDue says the last successful DiscoveryRun
-        // is stale — one mechanism covers both the normal daily
-        // cadence and "the app wasn't running at the usual time, catch
-        // up now" behavior, rather than two separate schedule entries.
-        // See docs/job-discovery.md "Scheduling / orchestration" and
+        // Checked hourly, but `--due` makes the command run only the
+        // providers DiscoveryScheduleIsDue says are individually due
+        // (normal cadence after a success, bounded retry after a
+        // failure) and exit without doing anything when none are. One
+        // mechanism covers the daily cadence, "the app wasn't running,
+        // catch up now", and failed-provider recovery — and a failing
+        // provider never re-runs the healthy ones. See
+        // docs/job-discovery.md "Scheduling / orchestration" and
         // App\Providers\AppServiceProvider for how `schedule:work`
         // itself starts automatically alongside `composer run dev`.
-        $schedule->command('discovery:run')
+        $schedule->command('discovery:run --due')
             ->hourly()
             ->withoutOverlapping()
             ->when(fn (): bool => (new DiscoveryScheduleIsDue)());

@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Enums\DiscoveryStatus;
+use App\Support\JobDiscovery\DiscoveryScheduleIsDue;
 use App\Support\JobDiscovery\RunJobDiscovery;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
@@ -12,18 +13,31 @@ use Illuminate\Console\Command;
  * Manual trigger for the discovery pipeline — calls the exact same
  * App\Support\JobDiscovery\RunJobDiscovery service a later commit's
  * scheduled execution also calls. No separate manual-vs-scheduled
- * implementation exists. See docs/job-discovery.md "Manual discovery
- * command".
+ * implementation exists: without `--due` every provider runs; with
+ * it (the scheduler's invocation) only the currently due ones do. See
+ * docs/job-discovery.md "Manual discovery command".
  */
-#[Signature('discovery:run')]
+#[Signature('discovery:run {--due : Only run providers whose schedule is currently due (used by the scheduler)}')]
 #[Description('Run the automatic job discovery pipeline once: query providers, filter, canonically enrich, deduplicate, and ingest into JobPosting.')]
 class RunJobDiscoveryCommand extends Command
 {
     public function handle(RunJobDiscovery $runJobDiscovery): int
     {
+        $only = null;
+
+        if ($this->option('due')) {
+            $only = (new DiscoveryScheduleIsDue)->dueSources();
+
+            if ($only === []) {
+                $this->components->info('No discovery providers are due.');
+
+                return self::SUCCESS;
+            }
+        }
+
         $this->components->info('Running job discovery…');
 
-        $discoveryRun = $runJobDiscovery->run();
+        $discoveryRun = $runJobDiscovery->run($only);
 
         $rows = $discoveryRun->providerAttempts->map(fn ($attempt) => [
             $attempt->provider->value,

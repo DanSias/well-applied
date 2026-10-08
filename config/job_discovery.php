@@ -63,16 +63,25 @@ return [
     ],
 
     /*
-    | Automatic scheduling — see bootstrap/app.php's withSchedule() and
+    | Automatic scheduling — see bootstrap/app.php's withSchedule(),
+    | App\Support\JobDiscovery\DiscoveryScheduleIsDue and
     | docs/job-discovery.md "Scheduling / orchestration". The schedule
-    | checks hourly but only actually runs discovery when the last
-    | SUCCESSFUL DiscoveryRun is older than stale_after_hours — one
-    | mechanism gives both the daily cadence and "catch up if the app
-    | wasn't running at the usual time" behavior, rather than two
-    | separate schedule entries.
+    | checks hourly but only runs the providers that are individually
+    | due, judged from each provider's own latest attempt:
+    |
+    |   - stale_after_hours: a provider whose last attempt SUCCEEDED
+    |     is due again once that attempt is this old (the daily
+    |     cadence, and "catch up if the app wasn't running").
+    |   - retry_after_hours: a provider whose last attempt FAILED is
+    |     retried once that attempt is this old — bounded, so a broken
+    |     or quota-exhausted provider is never hammered hourly, yet
+    |     always eventually retried so transient failures self-heal.
+    |
+    | One provider failing never re-runs the healthy ones.
     */
     'schedule' => [
         'stale_after_hours' => (int) env('JOB_DISCOVERY_STALE_AFTER_HOURS', 23),
+        'retry_after_hours' => (int) env('JOB_DISCOVERY_RETRY_AFTER_HOURS', 6),
     ],
 
 ];
