@@ -16,15 +16,17 @@ use Illuminate\Support\Carbon;
  * re-matching after approvals cannot loop back into questions.
  *
  * @property int $id
- * @property int $job_posting_id
- * @property int $job_analysis_id
+ * @property int|null $career_profile_id Set for a Resume Profile interview, which has no job.
+ * @property int|null $resume_profile_id
+ * @property int|null $job_posting_id
+ * @property int|null $job_analysis_id
  * @property int|null $job_match_id The match the questions were ranked against.
  * @property string|null $pipeline_run_id
  * @property string $mode standard|deep
  * @property ClarificationSessionStatus $status
  * @property Carbon|null $resolved_at
  */
-#[Fillable(['job_posting_id', 'job_analysis_id', 'job_match_id', 'pipeline_run_id', 'mode', 'status', 'resolved_at'])]
+#[Fillable(['career_profile_id', 'resume_profile_id', 'job_posting_id', 'job_analysis_id', 'job_match_id', 'pipeline_run_id', 'mode', 'status', 'resolved_at'])]
 class ClarificationSession extends Model
 {
     protected function casts(): array
@@ -41,6 +43,30 @@ class ClarificationSession extends Model
     public function jobPosting(): BelongsTo
     {
         return $this->belongsTo(JobPosting::class);
+    }
+
+    /**
+     * @return BelongsTo<CareerProfile, $this>
+     */
+    public function careerProfile(): BelongsTo
+    {
+        return $this->belongsTo(CareerProfile::class);
+    }
+
+    /**
+     * @return BelongsTo<ResumeProfile, $this>
+     */
+    public function resumeProfile(): BelongsTo
+    {
+        return $this->belongsTo(ResumeProfile::class);
+    }
+
+    /**
+     * The owning career profile, whether this session is for a job or a Resume Profile interview.
+     */
+    public function ownerCareerProfile(): CareerProfile
+    {
+        return $this->careerProfile ?? $this->jobPosting->careerProfile;
     }
 
     /**

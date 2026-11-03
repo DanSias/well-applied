@@ -20,6 +20,21 @@ import type {
 
 type Errors = Record<string, string>;
 
+/** Where a question card posts. Job clarification and Resume Profile interviews share the cards. */
+export type QuestionRoutes = {
+    answer: (questionId: number) => string;
+    skip: (questionId: number) => string;
+    /** Only profile interviews let a skipped question be picked up again. */
+    reopen?: (questionId: number) => string;
+};
+
+export const jobQuestionRoutes = (jobId: number): QuestionRoutes => ({
+    answer: (questionId) =>
+        answerQuestion.url({ jobPosting: jobId, question: questionId }),
+    skip: (questionId) =>
+        skipQuestion.url({ jobPosting: jobId, question: questionId }),
+});
+
 const MODES = [
     { value: 'experience', label: 'I have this experience' },
     { value: 'no_experience', label: 'No direct experience' },
@@ -56,11 +71,11 @@ function ErrorList({ errors }: { errors: Errors }) {
 }
 
 function AnswerForm({
-    jobId,
+    routes,
     question,
     clarification,
 }: {
-    jobId: number;
+    routes: QuestionRoutes;
     question: ClarificationQuestion;
     clarification: Clarification;
 }) {
@@ -81,7 +96,7 @@ function AnswerForm({
     const submit = () => {
         setBusy(true);
         router.post(
-            answerQuestion.url({ jobPosting: jobId, question: question.id }),
+            routes.answer(question.id),
             {
                 mode,
                 scopes: mode === 'experience' ? scopes : [],
@@ -167,10 +182,7 @@ function AnswerForm({
                     disabled={busy}
                     onClick={() =>
                         router.post(
-                            skipQuestion.url({
-                                jobPosting: jobId,
-                                question: question.id,
-                            }),
+                            routes.skip(question.id),
                             {},
                             { preserveScroll: true },
                         )
@@ -184,7 +196,7 @@ function AnswerForm({
     );
 }
 
-function ProposalCard({
+export function ProposalCard({
     proposal,
     clarification,
 }: {
@@ -464,12 +476,12 @@ function ProposalCard({
     );
 }
 
-function QuestionCard({
-    jobId,
+export function QuestionCard({
+    routes,
     question,
     clarification,
 }: {
-    jobId: number;
+    routes: QuestionRoutes;
     question: ClarificationQuestion;
     clarification: Clarification;
 }) {
@@ -484,8 +496,17 @@ function QuestionCard({
 
             <details className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">
                 <summary className="cursor-pointer">Why this is asked</summary>
+                {question.why.market && (
+                    <p className="mt-1">
+                        In the market sample: {question.why.market.postings} of{' '}
+                        {question.why.market.sample_postings} postings (
+                        {Math.round(question.why.market.share * 100)}%),{' '}
+                        {Math.round(question.why.market.required_share * 100)}%
+                        as a stated requirement.
+                    </p>
+                )}
                 <p className="mt-1">
-                    Match result: {question.why.coverage?.replace('_', ' ')}
+                    Your record: {question.why.coverage?.replaceAll('_', ' ')}
                     {question.why.strength && ` · ${question.why.strength}`}
                     {question.why.emphasis &&
                         ` · ${question.why.emphasis} emphasis`}
@@ -509,11 +530,36 @@ function QuestionCard({
                     proposal={question.proposal}
                     clarification={clarification}
                 />
+            ) : question.status === 'covered' ? (
+                <p className="mt-3 text-sm text-neutral-500">
+                    Your record now covers this, so there is nothing to ask.
+                </p>
+            ) : question.status === 'retired' ? (
+                <p className="mt-3 text-sm text-neutral-500">
+                    The latest market sample no longer makes this a priority.
+                </p>
             ) : question.status === 'skipped' ? (
-                <p className="mt-3 text-sm text-neutral-500">Skipped.</p>
+                <p className="mt-3 text-sm text-neutral-500">
+                    Skipped.{' '}
+                    {routes.reopen && (
+                        <button
+                            type="button"
+                            className="underline underline-offset-2"
+                            onClick={() =>
+                                router.post(
+                                    routes.reopen!(question.id),
+                                    {},
+                                    { preserveScroll: true },
+                                )
+                            }
+                        >
+                            Answer now
+                        </button>
+                    )}
+                </p>
             ) : (
                 <AnswerForm
-                    jobId={jobId}
+                    routes={routes}
                     question={question}
                     clarification={clarification}
                 />
@@ -574,7 +620,7 @@ export function ClarificationPanel({
                     {clarification.questions.map((question) => (
                         <QuestionCard
                             key={question.id}
-                            jobId={jobId}
+                            routes={jobQuestionRoutes(jobId)}
                             question={question}
                             clarification={clarification}
                         />

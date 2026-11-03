@@ -1,0 +1,81 @@
+# Market-informed Resume Profiles (Phase 1)
+
+A Resume Profile studies a sample of real postings for one kind of role, compares what the market
+asks for with the user's approved career evidence, and interviews the user about the gaps. Answers
+go into the shared career database through the existing clarification and evidence-proposal workflow.
+Nothing is copied into the profile. No model call is made anywhere in this phase.
+
+```
+build  ->  sample postings  ->  extract + aggregate requirements  ->  coverage  ->  rank topics  ->  interview
+```
+
+Run it: **Resume Profiles** in the nav, "Build My Full-Stack Profile" (queued), or
+`php artisan profile:build [slug] [--pilot] [--no-fetch] [--force]`.
+
+## Entities
+
+| Table | Role |
+|---|---|
+| `resume_profiles` | name, slug, role family, purpose, optional `search_parameters`, status, `revision`, current `market_sample_id`, the `evidence_revision` its coverage was last computed against, `presentation_guidance` (guidance only). References evidence by fact key; holds no facts. |
+| `market_samples` | one collection: status, pilot flag, target size, extraction version, per-provider fetch log, decision counts, the aggregated capability map. |
+| `market_sample_postings` | every posting considered, included or not, with provider, source URL, company, title, retrieval date, content hash, the decision and its reason, the duplicate it points at, and its cached extraction. |
+| `clarification_sessions` | now allows no job (`job_posting_id`/`job_analysis_id` nullable) and carries `career_profile_id` and `resume_profile_id`. An interview is a session with `mode = profile`. |
+
+Definitions live in `config/resume_profiles.php` (`ProfileDefinitions`). A second category is a config
+entry; nothing in the code is specific to Full-Stack.
+
+## Market sampling (`MarketSampleCollector`)
+
+Reuses, rather than duplicates, the discovery code: the existing providers' `retrieve()` (returns
+candidates, writes nothing), `FilterDiscoveredCandidates` with criteria built from the profile's search,
+and already-stored job postings. Sampling never writes `job_postings`, so nothing sampled is an
+opportunity or an application.
+
+Sources, in order: stored postings; postings an earlier sample retrieved inside the refetch window;
+fresh provider retrieval (one request per provider, skipped for `refetch_hours` unless `--force`).
+Adzuna is not sampled: it only returns a preview. A provider error is recorded (exception class only
+for unexpected errors) and the others continue.
+
+Every candidate gets one decision, in this order: `incomplete_description`, `description_too_short`,
+`stale`, `outside_search`, `not_full_stack`, `duplicate_exact` (same text or same provider posting),
+`duplicate_near` (same company and title, or description shingle similarity >= 0.82). Survivors are
+taken newest first under caps per company, provider share and primary stack, up to the target
+(`company_cap`, `provider_cap`, `stack_cap`, `over_target`). The page shows the counts and examples.
+
+## Requirements (`RequirementExtractor`, `AggregateMarketRequirements`)
+
+Deterministic: a 51-capability taxonomy in config (technologies, practices, architecture/integration,
+responsibilities, collaboration, domain). Each mention is `required`, `preferred`, `duty` or
+`mentioned`, from the line's cues and the section heading; benefits and "about us" are ignored. Close
+neighbours stay separate (third-party API integration, webhooks, webhook handlers, retry/idempotency).
+Per capability: postings, share, required and preferred share, seniority split, supporting posting ids
+and example lines. Extraction is cached on each posting by `(content_hash, extraction_version)` and
+copied from any posting with the same hash, so unchanged text is never read twice. A market
+capability is never treated as something the user has.
+
+## Coverage and ranking
+
+`CapabilityCoverage` compares each capability with eligible facts only (Private never counts or
+appears): `directly_supported`, `transferable` (a related capability is supported), `underdocumented`
+(only a Skill tag or an unconfirmed fact), `limitation`, `no_evidence`. A child's evidence supports
+its parent (handler -> webhooks), not the reverse.
+
+`RankDiscoveryTopics`: `score = importance x gap x answerability x usefulness`; documented capabilities,
+limitations, topics with approved evidence or a preference, and topics skipped inside 30 days are
+never asked. Capabilities in fewer than 2 postings or 8% of the sample are dropped.
+
+## Interview (`ProfileInterview`)
+
+One long-lived session per profile, up to 16 topics in groups of 4. Questions are stored with their
+score, market numbers and suggested anchor (the role of related evidence, with its most restrictive
+visibility; otherwise the user chooses). Unanswered questions are refreshed from the current sample
+and record, resolved to `covered` when the record now covers them, or `retired` when the market no
+longer favours them; answered and skipped ones are never changed, and a skipped question can be
+reopened. Answers use `SubmitClarificationAnswer`, review and approval use `ReviewEvidenceProposal`
+(explicit visibility, scope guard, limitations, revision), so evidence revision tracking and
+`ReviseApprovedEvidence` apply unchanged.
+
+## Not in this phase
+
+Profile-assisted generation, wording reuse, multiple profile families, pagination beyond each
+provider's single page, bulk or scheduled resampling, any model-assisted normalization.

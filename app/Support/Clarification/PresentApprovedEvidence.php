@@ -10,6 +10,7 @@ use App\Models\ClarificationQuestion;
 use App\Models\EvidenceProposal;
 use App\Models\JobPosting;
 use App\Models\PresentationPreference;
+use Illuminate\Support\Collection;
 
 /**
  * The user-confirmed evidence associated with one job, for review and
@@ -46,22 +47,7 @@ final class PresentApprovedEvidence
             ->with(['careerFact', 'answer'])
             ->orderBy('topic_label')
             ->get()
-            ->map(fn (EvidenceProposal $p) => [
-                'fact_id' => $p->career_fact_id,
-                'fact_key' => $p->careerFact?->key,
-                'topic' => $p->topic_label,
-                'statement' => $p->statement,
-                'scopes' => $p->scopes,
-                'attributable_type' => $p->attributable_type,
-                'attributable_id' => $p->attributable_id,
-                'attribution_label' => $options->first(fn (array $o) => $o['type'] === $p->attributable_type && $o['id'] === $p->attributable_id)['label'] ?? null,
-                'visibility' => $p->visibility->value,
-                'verification' => $p->verification->value,
-                'revision' => $p->revision,
-                'original_answer' => $p->answer?->answer_text,
-                'from_this_job' => $p->job_posting_id === $job->id,
-                'revisions' => $this->revisions($p),
-            ])->values()->all();
+            ->map(fn (EvidenceProposal $p) => $this->fact($p, $options, $job->id))->values()->all();
 
         $limitationTopics = collect($topics);
 
@@ -75,6 +61,52 @@ final class PresentApprovedEvidence
                 ->where(fn ($q) => $q->where('source_job_posting_id', $job->id)->orWhereIn('topic_key', $limitationTopics))
                 ->orderBy('topic')->get()
                 ->map(fn (PresentationPreference $p) => ['id' => $p->id, 'topic' => $p->topic, 'guidance' => $p->guidance])->values()->all(),
+            'attribution_options' => $options->values()->all(),
+            'scopes' => collect(ResponsibilityScope::cases())
+                ->reject(fn (ResponsibilityScope $s) => $s === ResponsibilityScope::NoExperience)
+                ->map(fn (ResponsibilityScope $s) => ['value' => $s->value, 'label' => $s->label()])
+                ->values()->all(),
+        ];
+    }
+
+    /**
+     * @param  Collection<int, array{type: string, id: int, label: string}>  $options
+     * @return array<string, mixed>
+     */
+    private function fact(EvidenceProposal $p, Collection $options, ?int $jobId): array
+    {
+        return [
+            'fact_id' => $p->career_fact_id,
+            'fact_key' => $p->careerFact?->key,
+            'topic' => $p->topic_label,
+            'statement' => $p->statement,
+            'scopes' => $p->scopes,
+            'attributable_type' => $p->attributable_type,
+            'attributable_id' => $p->attributable_id,
+            'attribution_label' => $options->first(fn (array $o) => $o['type'] === $p->attributable_type && $o['id'] === $p->attributable_id)['label'] ?? null,
+            'visibility' => $p->visibility->value,
+            'verification' => $p->verification->value,
+            'revision' => $p->revision,
+            'original_answer' => $p->answer?->answer_text,
+            'from_this_job' => $jobId !== null && $p->job_posting_id === $jobId,
+            'revisions' => $this->revisions($p),
+        ];
+    }
+
+    /**
+     * The evidence a Resume Profile interview contributed, in the same shape as a job's.
+     *
+     * @param  Collection<int, EvidenceProposal>  $proposals
+     * @return array<string, mixed>
+     */
+    public function presentProposals(int $careerProfileId, Collection $proposals): array
+    {
+        $options = collect($this->clarification->attributionOptions($careerProfileId));
+
+        return [
+            'facts' => $proposals->map(fn (EvidenceProposal $p) => $this->fact($p, $options, null))->values()->all(),
+            'limitations' => [],
+            'preferences' => [],
             'attribution_options' => $options->values()->all(),
             'scopes' => collect(ResponsibilityScope::cases())
                 ->reject(fn (ResponsibilityScope $s) => $s === ResponsibilityScope::NoExperience)

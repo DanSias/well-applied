@@ -54,7 +54,7 @@ final class PresentClarification
      * @param  array<int, array{type: string, id: int, label: string}>  $options
      * @return array<string, mixed>
      */
-    private function question(ClarificationQuestion $question, array $options): array
+    public function question(ClarificationQuestion $question, array $options): array
     {
         $proposal = EvidenceProposal::query()
             ->whereIn('clarification_answer_id', $question->answers()->pluck('id'))
@@ -75,6 +75,8 @@ final class PresentClarification
                 'strength' => $question->context['strength'] ?? null,
                 'emphasis' => $question->context['emphasis'] ?? null,
                 'related_evidence' => $question->context['related_evidence'] ?? [],
+                // Set for Resume Profile interview questions: what the sampled postings ask.
+                'market' => $question->context['market'] ?? null,
             ],
             'suggested' => [
                 'attributable_type' => $question->suggested_attributable_type,

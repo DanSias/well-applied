@@ -5,10 +5,16 @@ import { useWorkerStatusPolling } from '@/hooks/use-worker-status-polling';
 import { cn } from '@/lib/utils';
 import { index as careerDataIndex } from '@/routes/career-data';
 import { index as jobsIndex } from '@/routes/jobs';
+import { index as resumeProfilesIndex } from '@/routes/resume-profiles';
 
 const NAV_ITEMS = [
     { label: 'Career Data', href: careerDataIndex.url(), match: '/' },
     { label: 'Opportunities', href: jobsIndex.url(), match: '/jobs' },
+    {
+        label: 'Resume Profiles',
+        href: resumeProfilesIndex.url(),
+        match: '/resume-profiles',
+    },
 ];
 
 /**

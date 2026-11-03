@@ -10,6 +10,7 @@ use App\Http\Controllers\JobAnalysisController;
 use App\Http\Controllers\JobBatchController;
 use App\Http\Controllers\JobMatchController;
 use App\Http\Controllers\JobPostingController;
+use App\Http\Controllers\ResumeProfileController;
 use App\Http\Controllers\ResumeVariantController;
 use App\Http\Controllers\ResumeVariantPdfController;
 use App\Http\Controllers\ResumeVariantPreviewController;
@@ -45,6 +46,16 @@ Route::post('/evidence-proposals/{evidenceProposal}/approve', [ClarificationCont
 Route::post('/evidence-proposals/{evidenceProposal}/reject', [ClarificationController::class, 'rejectProposal'])->name('evidence-proposals.reject');
 Route::patch('/career-facts/{careerFact}/revise', [ClarificationController::class, 'reviseFact'])->name('career-facts.revise');
 Route::delete('/career-limitations/{careerLimitation}', [ClarificationController::class, 'revokeLimitation'])->name('career-limitations.revoke');
+
+// Market-informed Resume Profiles: study the market, then interview. Answers
+// become the same evidence proposals as job clarification (evidence-proposals.*).
+Route::get('/resume-profiles', [ResumeProfileController::class, 'index'])->name('resume-profiles.index');
+Route::get('/resume-profiles/{resumeProfile}', [ResumeProfileController::class, 'show'])->name('resume-profiles.show');
+Route::post('/resume-profiles/{resumeProfile}/build', [ResumeProfileController::class, 'build'])->name('resume-profiles.build');
+Route::post('/resume-profiles/{resumeProfile}/refresh', [ResumeProfileController::class, 'refresh'])->name('resume-profiles.refresh');
+Route::post('/resume-profiles/{resumeProfile}/questions/{question}/answer', [ResumeProfileController::class, 'answer'])->name('resume-profiles.answer');
+Route::post('/resume-profiles/{resumeProfile}/questions/{question}/skip', [ResumeProfileController::class, 'skip'])->name('resume-profiles.skip');
+Route::post('/resume-profiles/{resumeProfile}/questions/{question}/reopen', [ResumeProfileController::class, 'reopen'])->name('resume-profiles.reopen');
 
 // Phase E3 batch actions (Opportunity Triage): human-initiated, backend-only
 // analyze/match over an explicitly selected set of job postings by id. Both

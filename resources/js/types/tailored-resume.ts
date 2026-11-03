@@ -69,7 +69,7 @@ export type ClarificationQuestion = {
     topic_key: string;
     topic_label: string;
     text: string;
-    status: 'open' | 'answered' | 'skipped';
+    status: 'open' | 'answered' | 'skipped' | 'covered' | 'retired';
     score: number;
     why: {
         coverage: string | null;
@@ -82,6 +82,14 @@ export type ClarificationQuestion = {
             visibility: string;
             relationship: string;
         }[];
+        /** Set for Resume Profile interview questions. */
+        market?: {
+            postings: number;
+            sample_postings: number;
+            share: number;
+            required_share: number;
+            preferred_share: number;
+        } | null;
     };
     suggested: {
         attributable_type: string | null;

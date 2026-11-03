@@ -52,7 +52,7 @@ final class SubmitClarificationAnswer
 
         return DB::transaction(function () use ($question, $mode, $scopes, $text) {
             $session = $question->session;
-            $profile = $session->jobPosting->careerProfile;
+            $profile = $session->ownerCareerProfile();
 
             $answer = ClarificationAnswer::create([
                 'clarification_question_id' => $question->id,
