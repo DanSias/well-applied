@@ -16,12 +16,16 @@ final class ResumePdfFilename
 {
     public static function build(ResumeVariant $variant): string
     {
-        $variant->loadMissing(['careerProfile', 'jobMatch.jobAnalysis.jobPosting']);
+        $variant->loadMissing(['careerProfile', 'jobMatch.jobAnalysis.jobPosting', 'synthesis.resumeProfile']);
 
         $candidateName = $variant->careerProfile->name;
-        $company = $variant->jobMatch->jobAnalysis->jobPosting->company;
 
-        return self::sanitize("{$candidateName} Resume {$company}").'.pdf';
+        // A reference resume has no target company; it is named for the profile it was composed from.
+        $target = $variant->jobMatch === null
+            ? ($variant->synthesis?->resumeProfile->name ?? 'Reference').' Reference'
+            : $variant->jobMatch->jobAnalysis->jobPosting->company;
+
+        return self::sanitize("{$candidateName} Resume {$target}").'.pdf';
     }
 
     /**

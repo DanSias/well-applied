@@ -42,8 +42,18 @@ final class ResumeCandidatePayloadBuilder
      */
     public function build(JobMatch $jobMatch): array
     {
-        $profile = $jobMatch->careerProfile;
+        return $this->buildForCareer($jobMatch->careerProfile, $this->buildAnnotations($jobMatch));
+    }
 
+    /**
+     * The same corpus without a job: a reference resume has no match findings, so no fact carries annotations.
+     *
+     * @param  array<int, array<int, array{job_analysis_finding_id: int, coverage: string, relationship: string, requirement_strength: string|null, emphasis: string|null}>>  $annotationsByFactId
+     * @param  array<int, string>  $preferredFactKeys  Offered first, so a claim shared by several places is represented by the place the caller prefers.
+     * @return array{career_facts: array<int, array<string, mixed>>, education: array<int, array<string, mixed>>, eligible_skills: array<int, array<string, mixed>>, role_project_map: array<int, array{role_id: int, valid_project_ids: array<int, int>}>}
+     */
+    public function buildForCareer(CareerProfile $profile, array $annotationsByFactId = [], array $preferredFactKeys = []): array
+    {
         $facts = ResumeEligibility::eligibleCareerFactsQuery($profile)
             ->with([
                 'metric',
@@ -60,7 +70,9 @@ final class ResumeCandidatePayloadBuilder
             ->orderBy('id')
             ->get();
 
-        $annotationsByFactId = $this->buildAnnotations($jobMatch);
+        if ($preferredFactKeys !== []) {
+            $facts = $facts->sortBy(fn (CareerFact $fact) => in_array($fact->key, $preferredFactKeys, true) ? 0 : 1)->values();
+        }
 
         // One claim attached to several places is offered once (see SharedClaims), so Selection
         // cannot count it repeatedly or repeat it under several projects or roles.

@@ -17,6 +17,7 @@ use App\Support\Clarification\PresentApprovedEvidence;
 use App\Support\Clarification\PresentClarification;
 use App\Support\Consolidation\PresentConsolidations;
 use App\Support\Expansion\PresentExpansion;
+use App\Support\ProfileSynthesis\PresentProfileSynthesis;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 
@@ -57,6 +58,7 @@ final class PresentResumeProfile
         private readonly QuestionEnrichment $enrichment,
         private readonly PresentExpansion $expansion,
         private readonly PresentConsolidations $consolidation,
+        private readonly PresentProfileSynthesis $synthesis,
     ) {}
 
     /**
@@ -72,7 +74,7 @@ final class PresentResumeProfile
 
         return [
             'profile' => [
-                'slug' => $profile->slug, 'name' => $profile->name, 'purpose' => $profile->purpose,
+                'id' => $profile->id, 'slug' => $profile->slug, 'name' => $profile->name, 'purpose' => $profile->purpose,
                 'status' => $profile->status->value, 'status_label' => $profile->status->label(), 'revision' => $profile->revision,
             ],
             'build' => [
@@ -98,6 +100,7 @@ final class PresentResumeProfile
                     ->map(fn (PresentationPreference $p) => ['id' => $p->id, 'topic' => $p->topic, 'guidance' => $p->guidance])->all(),
             ],
             'consolidation' => $this->consolidation->present($profile->career_profile_id),
+            'synthesis' => $this->synthesis->present($profile),
             'contributed' => $this->approved->presentProposals($profile->career_profile_id, $this->interview->contributedProposals($profile)),
         ];
     }

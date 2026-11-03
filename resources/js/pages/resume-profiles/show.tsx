@@ -4,6 +4,7 @@ import { ApprovedEvidencePanel } from '@/components/approved-evidence-panel';
 import { QuestionCard } from '@/components/clarification-panel';
 import { ClaimExpansion } from '@/components/claim-expansion';
 import { ConsolidationReview } from '@/components/consolidation-review';
+import { ProfileSynthesis } from '@/components/profile-synthesis';
 import type { QuestionRoutes } from '@/components/clarification-panel';
 import AppShell from '@/layouts/app-shell';
 import {
@@ -822,6 +823,7 @@ export default function ResumeProfileShow({
                 </section>
             )}
 
+            <ProfileSynthesis state={page.synthesis} slug={page.profile.slug} />
             <ConsolidationReview queue={page.consolidation} />
             <AnswersReview page={page} />
 

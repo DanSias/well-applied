@@ -14,6 +14,7 @@ use App\Models\CareerProfile;
 use App\Models\Education;
 use App\Models\JobMatch;
 use App\Models\Project;
+use App\Models\ResumeProfileSynthesis;
 use App\Models\ResumeSelectionCheckpoint;
 use App\Models\ResumeVariant;
 use App\Models\Role;
@@ -23,7 +24,10 @@ use App\Support\Clarification\ActivePresentationPreferences;
 use App\Support\Clarification\DeclaredScopes;
 use App\Support\GenerationAttempt\GenerationMetrics;
 use App\Support\JobMatch\JobPayloadBuilder;
+use App\Support\ProfileSynthesis\EffectiveProfile;
+use App\Support\ProfileSynthesis\ReferenceSelection;
 use App\Support\ResumeDocument\ResumeText;
+use App\Support\ResumeVariant\Prompts\ReferenceWordingPrompt;
 use App\Support\ResumeVariant\Prompts\ResumeSelectionPromptV6;
 use App\Support\ResumeVariant\Prompts\ResumeWordingPromptV3;
 use Illuminate\Support\Collection;
@@ -83,15 +87,42 @@ final class GenerateResumeVariant
      */
     public function generateFull(JobMatch $jobMatch, ?\Closure $onPhase = null, bool $reuseCheckpoint = true): ResumeVariant
     {
+        return $this->generate($jobMatch->careerProfile, $jobMatch, null, $onPhase, $reuseCheckpoint);
+    }
+
+    /**
+     * A reference resume: no job, no model-chosen Selection. The approved profile decides the evidence
+     * (ReferenceSelection), the same Selection validator judges it, and everything after that (Wording,
+     * triage and recovery, the restricted-evidence and claim-scope guards, the review report, persistence)
+     * is the job pipeline unchanged. Its wording prompt names the reference context explicitly instead of
+     * pretending a job description exists.
+     *
+     * @param  (\Closure(string): void)|null  $onPhase
+     */
+    public function generateReference(ResumeProfileSynthesis $synthesis, ?\Closure $onPhase = null): ResumeVariant
+    {
+        return $this->generate($synthesis->careerProfile, null, $synthesis, $onPhase, false);
+    }
+
+    private function generate(CareerProfile $profile, ?JobMatch $jobMatch, ?ResumeProfileSynthesis $synthesis, ?\Closure $onPhase, bool $reuseCheckpoint): ResumeVariant
+    {
         $metrics = app(GenerationMetrics::class);
         $onPhase ??= static fn (string $phase) => null;
-
-        $profile = $jobMatch->careerProfile;
+        $wordingPrompt = $synthesis === null ? $this->wordingPrompt : app(ReferenceWordingPrompt::class);
+        $effective = $synthesis === null ? null : EffectiveProfile::resolve($synthesis);
 
         // ---- Stage 0: deterministic payload construction ----
-        $candidatePayload = $this->candidateBuilder->build($jobMatch);
-        $jobPayload = $this->jobPayloadBuilder->build($jobMatch->jobAnalysis);
-        $targetTerminology = $this->targetTerminologyBuilder->build($jobMatch);
+        if ($jobMatch !== null) {
+            $candidatePayload = $this->candidateBuilder->build($jobMatch);
+            $jobPayload = $this->jobPayloadBuilder->build($jobMatch->jobAnalysis);
+            $targetTerminology = $this->targetTerminologyBuilder->build($jobMatch);
+        } else {
+            // No job: no findings and no target terms. The facts the approved profile placed are offered
+            // first, so a claim shared by several places is presented where the profile ranks it highest.
+            $candidatePayload = $this->candidateBuilder->buildForCareer($profile, [], array_column($effective['accomplishments'] ?? [], 'fact_key'));
+            $jobPayload = ['reference' => true, 'findings' => []];
+            $targetTerminology = [];
+        }
 
         $validFactKeys = array_column($candidatePayload['career_facts'], 'key');
         $validSkillIds = array_column($candidatePayload['eligible_skills'], 'id');
@@ -170,92 +201,118 @@ final class GenerateResumeVariant
         $validTitleChoiceKeys = $this->titleChoiceKeyEnum($titleChoicesByRole);
 
         // ---- Stage 1: Selection ----
-        $selectionSchema = $this->selectionPrompt->jsonSchema(
-            $validRoleIds,
-            $validFactKeys,
-            $validSkillIds,
-            $validFindingIds,
-            $validTargetTerms,
-            $validTitleChoiceKeys,
-            $validIndependentProjectIds,
-        );
-
-        $selectionSystemPrompt = $this->selectionPrompt->systemPrompt();
+        $selectionPromptVersion = $synthesis === null ? $this->selectionPrompt->version() : ReferenceSelection::VERSION;
         $presentationPreferences = ActivePresentationPreferences::forProfile($profile);
-        $selectionUserPrompt = $this->selectionPrompt->userPrompt($candidatePayload, $jobPayload, $targetTerminology, $presentationPreferences);
-
-        // Everything that determined Selection's answer: the prompt
-        // version and text, the schema, and every input the model saw.
-        // Any change (profile, match, visibility, prompt) changes this
-        // and makes an earlier checkpoint unusable.
-        $selectionFingerprint = hash('sha256', json_encode([
-            $this->selectionPrompt->version(),
-            $this->selectionPrompt->schemaVersion(),
-            $selectionSystemPrompt,
-            $selectionSchema,
-            $selectionUserPrompt,
-        ], JSON_THROW_ON_ERROR));
-
-        $validateSelection = fn (array $content): array => $this->selectionValidator->validate(
-            $content,
-            $validRoleIds,
-            $validFactKeys,
-            $validSkillIds,
-            $eligibleFactKeysForRole,
-            $validFindingIds,
-            $titleChoicesByRole,
-            $directEvidenceExistsByTerm,
-            $resumeEligibleRoleIds,
-            $validIndependentProjectIds,
-            $projectIdByFactKey,
-        );
-
         $selectionResponse = null;
         $validatedSelection = null;
 
-        $checkpoint = $reuseCheckpoint
-            ? ResumeSelectionCheckpoint::query()
-                ->where('job_match_id', $jobMatch->id)
-                ->where('fingerprint', $selectionFingerprint)
-                ->whereNull('consumed_at')
-                ->latest('id')
-                ->first()
-            : null;
-
-        if ($checkpoint !== null) {
-            // The stored response is revalidated against the current
-            // rules, so reuse never bypasses grounding or visibility.
-            try {
-                $validatedSelection = $validateSelection($checkpoint->structured_content);
-                $selectionResponse = new ResumeSelectionProviderResponse($checkpoint->provider, $checkpoint->model, $checkpoint->structured_content);
-                $metrics->markSelectionReused();
-                $metrics->event(['stage' => 'selection', 'kind' => 'checkpoint_reused', 'checkpoint_id' => $checkpoint->id]);
-            } catch (InvalidResumeVariantResponseException $e) {
-                $metrics->event(['stage' => 'selection', 'kind' => 'checkpoint_rejected', 'checkpoint_id' => $checkpoint->id, 'reason' => mb_substr($e->getMessage(), 0, 500)]);
-            }
-        }
-
-        if ($validatedSelection === null) {
+        if ($synthesis !== null) {
             $onPhase('selection');
+            $reference = app(ReferenceSelection::class)->build($effective, $candidatePayload);
+            $validatedSelection = $this->selectionValidator->validate(
+                $reference['content'],
+                $validRoleIds,
+                $validFactKeys,
+                $validSkillIds,
+                $eligibleFactKeysForRole,
+                $validFindingIds,
+                $titleChoicesByRole,
+                $directEvidenceExistsByTerm,
+                $resumeEligibleRoleIds,
+                $validIndependentProjectIds,
+                $projectIdByFactKey,
+            );
+            $selectionResponse = new ResumeSelectionProviderResponse('deterministic', "profile-v{$synthesis->version}", $validatedSelection);
+            $metrics->event(['stage' => 'selection', 'kind' => 'reference_selection', 'groups' => array_sum(array_map(fn (array $r) => count($r['bullet_groups']), $validatedSelection['experience'])), 'trace' => $reference['trace']]);
+        } else {
+            if ($jobMatch === null) {
+                throw new \LogicException('A job-linked run needs its JobMatch.');
+            }
 
-            $selectionResponse = $this->selectWithEmptyOutputRetry(
-                $metrics,
-                self::MAX_SELECTION_CALLS,
-                fn () => $this->selectionProvider->generate($selectionSystemPrompt, $selectionUserPrompt, $selectionSchema),
+            $selectionSchema = $this->selectionPrompt->jsonSchema(
+                $validRoleIds,
+                $validFactKeys,
+                $validSkillIds,
+                $validFindingIds,
+                $validTargetTerms,
+                $validTitleChoiceKeys,
+                $validIndependentProjectIds,
             );
 
-            $validatedSelection = $validateSelection($selectionResponse->structuredContent);
+            $selectionSystemPrompt = $this->selectionPrompt->systemPrompt();
+            $selectionUserPrompt = $this->selectionPrompt->userPrompt($candidatePayload, $jobPayload, $targetTerminology, $presentationPreferences);
 
-            ResumeSelectionCheckpoint::create([
-                'job_match_id' => $jobMatch->id,
-                'fingerprint' => $selectionFingerprint,
-                'prompt_version' => $this->selectionPrompt->version(),
-                'schema_version' => $this->selectionPrompt->schemaVersion(),
-                'provider' => $selectionResponse->provider,
-                'model' => $selectionResponse->model,
-                'structured_content' => $selectionResponse->structuredContent,
-                'duration_ms' => $metrics->stageMs('selection'),
-            ]);
+            // Everything that determined Selection's answer: the prompt
+            // version and text, the schema, and every input the model saw.
+            // Any change (profile, match, visibility, prompt) changes this
+            // and makes an earlier checkpoint unusable.
+            $selectionFingerprint = hash('sha256', json_encode([
+                $this->selectionPrompt->version(),
+                $this->selectionPrompt->schemaVersion(),
+                $selectionSystemPrompt,
+                $selectionSchema,
+                $selectionUserPrompt,
+            ], JSON_THROW_ON_ERROR));
+
+            $validateSelection = fn (array $content): array => $this->selectionValidator->validate(
+                $content,
+                $validRoleIds,
+                $validFactKeys,
+                $validSkillIds,
+                $eligibleFactKeysForRole,
+                $validFindingIds,
+                $titleChoicesByRole,
+                $directEvidenceExistsByTerm,
+                $resumeEligibleRoleIds,
+                $validIndependentProjectIds,
+                $projectIdByFactKey,
+            );
+
+            $checkpoint = $reuseCheckpoint
+                ? ResumeSelectionCheckpoint::query()
+                    ->where('job_match_id', $jobMatch->id)
+                    ->where('fingerprint', $selectionFingerprint)
+                    ->whereNull('consumed_at')
+                    ->latest('id')
+                    ->first()
+                : null;
+
+            if ($checkpoint !== null) {
+                // The stored response is revalidated against the current
+                // rules, so reuse never bypasses grounding or visibility.
+                try {
+                    $validatedSelection = $validateSelection($checkpoint->structured_content);
+                    $selectionResponse = new ResumeSelectionProviderResponse($checkpoint->provider, $checkpoint->model, $checkpoint->structured_content);
+                    $metrics->markSelectionReused();
+                    $metrics->event(['stage' => 'selection', 'kind' => 'checkpoint_reused', 'checkpoint_id' => $checkpoint->id]);
+                } catch (InvalidResumeVariantResponseException $e) {
+                    $metrics->event(['stage' => 'selection', 'kind' => 'checkpoint_rejected', 'checkpoint_id' => $checkpoint->id, 'reason' => mb_substr($e->getMessage(), 0, 500)]);
+                }
+            }
+
+            if ($validatedSelection === null) {
+                $onPhase('selection');
+
+                $selectionResponse = $this->selectWithEmptyOutputRetry(
+                    $metrics,
+                    self::MAX_SELECTION_CALLS,
+                    fn () => $this->selectionProvider->generate($selectionSystemPrompt, $selectionUserPrompt, $selectionSchema),
+                );
+
+                $validatedSelection = $validateSelection($selectionResponse->structuredContent);
+
+                ResumeSelectionCheckpoint::create([
+                    'job_match_id' => $jobMatch->id,
+                    'fingerprint' => $selectionFingerprint,
+                    'prompt_version' => $this->selectionPrompt->version(),
+                    'schema_version' => $this->selectionPrompt->schemaVersion(),
+                    'provider' => $selectionResponse->provider,
+                    'model' => $selectionResponse->model,
+                    'structured_content' => $selectionResponse->structuredContent,
+                    'duration_ms' => $metrics->stageMs('selection'),
+                ]);
+            }
+
         }
 
         // The Technical Skills section must not be empty. If Selection
@@ -348,6 +405,10 @@ final class GenerateResumeVariant
         ))->map(fn (int $id) => $canonicalSkillsById[$id])->all();
 
         $wordingInput = $this->buildWordingInput($selectionDraft, $factsByKey, $directTargetTermsByLocation, $summaryAuthorizedSkillNames);
+
+        if ($effective !== null) {
+            $wordingInput['reference_context'] = ReferenceSelection::wordingContext($effective);
+        }
         $careerFactKeysByLocation = $this->buildCareerFactKeysByLocation($selectionDraft);
         $denylistTerms = $this->buildDenylistTerms($validTargetTerms, $selectionDraft);
 
@@ -359,13 +420,13 @@ final class GenerateResumeVariant
         $selectedProjectIds = collect($selectionDraft->selectedProjects)->pluck('projectId')->all();
 
         // ---- Stage 2: Wording ----
-        $wordingSchema = $this->wordingPrompt->jsonSchema($rolesInSelection, $selectedProjectIds);
+        $wordingSchema = $wordingPrompt->jsonSchema($rolesInSelection, $selectedProjectIds);
 
         // Wording's validators are strict (grounding, guardrails,
         // Restricted evidence), and a rejection after minutes of work
         // gets informed retries with the exact rejection reason. Transport
         // failures are not retried here (the transport already retries).
-        $baseWordingPrompt = $this->wordingPrompt->userPrompt($wordingInput, $denylistTerms);
+        $baseWordingPrompt = $wordingPrompt->userPrompt($wordingInput, $denylistTerms);
         $wordingContext = new WordingCheckContext(
             validRoleIds: $rolesInSelection,
             expectedBulletGroupIndexesByRole: $expectedBulletGroupIndexesByRole,
@@ -402,7 +463,7 @@ final class GenerateResumeVariant
 
             try {
                 $wordingResponse = $metrics->measure('wording', fn () => $this->wordingProvider->generate(
-                    $this->wordingPrompt->systemPrompt(),
+                    $wordingPrompt->systemPrompt(),
                     $wordingUserPrompt,
                     $wordingSchema,
                 ), fn ($response) => $response->usage);
@@ -435,7 +496,7 @@ final class GenerateResumeVariant
             $reason = mb_substr('Resume Wording provider response failed validation: '.implode(' ', $triage->structuralErrors), 0, 1000);
             $metrics->event(['stage' => 'wording', 'call' => $wordingCall, 'kind' => 'validation_rejected', 'reason' => $reason]);
             Log::warning('Resume Wording response rejected by validation.', [
-                'job_match_id' => $jobMatch->id,
+                'job_match_id' => $jobMatch?->id,
                 'call' => $wordingCall,
                 'reason' => $reason,
             ]);
@@ -454,7 +515,7 @@ final class GenerateResumeVariant
         $onPhase('saving');
 
         return DB::transaction(function () use (
-            $profile, $jobMatch, $selectionDraft, $wordingDraft,
+            $profile, $jobMatch, $synthesis, $wordingPrompt, $selectionPromptVersion, $selectionDraft, $wordingDraft,
             $candidatePayload, $jobPayload, $targetTerminology, $presentationPreferences,
             $selectionResponse, $wordingResponse,
             $validatedSelection, $validatedWording, $wordingInput,
@@ -502,10 +563,11 @@ final class GenerateResumeVariant
 
             $variant = ResumeVariant::create([
                 'career_profile_id' => $profile->id,
-                'job_match_id' => $jobMatch->id,
+                'job_match_id' => $jobMatch?->id,
+                'resume_profile_synthesis_id' => $synthesis?->id,
                 'schema_version' => $this->selectionPrompt->schemaVersion(),
-                'selection_prompt_version' => $this->selectionPrompt->version(),
-                'wording_prompt_version' => $this->wordingPrompt->version(),
+                'selection_prompt_version' => $selectionPromptVersion,
+                'wording_prompt_version' => $wordingPrompt->version(),
                 'selection_generated_by' => $selectionResponse->generatedBy(),
                 'wording_generated_by' => $wordingResponse->generatedBy(),
                 'generated_at' => now(),
@@ -522,10 +584,12 @@ final class GenerateResumeVariant
                 'review_report' => $reviewReport,
             ]);
 
-            ResumeSelectionCheckpoint::query()
-                ->where('job_match_id', $jobMatch->id)
-                ->whereNull('consumed_at')
-                ->update(['consumed_at' => now()]);
+            if ($jobMatch !== null) {
+                ResumeSelectionCheckpoint::query()
+                    ->where('job_match_id', $jobMatch->id)
+                    ->whereNull('consumed_at')
+                    ->update(['consumed_at' => now()]);
+            }
 
             $bulletIdsByLocation = [];
 

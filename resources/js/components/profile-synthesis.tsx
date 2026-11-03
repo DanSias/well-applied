@@ -1,0 +1,765 @@
+import type { RequestPayload } from '@inertiajs/core';
+import { router } from '@inertiajs/react';
+import { useEffect, useState } from 'react';
+import {
+    approve,
+    newVersion,
+    referenceResume,
+    update,
+} from '@/routes/profile-syntheses';
+import { store as buildSynthesis } from '@/routes/profile-syntheses';
+import type {
+    ReferenceState,
+    SynthesisFact,
+    SynthesisProfile,
+    SynthesisState,
+} from '@/types/resume-profile';
+
+type Errors = Record<string, string>;
+
+const field =
+    'mt-1 w-full rounded-md border border-neutral-300 bg-white px-2 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-950';
+const primary =
+    'rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-700 disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900';
+const secondary =
+    'rounded-md border border-neutral-300 px-2 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-300';
+
+function useSend() {
+    const [errors, setErrors] = useState<Errors>({});
+    const [busy, setBusy] = useState(false);
+    const send = (
+        route: { url: string; method: 'post' | 'patch' | 'get' },
+        data: RequestPayload = {},
+    ) => {
+        setBusy(true);
+        router[route.method === 'get' ? 'get' : route.method](route.url, data, {
+            preserveScroll: true,
+            onError: setErrors,
+            onSuccess: () => setErrors({}),
+            onFinish: () => setBusy(false),
+        });
+    };
+
+    return { errors, busy, send };
+}
+
+function Errors({ errors }: { errors: Errors }) {
+    return (
+        <>
+            {Object.entries(errors).map(([key, message]) => (
+                <p
+                    key={key + message}
+                    role="alert"
+                    className="mt-2 text-xs text-red-700 dark:text-red-300"
+                >
+                    {message}
+                </p>
+            ))}
+        </>
+    );
+}
+
+function Evidence({
+    keys,
+    facts,
+}: {
+    keys: string[];
+    facts: Record<string, SynthesisFact>;
+}) {
+    if (keys.length === 0) {
+        return null;
+    }
+
+    return (
+        <details className="mt-1 text-xs text-neutral-500">
+            <summary className="cursor-pointer">
+                Evidence ({keys.length})
+            </summary>
+            <ul className="mt-1 space-y-1">
+                {keys.map((key) => {
+                    const f = facts[key];
+
+                    return (
+                        <li key={key}>
+                            <span className="font-mono">{key}</span>
+                            {f && (
+                                <>
+                                    {' '}
+                                    <span className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">
+                                        {f.visibility}
+                                    </span>
+                                    {f.personal && (
+                                        <span className="ml-1 rounded bg-amber-100 px-1 text-amber-900">
+                                            {f.whole_career
+                                                ? 'whole career'
+                                                : 'personal'}
+                                        </span>
+                                    )}
+                                    <br />
+                                    {f.statement}
+                                    {f.shared_with.length > 0 &&
+                                        ` (also: ${f.shared_with.join(', ')})`}
+                                </>
+                            )}
+                        </li>
+                    );
+                })}
+            </ul>
+        </details>
+    );
+}
+
+function Row({
+    id,
+    included,
+    pinned,
+    editable,
+    ids,
+    sid,
+    children,
+}: {
+    id: string;
+    included: boolean;
+    pinned: boolean;
+    editable: boolean;
+    ids: string[];
+    sid: number;
+    children: React.ReactNode;
+}) {
+    const { busy, send, errors } = useSend();
+    const move = (by: number) => {
+        const next = [...ids];
+        const at = next.indexOf(id);
+        const to = at + by;
+
+        if (to < 0 || to >= next.length) {
+            return;
+        }
+
+        [next[at], next[to]] = [next[to], next[at]];
+        send(update.patch(sid), { reorder: next });
+    };
+
+    return (
+        <li
+            className={`rounded-md border p-2 text-sm ${included ? 'border-neutral-200 dark:border-neutral-800' : 'border-dashed border-neutral-300 opacity-60 dark:border-neutral-700'}`}
+        >
+            <div className="flex gap-2">
+                <div className="min-w-0 flex-1">{children}</div>
+                {editable && (
+                    <div className="flex shrink-0 flex-col gap-1">
+                        <button
+                            type="button"
+                            className={secondary}
+                            disabled={busy}
+                            onClick={() =>
+                                send(update.patch(sid), {
+                                    id,
+                                    include: !included,
+                                })
+                            }
+                        >
+                            {included ? 'Exclude' : 'Include'}
+                        </button>
+                        <button
+                            type="button"
+                            className={secondary}
+                            disabled={busy}
+                            onClick={() =>
+                                send(update.patch(sid), { id, pinned: !pinned })
+                            }
+                        >
+                            {pinned ? 'Unpin' : 'Pin'}
+                        </button>
+                        <div className="flex gap-1">
+                            <button
+                                type="button"
+                                className={secondary}
+                                disabled={busy}
+                                aria-label="Move up"
+                                onClick={() => move(-1)}
+                            >
+                                ↑
+                            </button>
+                            <button
+                                type="button"
+                                className={secondary}
+                                disabled={busy}
+                                aria-label="Move down"
+                                onClick={() => move(1)}
+                            >
+                                ↓
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+            <Errors errors={errors} />
+        </li>
+    );
+}
+
+function EditableText({
+    id,
+    value,
+    original,
+    sid,
+    editable,
+    rows = 3,
+}: {
+    id: string;
+    value: string;
+    original: string;
+    sid: number;
+    editable: boolean;
+    rows?: number;
+}) {
+    const [text, setText] = useState(value);
+    const { busy, send, errors } = useSend();
+
+    useEffect(() => setText(value), [value]);
+
+    if (!editable) {
+        return <p className="text-sm">{value}</p>;
+    }
+
+    return (
+        <div>
+            <textarea
+                className={field}
+                rows={rows}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+            />
+            <div className="mt-1 flex gap-2">
+                <button
+                    type="button"
+                    className={secondary}
+                    disabled={busy || text === value}
+                    onClick={() => send(update.patch(sid), { id, text })}
+                >
+                    Save wording
+                </button>
+                {value !== original && (
+                    <button
+                        type="button"
+                        className={secondary}
+                        disabled={busy}
+                        onClick={() =>
+                            send(update.patch(sid), { id, text: original })
+                        }
+                    >
+                        Restore original
+                    </button>
+                )}
+            </div>
+            <Errors errors={errors} />
+        </div>
+    );
+}
+
+function Signals({ signals }: { signals: Record<string, number> }) {
+    return (
+        <span className="text-xs text-neutral-500">
+            {Object.entries(signals)
+                .map(([k, v]) => `${k} ${v.toFixed(2)}`)
+                .join(' · ')}
+        </span>
+    );
+}
+
+function ReferencePanel({
+    reference,
+    sid,
+}: {
+    reference: ReferenceState;
+    sid: number;
+}) {
+    const { busy, send, errors } = useSend();
+    const active = reference.running || reference.state === 'running';
+
+    useEffect(() => {
+        if (!active) {
+            return;
+        }
+
+        const timer = setInterval(
+            () => router.reload({ only: ['resume_profile'] }),
+            4000,
+        );
+
+        return () => clearInterval(timer);
+    }, [active]);
+
+    return (
+        <section className="mt-4 rounded-md border border-neutral-300 p-3 dark:border-neutral-700">
+            <h4 className="text-sm font-semibold">Reference resume</h4>
+            {reference.stale && (
+                <p className="mt-1 text-xs text-amber-700">
+                    Your approved evidence changed after this profile was
+                    approved. Build and approve a new version first.
+                </p>
+            )}
+            {active && (
+                <p className="mt-1 text-xs">
+                    Generating ({reference.phase ?? 'starting'})…
+                </p>
+            )}
+            {reference.state === 'failed' && (
+                <p role="alert" className="mt-1 text-xs text-red-700">
+                    Failed: {reference.error}
+                </p>
+            )}
+            {reference.state === 'ready' && reference.variant_id && (
+                <div className="mt-1 text-xs">
+                    <a
+                        className="underline"
+                        href={reference.preview_url ?? '#'}
+                        target="_blank"
+                        rel="noreferrer"
+                    >
+                        Preview
+                    </a>{' '}
+                    ·{' '}
+                    <a
+                        className="underline"
+                        href={reference.download_url ?? '#'}
+                    >
+                        Download PDF
+                    </a>{' '}
+                    · {reference.pages} page(s) ·{' '}
+                    {Math.round((reference.duration_ms ?? 0) / 1000)}s total ·{' '}
+                    {reference.model_calls} wording call(s)
+                </div>
+            )}
+            <div className="mt-2">
+                <button
+                    type="button"
+                    className={primary}
+                    disabled={busy || active || reference.stale}
+                    onClick={() => send(referenceResume.post(sid), {})}
+                >
+                    {reference.state === 'ready'
+                        ? 'Generate again'
+                        : 'Generate reference resume'}
+                </button>
+            </div>
+            <Errors errors={errors} />
+        </section>
+    );
+}
+
+function Profile({
+    p,
+    sid,
+    editable,
+}: {
+    p: SynthesisProfile;
+    sid: number;
+    editable: boolean;
+}) {
+    const pres = p.presentation;
+    const projects = p.projects.filter((x) => !x.personal);
+    const personal = p.projects.filter((x) => x.personal);
+    const sample = p.provenance.sample;
+
+    return (
+        <div className="mt-3 space-y-5">
+            <section className="rounded-md bg-neutral-50 p-3 text-xs text-neutral-600 dark:bg-neutral-900 dark:text-neutral-400">
+                {sample ? (
+                    <p>
+                        Market basis:{' '}
+                        <strong>
+                            {sample.pilot ? 'pilot sample' : 'sample'} of{' '}
+                            {sample.postings} postings
+                        </strong>{' '}
+                        ({sample.companies} companies,{' '}
+                        {sample.providers.join(', ')}, {sample.oldest} to{' '}
+                        {sample.newest}).{' '}
+                        {sample.pilot &&
+                            'This is a small pilot, not a full market study; priorities below are indicative.'}
+                    </p>
+                ) : (
+                    <p>No market sample: ranking uses the evidence only.</p>
+                )}
+                <p>
+                    Built from approved evidence revision{' '}
+                    {p.provenance.evidence_revision}. {p.private_omitted}{' '}
+                    Private fact(s) were left out entirely.
+                    {p.excluded.length > 0 &&
+                        ` ${p.excluded.length} fact(s) were not used as written: ${p.excluded.map((e) => e.fact_key).join(', ')} (first-person wording).`}
+                </p>
+            </section>
+
+            <section>
+                <h4 className="text-sm font-semibold">Positioning</h4>
+                <p className="mt-2 text-xs font-medium text-neutral-500">
+                    Headline
+                </p>
+                <EditableText
+                    id="headline"
+                    value={pres.headline}
+                    original={pres.headline_original}
+                    sid={sid}
+                    editable={editable}
+                    rows={1}
+                />
+                <p className="mt-2 text-xs font-medium text-neutral-500">
+                    Summary
+                </p>
+                <EditableText
+                    id="summary"
+                    value={pres.summary}
+                    original={pres.summary_original}
+                    sid={sid}
+                    editable={editable}
+                    rows={5}
+                />
+                <Evidence keys={pres.summary_fact_keys} facts={p.facts} />
+            </section>
+
+            <section>
+                <h4 className="text-sm font-semibold">
+                    Technical differentiators
+                </h4>
+                <ul className="mt-2 space-y-2">
+                    {pres.differentiators.map((d) => (
+                        <Row
+                            key={d.id}
+                            id={d.id}
+                            included={d.included}
+                            pinned={d.pinned}
+                            editable={editable}
+                            ids={pres.differentiators.map((x) => x.id)}
+                            sid={sid}
+                        >
+                            <EditableText
+                                id={d.id}
+                                value={d.statement}
+                                original={d.original}
+                                sid={sid}
+                                editable={editable}
+                                rows={2}
+                            />
+                            <Evidence keys={d.fact_keys} facts={p.facts} />
+                        </Row>
+                    ))}
+                </ul>
+            </section>
+
+            <section>
+                <h4 className="text-sm font-semibold">
+                    Ranked projects (employment)
+                </h4>
+                <p className="text-xs text-neutral-500">
+                    Ranked on ownership, architecture, technical complexity,
+                    market relevance, distinctiveness and outcomes, not on how
+                    many facts a project has.
+                </p>
+                <ul className="mt-2 space-y-2">
+                    {projects.map((x) => {
+                        const note = pres.project_notes.find(
+                            (n) => n.project_id === x.project_id,
+                        );
+
+                        return (
+                            <Row
+                                key={x.id}
+                                id={x.id}
+                                included={x.included}
+                                pinned={x.pinned}
+                                editable={editable}
+                                ids={projects.map((y) => y.id)}
+                                sid={sid}
+                            >
+                                <p className="font-medium">
+                                    {x.rank}. {x.name}{' '}
+                                    <span className="text-xs font-normal text-neutral-500">
+                                        {x.employer} · score{' '}
+                                        {x.score.toFixed(2)}
+                                    </span>
+                                </p>
+                                <p className="text-xs">{x.reason}</p>
+                                <Signals signals={x.signals} />
+                                {note && (
+                                    <div className="mt-1">
+                                        <EditableText
+                                            id={note.id}
+                                            value={note.note}
+                                            original={note.original}
+                                            sid={sid}
+                                            editable={editable}
+                                            rows={2}
+                                        />
+                                    </div>
+                                )}
+                                <Evidence keys={x.fact_keys} facts={p.facts} />
+                            </Row>
+                        );
+                    })}
+                </ul>
+                {personal.length > 0 && (
+                    <>
+                        <h4 className="mt-4 text-sm font-semibold">
+                            Personal projects
+                        </h4>
+                        <p className="text-xs text-neutral-500">
+                            Shown only under Selected Projects, never as
+                            employment.
+                        </p>
+                        <ul className="mt-2 space-y-2">
+                            {personal.map((x) => (
+                                <Row
+                                    key={x.id}
+                                    id={x.id}
+                                    included={x.included}
+                                    pinned={x.pinned}
+                                    editable={editable}
+                                    ids={personal.map((y) => y.id)}
+                                    sid={sid}
+                                >
+                                    <p className="font-medium">
+                                        {x.name}{' '}
+                                        <span className="text-xs font-normal text-neutral-500">
+                                            score {x.score.toFixed(2)}
+                                        </span>
+                                    </p>
+                                    <p className="text-xs">{x.reason}</p>
+                                    <Evidence
+                                        keys={x.fact_keys}
+                                        facts={p.facts}
+                                    />
+                                </Row>
+                            ))}
+                        </ul>
+                    </>
+                )}
+            </section>
+
+            <section>
+                <h4 className="text-sm font-semibold">
+                    Capabilities: direct experience
+                </h4>
+                <ul className="mt-2 space-y-2">
+                    {p.capabilities.direct.map((c) => (
+                        <Row
+                            key={c.id}
+                            id={c.id}
+                            included={c.included}
+                            pinned={c.pinned}
+                            editable={editable}
+                            ids={p.capabilities.direct.map((y) => y.id)}
+                            sid={sid}
+                        >
+                            <p>
+                                <span className="font-medium">{c.label}</span>{' '}
+                                <span className="text-xs text-neutral-500">
+                                    {c.depth ?? '-'} depth · asked for in{' '}
+                                    {c.market_postings} posting(s)
+                                </span>
+                            </p>
+                            <Evidence keys={c.fact_keys} facts={p.facts} />
+                        </Row>
+                    ))}
+                </ul>
+                <h4 className="mt-4 text-sm font-semibold">
+                    Related, not claimed as experience
+                </h4>
+                <p className="text-xs text-neutral-500">
+                    {p.capabilities.transferable
+                        .map((c) => c.label)
+                        .join(', ') || 'None'}
+                    . Only a related capability is documented for these.
+                </p>
+                {p.limitations.length > 0 && (
+                    <p className="mt-1 text-xs text-neutral-500">
+                        Confirmed no direct experience (never claimed):{' '}
+                        {p.limitations.join(', ')}.
+                    </p>
+                )}
+            </section>
+
+            <section>
+                <h4 className="text-sm font-semibold">
+                    Accomplishments the resume can draw on
+                </h4>
+                <ul className="mt-2 space-y-2">
+                    {p.accomplishments.map((a) => (
+                        <Row
+                            key={a.id}
+                            id={a.id}
+                            included={a.included}
+                            pinned={a.pinned}
+                            editable={editable}
+                            ids={p.accomplishments.map((y) => y.id)}
+                            sid={sid}
+                        >
+                            <p className="text-sm">
+                                {p.facts[a.fact_key]?.statement}
+                            </p>
+                            <p className="text-xs text-neutral-500">
+                                {a.rank}. {a.kind} · {a.visibility} · score{' '}
+                                {a.score.toFixed(2)} ·{' '}
+                                {p.facts[a.fact_key]?.project ??
+                                    p.facts[a.fact_key]?.role}
+                                {a.shared_with.length > 0 &&
+                                    ` · also: ${a.shared_with.join(', ')}`}
+                            </p>
+                        </Row>
+                    ))}
+                </ul>
+            </section>
+        </div>
+    );
+}
+
+export function ProfileSynthesis({
+    state,
+    slug,
+}: {
+    state: SynthesisState;
+    slug: string;
+}) {
+    const { busy, send, errors } = useSend();
+    const s = state.synthesis;
+    const editable = s?.status === 'draft';
+    const building = state.building;
+
+    useEffect(() => {
+        if (!building) {
+            return;
+        }
+
+        const timer = setInterval(
+            () => router.reload({ only: ['resume_profile'] }),
+            5000,
+        );
+
+        return () => clearInterval(timer);
+    }, [building]);
+
+    return (
+        <section className="mt-8" id="profile-synthesis">
+            <h2 className="text-base font-semibold">Full-Stack profile</h2>
+            <p className="mt-1 text-xs text-neutral-500">
+                A persistent profile built from your approved evidence and the
+                market sample. Building it is deliberate and infrequent: one
+                local-model call writes the positioning, everything else is
+                computed from your evidence. Nothing is approved until you
+                approve it, and a reference resume is generated only from an
+                approved profile.
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+                <button
+                    type="button"
+                    className={primary}
+                    disabled={busy || building}
+                    onClick={() => {
+                        if (
+                            s === null ||
+                            window.confirm(
+                                'Build a new version? This calls the local model again.',
+                            )
+                        ) {
+                            send(buildSynthesis.post(slug), {
+                                force: s !== null,
+                            });
+                        }
+                    }}
+                >
+                    {building
+                        ? 'Building…'
+                        : s === null
+                          ? 'Build the profile'
+                          : 'Build a new version'}
+                </button>
+                {s && (
+                    <span className="text-xs">
+                        Version {s.version} · {s.status}
+                        {s.stale && ' · evidence changed since (stale)'}
+                        {s.pilot && ' · pilot market sample'}
+                        {s.model_calls !== null &&
+                            ` · ${s.model_calls} model call(s), ${Math.round((s.duration_ms ?? 0) / 1000)}s`}
+                    </span>
+                )}
+            </div>
+            {state.error && (
+                <p role="alert" className="mt-2 text-xs text-red-700">
+                    {state.error}
+                </p>
+            )}
+            <Errors errors={errors} />
+            {s && (
+                <>
+                    {s.notes.length > 0 && (
+                        <details className="mt-2 text-xs">
+                            <summary className="cursor-pointer">
+                                {s.notes.length} validation note(s) to read
+                            </summary>
+                            <ul className="mt-1 list-disc pl-5">
+                                {s.notes.map((n) => (
+                                    <li key={n}>{n}</li>
+                                ))}
+                            </ul>
+                        </details>
+                    )}
+                    <Profile p={s.profile} sid={s.id} editable={editable} />
+                    <ApprovalBar s={s} slug={slug} />
+                </>
+            )}
+            {state.reference && s?.status !== 'draft' && (
+                <ReferencePanel
+                    reference={state.reference}
+                    sid={state.reference.synthesis_id}
+                />
+            )}
+        </section>
+    );
+}
+
+function ApprovalBar({
+    s,
+}: {
+    s: NonNullable<SynthesisState['synthesis']>;
+    slug: string;
+}) {
+    const { busy, send, errors } = useSend();
+
+    return (
+        <div className="mt-5 rounded-md border border-neutral-300 p-3 dark:border-neutral-700">
+            {s.status === 'draft' ? (
+                <>
+                    <p className="text-xs">
+                        Review the positioning, projects, capabilities and
+                        accomplishments above. Approving locks this version;
+                        only then can a reference resume be generated.
+                    </p>
+                    <button
+                        type="button"
+                        className={`${primary} mt-2`}
+                        disabled={busy || s.stale}
+                        onClick={() => send(approve.post(s.id), {})}
+                    >
+                        Approve this profile
+                    </button>
+                </>
+            ) : (
+                <>
+                    <p className="text-xs">
+                        Approved. To change it, start a new draft from this
+                        version (no model call).
+                    </p>
+                    <button
+                        type="button"
+                        className={`${secondary} mt-2`}
+                        disabled={busy}
+                        onClick={() => send(newVersion.post(s.id), {})}
+                    >
+                        Edit as a new draft
+                    </button>
+                </>
+            )}
+            <Errors errors={errors} />
+        </div>
+    );
+}

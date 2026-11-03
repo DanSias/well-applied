@@ -163,6 +163,7 @@ export type ProfileInterviewState = {
 
 export type ResumeProfilePage = {
     profile: {
+        id: number;
         slug: string;
         name: string;
         purpose: string | null;
@@ -183,6 +184,7 @@ export type ResumeProfilePage = {
     };
     interview: ProfileInterviewState;
     consolidation: ConsolidationQueue;
+    synthesis: SynthesisState;
     contributed: ApprovedEvidence;
 };
 
@@ -307,4 +309,164 @@ export type ConsolidationQueue = {
     items: ConsolidationItem[];
     counts: { proposed: number; approved: number; rejected: number };
     options: ConsolidationPlace[];
+};
+
+export type SynthesisFact = {
+    statement: string;
+    visibility: 'public' | 'restricted';
+    employer: string | null;
+    role: string | null;
+    project: string | null;
+    personal: boolean;
+    whole_career: boolean;
+    shared_with: string[];
+};
+
+type Decided = {
+    id: string;
+    included: boolean;
+    pinned: boolean;
+    edited: boolean;
+    rank: number;
+};
+
+export type SynthesisProject = Decided & {
+    project_id: number;
+    name: string;
+    employer: string | null;
+    role: string | null;
+    personal: boolean;
+    score: number;
+    signals: Record<string, number>;
+    reason: string;
+    fact_keys: string[];
+    capabilities: string[];
+    stack: string[];
+};
+
+export type SynthesisAccomplishment = Decided & {
+    fact_key: string;
+    kind: 'outcome' | 'ownership' | 'implementation';
+    score: number;
+    role_id: number;
+    project_id: number | null;
+    visibility: string;
+    shared_with: string[];
+};
+
+export type SynthesisCapability = Decided & {
+    key: string;
+    label: string;
+    category: string;
+    depth: string | null;
+    market_postings: number;
+    market_share: number;
+    fact_keys: string[];
+};
+
+export type SynthesisProfile = {
+    provenance: {
+        evidence_revision: number;
+        sample: {
+            id: number;
+            pilot: boolean;
+            postings: number;
+            companies: number;
+            providers: string[];
+            newest: string | null;
+            oldest: string | null;
+            extraction_version: string | null;
+        } | null;
+    };
+    market_priorities: {
+        key: string;
+        label: string;
+        postings: number;
+        share: number;
+        required: number;
+        status: string;
+        depth: string | null;
+    }[];
+    limitations: string[];
+    excluded: { fact_key: string; reason: string }[];
+    private_omitted: number;
+    roles: {
+        role_id: number;
+        title: string;
+        employer: string;
+        relevance: number;
+    }[];
+    facts: Record<string, SynthesisFact>;
+    capabilities: {
+        direct: SynthesisCapability[];
+        transferable: { key: string; label: string; via_fact_keys: string[] }[];
+        underdocumented: { key: string; label: string }[];
+    };
+    projects: SynthesisProject[];
+    accomplishments: SynthesisAccomplishment[];
+    presentation: {
+        headline: string;
+        headline_original: string;
+        summary: string;
+        summary_original: string;
+        summary_fact_keys: string[];
+        differentiators: (Decided & {
+            statement: string;
+            original: string;
+            fact_keys: string[];
+        })[];
+        project_notes: {
+            id: string;
+            project_id: number;
+            note: string;
+            original: string;
+            fact_keys: string[];
+        }[];
+    };
+};
+
+export type SynthesisVersion = {
+    id: number;
+    version: number;
+    status: 'draft' | 'approved' | 'superseded';
+    stale: boolean;
+    approved_at: string | null;
+};
+
+export type ReferenceState = {
+    synthesis_id: number;
+    running: boolean;
+    state: 'running' | 'ready' | 'failed' | null;
+    phase: string | null;
+    error: string | null;
+    variant_id: number | null;
+    preview_url: string | null;
+    download_url: string | null;
+    duration_ms: number | null;
+    wording_ms: number | null;
+    model_calls: number | null;
+    pages: number | null;
+    tokens: Record<string, number | null> | null;
+    stale: boolean;
+};
+
+export type SynthesisState = {
+    building: boolean;
+    error: string | null;
+    versions: SynthesisVersion[];
+    approved_version: number | null;
+    synthesis: {
+        id: number;
+        version: number;
+        status: 'draft' | 'approved' | 'superseded';
+        stale: boolean;
+        pilot: boolean;
+        generated_by: string | null;
+        prompt_version: string | null;
+        model_calls: number | null;
+        duration_ms: number | null;
+        notes: string[];
+        profile: SynthesisProfile;
+    } | null;
+    reference: ReferenceState | null;
 };

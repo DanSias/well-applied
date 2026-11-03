@@ -12,6 +12,7 @@ use App\Http\Controllers\JobAnalysisController;
 use App\Http\Controllers\JobBatchController;
 use App\Http\Controllers\JobMatchController;
 use App\Http\Controllers\JobPostingController;
+use App\Http\Controllers\ProfileSynthesisController;
 use App\Http\Controllers\ResumeProfileController;
 use App\Http\Controllers\ResumeVariantController;
 use App\Http\Controllers\ResumeVariantPdfController;
@@ -69,6 +70,13 @@ Route::post('/claim-groups/{group}/approve', [EvidenceExpansionController::class
 Route::post('/claim-groups/{group}/reject', [EvidenceExpansionController::class, 'reject'])->name('claim-groups.reject');
 Route::post('/claim-groups/{group}/merge', [EvidenceExpansionController::class, 'merge'])->name('claim-groups.merge');
 Route::post('/expansions/{expansion}/followups/{index}/ask', [EvidenceExpansionController::class, 'askFollowup'])->whereNumber('index')->name('expansions.followups.ask');
+// Profile synthesis: build, review, approve, then the reference resume (see docs/profile-synthesis.md).
+Route::post('/resume-profiles/{resumeProfile}/synthesis', [ProfileSynthesisController::class, 'store'])->name('profile-syntheses.store');
+Route::patch('/profile-syntheses/{synthesis}', [ProfileSynthesisController::class, 'update'])->name('profile-syntheses.update');
+Route::post('/profile-syntheses/{synthesis}/approve', [ProfileSynthesisController::class, 'approve'])->name('profile-syntheses.approve');
+Route::post('/profile-syntheses/{synthesis}/new-version', [ProfileSynthesisController::class, 'newVersion'])->name('profile-syntheses.new-version');
+Route::post('/profile-syntheses/{synthesis}/reference-resume', [ProfileSynthesisController::class, 'generate'])->name('profile-syntheses.reference-resume');
+
 // Evidence consolidation: reviewed corrections to existing career evidence, each approved or declined on its own.
 Route::patch('/evidence-consolidations/{consolidation}', [EvidenceConsolidationController::class, 'update'])->name('evidence-consolidations.update');
 Route::post('/evidence-consolidations/{consolidation}/approve', [EvidenceConsolidationController::class, 'approve'])->name('evidence-consolidations.approve');
