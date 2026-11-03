@@ -22,6 +22,8 @@ final class EffectiveProfile
         $edits = $synthesis->edits ?? [];
         $items = (array) ($edits['items'] ?? []);
         $text = (array) ($edits['text'] ?? []);
+        // The facts the user chose to cite for a piece of language, in place of the ones the model cited.
+        $keys = (array) ($edits['keys'] ?? []);
 
         $decorate = function (array $rows) use ($items): array {
             $rows = array_map(fn (array $row) => [
@@ -42,14 +44,14 @@ final class EffectiveProfile
 
         foreach ((array) $presentation['differentiators'] as $i => $d) {
             $id = "differentiator:{$i}";
-            $differentiators[] = ['id' => $id, 'rank' => $i + 1, 'statement' => $text[$id] ?? $d['statement'], 'original' => $d['statement'], 'fact_keys' => $d['fact_keys']];
+            $differentiators[] = ['id' => $id, 'rank' => $i + 1, 'statement' => $text[$id] ?? $d['statement'], 'original' => $d['statement'], 'fact_keys' => $keys[$id] ?? $d['fact_keys'], 'original_fact_keys' => $d['fact_keys']];
         }
 
         $notes = [];
 
         foreach ((array) $presentation['project_notes'] as $i => $n) {
             $id = "note:{$n['project_id']}";
-            $notes[] = ['id' => $id, 'rank' => $i + 1, 'project_id' => $n['project_id'], 'note' => $text[$id] ?? $n['note'], 'original' => $n['note'], 'fact_keys' => $n['fact_keys']];
+            $notes[] = ['id' => $id, 'rank' => $i + 1, 'project_id' => $n['project_id'], 'note' => $text[$id] ?? $n['note'], 'original' => $n['note'], 'fact_keys' => $keys[$id] ?? $n['fact_keys'], 'original_fact_keys' => $n['fact_keys']];
         }
 
         return [
@@ -69,7 +71,7 @@ final class EffectiveProfile
             'accomplishments' => $decorate($inventory['accomplishments']),
             'presentation' => [
                 'headline' => $text['headline'] ?? $presentation['headline'], 'headline_original' => $presentation['headline'],
-                'summary' => $text['summary'] ?? $presentation['summary'], 'summary_original' => $presentation['summary'], 'summary_fact_keys' => $presentation['summary_fact_keys'],
+                'summary' => $text['summary'] ?? $presentation['summary'], 'summary_original' => $presentation['summary'], 'summary_fact_keys' => $keys['summary'] ?? $presentation['summary_fact_keys'], 'summary_fact_keys_original' => $presentation['summary_fact_keys'],
                 'differentiators' => $decorate($differentiators),
                 'project_notes' => $notes,
             ],

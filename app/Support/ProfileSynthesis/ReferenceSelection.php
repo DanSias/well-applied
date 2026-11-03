@@ -540,7 +540,8 @@ final class ReferenceSelection
      */
     private function summaryFacts(array $effective, array $offered, array $candidates): array
     {
-        $keys = $effective['presentation']['summary_fact_keys'];
+        $cited = array_values(array_filter(array_unique($effective['presentation']['summary_fact_keys']), fn (string $k) => isset($offered[$k])));
+        $keys = $cited;
 
         foreach (array_filter($effective['presentation']['differentiators'], fn (array $d) => $d['included']) as $d) {
             $keys = [...$keys, ...$d['fact_keys']];
@@ -552,7 +553,8 @@ final class ReferenceSelection
             $keys = array_slice(array_column(array_merge(...array_values($candidates ?: [[]])), 'fact_key'), 0, 3);
         }
 
-        return array_slice($keys, 0, (int) config('resume_profiles.reference.summary_facts'));
+        // Every fact the summary itself cites stays: the summary's wording was validated against exactly those.
+        return array_slice($keys, 0, max((int) config('resume_profiles.reference.summary_facts'), count($cited)));
     }
 
     /**

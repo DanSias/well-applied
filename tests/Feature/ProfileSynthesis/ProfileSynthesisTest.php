@@ -19,10 +19,12 @@ use App\Support\ProfileSynthesis\EffectiveProfile;
 use App\Support\ProfileSynthesis\GenerateReferenceResume;
 use App\Support\ProfileSynthesis\ProfileAssembly;
 use App\Support\ProfileSynthesis\ProfileSynthesisPrompt;
+use App\Support\ProfileSynthesis\ReferenceSelection;
 use App\Support\ProfileSynthesis\ReviewProfileSynthesis;
 use App\Support\ProfileSynthesis\SynthesizeProfile;
 use App\Support\ResumeProfile\QuestionWriter;
 use App\Support\ResumeVariant\GenerateResumeVariant;
+use App\Support\ResumeVariant\ResumeCandidatePayloadBuilder;
 use App\Support\ResumeVariant\ResumeWordingProviderResponse;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
@@ -386,4 +388,58 @@ it('builds, edits, approves and generates over HTTP, and shows the profile on th
 
     $this->post(route('profile-syntheses.reference-resume', $synthesis))->assertRedirect();
     Queue::assertPushed(GenerateReferenceResumeJob::class);
+});
+
+it('lets the user add an existing fact as supporting evidence for an edited summary, without rerunning synthesis', function () {
+    $s = synthesisScenario();
+    $sql = $s['facts']['nexus-built'];
+    $aggregate = CareerFact::factory()->create([
+        'career_profile_id' => $s['career']->id, 'key' => 'nexus-sql', 'visibility' => Visibility::Restricted, 'verification' => Verification::StronglySupported, 'fact_type' => CareerFactType::Bullet,
+        'statement' => 'Optimized Nexus analytics queries using SQL-side aggregation, including GROUP BY and SUM, to calculate reporting totals in the database.',
+        'attributable_type' => 'role', 'attributable_id' => $s['pearson']->id,
+    ]);
+    $synthesis = synthesize($s);
+    $review = app(ReviewProfileSynthesis::class);
+    $review->approve($synthesis);
+    $writer = useSynthesisWriter([]);
+    $draft = $review->newVersion($synthesis->fresh());
+    $edited = goodPresentation()['summary'].' Moved Nexus reporting totals into SQL aggregation in the database.';
+
+    // The wording alone is refused: nothing it cites states SQL, and the refusal names the facts that do.
+    expect(fn () => $review->edit($draft, 'summary', ['text' => $edited]))->toThrow(ValidationException::class, 'SQL')
+        ->and($draft->fresh()->edits['text'] ?? [])->toBe([]);
+
+    // An unrelated fact is refused as evidence, and so is one that is not in the inventory.
+    expect(fn () => $review->edit($draft, 'summary', ['text' => $edited, 'fact_keys' => [...goodPresentation()['summary_fact_keys'], 'personal-docker']]))->toThrow(ValidationException::class, 'does not support')
+        ->and(fn () => $review->edit($draft, 'summary', ['text' => $edited, 'fact_keys' => ['not-a-fact']]))->toThrow(ValidationException::class, 'not an eligible');
+
+    // Citing the SQL fact makes the same wording valid; it saves and approves with no model call.
+    $review->edit($draft, 'summary', ['text' => $edited, 'fact_keys' => [...goodPresentation()['summary_fact_keys'], 'nexus-sql']]);
+    $effective = EffectiveProfile::resolve($draft->fresh());
+
+    expect($effective['presentation']['summary'])->toBe($edited)->and($effective['presentation']['summary_fact_keys'])->toContain('nexus-sql')
+        ->and($effective['presentation']['summary_fact_keys_original'])->not->toContain('nexus-sql')
+        ->and($draft->fresh()->content)->toEqual($synthesis->content);
+
+    $review->approve($draft->fresh());
+
+    expect($draft->fresh()->status)->toBe('approved')->and($synthesis->fresh()->status)->toBe('superseded')->and($writer->calls)->toBe(0);
+
+    // The reference selection keeps every fact the edited summary cites.
+    $payload = app(ResumeCandidatePayloadBuilder::class)->buildForCareer($s['career'], [], []);
+    $selection = app(ReferenceSelection::class)->build(EffectiveProfile::resolve($draft->fresh()), $payload);
+
+    expect($selection['content']['summary_evidence'])->toContain('nexus-sql')->and($aggregate->exists)->toBeTrue()->and($sql->exists)->toBeTrue();
+});
+
+it('offers the editor every eligible fact as a candidate, and none that are Private', function () {
+    $s = synthesisScenario();
+    $synthesis = synthesize($s);
+
+    $this->get(route('resume-profiles.show', $s['profile']))->assertInertia(fn ($page) => $page
+        ->has('resume_profile.synthesis.synthesis.candidates')
+        ->where('resume_profile.synthesis.synthesis.candidates', fn ($candidates) => collect($candidates)->pluck('key')->contains('wi-owned') && ! collect($candidates)->pluck('key')->contains('private-secret')));
+
+    $this->patch(route('profile-syntheses.update', $synthesis), ['id' => 'differentiator:0', 'fact_keys' => ['wi-owned', 'wi-deterministic']])->assertRedirect();
+    $this->patch(route('profile-syntheses.update', $synthesis), ['id' => 'summary', 'fact_keys' => []])->assertSessionHasErrors();
 });

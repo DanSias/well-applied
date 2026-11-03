@@ -3,6 +3,7 @@
 namespace App\Support\ProfileSynthesis;
 
 use App\Models\ResumeProfileSynthesis;
+use App\Support\ResumeProfile\CapabilityCoverage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -16,25 +17,42 @@ final class ReviewProfileSynthesis
 {
     private const TEXT_IDS = '/^(?:headline|summary|differentiator:\d+|note:\d+)$/';
 
+    private const KEY_IDS = '/^(?:summary|differentiator:\d+|note:\d+)$/';
+
     private const ITEM_IDS = '/^(?:project:\d+|capability:[a-z0-9_]+|accomplishment:[a-z0-9._-]+|differentiator:\d+)$/';
 
-    public function __construct(private readonly ProfilePresentationValidator $validator) {}
+    public function __construct(private readonly ProfilePresentationValidator $validator, private readonly CapabilityCoverage $coverage) {}
 
     /**
-     * @param  array{include?: bool, pinned?: bool, order?: int|null, text?: string}  $fields
+     * @param  array{include?: bool, pinned?: bool, order?: int|null, text?: string, fact_keys?: array<int, string>}  $fields  `fact_keys` replaces the facts a piece of language cites (summary, differentiators and project notes); it is judged with the wording in one step
      */
     public function edit(ResumeProfileSynthesis $synthesis, string $id, array $fields): ResumeProfileSynthesis
     {
         $this->assertDraft($synthesis);
         $edits = $synthesis->edits ?? ['items' => [], 'text' => []];
 
+        $touched = false;
+
         if (array_key_exists('text', $fields)) {
             if (preg_match(self::TEXT_IDS, $id) !== 1) {
                 throw ValidationException::withMessages(['text' => 'That item has no wording to edit.']);
             }
 
-            $text = trim((string) preg_replace('/\s+/u', ' ', (string) $fields['text']));
-            $edits['text'][$id] = $text;
+            $edits['text'][$id] = trim((string) preg_replace('/\s+/u', ' ', (string) $fields['text']));
+            $touched = true;
+        }
+
+        if (array_key_exists('fact_keys', $fields)) {
+            if (preg_match(self::KEY_IDS, $id) !== 1) {
+                throw ValidationException::withMessages(['fact_keys' => 'That item does not cite facts.']);
+            }
+
+            $keys = array_values(array_unique(array_map('strval', (array) $fields['fact_keys'])));
+            $edits['keys'][$id] = $this->citeable($synthesis, $edits, $id, $keys);
+            $touched = true;
+        }
+
+        if ($touched) {
             $this->assertLanguageHolds($synthesis, $edits, $id);
         }
 
@@ -121,6 +139,79 @@ final class ReviewProfileSynthesis
                 'status' => 'draft', 'usage' => ['copied_from_version' => $from->version], 'validation' => $from->validation,
             ]);
         });
+    }
+
+    /**
+     * The facts a piece of language may cite after the user's change. Every key must be an eligible fact in this
+     * profile's inventory, at least one must remain, and a fact the user ADDS must actually support what the
+     * wording says (it states a capability the wording names, or shares its specifics). Anything else is unrelated
+     * evidence and is refused.
+     *
+     * @param  array<string, mixed>  $edits
+     * @param  array<int, string>  $keys
+     * @return array<int, string>
+     */
+    private function citeable(ResumeProfileSynthesis $synthesis, array $edits, string $id, array $keys): array
+    {
+        $facts = $synthesis->content['inventory']['facts'];
+
+        if ($keys === []) {
+            throw ValidationException::withMessages(['fact_keys' => 'Cite at least one fact.']);
+        }
+
+        $candidate = $synthesis->replicate();
+        $candidate->edits = $edits;
+        $candidate->setRelation('careerProfile', $synthesis->careerProfile);
+        $effective = EffectiveProfile::resolve($candidate);
+        $text = match (true) {
+            $id === 'summary' => $effective['presentation']['summary'],
+            str_starts_with($id, 'differentiator:') => $this->row($effective['presentation']['differentiators'], $id)['statement'] ?? '',
+            default => $this->row($effective['presentation']['project_notes'], $id)['note'] ?? '',
+        };
+        $current = $id === 'summary'
+            ? $effective['presentation']['summary_fact_keys']
+            : ($this->row([...$effective['presentation']['differentiators'], ...$effective['presentation']['project_notes']], $id)['fact_keys'] ?? []);
+
+        foreach ($keys as $key) {
+            if (! isset($facts[$key])) {
+                throw ValidationException::withMessages(['fact_keys' => "[{$key}] is not an eligible fact in this profile."]);
+            }
+
+            if (! in_array($key, $current, true) && ! $this->supports($facts[$key], (string) $text)) {
+                throw ValidationException::withMessages(['fact_keys' => "[{$key}] does not support anything this wording says, so it was not added. Cite a fact that states what the text claims."]);
+            }
+        }
+
+        return $keys;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $rows
+     * @return array<string, mixed>|null
+     */
+    private function row(array $rows, string $id): ?array
+    {
+        foreach ($rows as $row) {
+            if ($row['id'] === $id) {
+                return $row;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $fact  an inventory fact
+     */
+    private function supports(array $fact, string $text): bool
+    {
+        if (array_intersect($this->coverage->capabilitiesIn($text), $fact['capabilities']) !== []) {
+            return true;
+        }
+
+        $words = fn (string $t) => array_unique(array_filter(preg_split('/[^a-z0-9]+/', strtolower($t)) ?: [], fn (string $w) => strlen($w) >= 5));
+
+        return count(array_intersect($words($text), $words((string) $fact['statement']))) >= 2;
     }
 
     /**

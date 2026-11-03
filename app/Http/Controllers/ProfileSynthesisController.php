@@ -37,10 +37,11 @@ class ProfileSynthesisController extends Controller
         $data = $request->validate([
             'id' => ['required_without:reorder', 'string', 'max:120'],
             'include' => ['sometimes', 'boolean'], 'pinned' => ['sometimes', 'boolean'], 'text' => ['sometimes', 'string', 'max:1200'],
+            'fact_keys' => ['sometimes', 'array', 'min:1', 'max:12'], 'fact_keys.*' => ['string', 'max:160'],
             'reorder' => ['sometimes', 'array', 'max:80'], 'reorder.*' => ['string', 'max:120'],
         ]);
 
-        isset($data['reorder']) ? $review->reorder($synthesis, $data['reorder']) : $review->edit($synthesis, $data['id'], array_intersect_key($data, array_flip(['include', 'pinned', 'text'])));
+        isset($data['reorder']) ? $review->reorder($synthesis, $data['reorder']) : $review->edit($synthesis, $data['id'], array_intersect_key($data, array_flip(['include', 'pinned', 'text', 'fact_keys'])));
 
         return back();
     }

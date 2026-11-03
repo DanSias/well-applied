@@ -425,6 +425,14 @@ export type SynthesisProfile = {
     };
 };
 
+export type SynthesisCandidate = {
+    key: string;
+    statement: string;
+    visibility: 'public' | 'restricted';
+    place: string;
+    capabilities: string[];
+};
+
 export type SynthesisVersion = {
     id: number;
     version: number;
@@ -467,6 +475,7 @@ export type SynthesisState = {
         duration_ms: number | null;
         notes: string[];
         profile: SynthesisProfile;
+        candidates: SynthesisCandidate[];
     } | null;
     reference: ReferenceState | null;
 };

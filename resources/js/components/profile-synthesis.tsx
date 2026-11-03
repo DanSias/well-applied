@@ -10,6 +10,7 @@ import {
 import { store as buildSynthesis } from '@/routes/profile-syntheses';
 import type {
     ReferenceState,
+    SynthesisCandidate,
     SynthesisFact,
     SynthesisProfile,
     SynthesisState,
@@ -206,6 +207,8 @@ function EditableText({
     sid,
     editable,
     rows = 3,
+    keys,
+    candidates = [],
 }: {
     id: string;
     value: string;
@@ -213,15 +216,27 @@ function EditableText({
     sid: number;
     editable: boolean;
     rows?: number;
+    keys?: string[];
+    candidates?: SynthesisCandidate[];
 }) {
     const [text, setText] = useState(value);
+    const [cited, setCited] = useState<string[]>(keys ?? []);
+    const [adding, setAdding] = useState('');
     const { busy, send, errors } = useSend();
+    const keysChanged =
+        keys !== undefined &&
+        (cited.length !== keys.length || cited.some((k) => !keys.includes(k)));
 
     useEffect(() => setText(value), [value]);
+    useEffect(() => setCited(keys ?? []), [keys?.join('|')]);
 
     if (!editable) {
         return <p className="text-sm">{value}</p>;
     }
+
+    const label = (key: string) =>
+        candidates.find((c) => c.key === key)?.statement ?? key;
+    const available = candidates.filter((c) => !cited.includes(c.key));
 
     return (
         <div>
@@ -231,14 +246,92 @@ function EditableText({
                 value={text}
                 onChange={(e) => setText(e.target.value)}
             />
+            {keys !== undefined && (
+                <div className="mt-2 text-xs">
+                    <p className="font-medium text-neutral-500">
+                        Supporting evidence ({cited.length}). Everything the
+                        wording says must be stated by these facts.
+                    </p>
+                    <ul className="mt-1 space-y-1">
+                        {cited.map((key) => (
+                            <li
+                                key={key}
+                                className="flex items-start justify-between gap-2 rounded bg-neutral-50 px-2 py-1 dark:bg-neutral-900"
+                            >
+                                <span>
+                                    <span className="font-mono">{key}</span>{' '}
+                                    {label(key)}
+                                </span>
+                                <button
+                                    type="button"
+                                    className={secondary}
+                                    disabled={cited.length <= 1}
+                                    onClick={() =>
+                                        setCited(cited.filter((k) => k !== key))
+                                    }
+                                    aria-label={`Remove ${key}`}
+                                >
+                                    Remove
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                    <div className="mt-1 flex gap-2">
+                        <select
+                            className={field}
+                            value={adding}
+                            onChange={(e) => setAdding(e.target.value)}
+                            aria-label="Add a supporting fact"
+                        >
+                            <option value="">Add a supporting fact…</option>
+                            {[...new Set(available.map((c) => c.place))].map(
+                                (place) => (
+                                    <optgroup key={place} label={place}>
+                                        {available
+                                            .filter((c) => c.place === place)
+                                            .map((c) => (
+                                                <option
+                                                    key={c.key}
+                                                    value={c.key}
+                                                >
+                                                    {c.statement}
+                                                    {c.capabilities.length > 0
+                                                        ? ` [${c.capabilities.join(', ')}]`
+                                                        : ''}
+                                                </option>
+                                            ))}
+                                    </optgroup>
+                                ),
+                            )}
+                        </select>
+                        <button
+                            type="button"
+                            className={secondary}
+                            disabled={adding === ''}
+                            onClick={() => {
+                                setCited([...cited, adding]);
+                                setAdding('');
+                            }}
+                        >
+                            Add
+                        </button>
+                    </div>
+                </div>
+            )}
             <div className="mt-1 flex gap-2">
                 <button
                     type="button"
                     className={secondary}
-                    disabled={busy || text === value}
-                    onClick={() => send(update.patch(sid), { id, text })}
+                    disabled={busy || (text === value && !keysChanged)}
+                    onClick={() =>
+                        send(update.patch(sid), {
+                            id,
+                            text,
+                            ...(keysChanged ? { fact_keys: cited } : {}),
+                        })
+                    }
                 >
-                    Save wording
+                    Save wording{keysChanged ? ' and evidence' : ''}
                 </button>
                 {value !== original && (
                     <button
@@ -249,7 +342,7 @@ function EditableText({
                             send(update.patch(sid), { id, text: original })
                         }
                     >
-                        Restore original
+                        Restore original wording
                     </button>
                 )}
             </div>
@@ -353,10 +446,12 @@ function Profile({
     p,
     sid,
     editable,
+    candidates,
 }: {
     p: SynthesisProfile;
     sid: number;
     editable: boolean;
+    candidates: SynthesisCandidate[];
 }) {
     const pres = p.presentation;
     const projects = p.projects.filter((x) => !x.personal);
@@ -414,8 +509,12 @@ function Profile({
                     sid={sid}
                     editable={editable}
                     rows={5}
+                    keys={pres.summary_fact_keys}
+                    candidates={candidates}
                 />
-                <Evidence keys={pres.summary_fact_keys} facts={p.facts} />
+                {!editable && (
+                    <Evidence keys={pres.summary_fact_keys} facts={p.facts} />
+                )}
             </section>
 
             <section>
@@ -440,8 +539,12 @@ function Profile({
                                 sid={sid}
                                 editable={editable}
                                 rows={2}
+                                keys={d.fact_keys}
+                                candidates={candidates}
                             />
-                            <Evidence keys={d.fact_keys} facts={p.facts} />
+                            {!editable && (
+                                <Evidence keys={d.fact_keys} facts={p.facts} />
+                            )}
                         </Row>
                     ))}
                 </ul>
@@ -490,6 +593,8 @@ function Profile({
                                             sid={sid}
                                             editable={editable}
                                             rows={2}
+                                            keys={note.fact_keys}
+                                            candidates={candidates}
                                         />
                                     </div>
                                 )}
@@ -703,7 +808,12 @@ export function ProfileSynthesis({
                             </ul>
                         </details>
                     )}
-                    <Profile p={s.profile} sid={s.id} editable={editable} />
+                    <Profile
+                        p={s.profile}
+                        sid={s.id}
+                        editable={editable}
+                        candidates={s.candidates}
+                    />
                     <ApprovalBar s={s} slug={slug} />
                 </>
             )}
