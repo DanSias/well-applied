@@ -220,7 +220,10 @@ return [
      | The reference resume's fixed budget (see ReferenceSelection). The user's profile decisions choose the
      | evidence; these only bound how much of it one resume carries.
      */
-    'reference' => ['total_bullets' => 15, 'per_role_max' => 6, 'developer_role_floor' => 3, 'per_project_max' => 3, 'outcomes_per_lead' => 2, 'personal_projects_max' => 2, 'summary_facts' => 8],
+    'reference' => ['total_bullets' => 15, 'per_role_max' => 6, 'developer_role_floor' => 3, 'per_project_max' => 3, 'outcomes_per_lead' => 2, 'personal_projects_max' => 2, 'summary_facts' => 8,
+        // The user's top employment projects are protected, by swapping first and by at most this many extra bullets in all.
+        'priority_projects' => 3, 'coverage_extra_bullets' => 2, 'overlap_limit' => 0.6,
+    ],
 
     'enrichment' => ['enabled' => (bool) env('RESUME_PROFILE_ENRICH', false), 'prompt_version' => 'profile-question-v1', 'reasoning_effort' => 'low'],
 

@@ -48,3 +48,16 @@ role's bullets. Only an approved, current (not stale) profile can generate one.
 Run: Resume Profile page, "Build the profile" (queued) or `php artisan profile:synthesize [--force]`; approve on
 the page; "Generate reference resume" (queued). `profile:synthesize --inventory` shows the inventory with no
 model call.
+
+## How the reference selection chooses (reference-selection-v2)
+
+Within a role, evidence is chosen by **kind**, not raw rank. Each statement has a facet (architecture, security and
+reliability, backend/API, frontend, measured outcome, ownership, leadership, generic development). Distinctive facets
+weigh more; a second bullet of a generic facet (another "owned it", "built it in TypeScript") weighs much less; facts of
+one project and kind that overlap share one bullet (at most three facts per bullet); a statement that restates one already
+chosen is skipped; role-scope descriptions (narrative facts) never become bullets. The profile score only breaks ties,
+because on a small market sample it mostly reflects keyword counts. The user's project order, pins and exclusions decide
+priority: their top few employment projects (`priority_projects`) are protected, first by swapping out a weaker bullet
+and only then by a bounded extra allowance (`coverage_extra_bullets`, at most one per role). Other projects compete on
+their merits and may be absent: the profile is an evidence pool, not a checklist. The trace records the facet of every
+bullet and the reason each omitted fact was left out.

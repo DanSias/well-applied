@@ -346,7 +346,7 @@ it('composes a job-independent resume through the existing validators, without p
     $cited = $variant->experienceRoles->flatMap(fn ($r) => $r->bullets->flatMap(fn ($b) => $b->citations->map(fn ($c) => $c->careerFact->key)))->all();
 
     expect($variant->job_match_id)->toBeNull()->and($variant->resume_profile_synthesis_id)->toBe($synthesis->id)
-        ->and($variant->selection_prompt_version)->toBe('reference-selection-v1')->and($variant->wording_prompt_version)->toBe('resume-wording-reference-v1')
+        ->and($variant->selection_prompt_version)->toBe('reference-selection-v2')->and($variant->wording_prompt_version)->toBe('resume-wording-reference-v1')
         ->and($variant->selection_generated_by)->toBe('deterministic:profile-v1')
         // Every role that has evidence appears; the whole-career fact and the Private fact are in no bullet.
         ->and($variant->experienceRoles)->toHaveCount(2)->and($cited)->not->toContain('personal-docker', 'private-secret', 'first-person')
