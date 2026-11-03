@@ -102,6 +102,23 @@ final class QuestionEnrichment
     }
 
     /**
+     * What the "Improve interview questions" action would do now, without calling anything.
+     *
+     * @return array{open: int, current: int, pending: int, last_at: string|null, model: string|null}
+     */
+    public function status(ResumeProfile $profile): array
+    {
+        $open = $profile->interviewSessions()->latest('id')->first()?->questions()->where('status', 'open')->get() ?? collect();
+        $current = $open->filter(fn (ClarificationQuestion $q) => ($q->context['enrichment']['fingerprint'] ?? null) === $this->fingerprint($profile, $q));
+        $latest = $current->sortByDesc(fn (ClarificationQuestion $q) => $q->context['enrichment']['at'] ?? '')->first();
+
+        return [
+            'open' => $open->count(), 'current' => $current->count(), 'pending' => $open->count() - $current->count(),
+            'last_at' => $latest?->context['enrichment']['at'] ?? null, 'model' => $latest?->context['enrichment']['model'] ?? null,
+        ];
+    }
+
+    /**
      * The wording to show: the enriched text while it is still current, else the deterministic one.
      */
     public function display(ResumeProfile $profile, ClarificationQuestion $question): string

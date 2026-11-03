@@ -3,9 +3,12 @@
 namespace App\Support\ResumeProfile;
 
 use App\Enums\MarketSampleStatus;
+use App\Enums\ProposalStatus;
 use App\Enums\ResponsibilityScope;
+use App\Jobs\EnrichResumeProfileQuestionsJob;
 use App\Models\CareerLimitation;
 use App\Models\ClarificationQuestion;
+use App\Models\EvidenceProposal;
 use App\Models\MarketSample;
 use App\Models\MarketSamplePosting;
 use App\Models\PresentationPreference;
@@ -13,6 +16,7 @@ use App\Models\ResumeProfile;
 use App\Support\Clarification\PresentApprovedEvidence;
 use App\Support\Clarification\PresentClarification;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Everything the Resume Profile page needs, derived from the database on
@@ -79,6 +83,8 @@ final class PresentResumeProfile
                 'progress' => $progress,
                 'session_id' => $session?->id,
                 'questions' => $session === null ? [] : $this->questions($profile, $session->questions()->get()),
+                'enrichment' => $this->enrichmentState($profile),
+                'answers' => $session === null ? [] : $this->answers($profile, $session->questions()->get()),
                 'attribution_options' => $this->clarification->attributionOptions($profile->career_profile_id),
                 'scopes' => collect(ResponsibilityScope::cases())->reject(fn (ResponsibilityScope $s) => $s === ResponsibilityScope::NoExperience)
                     ->map(fn (ResponsibilityScope $s) => ['value' => $s->value, 'label' => $s->label()])->values()->all(),
@@ -89,6 +95,68 @@ final class PresentResumeProfile
             ],
             'contributed' => $this->approved->presentProposals($profile->career_profile_id, $this->interview->contributedProposals($profile)),
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function enrichmentState(ResumeProfile $profile): array
+    {
+        return [
+            ...$this->enrichment->status($profile),
+            'available' => (string) config('services.ollama.base_url') !== '',
+            'running' => Cache::has(EnrichResumeProfileQuestionsJob::lockKey($profile->id)),
+        ];
+    }
+
+    /**
+     * Every answered question with what it produced, for review: the original answer, the
+     * proposed fact, its scope, attribution, visibility and approval status, and a hint when the
+     * answer may hold several claims.
+     *
+     * @param  Collection<int, ClarificationQuestion>  $questions
+     * @return array<int, array<string, mixed>>
+     */
+    private function answers(ResumeProfile $profile, $questions): array
+    {
+        $options = collect($this->clarification->attributionOptions($profile->career_profile_id));
+        $names = $options->flatMap(function (array $o) {
+            $label = $o['label'];
+            $owner = trim(explode(':', $label, 2)[0]);
+            $project = preg_match('/:\s*(.+?)\s*\(project\)$/', $label, $m) === 1 ? $m[1] : null;
+
+            return array_filter([$owner, $project]);
+        })->unique()->values()->all();
+        $out = [];
+
+        foreach ($questions as $question) {
+            $answer = $question->answers()->latest('id')->first();
+
+            if ($answer === null) {
+                continue;
+            }
+
+            $proposal = EvidenceProposal::query()->where('clarification_answer_id', $answer->id)->where('status', '!=', ProposalStatus::Superseded)->with('careerFact')->latest('id')->first();
+            $labels = collect(ResponsibilityScope::cases())->mapWithKeys(fn (ResponsibilityScope $s) => [$s->value => $s->label()]);
+
+            $out[] = [
+                'question_id' => $question->id,
+                'topic' => $question->topic_label,
+                'kind' => $question->context['kind'] ?? null,
+                'asked' => $question->question_text,
+                'answer' => ['text' => $answer->answer_text, 'mode' => $answer->mode, 'at' => $answer->created_at?->toIso8601String(), 'scopes' => array_map(fn (string $s) => $labels[$s] ?? $s, (array) $answer->scopes)],
+                'proposal' => $proposal === null ? null : [
+                    'id' => $proposal->id, 'kind' => $proposal->kind->value, 'status' => $proposal->status->value, 'statement' => $proposal->statement,
+                    'scopes' => array_map(fn (string $s) => $labels[$s] ?? $s, (array) $proposal->scopes),
+                    'attribution' => $options->first(fn (array $o) => $o['type'] === $proposal->attributable_type && $o['id'] === $proposal->attributable_id)['label'] ?? null,
+                    'visibility' => $proposal->visibility->value, 'verification' => $proposal->verification->value,
+                    'fact_key' => $proposal->careerFact?->key, 'revision' => $proposal->revision,
+                ],
+                'separate_claims' => $answer->mode === 'experience' ? ClaimSeparationHint::check($answer->answer_text, $names, (array) $answer->scopes) : ['likely' => false, 'reasons' => []],
+            ];
+        }
+
+        return $out;
     }
 
     private function isBuilding(ResumeProfile $profile): bool
@@ -202,6 +270,7 @@ final class PresentResumeProfile
             // The model-phrased text while it is current; otherwise the deterministic wording.
             'text' => $this->enrichment->display($profile, $q),
             'enriched' => $this->enrichment->display($profile, $q) !== $q->question_text,
+            'original_text' => $q->question_text,
             'group' => intdiv($i, $size) + 1,
         ])->all();
     }

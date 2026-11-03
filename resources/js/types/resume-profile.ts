@@ -91,7 +91,47 @@ export type ProfileSample = {
     }[];
 };
 
-export type InterviewQuestion = ClarificationQuestion & { group: number };
+export type InterviewQuestion = ClarificationQuestion & {
+    group: number;
+    enriched: boolean;
+    original_text: string;
+};
+
+export type InterviewAnswer = {
+    question_id: number;
+    topic: string;
+    kind: 'discovery' | 'deepening' | null;
+    asked: string;
+    answer: {
+        text: string;
+        mode: string;
+        at: string | null;
+        scopes: string[];
+    };
+    proposal: {
+        id: number;
+        kind: 'fact' | 'limitation' | 'preference';
+        status: 'proposed' | 'approved' | 'rejected' | 'superseded';
+        statement: string;
+        scopes: string[];
+        attribution: string | null;
+        visibility: 'public' | 'restricted' | 'private';
+        verification: string;
+        fact_key: string | null;
+        revision: number;
+    } | null;
+    separate_claims: { likely: boolean; reasons: string[] };
+};
+
+export type QuestionEnrichmentState = {
+    open: number;
+    current: number;
+    pending: number;
+    last_at: string | null;
+    model: string | null;
+    available: boolean;
+    running: boolean;
+};
 
 export type ProfileInterviewState = {
     progress: {
@@ -111,6 +151,8 @@ export type ProfileInterviewState = {
     };
     session_id: number | null;
     questions: InterviewQuestion[];
+    enrichment: QuestionEnrichmentState;
+    answers: InterviewAnswer[];
     attribution_options: ClarificationAttributionOption[];
     scopes: ClarificationScope[];
     limitations: Clarification['limitations'];

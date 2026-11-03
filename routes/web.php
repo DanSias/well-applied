@@ -52,6 +52,7 @@ Route::delete('/career-limitations/{careerLimitation}', [ClarificationController
 Route::get('/resume-profiles', [ResumeProfileController::class, 'index'])->name('resume-profiles.index');
 Route::get('/resume-profiles/{resumeProfile}', [ResumeProfileController::class, 'show'])->name('resume-profiles.show');
 Route::post('/resume-profiles/{resumeProfile}/build', [ResumeProfileController::class, 'build'])->name('resume-profiles.build');
+Route::post('/resume-profiles/{resumeProfile}/improve-questions', [ResumeProfileController::class, 'enrichQuestions'])->name('resume-profiles.improve-questions');
 Route::post('/resume-profiles/{resumeProfile}/refresh', [ResumeProfileController::class, 'refresh'])->name('resume-profiles.refresh');
 Route::post('/resume-profiles/{resumeProfile}/postings/{posting}/exclude', [ResumeProfileController::class, 'excludePosting'])->name('resume-profiles.postings.exclude');
 Route::post('/resume-profiles/{resumeProfile}/postings/{posting}/restore', [ResumeProfileController::class, 'restorePosting'])->name('resume-profiles.postings.restore');

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Jobs\BuildResumeProfileJob;
+use App\Jobs\EnrichResumeProfileQuestionsJob;
 use App\Models\ClarificationQuestion;
 use App\Models\MarketSamplePosting;
 use App\Models\ResumeProfile;
@@ -11,9 +12,11 @@ use App\Support\CurrentCareerProfile;
 use App\Support\ResumeProfile\PresentResumeProfile;
 use App\Support\ResumeProfile\ProfileDefinitions;
 use App\Support\ResumeProfile\ProfileInterview;
+use App\Support\ResumeProfile\QuestionEnrichment;
 use App\Support\ResumeProfile\SampleReview;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -107,6 +110,22 @@ class ResumeProfileController extends Controller
     {
         $this->ownQuestion($resumeProfile, $question);
         $interview->reopen($question);
+
+        return back();
+    }
+
+    /**
+     * "Improve interview questions": user-started, one batched model call in the background.
+     */
+    public function enrichQuestions(ResumeProfile $resumeProfile, QuestionEnrichment $enrichment): RedirectResponse
+    {
+        $this->own($resumeProfile);
+
+        $lock = EnrichResumeProfileQuestionsJob::lockKey($resumeProfile->id);
+
+        if ($enrichment->status($resumeProfile)['pending'] > 0 && Cache::add($lock, true, now()->addMinutes(12))) {
+            EnrichResumeProfileQuestionsJob::dispatch($resumeProfile->id);
+        }
 
         return back();
     }

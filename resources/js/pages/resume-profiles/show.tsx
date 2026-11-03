@@ -4,7 +4,14 @@ import { ApprovedEvidencePanel } from '@/components/approved-evidence-panel';
 import { QuestionCard } from '@/components/clarification-panel';
 import type { QuestionRoutes } from '@/components/clarification-panel';
 import AppShell from '@/layouts/app-shell';
-import { answer, build, index, reopen, skip } from '@/routes/resume-profiles';
+import {
+    answer,
+    build,
+    improveQuestions,
+    index,
+    reopen,
+    skip,
+} from '@/routes/resume-profiles';
 import {
     exclude as excludePosting,
     restore as restorePosting,
@@ -12,6 +19,7 @@ import {
 import type {
     CoverageStatus,
     MarketGroup,
+    InterviewAnswer,
     ResumeProfilePage,
     SamplePosting,
 } from '@/types/resume-profile';
@@ -361,9 +369,188 @@ function SampleReview({ page }: { page: ResumeProfilePage }) {
     );
 }
 
+function WordingPanel({
+    slug,
+    state,
+    original,
+    onOriginal,
+}: {
+    slug: string;
+    state: ResumeProfilePage['interview']['enrichment'];
+    original: boolean;
+    onOriginal: (value: boolean) => void;
+}) {
+    const [busy, setBusy] = useState(false);
+    const running = state.running;
+
+    const improve = () => {
+        setBusy(true);
+        router.post(
+            improveQuestions.url(slug),
+            {},
+            { preserveScroll: true, onFinish: () => setBusy(false) },
+        );
+    };
+
+    return (
+        <div className="mt-3 flex flex-wrap items-center gap-3 rounded-md bg-neutral-50 p-3 text-xs text-neutral-700 dark:bg-neutral-950 dark:text-neutral-300">
+            <span>
+                {state.current > 0
+                    ? `${state.current} of ${state.open} open questions use improved wording${state.model ? ` (${state.model}${state.last_at ? `, ${state.last_at.slice(0, 10)}` : ''})` : ''}.`
+                    : 'Questions use the standard wording.'}
+                {state.pending > 0 &&
+                    state.current > 0 &&
+                    ` ${state.pending} changed since and use the standard wording.`}
+            </span>
+            <button
+                type="button"
+                className={secondary}
+                disabled={
+                    busy || running || state.pending === 0 || !state.available
+                }
+                onClick={improve}
+                title={
+                    state.available
+                        ? 'Rewrites the open questions with your local model, once. Nothing runs automatically.'
+                        : 'No local model is configured (OLLAMA_BASE_URL).'
+                }
+            >
+                {running
+                    ? 'Improving questions...'
+                    : state.pending === 0 && state.current > 0
+                      ? 'Questions improved'
+                      : 'Improve interview questions'}
+            </button>
+            {state.current > 0 && (
+                <label className="flex items-center gap-1.5">
+                    <input
+                        type="checkbox"
+                        checked={original}
+                        onChange={(e) => onOriginal(e.target.checked)}
+                    />
+                    Show the standard wording
+                </label>
+            )}
+        </div>
+    );
+}
+
+function AnswerReview({ item }: { item: InterviewAnswer }) {
+    const p = item.proposal;
+    const status = !p
+        ? 'No proposal'
+        : p.status === 'approved'
+          ? p.kind === 'fact'
+              ? `Approved as a career fact (${p.fact_key})`
+              : p.kind === 'limitation'
+                ? 'Approved as a known limitation'
+                : 'Approved as presentation guidance'
+          : p.status === 'rejected'
+            ? 'Rejected, nothing was saved'
+            : 'Waiting for your approval';
+
+    return (
+        <li className="rounded-md border border-neutral-200 p-3 text-sm dark:border-neutral-800">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <p className="font-medium">{item.topic}</p>
+                <span
+                    className={`rounded px-2 py-0.5 text-xs ${
+                        p?.status === 'approved'
+                            ? 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200'
+                            : p?.status === 'proposed'
+                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200'
+                              : 'bg-neutral-200 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300'
+                    }`}
+                >
+                    {status}
+                </span>
+            </div>
+
+            <p className="mt-2 text-xs font-medium text-neutral-500">
+                Your original answer
+            </p>
+            <p className="mt-0.5 whitespace-pre-wrap">
+                &ldquo;{item.answer.text}&rdquo;
+            </p>
+            {item.answer.scopes.length > 0 && (
+                <p className="mt-1 text-xs text-neutral-500">
+                    You said: {item.answer.scopes.join('; ')}
+                </p>
+            )}
+
+            {p && p.kind === 'fact' && (
+                <dl className="mt-2 grid gap-x-4 gap-y-1 text-xs sm:grid-cols-[8rem_1fr]">
+                    <dt className="text-neutral-500">Proposed fact</dt>
+                    <dd>{p.statement}</dd>
+                    <dt className="text-neutral-500">Scope</dt>
+                    <dd>{p.scopes.join('; ') || 'None selected'}</dd>
+                    <dt className="text-neutral-500">Attributed to</dt>
+                    <dd>{p.attribution ?? 'Not chosen yet'}</dd>
+                    <dt className="text-neutral-500">Visibility</dt>
+                    <dd>{p.visibility}</dd>
+                    <dt className="text-neutral-500">Verification</dt>
+                    <dd>{p.verification.replaceAll('_', ' ')}</dd>
+                </dl>
+            )}
+
+            {item.separate_claims.likely && (
+                <div className="mt-2 rounded bg-amber-50 p-2 text-xs text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+                    <p className="font-medium">
+                        This answer may contain more than one claim.
+                    </p>
+                    <ul className="mt-1 list-disc pl-4">
+                        {item.separate_claims.reasons.map((r) => (
+                            <li key={r}>{r}</li>
+                        ))}
+                    </ul>
+                    <p className="mt-1">
+                        Each fact has one scope, one employer or project and one
+                        visibility. If these are separate accomplishments, edit
+                        the proposed statement to cover just one before
+                        approving. Your full answer stays on record.
+                    </p>
+                </div>
+            )}
+
+            <details className="mt-2 text-xs text-neutral-500">
+                <summary className="cursor-pointer">Question asked</summary>
+                <p className="mt-1">{item.asked}</p>
+            </details>
+        </li>
+    );
+}
+
+function AnswersReview({ page }: { page: ResumeProfilePage }) {
+    const answers = page.interview.answers;
+
+    if (answers.length === 0) {
+        return null;
+    }
+
+    const waiting = answers.filter(
+        (a) => a.proposal?.status === 'proposed',
+    ).length;
+
+    return (
+        <section className="mt-8">
+            <h2 className="text-base font-semibold">Your answers so far</h2>
+            <p className="mt-1 text-xs text-neutral-500">
+                {answers.length} answered, {waiting} waiting for your approval.
+                Nothing becomes a career fact until you approve it.
+            </p>
+            <ul className="mt-3 space-y-3">
+                {answers.map((item) => (
+                    <AnswerReview key={item.question_id} item={item} />
+                ))}
+            </ul>
+        </section>
+    );
+}
+
 function Interview({ page }: { page: ResumeProfilePage }) {
     const { interview } = page;
     const slug = page.profile.slug;
+    const [original, setOriginal] = useState(false);
     const [group, setGroup] = useState<number | null>(
         interview.progress.current_group ??
             (interview.progress.groups.length > 0 ? 1 : null),
@@ -410,6 +597,13 @@ function Interview({ page }: { page: ResumeProfilePage }) {
                 . You can stop at any point and pick up here later.
             </p>
 
+            <WordingPanel
+                slug={slug}
+                state={interview.enrichment}
+                original={original}
+                onOriginal={setOriginal}
+            />
+
             <div className="mt-3 flex flex-wrap gap-2">
                 {progress.groups.map((g) => (
                     <button
@@ -430,7 +624,9 @@ function Interview({ page }: { page: ResumeProfilePage }) {
                         <QuestionCard
                             key={q.id}
                             routes={routes}
-                            question={q}
+                            question={
+                                original ? { ...q, text: q.original_text } : q
+                            }
                             clarification={clarification}
                         />
                     ))}
@@ -446,10 +642,11 @@ export default function ResumeProfileShow({
 }) {
     const [busy, setBusy] = useState(false);
     const building = page.build.state === 'building';
+    const polling = building || page.interview.enrichment.running;
 
     // While the study runs on the queue, refresh quietly until it finishes.
     useEffect(() => {
-        if (!building) {
+        if (!polling) {
             return;
         }
 
@@ -459,7 +656,7 @@ export default function ResumeProfileShow({
         );
 
         return () => window.clearInterval(timer);
-    }, [building]);
+    }, [polling]);
 
     const start = (pilot: boolean) => {
         setBusy(true);
@@ -602,6 +799,8 @@ export default function ResumeProfileShow({
                     <Interview page={page} />
                 </section>
             )}
+
+            <AnswersReview page={page} />
 
             {page.contributed.facts.length > 0 && (
                 <div className="mt-8">
