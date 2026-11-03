@@ -15,6 +15,7 @@ use App\Models\PresentationPreference;
 use App\Models\ResumeProfile;
 use App\Support\Clarification\PresentApprovedEvidence;
 use App\Support\Clarification\PresentClarification;
+use App\Support\Expansion\PresentExpansion;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 
@@ -53,6 +54,7 @@ final class PresentResumeProfile
         private readonly PresentClarification $clarification,
         private readonly PresentApprovedEvidence $approved,
         private readonly QuestionEnrichment $enrichment,
+        private readonly PresentExpansion $expansion,
     ) {}
 
     /**
@@ -136,7 +138,7 @@ final class PresentResumeProfile
                 continue;
             }
 
-            $proposal = EvidenceProposal::query()->where('clarification_answer_id', $answer->id)->where('status', '!=', ProposalStatus::Superseded)->with('careerFact')->latest('id')->first();
+            $proposal = EvidenceProposal::query()->where('clarification_answer_id', $answer->id)->whereNull('expansion_id')->where('status', '!=', ProposalStatus::Superseded)->with('careerFact')->latest('id')->first();
             $labels = collect(ResponsibilityScope::cases())->mapWithKeys(fn (ResponsibilityScope $s) => [$s->value => $s->label()]);
 
             $out[] = [
@@ -152,6 +154,8 @@ final class PresentResumeProfile
                     'visibility' => $proposal->visibility->value, 'verification' => $proposal->verification->value,
                     'fact_key' => $proposal->careerFact?->key, 'revision' => $proposal->revision,
                 ],
+                'answer_id' => $answer->id,
+                'expansion' => $this->expansion->present($answer, $options->all()),
                 'separate_claims' => $answer->mode === 'experience' ? ClaimSeparationHint::check($answer->answer_text, $names, (array) $answer->scopes) : ['likely' => false, 'reasons' => []],
             ];
         }

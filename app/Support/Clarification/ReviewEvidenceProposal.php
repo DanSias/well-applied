@@ -270,6 +270,7 @@ final class ReviewEvidenceProposal
                 'topic_key' => $proposal->topic_key,
                 'scopes' => $proposal->scopes,
                 'revision' => (int) ($proposal->revision ?? 1),
+                ...array_filter(['claim_group' => $proposal->claim_group, 'source_quote' => $proposal->source_quote, 'expansion_id' => $proposal->expansion_id], fn ($v) => $v !== null),
                 'proposal_id' => $proposal->id,
                 'clarification_answer_id' => $proposal->clarification_answer_id,
                 'job_posting_id' => $proposal->job_posting_id,

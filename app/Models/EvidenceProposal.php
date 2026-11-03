@@ -23,6 +23,11 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $career_profile_id
  * @property int|null $clarification_answer_id
+ * @property int|null $expansion_id
+ * @property string|null $claim_group
+ * @property string|null $source_quote
+ * @property string|null $confidence
+ * @property string|null $rationale
  * @property int|null $job_posting_id
  * @property int|null $job_analysis_finding_id
  * @property ProposalKind $kind
@@ -45,7 +50,7 @@ use Illuminate\Support\Carbon;
  * @property-read ClarificationAnswer|null $answer
  */
 #[Fillable([
-    'career_profile_id', 'clarification_answer_id', 'job_posting_id', 'job_analysis_finding_id', 'kind', 'status',
+    'career_profile_id', 'clarification_answer_id', 'expansion_id', 'claim_group', 'source_quote', 'confidence', 'rationale', 'job_posting_id', 'job_analysis_finding_id', 'kind', 'status',
     'topic_key', 'topic_label', 'statement', 'scopes', 'attributable_type', 'attributable_id', 'visibility',
     'revision', 'revises_proposal_id', 'verification', 'career_fact_id', 'career_limitation_id', 'presentation_preference_id', 'history', 'decided_at',
 ])]
@@ -70,6 +75,11 @@ class EvidenceProposal extends Model
     public function answer(): BelongsTo
     {
         return $this->belongsTo(ClarificationAnswer::class, 'clarification_answer_id');
+    }
+
+    public function careerProfileModel(): CareerProfile
+    {
+        return CareerProfile::query()->findOrFail($this->career_profile_id);
     }
 
     /**

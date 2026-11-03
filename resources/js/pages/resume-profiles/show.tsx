@@ -2,6 +2,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import { ApprovedEvidencePanel } from '@/components/approved-evidence-panel';
 import { QuestionCard } from '@/components/clarification-panel';
+import { ClaimExpansion } from '@/components/claim-expansion';
 import type { QuestionRoutes } from '@/components/clarification-panel';
 import AppShell from '@/layouts/app-shell';
 import {
@@ -435,7 +436,13 @@ function WordingPanel({
     );
 }
 
-function AnswerReview({ item }: { item: InterviewAnswer }) {
+function AnswerReview({
+    item,
+    page,
+}: {
+    item: InterviewAnswer;
+    page: ResumeProfilePage;
+}) {
     const p = item.proposal;
     const status = !p
         ? 'No proposal'
@@ -512,6 +519,13 @@ function AnswerReview({ item }: { item: InterviewAnswer }) {
                 </div>
             )}
 
+            <ClaimExpansion
+                answerId={item.answer_id}
+                expansion={item.expansion}
+                options={page.interview.attribution_options}
+                scopes={page.interview.scopes}
+            />
+
             <details className="mt-2 text-xs text-neutral-500">
                 <summary className="cursor-pointer">Question asked</summary>
                 <p className="mt-1">{item.asked}</p>
@@ -540,7 +554,11 @@ function AnswersReview({ page }: { page: ResumeProfilePage }) {
             </p>
             <ul className="mt-3 space-y-3">
                 {answers.map((item) => (
-                    <AnswerReview key={item.question_id} item={item} />
+                    <AnswerReview
+                        key={item.question_id}
+                        item={item}
+                        page={page}
+                    />
                 ))}
             </ul>
         </section>
@@ -642,7 +660,10 @@ export default function ResumeProfileShow({
 }) {
     const [busy, setBusy] = useState(false);
     const building = page.build.state === 'building';
-    const polling = building || page.interview.enrichment.running;
+    const polling =
+        building ||
+        page.interview.enrichment.running ||
+        page.interview.answers.some((a) => a.expansion.state === 'running');
 
     // While the study runs on the queue, refresh quietly until it finishes.
     useEffect(() => {

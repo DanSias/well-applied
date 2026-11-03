@@ -107,6 +107,35 @@ asserted experience, no plain yes/no for deepening). Cached by a fingerprint of 
 sample and question; a failed call or rejected text falls back to the deterministic wording; a page
 load never calls a model. Latency and token usage are recorded on each question.
 
+## Evidence expansion (one answer, several facts)
+
+An optional, user-triggered step on each answered question ("Expand into separate facts"; `evidence:expand`).
+`ExpandAnswerClaims` sends the existing local model (through `QuestionWriter`) the verbatim answer, the
+question and the projects it named, the user's real roles and projects as the only allowed attribution targets,
+and short eligible facts already on them (Private evidence and Private projects are excluded). The bounded
+schema returns up to 8 claims (capability, statement, 1-5 attributions, scopes, verbatim source quote, confidence,
+rationale) and at most 2 follow-up questions.
+
+Every claim is validated against the answer before it becomes anything: targets must be ones it was given; the
+source quote must appear verbatim; scopes must be a subset of those the user ticked; numbers, outcome and metric
+language and scale or breadth qualifiers must come from the answer; a technology named must be in the answer or the
+place's facts; implementation or ownership verbs pass the same `ScopeGuard` as approval; repeats are dropped. A dropped
+claim is listed with its reason. Strong phrasing and reasonable inference are allowed, invention is not.
+
+A claim becomes `EvidenceProposal`s in the normal `proposed` state: one per place, sharing a `claim_group`, each with
+`expansion_id`, `source_quote`, confidence, rationale and the original answer. A claim spanning several projects is
+therefore several reviewable facts, and a claim covering an employer's projects can be attributed to its role. Nothing is
+approved and no existing fact is changed. Results are cached by a fingerprint of the prompt version, the answer, the
+evidence revision and the attribution context; re-reading replaces only the earlier run's undecided claims. If the model
+fails, the answer's original single proposal is untouched and remains the fallback.
+
+Review (`ExpandedClaims`, per proposal through `ReviewEvidenceProposal`): edit wording and scope, add or remove places,
+approve (explicit visibility required, one fact per place, all-or-nothing in a transaction), reject, or merge a claim into
+another. Each place shows how it relates to what is recorded (`ExpansionDuplicates`): `same_topic` (approving requires an
+explicit replace, which revises the earlier fact and keeps its history) or `near_duplicate`. Approved facts carry
+`claim_group` and `source_quote` in their evidence metadata, and `quoted_text` stays the full original answer.
+A suggested follow-up becomes an interview question only when the user clicks "Ask this".
+
 ## Not in this phase
 
 Profile-assisted generation, wording reuse, multiple profile families, pagination beyond each

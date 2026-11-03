@@ -54,6 +54,11 @@ final class ProfileInterview
 
         // Resolve what the record now covers, without touching anything answered.
         foreach ($session->questions()->where('status', 'open')->get() as $question) {
+            // A follow-up the user asked for stays until it is answered or skipped.
+            if (($question->context['source'] ?? null) === 'followup') {
+                continue;
+            }
+
             $status = $coverage['capabilities'][$question->topic_key]['status'] ?? null;
 
             if (in_array($status, [CapabilityCoverage::DIRECT, CapabilityCoverage::LIMITATION], true) || $this->hasApprovedEvidence($profile, $question->topic_key)) {
@@ -71,6 +76,10 @@ final class ProfileInterview
         // An unanswered question always reflects the CURRENT sample and record: refreshed
         // in place (position kept), or retired when the market no longer makes it a priority.
         foreach ($session->questions()->where('status', 'open')->get() as $question) {
+            if (($question->context['source'] ?? null) === 'followup') {
+                continue;
+            }
+
             $candidate = $byKey[$question->topic_key] ?? null;
 
             if ($candidate === null) {

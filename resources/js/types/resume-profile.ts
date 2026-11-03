@@ -99,6 +99,8 @@ export type InterviewQuestion = ClarificationQuestion & {
 
 export type InterviewAnswer = {
     question_id: number;
+    answer_id: number;
+    expansion: AnswerExpansion;
     topic: string;
     kind: 'discovery' | 'deepening' | null;
     asked: string;
@@ -181,4 +183,58 @@ export type ResumeProfilePage = {
     };
     interview: ProfileInterviewState;
     contributed: ApprovedEvidence;
+};
+
+export type ClaimMember = {
+    id: number;
+    status: 'proposed' | 'approved' | 'rejected';
+    target: string;
+    attribution: string | null;
+    visibility: 'public' | 'restricted' | 'private';
+    fact_key: string | null;
+    revision: number;
+    existing: {
+        relation: 'same_topic' | 'near_duplicate';
+        fact_key: string;
+        statement: string;
+    } | null;
+};
+
+export type ExpandedClaim = {
+    group: string;
+    capability: string;
+    capability_label: string;
+    statement: string;
+    scopes: string[];
+    scope_labels: string[];
+    source_quote: string | null;
+    confidence: 'high' | 'medium' | 'low' | null;
+    rationale: string | null;
+    verification: string;
+    pending: boolean;
+    members: ClaimMember[];
+};
+
+export type AnswerExpansion = {
+    state: 'none' | 'running' | 'ready' | 'failed';
+    can_expand: boolean;
+    expansion_id?: number;
+    failure?: string | null;
+    model?: string | null;
+    latency_ms?: number | null;
+    usage?: {
+        input_tokens: number | null;
+        output_tokens: number | null;
+    } | null;
+    at?: string | null;
+    stale?: boolean;
+    claims?: ExpandedClaim[];
+    dropped?: { statement: string; reason: string }[];
+    followups?: {
+        index: number;
+        capability: string;
+        question: string;
+        asked_question_id: number | null;
+        asked_status: string | null;
+    }[];
 };

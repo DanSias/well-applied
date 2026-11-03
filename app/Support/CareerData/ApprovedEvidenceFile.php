@@ -189,7 +189,7 @@ final class ApprovedEvidenceFile
                 'confirmed_at' => $e->confirmed_at?->toIso8601String(),
                 'note' => $e->note,
                 // Database ids are not portable; keep only the stable keys.
-                'metadata' => array_intersect_key($e->metadata ?? [], array_flip(['origin', 'topic_key', 'scopes', 'revision'])),
+                'metadata' => array_intersect_key($e->metadata ?? [], array_flip(['origin', 'topic_key', 'scopes', 'revision', 'claim_group', 'source_quote'])),
             ])->values()->all(),
             'content_hash' => $this->factHash($fact),
         ];

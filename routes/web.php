@@ -5,6 +5,7 @@ use App\Http\Controllers\ApplicationInspectionStatusController;
 use App\Http\Controllers\BrowserWorkerStatusController;
 use App\Http\Controllers\CareerDataController;
 use App\Http\Controllers\ClarificationController;
+use App\Http\Controllers\EvidenceExpansionController;
 use App\Http\Controllers\GenerationAttemptController;
 use App\Http\Controllers\JobAnalysisController;
 use App\Http\Controllers\JobBatchController;
@@ -59,6 +60,14 @@ Route::post('/resume-profiles/{resumeProfile}/postings/{posting}/restore', [Resu
 Route::post('/resume-profiles/{resumeProfile}/questions/{question}/answer', [ResumeProfileController::class, 'answer'])->name('resume-profiles.answer');
 Route::post('/resume-profiles/{resumeProfile}/questions/{question}/skip', [ResumeProfileController::class, 'skip'])->name('resume-profiles.skip');
 Route::post('/resume-profiles/{resumeProfile}/questions/{question}/reopen', [ResumeProfileController::class, 'reopen'])->name('resume-profiles.reopen');
+
+// Optional expansion of one answer into separate, individually reviewable claims.
+Route::post('/clarification-answers/{answer}/expand', [EvidenceExpansionController::class, 'expand'])->name('answers.expand');
+Route::patch('/claim-groups/{group}', [EvidenceExpansionController::class, 'update'])->name('claim-groups.update');
+Route::post('/claim-groups/{group}/approve', [EvidenceExpansionController::class, 'approve'])->name('claim-groups.approve');
+Route::post('/claim-groups/{group}/reject', [EvidenceExpansionController::class, 'reject'])->name('claim-groups.reject');
+Route::post('/claim-groups/{group}/merge', [EvidenceExpansionController::class, 'merge'])->name('claim-groups.merge');
+Route::post('/expansions/{expansion}/followups/{index}/ask', [EvidenceExpansionController::class, 'askFollowup'])->whereNumber('index')->name('expansions.followups.ask');
 
 // Phase E3 batch actions (Opportunity Triage): human-initiated, backend-only
 // analyze/match over an explicitly selected set of job postings by id. Both
