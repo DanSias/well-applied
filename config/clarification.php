@@ -104,11 +104,13 @@ return [
             'label' => 'Ruby on Rails',
             'patterns' => ['/\b(ruby on rails|rails)\b/i', '/\bruby\b/i'],
             'terms' => ['Ruby on Rails', 'Rails', 'Ruby'],
+            'named' => true,
         ],
         'financial_aggregation' => [
             'label' => 'Financial-account aggregation',
             'patterns' => ['/\b(plaid|finicity|yodlee)\b/i', '/\baccount aggregation\b/i'],
             'terms' => ['Plaid', 'Finicity', 'Yodlee'],
+            'named' => true,
         ],
         'payment_gateways' => [
             'label' => 'Payment gateways and processors',
@@ -140,6 +142,9 @@ return [
     ],
 
     /*
+     | Claim scope (generation time; see ClaimScopeChecker). A topic marked
+     | `named` is a specific technology: naming it without cited evidence blocks.
+     |
      | Claim scope (generation time). After Wording, each sentence is read for
      | "<action> ... <topic>" claims, e.g. "troubleshooting ... webhook". The
      | nearest classified action before a topic mention governs it. `verbs`

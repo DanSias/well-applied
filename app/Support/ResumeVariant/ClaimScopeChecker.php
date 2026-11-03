@@ -5,21 +5,22 @@ namespace App\Support\ResumeVariant;
 /**
  * Claim-level scope validation for generated resume text.
  *
- * Wording may merge several cited facts into one sentence. Each fact can be
- * individually true while the merged sentence says more than any of them:
- * "worked with webhooks" plus "troubleshot integration issues" is not
- * "troubleshot webhooks". This reads every "<action> ... <topic>" claim in a
- * sentence and asks whether a cited fact about THAT topic establishes THAT
- * kind of action (implementation, integration, configuration,
- * troubleshooting, advising, support).
+ * Goal: confident, interview-defensible wording, not literal transcription.
+ * Scope labels are evidence, not verb permissions, and the CITED evidence is
+ * judged together. Only claims that could not be defended in an interview are
+ * flagged. For each "<action> ... <topic>" claim:
  *
- *  - supported by a fact on the topic: no finding;
- *  - the action only appears in a cited fact that does not mention the
- *    topic, or is not established by anything: `review` (ships, flagged,
- *    with the exact claim and why);
- *  - implementation or ownership that the evidence rules out, either because
- *    the user's declared scopes exclude it or because nothing cited supports
- *    it: `block` (recovery omits the bullet, as for any other block).
+ *  - hands-on actions (integrating, configuring, troubleshooting, advising,
+ *    supporting) on a topic that the cited evidence covers: pass. Related facts
+ *    together can support them; this is ordinary synthesis;
+ *  - ownership (led, owned, managed) or implementation (built, architected)
+ *    that the topic's evidence does not establish: `review` when it is
+ *    genuinely uncertain, `block` when the user's own declared scope excludes
+ *    building it and nothing else backs it;
+ *  - a topic that no cited fact mentions: a named technology (marked `named`
+ *    in config) is `block`; a strong claim with nothing supporting it is
+ *    `block`, with some support elsewhere `review`; a hands-on claim is left
+ *    to the other checks.
  *
  * Deterministic; no model call. Vocabulary lives in config/clarification.php.
  */
@@ -41,10 +42,6 @@ final class ClaimScopeChecker
         foreach (preg_split('/(?<=[.;:])\s+/u', $text) ?: [] as $clause) {
             $verbHits = $this->hits($clause, $verbs);
 
-            if ($verbHits === []) {
-                continue;
-            }
-
             foreach ($topics as $topicKey => $topic) {
                 foreach ($this->hits($clause, ['t' => $topic['patterns']]) as $mention) {
                     $governing = null;
@@ -55,10 +52,12 @@ final class ClaimScopeChecker
                         }
                     }
 
-                    if ($governing === null) {
+                    // A named technology is checked even without an action verb ("Worked with Rails").
+                    if ($governing === null && ! $topic['named']) {
                         continue;
                     }
 
+                    $governing ??= ['class' => 'support', 'offset' => $mention['offset'], 'length' => 0];
                     $excerpt = trim(mb_strcut($clause, $governing['offset'], $mention['offset'] + $mention['length'] - $governing['offset']));
                     $dedupe = $governing['offset'].'|'.$topicKey;
 
@@ -107,37 +106,42 @@ final class ClaimScopeChecker
 
         $strong = in_array($class, (array) config('clarification.claim_scope.strong'), true);
         $label = (string) config("clarification.claim_scope.labels.{$class}", $class);
+        $named = (bool) config("clarification.topics.{$topicKey}.named", false);
         $elsewhereSupport = array_values(array_filter($elsewhere, fn (string $k) => $this->supports($scopesOf($k), $class)));
-        $topicScopeKnown = array_filter($onTopic, fn (string $k) => isset($declaredScopesByKey[$k]) || $scopesOf($k) !== []) !== [];
-        $established = $onTopic === []
-            ? 'no cited evidence mentions '.$topicLabel
-            : 'the evidence for '.$topicLabel.' only establishes: '.implode('; ', array_map(
-                fn (string $k) => $this->describe($k, $factTextByKey[$k] ?? '', $scopesOf($k)), $onTopic,
-            ));
 
-        // Nothing on the topic is cited at all: only a strong claim is worth a flag.
+        // The claim names something no cited fact mentions.
         if ($onTopic === []) {
+            if ($named) {
+                return $this->finding('block', $excerpt, "Names {$topicLabel} (\"{$excerpt}\"), but no cited evidence mentions it.");
+            }
+
             if (! $strong) {
                 return null;
             }
 
             return $elsewhereSupport === []
-                ? $this->finding('block', $excerpt, "Claims \"{$excerpt}\" ({$label}), but {$established}, and nothing cited supports {$label} it.")
-                : $this->finding('review', $excerpt, "Claims \"{$excerpt}\", but {$established}. The {$label} comes from a different cited fact. Confirm you did this for {$topicLabel}.");
+                ? $this->finding('block', $excerpt, "Claims \"{$excerpt}\" ({$label}), but no cited evidence mentions {$topicLabel} and nothing cited supports {$label} anything.")
+                : $this->finding('review', $excerpt, "Claims \"{$excerpt}\", but no cited evidence mentions {$topicLabel}; the {$label} comes from a different fact. Confirm you did this for {$topicLabel}.");
         }
 
-        // Clearly unsupported ownership: strong claim, the topic's scope is known, nothing supports it.
-        if ($strong && $topicScopeKnown && $elsewhereSupport === []) {
-            return $this->finding('block', $excerpt, "Claims \"{$excerpt}\" ({$label}), but {$established}. Ownership or implementation is not established.");
+        // Evidence on the topic exists and the claim is hands-on rather than
+        // ownership: ordinary synthesis, scope labels are evidence not permissions.
+        if (! $strong) {
+            return null;
         }
 
-        if ($elsewhereSupport !== []) {
-            $from = $factTextByKey[$elsewhereSupport[0]] ?? $elsewhereSupport[0];
+        $established = 'the evidence for '.$topicLabel.' only establishes: '.implode('; ', array_map(
+            fn (string $k) => $this->describe($k, $factTextByKey[$k] ?? '', $scopesOf($k)), $onTopic,
+        ));
+        $scopeKnown = array_filter($onTopic, fn (string $k) => isset($declaredScopesByKey[$k]) || $scopesOf($k) !== []) !== [];
 
-            return $this->finding('review', $excerpt, "Combines separate facts into one claim: \"{$excerpt}\". ".ucfirst($established).". The {$label} part comes from \"{$from}\", which does not mention {$topicLabel}. Confirm you did this for {$topicLabel}.");
+        // Building it is a concrete claim: clearly contradicted when the user's own scope excludes it and nothing else backs it.
+        if ($class === 'implementation' && $scopeKnown && $elsewhereSupport === []) {
+            return $this->finding('block', $excerpt, "Claims \"{$excerpt}\" ({$label}), but {$established}. Implementation is not established.");
         }
 
-        return $this->finding('review', $excerpt, "Claims \"{$excerpt}\" ({$label}), but {$established}. Confirm before sending.");
+        // Ownership, or implementation backed only by an unrelated fact: genuine uncertainty.
+        return $this->finding('review', $excerpt, "Claims \"{$excerpt}\" ({$label}), but {$established}. Confirm you owned or built this before sending.");
     }
 
     /**
@@ -193,14 +197,14 @@ final class ClaimScopeChecker
     }
 
     /**
-     * @return array<string, array{label: string, patterns: array<int, string>}>
+     * @return array<string, array{label: string, patterns: array<int, string>, named: bool}>
      */
     private function topics(): array
     {
         $topics = [];
 
         foreach ((array) config('clarification.topics', []) as $key => $topic) {
-            $topics[(string) $key] = ['label' => (string) $topic['label'], 'patterns' => array_values((array) $topic['patterns'])];
+            $topics[(string) $key] = ['label' => (string) $topic['label'], 'patterns' => array_values((array) $topic['patterns']), 'named' => (bool) ($topic['named'] ?? false)];
         }
 
         return $topics;

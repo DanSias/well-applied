@@ -111,19 +111,20 @@ plus "troubleshot integration issues" becomes "troubleshooting webhook flows").
 produces `known_limitation` and restricted-evidence findings:
 
 1. It reads each "action ... topic" claim. The nearest classified action verb before
-   a topic mention governs it. Verb classes (implementation, ownership, integration,
-   configuration, troubleshooting, advising, support) and the topic patterns live in
+   a topic mention governs it. Verb classes and topic patterns live in
    `config/clarification.php` (`claim_scope`, `topics`). Nouns ("integration") are not claims.
-2. Each cited fact that mentions the topic is asked whether it establishes that class.
-   A fact's classes are the scopes the user declared when confirming it
-   (`DeclaredScopes`, newest revision), otherwise what its own statement says.
-   Implementation implies integration and configuration; nothing implies ownership;
-   configuration, support and advising never imply implementation.
-3. Outcomes: supported = no finding. The action appears only in a cited fact that does
-   not mention the topic (a composite), or is not established = `review`: the bullet ships,
-   is flagged, and the report names the exact claim and why. Implementation or ownership
-   that the evidence rules out (declared scopes exclude it, or nothing cited supports it)
-   = `block`: the existing bullet-level recovery omits just that bullet.
+2. Scope labels are evidence, not verb permissions, and the cited evidence is judged together
+   (`DeclaredScopes` supplies the labels, newest revision). The goal is confident,
+   interview-defensible wording, so only claims that could not be defended are flagged:
+   - hands-on actions (integrating, configuring, troubleshooting, advising, supporting) on a
+     topic the cited facts cover: pass, even when the action comes from a related fact;
+   - ownership (led, owned, managed) or implementation (built, architected) the topic's
+     evidence does not establish: `review` when genuinely uncertain, `block` when the user's
+     declared scope excludes building it and nothing else backs it;
+   - a topic no cited fact mentions: a named technology (`named` in config, e.g. Rails) = `block`;
+     a strong claim with nothing supporting it = `block`, with support from another fact = `review`.
+3. A `block` is handled by the existing bullet-level recovery (that one bullet is omitted);
+   a `review` ships and is flagged.
 
 The review report item carries the flagged sentence (`text`) and each finding's `detail`
 (the exact claim) and `message` (why). A removed sentence is not stored in the report.

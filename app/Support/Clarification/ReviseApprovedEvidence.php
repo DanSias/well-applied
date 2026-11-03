@@ -36,7 +36,7 @@ final class ReviseApprovedEvidence
 
     /**
      * @param  array<string, mixed>  $fields  statement, scopes, attributable_type, attributable_id, visibility, verification (omitted keys keep their current value)
-     * @param  array{acknowledge_metric?: bool}  $options
+     * @param  array{acknowledge_metric?: bool, note?: string}  $options  `note` records why, in the user's words, on the new evidence row
      */
     public function revise(CareerFact $fact, array $fields, array $options = []): EvidenceProposal
     {
@@ -91,7 +91,7 @@ final class ReviseApprovedEvidence
                 'source' => EvidenceSource::UserConfirmed,
                 'quoted_text' => $answerText,
                 'confirmed_at' => now(),
-                'note' => 'Revised by the user (revision '.$next->revision.': '.implode(', ', $changed).').',
+                'note' => 'Revised by the user (revision '.$next->revision.': '.implode(', ', $changed).').'.(isset($options['note']) && $options['note'] !== '' ? ' '.$options['note'] : ''),
                 'metadata' => [
                     'origin' => ReviewEvidenceProposal::EVIDENCE_ORIGIN,
                     'topic_key' => $next->topic_key,

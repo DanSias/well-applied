@@ -8,10 +8,10 @@
         {
             "key": "rocketgate-recurring-billing-user-confirmed",
             "fact_type": "bullet",
-            "statement": "Helped merchants with both one-time and recurring payment setup.",
+            "statement": "Helped merchants with both one-time and recurring payment setup, including troubleshooting recurring billing flows.",
             "verification": "strongly_supported",
             "visibility": "restricted",
-            "notes": "Responsibility scope, as stated by the user: Supported it. Wording must not claim more than this.",
+            "notes": "Responsibility scope, as stated by the user: Supported it; Troubleshot it. Wording must not claim more than this.",
             "sort_order": 2,
             "attributable": {
                 "type": "role",
@@ -33,17 +33,32 @@
                             "supported"
                         ]
                     }
+                },
+                {
+                    "source": "user_confirmed",
+                    "quoted_text": "At RocketGate, helped merchants with both one-time and recurring payment setup.",
+                    "confirmed_at": "2026-11-03T12:55:51+00:00",
+                    "note": "Revised by the user (revision 2: statement, scopes). User confirmed on 2026-11-03 that at RocketGate they did troubleshoot webhook and recurring billing flows during merchant integrations.",
+                    "metadata": {
+                        "origin": "clarification",
+                        "topic_key": "recurring_billing",
+                        "scopes": [
+                            "supported",
+                            "troubleshot"
+                        ],
+                        "revision": 2
+                    }
                 }
             ],
-            "content_hash": "f1c7d9a7ea585632620239390b0b0e66710ba9a6baad98a591babb4ae943bff0"
+            "content_hash": "28dff29de89d2008408229b1dd3463fa6a6139fed904320a96951c035a9ad745"
         },
         {
             "key": "rocketgate-webhooks-user-confirmed",
             "fact_type": "bullet",
-            "statement": "Worked with merchant integrations involving webhooks for retry schedules, account management, and related functionality.",
+            "statement": "Worked with merchant integrations involving webhooks for retry schedules, account management, and related functionality, including troubleshooting webhook flows.",
             "verification": "strongly_supported",
             "visibility": "restricted",
-            "notes": "Responsibility scope, as stated by the user: Integrated it; Supported it. Wording must not claim more than this.",
+            "notes": "Responsibility scope, as stated by the user: Integrated it; Supported it; Troubleshot it. Wording must not claim more than this.",
             "sort_order": 1,
             "attributable": {
                 "type": "role",
@@ -66,9 +81,25 @@
                             "supported"
                         ]
                     }
+                },
+                {
+                    "source": "user_confirmed",
+                    "quoted_text": "At RocketGate, worked with merchant integrations involving webhooks for retry schedules, account management, and related functionality.",
+                    "confirmed_at": "2026-11-03T12:55:51+00:00",
+                    "note": "Revised by the user (revision 2: statement, scopes). User confirmed on 2026-11-03 that at RocketGate they did troubleshoot webhook and recurring billing flows during merchant integrations.",
+                    "metadata": {
+                        "origin": "clarification",
+                        "topic_key": "webhooks",
+                        "scopes": [
+                            "integrated",
+                            "supported",
+                            "troubleshot"
+                        ],
+                        "revision": 2
+                    }
                 }
             ],
-            "content_hash": "86d4c2a4164c580fb2b677c189b8397ee91c08a776b8b2fa1baa784c6fb2d076"
+            "content_hash": "e5cf6dbb5538970039cc1dae2aee4f91fe7e610e4d8ba912d26369ff36b2ecb2"
         }
     ],
     "limitations": [
