@@ -7,6 +7,7 @@ use App\Models\CareerProfile;
 use App\Models\Education;
 use App\Models\Project;
 use App\Models\Role;
+use App\Support\Expansion\SharedClaims;
 use App\Support\ResumeVariant\ResumeEligibility;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
@@ -66,13 +67,17 @@ final class CandidatePayloadBuilder
             ->orderBy('id')
             ->get();
 
-        return $facts->map(fn (CareerFact $fact) => $this->normalizeCareerFact($fact))->all();
+        // One claim attached to several places is offered once, so a match cannot count it repeatedly.
+        [$offered, $alsoAttached] = SharedClaims::collapse($facts);
+
+        return $offered->map(fn (CareerFact $fact) => $this->normalizeCareerFact($fact, $alsoAttached[$fact->id] ?? []))->values()->all();
     }
 
     /**
+     * @param  array<int, string>  $alsoAttachedTo
      * @return array<string, mixed>
      */
-    private function normalizeCareerFact(CareerFact $fact): array
+    private function normalizeCareerFact(CareerFact $fact, array $alsoAttachedTo = []): array
     {
         $attribution = CareerFactAttribution::resolve($fact);
 
@@ -107,6 +112,7 @@ final class CandidatePayloadBuilder
                 'name' => $skill->name,
                 'category' => $skill->category->value,
             ])->all(),
+            ...($fact->claim_group === null ? [] : ['shared_claim' => ['also_attached_to' => $alsoAttachedTo]]),
         ];
     }
 

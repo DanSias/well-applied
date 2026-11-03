@@ -138,14 +138,16 @@ final class CapabilityCoverage
     {
         $attributions = count(array_unique(array_map(fn (CareerFact $f) => $f->attributable_type.':'.$f->attributable_id, $solid)));
         $metric = array_filter($solid, fn (CareerFact $f) => $f->metric !== null) !== [];
+        // One claim attached to several places is one piece of evidence, not several.
+        $claims = count(array_unique(array_map(fn (CareerFact $f) => $f->claim_group ?? $f->key, $solid)));
         $level = match (true) {
             $status !== self::DIRECT => null,
-            count($solid) >= 3 && $attributions >= 2 => 'deep',
-            count($solid) >= 2 || $metric => 'moderate',
+            $claims >= 3 && $attributions >= 2 => 'deep',
+            $claims >= 2 || $metric => 'moderate',
             default => 'shallow',
         };
 
-        return ['level' => $level, 'facts' => count($solid), 'attributions' => $attributions, 'has_metric' => $metric];
+        return ['level' => $level, 'facts' => $claims, 'attributions' => $attributions, 'has_metric' => $metric];
     }
 
     /**

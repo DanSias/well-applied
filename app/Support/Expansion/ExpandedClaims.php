@@ -28,6 +28,14 @@ final class ExpandedClaims
     {
         DB::transaction(function () use ($group, $fields) {
             $members = $this->open($group);
+
+            // Wording and scope of a claim that is already approved are changed through revision, which
+            // can apply to every place at once; editing the undecided places here would leave siblings differing.
+            if (array_intersect_key($fields, array_flip(['statement', 'scopes', 'verification'])) !== []
+                && EvidenceProposal::query()->where('claim_group', $group)->where('status', ProposalStatus::Approved)->exists()) {
+                throw ValidationException::withMessages(['claim' => 'Part of this claim is already approved. Revise the approved fact instead: the change can be applied to every place it covers.']);
+            }
+
             $plain = array_intersect_key($fields, array_flip(['statement', 'scopes', 'verification', 'visibility']));
 
             if ($plain !== []) {

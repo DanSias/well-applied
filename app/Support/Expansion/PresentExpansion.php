@@ -63,7 +63,7 @@ final class PresentExpansion
 
         foreach ((array) ($result['followups'] ?? []) as $i => $f) {
             $asked = $session->questions()->where('context->followup_of_answer', $answer->id)->where('question_text', $f['question'])->first();
-            $followups[] = ['index' => $i, 'capability' => $f['capability'], 'question' => $f['question'], 'asked_question_id' => $asked?->id, 'asked_status' => $asked?->status];
+            $followups[] = ['index' => $i, 'capability' => $f['capability'], 'aspect' => $f['aspect'] ?? null, 'question' => $f['question'], 'asked_question_id' => $asked?->id, 'asked_status' => $asked?->status];
         }
 
         return [

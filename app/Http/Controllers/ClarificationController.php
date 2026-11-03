@@ -144,7 +144,10 @@ class ClarificationController extends Controller
     {
         abort_unless($careerFact->career_profile_id === CurrentCareerProfile::resolve()->id, 404);
 
-        $revise->revise($careerFact, $this->proposalFields($request), ['acknowledge_metric' => $request->boolean('acknowledge_metric')]);
+        $revise->revise($careerFact, $this->proposalFields($request), [
+            'acknowledge_metric' => $request->boolean('acknowledge_metric'),
+            'shared' => $request->boolean('this_place_only') ? 'this_only' : 'all',
+        ]);
 
         return back();
     }

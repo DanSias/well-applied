@@ -5,15 +5,24 @@ use App\Jobs\ExpandAnswerClaimsJob;
 use App\Models\CareerFact;
 use App\Models\ClarificationQuestion;
 use App\Models\ClarificationSession;
+use App\Models\Employer;
 use App\Models\EvidenceProposal;
+use App\Models\JobMatch;
 use App\Models\Project;
+use App\Models\Role;
+use App\Support\CareerData\ApprovedEvidenceFile;
 use App\Support\Clarification\EvidenceRevision;
 use App\Support\Clarification\ReviewEvidenceProposal;
+use App\Support\Clarification\ReviseApprovedEvidence;
 use App\Support\Clarification\SubmitClarificationAnswer;
 use App\Support\Expansion\ExpandAnswerClaims;
 use App\Support\Expansion\ExpandedClaims;
+use App\Support\Expansion\ExpansionRegrounding;
+use App\Support\JobMatch\CandidatePayloadBuilder;
+use App\Support\ResumeProfile\CapabilityCoverage;
 use App\Support\ResumeProfile\ProfileInterview;
 use App\Support\ResumeProfile\QuestionWriter;
+use App\Support\ResumeVariant\ResumeCandidatePayloadBuilder;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
 use Tests\Support\FakeExpansionWriter;
@@ -338,7 +347,7 @@ it('rejects a whole claim without touching the answer\'s other proposals or mark
 it('merges two claims into one: places move across, duplicates are dropped, wording is the target\'s', function () {
     $s = expansionScenario();
     $w = "project:{$s['projects']['workflow']->id}";
-    $e = "project:{$s['projects']['exporter']->id}";
+    $e = "project:{$s['projects']['toolkit']->id}";
     useWriter(['claims' => [
         tsClaim($s, ['attributions' => [$w, "project:{$s['projects']['verbatim']->id}"]]),
         tsClaim($s, ['capability' => 'automated_testing', 'statement' => 'Added automated tests to the RocketGate TypeScript projects.', 'source_quote' => 'added types and interfaces and tests', 'attributions' => [$w, $e]]),
@@ -349,7 +358,7 @@ it('merges two claims into one: places move across, duplicates are dropped, word
     $this->post(route('claim-groups.merge', $groups[1]), ['into' => $groups[0]])->assertRedirect();
 
     $open = EvidenceProposal::where('claim_group', $groups[0])->where('status', 'proposed')->get();
-    expect($open->pluck('attributable_id')->sort()->values()->all())->toBe(collect([$s['projects']['workflow']->id, $s['projects']['verbatim']->id, $s['projects']['exporter']->id])->sort()->values()->all())
+    expect($open->pluck('attributable_id')->sort()->values()->all())->toBe(collect([$s['projects']['workflow']->id, $s['projects']['verbatim']->id, $s['projects']['toolkit']->id])->sort()->values()->all())
         ->and($open->pluck('topic_key')->unique()->all())->toBe(['typescript'])
         ->and(EvidenceProposal::where('claim_group', $groups[1])->where('status', 'rejected')->count())->toBe(1);
     $this->post(route('claim-groups.merge', $groups[0]), ['into' => $groups[0]])->assertSessionHasErrors('claim');
@@ -358,9 +367,10 @@ it('merges two claims into one: places move across, duplicates are dropped, word
 it('suggests follow-up questions only as options, and adds one to the interview only when asked; it survives a re-rank', function () {
     $s = expansionScenario();
     $writer = useWriter(['claims' => [tsClaim($s)], 'followups' => [
-        ['capability' => 'typescript', 'question' => 'What specific technical problems did your types and interfaces solve on these projects?'],
-        ['capability' => 'automated_testing', 'question' => 'What kind of tests did you write, and did the team adopt your testing patterns?'],
-        ['capability' => 'typescript', 'question' => 'No question mark here so this is dropped'],
+        ['capability' => 'typescript', 'aspect' => 'implementation_challenge', 'question' => 'What specific technical problems did your types and interfaces solve on these projects?'],
+        ['capability' => 'automated_testing', 'aspect' => 'ownership_scope', 'question' => 'What kind of tests did you write, and did the team adopt your testing patterns?'],
+        ['capability' => 'typescript', 'aspect' => 'measurable_outcome', 'question' => 'No question mark here so this is dropped'],
+        ['capability' => 'typescript', 'aspect' => 'inventory', 'question' => 'Which TypeScript libraries and tools did you use on these projects?'],
     ]]);
     $expansion = app(ExpandAnswerClaims::class)->expand($s['answer']);
     $count = ClarificationQuestion::count();
@@ -443,4 +453,199 @@ it('keeps the answer\'s own proposal on the answer card even when expansion clai
     $this->get(route('resume-profiles.show', $s['profile']))->assertInertia(fn ($page) => $page
         ->where('resume_profile.interview.answers.0.proposal.id', $s['original']->id)
         ->where('resume_profile.interview.answers.0.proposal.statement', $s['original']->statement));
+});
+
+/** Approves the scenario's three-project TypeScript claim and returns its facts. */
+function approvedSharedClaim(array $s): array
+{
+    [, $proposals] = expandedClaim($s);
+    app(ExpandedClaims::class)->approve($proposals->first()->claim_group, 'public');
+
+    return [$proposals->first()->claim_group, CareerFact::where('claim_group', $proposals->first()->claim_group)->orderBy('id')->get()];
+}
+
+it('gives the facts of one claim a durable shared identity that carries the claim group and the original answer', function () {
+    $s = expansionScenario();
+    [$group, $facts] = approvedSharedClaim($s);
+
+    expect($facts)->toHaveCount(3)
+        ->and($facts->pluck('claim_group')->unique()->all())->toBe([$group])
+        ->and($facts->every(fn ($f) => $f->evidence()->first()->quoted_text === TS_ANSWER && $f->evidence()->first()->metadata['claim_group'] === $group))->toBeTrue();
+
+    $file = app(ApprovedEvidenceFile::class);
+    $exported = collect($file->export($s['career'])['facts'])->pluck('claim_group')->unique()->all();
+    expect($exported)->toBe([$group]);
+});
+
+it('offers one claim shared across places to Selection and matching once, listing the other places', function () {
+    $s = expansionScenario();
+    [, $facts] = approvedSharedClaim($s);
+    // A distinct project-specific fact and a different claim stay independent.
+    $own = CareerFact::factory()->create(['career_profile_id' => $s['career']->id, 'key' => 'wi-own', 'statement' => 'Built the work-item timeline view.', 'visibility' => 'public', 'attributable_type' => 'project', 'attributable_id' => $s['projects']['workflow']->id]);
+
+    $matching = collect(app(CandidatePayloadBuilder::class)->build($s['career'])['career_facts']);
+    $keys = $matching->pluck('key')->all();
+    $representative = $matching->firstWhere('key', $facts->first()->key);
+
+    expect($keys)->toContain($facts->first()->key)->toContain('wi-own')
+        ->not->toContain($facts[1]->key)->not->toContain($facts[2]->key)
+        ->and($representative['shared_claim']['also_attached_to'])->toBe(['Verbatim (RocketGate)', 'Transaction Toolkit (RocketGate)'])
+        ->and($matching->firstWhere('key', 'wi-own'))->not->toHaveKey('shared_claim');
+
+    $job = JobMatch::factory()->create(['career_profile_id' => $s['career']->id]);
+    $resume = collect(app(ResumeCandidatePayloadBuilder::class)->build($job)['career_facts']);
+    expect($resume->pluck('key')->all())->toContain($facts->first()->key)->not->toContain($facts[1]->key)->not->toContain($facts[2]->key)
+        ->and($resume->firstWhere('key', $facts->first()->key)['shared_claim']['also_attached_to'])->toHaveCount(2)
+        ->and($resume->firstWhere('key', 'wi-own'))->not->toHaveKey('shared_claim');
+});
+
+it('leaves every payload without shared claims exactly as it was', function () {
+    $s = expansionScenario();
+    CareerFact::factory()->create(['career_profile_id' => $s['career']->id, 'key' => 'plain', 'statement' => 'A plain fact.', 'visibility' => 'public', 'attributable_type' => 'role', 'attributable_id' => $s['role']->id]);
+
+    $facts = collect(app(CandidatePayloadBuilder::class)->build($s['career'])['career_facts']);
+
+    expect($facts->every(fn ($f) => ! array_key_exists('shared_claim', $f)))->toBeTrue();
+});
+
+it('counts a shared claim as one piece of evidence when judging how well a capability is documented', function () {
+    $s = expansionScenario();
+    approvedSharedClaim($s);
+
+    $depth = app(CapabilityCoverage::class)->compute($s['career'])['capabilities']['typescript']['depth'];
+
+    expect($depth)->toMatchArray(['facts' => 2, 'attributions' => 4, 'level' => 'moderate']);
+    // Four facts (the career's own plus three places of one claim) are two pieces of evidence, not four.
+});
+
+it('applies a change of wording to every place of a shared claim, each with its own revision, and never leaves them contradicting', function () {
+    $s = expansionScenario();
+    [, $facts] = approvedSharedClaim($s);
+
+    app(ReviseApprovedEvidence::class)->revise($facts[1], ['statement' => 'Built the RocketGate applications entirely in TypeScript, with types, interfaces and tests.', 'visibility' => 'restricted']);
+
+    $fresh = $facts->map->fresh();
+    expect($fresh->pluck('statement')->unique()->all())->toBe(['Built the RocketGate applications entirely in TypeScript, with types, interfaces and tests.'])
+        ->and($fresh->every(fn ($f) => $f->evidence()->count() === 2))->toBeTrue()
+        ->and(EvidenceProposal::where('career_fact_id', $fresh[0]->id)->orderBy('id')->pluck('status')->map->value->all())->toBe(['superseded', 'approved'])
+        // Visibility is per place: only the revised one changed.
+        ->and($fresh->pluck('visibility')->map->value->all())->toBe(['public', 'restricted', 'public'])
+        ->and($fresh->pluck('claim_group')->unique())->toHaveCount(1);
+});
+
+it('lets one place be changed on its own, which detaches it from the shared claim', function () {
+    $s = expansionScenario();
+    [$group, $facts] = approvedSharedClaim($s);
+    $original = $facts[0]->statement;
+
+    app(ReviseApprovedEvidence::class)->revise($facts[2], ['statement' => 'Built Transaction Toolkit in TypeScript with a strict typed API layer.'], ['shared' => 'this_only']);
+
+    expect($facts[2]->fresh()->claim_group)->toBeNull()
+        ->and($facts[2]->fresh()->statement)->toBe('Built Transaction Toolkit in TypeScript with a strict typed API layer.')
+        ->and($facts[0]->fresh()->statement)->toBe($original)->and($facts[0]->fresh()->claim_group)->toBe($group)
+        // Detached, it is its own accomplishment again.
+        ->and(collect(app(CandidatePayloadBuilder::class)->build($s['career'])['career_facts'])->pluck('key')->all())->toContain($facts[2]->key);
+});
+
+it('changes nothing if one sibling cannot take the new wording', function () {
+    $s = expansionScenario();
+    [, $facts] = approvedSharedClaim($s);
+    CareerFact::factory()->create(['career_profile_id' => $s['career']->id, 'key' => 'tt-clash', 'statement' => 'Typed everything in strict TypeScript.', 'attributable_type' => 'project', 'attributable_id' => $s['projects']['toolkit']->id]);
+
+    expect(fn () => app(ReviseApprovedEvidence::class)->revise($facts[0], ['statement' => 'Typed everything in strict TypeScript.']))->toThrow(ValidationException::class);
+
+    expect($facts->map->fresh()->pluck('statement')->unique())->toHaveCount(1)->and($facts[0]->fresh()->statement)->toBe($facts[1]->fresh()->statement);
+});
+
+it('refuses to edit the wording of a partly approved claim in place, pointing at revision instead', function () {
+    $s = expansionScenario();
+    [$group] = approvedSharedClaim($s);
+
+    $this->patch(route('claim-groups.update', $group), ['statement' => 'A different wording that drifts from the approved places.'])->assertSessionHasErrors('claim');
+    expect(session('errors')->first('claim'))->toContain('Revise the approved fact');
+});
+
+it('replacing a fact from a plain proposal detaches it from its old group so siblings are not left contradicting', function () {
+    $s = expansionScenario();
+    [$group, $facts] = approvedSharedClaim($s);
+    $plain = app(SubmitClarificationAnswer::class)->submit($s['question'], 'experience', ['implemented'], 'We typed the Verbatim client and server with shared interfaces.');
+    $plain->forceFill(['attributable_type' => 'project', 'attributable_id' => $s['projects']['verbatim']->id, 'topic_key' => 'typescript'])->save();
+
+    app(ReviewEvidenceProposal::class)->approve($plain, ['visibility' => 'public'], ['supersede' => true]);
+
+    expect($facts[1]->fresh()->claim_group)->toBeNull()
+        ->and($facts[0]->fresh()->claim_group)->toBe($group)->and($facts[2]->fresh()->claim_group)->toBe($group);
+});
+
+it('does not expand a broad phrase into every role: only places the question or answer point to survive, broadest role when none is named', function () {
+    $s = expansionScenario('Everything was hosted on AWS across all projects', ['configured']);
+    $other = Role::factory()->create(['employer_id' => Employer::factory()->create(['career_profile_id' => $s['career']->id, 'name' => 'Pearson'])->id, 'title' => 'SEO Analyst', 'start_year' => 2018]);
+    $second = Role::factory()->create(['employer_id' => $other->employer_id, 'title' => 'Data Lead', 'start_year' => 2020]);
+    $s['question']->update(['question_text' => 'Where did you host your work?', 'context' => [...$s['question']->context, 'refs' => []]]);
+    $claim = fn (array $attributions) => [['capability' => 'cloud_platforms', 'statement' => 'Hosted all of the projects on AWS.', 'attributions' => $attributions, 'scopes' => ['configured'], 'source_quote' => 'hosted on AWS across all projects', 'confidence' => 'high', 'rationale' => 'Broad.']];
+    $everyRole = ["role:{$s['role']->id}", "role:{$other->id}", "role:{$second->id}"];
+
+    // Nothing named anywhere: every role is ungrounded, so the claim has no attribution and is dropped.
+    $s['answer']->unsetRelation('question');
+    useWriter(['claims' => $claim($everyRole), 'followups' => []]);
+    $none = app(ExpandAnswerClaims::class)->expand($s['answer']);
+    expect($none->result['claims'])->toBe([])->and($none->result['rejected'][0]['reason'])->toBe('no attribution is grounded in the question or the answer');
+
+    // The question names a project: its role is the broad association, the other roles are left out.
+    $s['question']->update(['context' => [...$s['question']->context, 'refs' => [['type' => 'project', 'id' => $s['projects']['workflow']->id, 'label' => 'Workflow Intelligence']]]]);
+    $s['answer']->unsetRelation('question');
+    useWriter(['claims' => $claim($everyRole), 'followups' => []]);
+    $kept = app(ExpandAnswerClaims::class)->expand($s['answer'], force: true);
+
+    expect($kept->result['claims'][0]['attributions'])->toBe(["role:{$s['role']->id}"])
+        ->and($kept->result['claims'][0]['left_out'])->toHaveCount(2);
+});
+
+it('prefers the specific named project over its own role, and marks a wording-based match as inferred for the user to check', function () {
+    $s = expansionScenario('We used GCP with BigQuery for the exporter project', ['integrated']);
+    $s['question']->update(['context' => [...$s['question']->context, 'refs' => []]]);
+    $q = fn (array $attr) => ['claims' => [['capability' => 'cloud_platforms', 'statement' => 'Integrated GCP and BigQuery for the exporter project.', 'attributions' => $attr, 'scopes' => ['integrated'], 'source_quote' => 'used GCP with BigQuery for the exporter project', 'confidence' => 'high', 'rationale' => 'x']], 'followups' => []];
+
+    useWriter($q(["role:{$s['role']->id}", "project:{$s['projects']['exporter']->id}"]));
+    $expansion = app(ExpandAnswerClaims::class)->expand($s['answer']);
+    $claim = $expansion->result['claims'][0];
+
+    // "exporter" singles out Knowledge Exporter (a word found in exactly one place's name).
+    expect($claim['attributions'])->toBe(["project:{$s['projects']['exporter']->id}"])
+        ->and($claim['confidence'])->toBe('medium')
+        ->and($claim['rationale'])->toContain('Inferred from the answer')->toContain('Check it');
+});
+
+it('applies the same grounding to claims that already exist, without a model call, never touching approved facts', function () {
+    $s = expansionScenario('We hosted it on AWS', ['configured']);
+    $s['question']->update(['context' => [...$s['question']->context, 'refs' => [['type' => 'project', 'id' => $s['projects']['workflow']->id, 'label' => 'Workflow Intelligence']]]]);
+    $other = Role::factory()->create(['employer_id' => Employer::factory()->create(['career_profile_id' => $s['career']->id])->id, 'start_year' => 2019]);
+    $writer = useWriter(['claims' => [['capability' => 'cloud_platforms', 'statement' => 'Hosted the work on AWS.', 'attributions' => ["role:{$s['role']->id}"], 'scopes' => ['configured'], 'source_quote' => 'hosted it on AWS', 'confidence' => 'high', 'rationale' => 'Spans roles.']], 'followups' => []]);
+    $expansion = app(ExpandAnswerClaims::class)->expand($s['answer']);
+    // Simulate an older run that also attached a second role.
+    EvidenceProposal::where('expansion_id', $expansion->id)->first()->replicate()->forceFill(['attributable_id' => $other->id])->save();
+    $calls = $writer->calls;
+
+    $report = app(ExpansionRegrounding::class)->apply($expansion);
+
+    expect($writer->calls)->toBe($calls)
+        ->and($report[0]['dropped'])->toHaveCount(1)
+        ->and(EvidenceProposal::where('expansion_id', $expansion->id)->where('status', 'proposed')->pluck('attributable_id')->all())->toBe([$s['role']->id])
+        ->and(EvidenceProposal::where('expansion_id', $expansion->id)->where('status', 'rejected')->first()->history[1]['action'])->toBe('ungrounded_attribution')
+        ->and(EvidenceProposal::where('expansion_id', $expansion->id)->where('status', 'proposed')->first()->rationale)->toContain('Left out');
+});
+
+it('suggests follow-ups only for decisions, ownership, challenges or outcomes, never inventory questions', function () {
+    $s = expansionScenario();
+    $writer = useWriter(['claims' => [tsClaim($s)], 'followups' => [
+        ['capability' => 'typescript', 'aspect' => 'technical_decision', 'question' => 'Which typing decisions or trade-offs shaped these projects, and why did you make them that way?'],
+        ['capability' => 'typescript', 'aspect' => 'inventory', 'question' => 'Which TypeScript libraries and tools did you use across these projects?'],
+        ['capability' => 'typescript', 'question' => 'Is there anything else you would like to add about TypeScript on these projects?'],
+    ]]);
+
+    $expansion = app(ExpandAnswerClaims::class)->expand($s['answer']);
+
+    expect($expansion->result['followups'])->toHaveCount(1)->and($expansion->result['followups'][0]['aspect'])->toBe('technical_decision')
+        ->and($writer->lastSchema['properties']['followups']['items']['properties']['aspect']['enum'])->toBe(['technical_decision', 'ownership_scope', 'implementation_challenge', 'measurable_outcome'])
+        ->and($writer->lastSystem)->toContain('optional and rare')->toContain('Do not ask inventory questions');
 });

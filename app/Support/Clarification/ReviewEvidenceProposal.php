@@ -231,6 +231,9 @@ final class ReviewEvidenceProposal
                 'verification' => $proposal->verification,
                 'visibility' => $proposal->visibility,
                 'notes' => $note,
+                // The replaced fact takes the replacing claim's group, or leaves its old group when the
+                // replacement is not part of one, so siblings never keep contradicting wording.
+                'claim_group' => $proposal->claim_group,
             ]);
             $sameTopic->status = ProposalStatus::Superseded;
             $sameTopic->recordHistory('superseded', ['by_proposal_id' => $proposal->id]);
@@ -253,6 +256,7 @@ final class ReviewEvidenceProposal
                     ->max('sort_order') + 1,
                 'attributable_type' => $target->getMorphClass(),
                 'attributable_id' => $target->getKey(),
+                'claim_group' => $proposal->claim_group,
             ]);
         }
 

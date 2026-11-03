@@ -41,7 +41,22 @@ final class ExpansionValidator
                 continue;
             }
 
-            $claim['attributions'] = array_values(array_unique(array_filter((array) $claim['attributions'], fn ($t) => isset($ctx['targets'][$t]))));
+            $grounded = $this->ground(array_values(array_unique(array_filter((array) $claim['attributions'], fn ($t) => isset($ctx['targets'][$t])))), $ctx);
+
+            if ($grounded['kept'] === []) {
+                $rejected[] = ['statement' => (string) ($claim['statement'] ?? ''), 'reason' => 'no attribution is grounded in the question or the answer'];
+
+                continue;
+            }
+
+            $claim['attributions'] = array_keys($grounded['kept']);
+            $claim['left_out'] = $grounded['left_out'];
+
+            if (in_array('inferred', $grounded['kept'], true)) {
+                $claim['confidence'] = $claim['confidence'] === 'high' ? 'medium' : $claim['confidence'];
+                $claim['rationale'] = trim($claim['rationale'].' Inferred from the answer\'s wording for: '.implode(', ', array_map(fn (string $k) => $ctx['targets'][$k]['label'], array_keys(array_filter($grounded['kept'], fn ($b) => $b === 'inferred')))).'. Check it.');
+            }
+
             $claim['scopes'] = array_values(array_intersect((array) $claim['scopes'], (array) $ctx['scopes']));
             $claim['statement'] = trim((string) $claim['statement']);
             $accepted[] = $claim;
@@ -137,6 +152,83 @@ final class ExpansionValidator
     }
 
     /**
+     * Keeps an attribution only when the question or the answer points at it. A broad phrase ("all
+     * projects") is never expanded to every employer or role: only places the question named, places the
+     * answer names, a place the answer's wording singles out (a distinctive word found in exactly one
+     * place's name), and the role that holds such a project survive. When a role and one of its own named
+     * projects both appear, the specific project wins. Everything else is reported as left out, for the
+     * user to add if it applies.
+     *
+     * @param  array<int, string>  $targets
+     * @param  array<string, mixed>  $ctx
+     * @return array{kept: array<string, string>, left_out: array<int, string>}
+     */
+    public function ground(array $targets, array $ctx): array
+    {
+        $answer = mb_strtolower((string) $ctx['answer']);
+        $basis = [];
+
+        foreach ((array) $ctx['named_in_question'] as $key) {
+            $basis[$key] = 'named';
+        }
+
+        foreach ((array) $ctx['names'] as $key => $names) {
+            foreach ($names as $name) {
+                if ($name !== '' && preg_match('/(?<![\p{L}\p{N}])'.preg_quote(mb_strtolower($name), '/').'(?![\p{L}\p{N}])/u', $answer) === 1) {
+                    $basis[$key] ??= 'named';
+                }
+            }
+        }
+
+        // A word of the answer that appears in exactly one place's name singles that place out.
+        $stop = ['the', 'and', 'for', 'with', 'project', 'projects', 'tracker', 'tooling', 'setup', 'hub', 'center', 'command', 'activity', 'data', 'performance'];
+        $tokens = fn (string $s) => array_values(array_diff(preg_split('/[^\p{L}\p{N}]+/u', mb_strtolower($s), -1, PREG_SPLIT_NO_EMPTY) ?: [], $stop));
+        $answerWords = array_flip($tokens($answer));
+        $owners = [];
+
+        foreach ((array) $ctx['names'] as $key => $names) {
+            if (str_starts_with($key, 'project:')) {
+                foreach ($tokens(implode(' ', $names)) as $token) {
+                    $owners[$token][] = $key;
+                }
+            }
+        }
+
+        foreach ($owners as $token => $keys) {
+            if (count($keys) === 1 && mb_strlen($token) > 3 && isset($answerWords[$token])) {
+                $basis[$keys[0]] ??= 'inferred';
+            }
+        }
+
+        // A role is grounded when it holds a grounded project, or is itself named.
+        foreach (array_keys($basis) as $key) {
+            if (isset($ctx['parents'][$key])) {
+                $basis[$ctx['parents'][$key]] ??= 'umbrella';
+            }
+        }
+
+        $kept = [];
+        $left = [];
+
+        foreach ($targets as $key) {
+            if (isset($basis[$key])) {
+                $kept[$key] = $basis[$key];
+            } else {
+                $left[] = $ctx['targets'][$key]['label'];
+            }
+        }
+
+        // A role listed together with one of its own grounded projects is redundant: keep the specific place.
+        foreach (array_keys($kept) as $key) {
+            if (str_starts_with($key, 'role:') && count(array_filter(array_keys($kept), fn ($k) => ($ctx['parents'][$k] ?? null) === $key)) > 0) {
+                unset($kept[$key]);
+            }
+        }
+
+        return ['kept' => $kept, 'left_out' => $left];
+    }
+
+    /**
      * @param  array<string, mixed>  $content
      * @param  array<string, mixed>  $ctx
      * @param  array<string, mixed>  $capabilities
@@ -150,8 +242,10 @@ final class ExpansionValidator
             $f = (array) $f;
             $q = trim((string) ($f['question'] ?? ''));
 
-            if (isset($capabilities[$f['capability'] ?? '']) && str_ends_with($q, '?') && mb_strlen($q) >= 30 && $this->similarity($q, (string) $ctx['question']) < 0.6) {
-                $out[] = ['capability' => $f['capability'], 'question' => $q];
+            if (isset($capabilities[$f['capability'] ?? ''])
+                && in_array($f['aspect'] ?? '', ExpansionPrompt::ASPECTS, true)
+                && str_ends_with($q, '?') && mb_strlen($q) >= 30 && $this->similarity($q, (string) $ctx['question']) < 0.6) {
+                $out[] = ['capability' => $f['capability'], 'aspect' => $f['aspect'], 'question' => $q];
             }
         }
 

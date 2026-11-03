@@ -499,6 +499,11 @@ export function ClaimExpansion({
                     <ul className="mt-1 space-y-2">
                         {expansion.followups!.map((f) => (
                             <li key={f.index}>
+                                {f.aspect && (
+                                    <span className="mr-1 rounded bg-neutral-100 px-1.5 py-0.5 dark:bg-neutral-800">
+                                        {f.aspect.replaceAll('_', ' ')}
+                                    </span>
+                                )}
                                 {f.question}{' '}
                                 {f.asked_question_id ? (
                                     <span className="text-neutral-500">

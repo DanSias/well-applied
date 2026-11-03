@@ -233,6 +233,7 @@ export type AnswerExpansion = {
     followups?: {
         index: number;
         capability: string;
+        aspect: string | null;
         question: string;
         asked_question_id: number | null;
         asked_status: string | null;

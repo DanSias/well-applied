@@ -36,7 +36,7 @@ final class ReviseApprovedEvidence
 
     /**
      * @param  array<string, mixed>  $fields  statement, scopes, attributable_type, attributable_id, visibility, verification (omitted keys keep their current value)
-     * @param  array{acknowledge_metric?: bool, note?: string}  $options  `note` records why, in the user's words, on the new evidence row
+     * @param  array{acknowledge_metric?: bool, note?: string, shared?: string}  $options  `note` records why, in the user's words, on the new evidence row. `shared`: for a fact that is one claim attached to several places, `all` (default) applies a change of wording, scope or verification to every sibling place so none is left contradicting; `this_only` revises just this place and detaches it from the shared claim; `none` is used internally.
      */
     public function revise(CareerFact $fact, array $fields, array $options = []): EvidenceProposal
     {
@@ -103,10 +103,51 @@ final class ReviseApprovedEvidence
                 ],
             ]);
 
+            $this->settleSiblings($fact, $fields, $changed, $options);
+
             EvidenceRevision::bump(CareerProfile::query()->findOrFail($fact->career_profile_id));
 
             return $next;
         });
+    }
+
+    /**
+     * Keeps the places of one shared claim consistent. A change of wording, scope or verification
+     * either reaches every sibling (each gets its own revision and history) or, by explicit choice,
+     * detaches this place into an independent fact. Visibility and attribution are per place and
+     * never propagate.
+     *
+     * @param  array<string, mixed>  $fields
+     * @param  array<int, string>  $changed
+     * @param  array<string, mixed>  $options
+     */
+    private function settleSiblings(CareerFact $fact, array $fields, array $changed, array $options): void
+    {
+        $mode = (string) ($options['shared'] ?? 'all');
+
+        if ($fact->claim_group === null || $mode === 'none' || array_intersect($changed, ['statement', 'scopes', 'verification']) === []) {
+            return;
+        }
+
+        if ($mode === 'this_only') {
+            $fact->update(['claim_group' => null]);
+
+            return;
+        }
+
+        $carry = array_intersect_key($fields, array_flip(['statement', 'scopes', 'verification']));
+
+        foreach (CareerFact::query()->where('claim_group', $fact->claim_group)->where('id', '!=', $fact->id)->get() as $sibling) {
+            try {
+                $this->revise($sibling, $carry, [...$options, 'shared' => 'none', 'note' => trim(($options['note'] ?? '').' Applied from the shared claim ['.$fact->key.'].')]);
+            } catch (ValidationException $e) {
+                if (str_contains(implode(' ', array_merge(...array_values($e->errors()))), 'Nothing changed')) {
+                    continue;
+                }
+
+                throw ValidationException::withMessages(['statement' => "{$sibling->key}: ".implode(' ', array_merge(...array_values($e->errors())))]);
+            }
+        }
     }
 
     private function currentRevision(CareerFact $fact): EvidenceProposal

@@ -179,6 +179,7 @@ export type ApprovedEvidenceFact = {
     original_answer: string | null;
     from_this_job: boolean;
     revisions: ApprovedEvidenceRevision[];
+    shared_with: { fact_key: string; place: string }[];
 };
 
 export type ApprovedEvidence = {

@@ -5,11 +5,13 @@ namespace App\Support\Clarification;
 use App\Enums\ProposalKind;
 use App\Enums\ProposalStatus;
 use App\Enums\ResponsibilityScope;
+use App\Models\CareerFact;
 use App\Models\CareerLimitation;
 use App\Models\ClarificationQuestion;
 use App\Models\EvidenceProposal;
 use App\Models\JobPosting;
 use App\Models\PresentationPreference;
+use App\Support\Expansion\SharedClaims;
 use Illuminate\Support\Collection;
 
 /**
@@ -90,6 +92,10 @@ final class PresentApprovedEvidence
             'original_answer' => $p->answer?->answer_text,
             'from_this_job' => $jobId !== null && $p->job_posting_id === $jobId,
             'revisions' => $this->revisions($p),
+            // The other places this same claim is attached to; a revision of its wording reaches them too.
+            'shared_with' => $p->careerFact?->claim_group === null ? [] : CareerFact::query()
+                ->where('claim_group', $p->careerFact->claim_group)->where('id', '!=', $p->career_fact_id)->get()
+                ->map(fn (CareerFact $f) => ['fact_key' => $f->key, 'place' => SharedClaims::place($f)])->all(),
         ];
     }
 

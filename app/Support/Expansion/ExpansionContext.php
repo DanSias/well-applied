@@ -5,6 +5,7 @@ namespace App\Support\Expansion;
 use App\Models\CareerFact;
 use App\Models\ClarificationAnswer;
 use App\Models\Project;
+use App\Models\Role;
 use App\Support\Clarification\PresentClarification;
 use App\Support\ResumeVariant\ResumeEligibility;
 
@@ -19,7 +20,7 @@ final class ExpansionContext
     public function __construct(private readonly PresentClarification $options) {}
 
     /**
-     * @return array{answer: string, scopes: array<int, string>, question: string, topic: string, topic_key: string, named_in_question: array<int, string>, targets: array<string, array<string, mixed>>, existing: array<string, array<int, string>>}
+     * @return array{answer: string, scopes: array<int, string>, question: string, topic: string, topic_key: string, named_in_question: array<int, string>, targets: array<string, array<string, mixed>>, parents: array<string, string>, names: array<string, array<int, string>>, existing: array<string, array<int, string>>}
      */
     public function build(ClarificationAnswer $answer): array
     {
@@ -37,11 +38,51 @@ final class ExpansionContext
             $targets["{$o['type']}:{$o['id']}"] = ['type' => $o['type'], 'id' => $o['id'], 'label' => $o['label']];
         }
 
+        // Which role a project sits under, and the words that name each place: the basis for checking that
+        // an attribution is grounded in the question or the answer.
+        $parents = [];
+        $names = [];
+
+        foreach (Project::query()->where('career_profile_id', $profile->id)->get(['id', 'name', 'role_id']) as $project) {
+            if (isset($targets["project:{$project->id}"])) {
+                $names["project:{$project->id}"] = [$project->name];
+
+                if ($project->role_id !== null) {
+                    $parents["project:{$project->id}"] = "role:{$project->role_id}";
+                }
+            }
+        }
+
+        $roles = Role::query()->whereHas('employer', fn ($q) => $q->where('career_profile_id', $profile->id))->with('employer')->get();
+        $rolesPerEmployer = $roles->countBy('employer_id');
+
+        foreach ($roles as $role) {
+            if (isset($targets["role:{$role->id}"])) {
+                // An employer's name singles out a role only when it is the user's one role there; with
+                // several, the employer name alone would name them all.
+                $names["role:{$role->id}"] = array_values(array_filter([
+                    ...($rolesPerEmployer[$role->employer_id] === 1 ? [$role->employer->name, $role->employer->short_name] : []),
+                    $role->title,
+                ]));
+            }
+        }
+
         $named = [];
 
         foreach ((array) ($question->context['refs'] ?? []) as $ref) {
             if (isset($targets["{$ref['type']}:{$ref['id']}"])) {
                 $named[] = "{$ref['type']}:{$ref['id']}";
+            }
+        }
+
+        // Places the question's own wording names (a discovery question can name real projects in its text).
+        $asked = mb_strtolower($question->question_text);
+
+        foreach ($names as $key => $placeNames) {
+            foreach ($placeNames as $name) {
+                if (! in_array($key, $named, true) && $name !== '' && str_contains($asked, mb_strtolower($name)) && (str_starts_with($key, 'project:') || mb_strlen($name) > 12)) {
+                    $named[] = $key;
+                }
             }
         }
 
@@ -64,6 +105,8 @@ final class ExpansionContext
             'topic_key' => $question->topic_key,
             'named_in_question' => $named,
             'targets' => $targets,
+            'parents' => $parents,
+            'names' => $names,
             'existing' => $existing,
         ];
     }

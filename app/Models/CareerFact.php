@@ -42,6 +42,7 @@ use Illuminate\Support\Carbon;
  * @property int $sort_order
  * @property string $attributable_type
  * @property int $attributable_id
+ * @property string|null $claim_group Shared by the facts that are one claim attached to several places.
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -56,6 +57,7 @@ use Illuminate\Support\Carbon;
     'sort_order',
     'attributable_type',
     'attributable_id',
+    'claim_group',
 ])]
 class CareerFact extends Model
 {

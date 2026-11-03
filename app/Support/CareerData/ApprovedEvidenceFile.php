@@ -182,6 +182,8 @@ final class ApprovedEvidenceFile
             'visibility' => $fact->visibility->value,
             'notes' => $fact->notes,
             'sort_order' => $fact->sort_order,
+            // The shared claim identity (not part of the content hash: it is identity, not content).
+            'claim_group' => $fact->claim_group,
             'attributable' => $this->attributionRef($fact->attributable),
             'evidence' => $fact->evidence->sortBy('id')->map(fn ($e) => [
                 'source' => $e->source->value,
@@ -266,6 +268,7 @@ final class ApprovedEvidenceFile
             'sort_order' => $data['sort_order'] ?? 0,
             'attributable_type' => $target->getMorphClass(),
             'attributable_id' => $target->getKey(),
+            'claim_group' => $data['claim_group'] ?? null,
         ]);
 
         $this->replaceEvidence($fact, $data);
@@ -287,6 +290,7 @@ final class ApprovedEvidenceFile
             'sort_order' => $data['sort_order'] ?? 0,
             'attributable_type' => $target->getMorphClass(),
             'attributable_id' => $target->getKey(),
+            'claim_group' => $data['claim_group'] ?? null,
         ]);
 
         $this->replaceEvidence($fact, $data);

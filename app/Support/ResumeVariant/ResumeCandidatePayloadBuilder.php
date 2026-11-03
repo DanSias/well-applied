@@ -11,6 +11,7 @@ use App\Models\Project;
 use App\Models\Role;
 use App\Models\Skill;
 use App\Support\Clarification\ActiveLimitations;
+use App\Support\Expansion\SharedClaims;
 use App\Support\JobMatch\CareerFactAttribution;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
@@ -61,8 +62,12 @@ final class ResumeCandidatePayloadBuilder
 
         $annotationsByFactId = $this->buildAnnotations($jobMatch);
 
+        // One claim attached to several places is offered once (see SharedClaims), so Selection
+        // cannot count it repeatedly or repeat it under several projects or roles.
+        [$offered, $alsoAttached] = SharedClaims::collapse($facts);
+
         return [
-            'career_facts' => $facts->map(fn (CareerFact $fact) => $this->normalizeCareerFact($fact, $annotationsByFactId[$fact->id] ?? []))->all(),
+            'career_facts' => $offered->map(fn (CareerFact $fact) => $this->normalizeCareerFact($fact, $annotationsByFactId[$fact->id] ?? [], $alsoAttached[$fact->id] ?? []))->values()->all(),
             'education' => $this->buildEducation($profile),
             'eligible_skills' => $this->buildEligibleSkills($facts, $profile),
             'role_project_map' => $this->buildRoleProjectMap($profile),
@@ -109,9 +114,10 @@ final class ResumeCandidatePayloadBuilder
 
     /**
      * @param  array<int, array<string, mixed>>  $jobMatchAnnotations
+     * @param  array<int, string>  $alsoAttachedTo
      * @return array<string, mixed>
      */
-    private function normalizeCareerFact(CareerFact $fact, array $jobMatchAnnotations): array
+    private function normalizeCareerFact(CareerFact $fact, array $jobMatchAnnotations, array $alsoAttachedTo = []): array
     {
         $attribution = CareerFactAttribution::resolve($fact);
         $ids = $this->resolveRoleAndProjectIds($fact);
@@ -151,6 +157,8 @@ final class ResumeCandidatePayloadBuilder
                 'category' => $skill->category->value,
             ])->all(),
             'job_match_annotations' => $jobMatchAnnotations,
+            // Only present for a claim shared across places, so every other fact's payload is unchanged.
+            ...($fact->claim_group === null ? [] : ['shared_claim' => ['also_attached_to' => $alsoAttachedTo]]),
         ];
     }
 

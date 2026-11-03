@@ -33,6 +33,7 @@ function RevisionForm({
     const [visibility, setVisibility] = useState<string>(fact.visibility);
     const [verification, setVerification] = useState<string>(fact.verification);
     const [acknowledge, setAcknowledge] = useState(false);
+    const [thisOnly, setThisOnly] = useState(false);
     const [errors, setErrors] = useState<Errors>({});
     const [busy, setBusy] = useState(false);
 
@@ -46,6 +47,7 @@ function RevisionForm({
             visibility,
             verification,
             acknowledge_metric: acknowledge,
+            this_place_only: thisOnly,
         };
 
         setBusy(true);
@@ -67,6 +69,30 @@ function RevisionForm({
                 and your original answer stay on record, and the next resume
                 re-checks matching against the change.
             </p>
+
+            {fact.shared_with.length > 0 && (
+                <div className="mt-2 rounded bg-white/60 p-2 text-xs dark:bg-black/20">
+                    <p>
+                        This is one claim recorded for several places. It is
+                        also attached to:{' '}
+                        {fact.shared_with.map((s) => s.place).join('; ')}.
+                    </p>
+                    <label className="mt-1 flex items-center gap-1.5">
+                        <input
+                            type="checkbox"
+                            checked={thisOnly}
+                            onChange={(e) => setThisOnly(e.target.checked)}
+                        />
+                        Change this place only (it stops being the same claim)
+                    </label>
+                    {!thisOnly && (
+                        <p className="mt-1 opacity-80">
+                            A change to the wording, scope or verification is
+                            applied to every place, so they never disagree.
+                        </p>
+                    )}
+                </div>
+            )}
 
             <label className="mt-2 block text-xs font-medium">
                 Statement
