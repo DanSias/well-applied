@@ -52,11 +52,11 @@ it('opens a ranked, grouped interview of manageable size, grounded in the market
         ->and($session->job_posting_id)->toBeNull()
         ->and($questions->count())->toBeGreaterThanOrEqual(3)->toBeLessThanOrEqual(16)
         ->and($questions->pluck('score')->all())->toBe($questions->pluck('score')->sortDesc()->values()->all())
-        ->and($questions->pluck('topic_key')->all())->not->toContain('react')->not->toContain('webhooks');
+        ->and($questions->firstWhere('topic_key', 'kubernetes')->context['kind'])->toBe('discovery');
 
     $q = profileQuestion('webhook_handlers');
-    expect($q->question_text)->toContain('2 of the 5')->toContain('40%')
-        ->and($q->question_text)->toContain('Have you done anything like this')
+    expect($q->question_text)->toContain('2 of 5')->toContain('40%')
+        ->and($q->question_text)->toContain('Your record has related work on Developer Support Engineer at RocketGate')
         ->and($q->context['market']['postings'])->toBe(2)
         ->and($q->context['coverage'])->toBe('transferable')
         ->and($q->score_breakdown)->toHaveKey('answerability')
@@ -158,21 +158,21 @@ it('invalidates stale interview state when evidence is revised, and re-ranks wit
 
 it('records "no experience" as a known limitation and never asks about it again', function () {
     $f = interviewed();
-    $this->post(profileAnswerUrl($f, profileQuestion('containers')), ['mode' => 'no_experience', 'answer_text' => ''])->assertRedirect();
+    $this->post(profileAnswerUrl($f, profileQuestion('kubernetes')), ['mode' => 'no_experience', 'answer_text' => ''])->assertRedirect();
     $this->post(route('evidence-proposals.approve', EvidenceProposal::sole()), ['visibility' => 'private'])->assertRedirect();
 
-    expect(CareerLimitation::where('topic_key', 'containers')->active()->exists())->toBeTrue();
+    expect(CareerLimitation::where('topic_key', 'kubernetes')->active()->exists())->toBeTrue();
 
     app(ProfileInterview::class)->sync($f['profile']->refresh());
     $this->get(route('resume-profiles.show', $f['profile']))->assertInertia(fn ($page) => $page
-        ->where('resume_profile.interview.questions', fn ($qs) => collect($qs)->firstWhere('topic_key', 'containers')['status'] === 'answered')
-        ->where('resume_profile.interview.limitations.0.topic', 'Docker and Kubernetes')
-        ->where('resume_profile.market', fn ($groups) => collect($groups)->flatMap(fn ($g) => $g['capabilities'])->firstWhere('key', 'containers')['coverage'] === 'limitation'));
+        ->where('resume_profile.interview.questions', fn ($qs) => collect($qs)->firstWhere('topic_key', 'kubernetes')['status'] === 'answered')
+        ->where('resume_profile.interview.limitations.0.topic', 'Kubernetes')
+        ->where('resume_profile.market', fn ($groups) => collect($groups)->flatMap(fn ($g) => $g['capabilities'])->firstWhere('key', 'kubernetes')['coverage'] === 'limitation'));
 });
 
 it('lets the user skip, leave and come back: the same questions, progress and a skipped question can be reopened', function () {
     $f = interviewed();
-    $q = profileQuestion('containers');
+    $q = profileQuestion('kubernetes');
     $total = ClarificationQuestion::count();
 
     $this->post(route('resume-profiles.skip', [$f['profile'], $q]))->assertRedirect();

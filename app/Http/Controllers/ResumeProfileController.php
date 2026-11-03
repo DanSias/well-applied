@@ -4,12 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Jobs\BuildResumeProfileJob;
 use App\Models\ClarificationQuestion;
+use App\Models\MarketSamplePosting;
 use App\Models\ResumeProfile;
 use App\Support\Clarification\SubmitClarificationAnswer;
 use App\Support\CurrentCareerProfile;
 use App\Support\ResumeProfile\PresentResumeProfile;
 use App\Support\ResumeProfile\ProfileDefinitions;
 use App\Support\ResumeProfile\ProfileInterview;
+use App\Support\ResumeProfile\SampleReview;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -107,6 +109,29 @@ class ResumeProfileController extends Controller
         $interview->reopen($question);
 
         return back();
+    }
+
+    public function excludePosting(Request $request, ResumeProfile $resumeProfile, MarketSamplePosting $posting, SampleReview $review): RedirectResponse
+    {
+        $this->ownPosting($resumeProfile, $posting);
+        $data = $request->validate(['reason' => ['nullable', 'string', 'max:200']]);
+        $review->exclude($resumeProfile, $posting, $data['reason'] ?? null);
+
+        return back();
+    }
+
+    public function restorePosting(ResumeProfile $resumeProfile, MarketSamplePosting $posting, SampleReview $review): RedirectResponse
+    {
+        $this->ownPosting($resumeProfile, $posting);
+        $review->restore($resumeProfile, $posting);
+
+        return back();
+    }
+
+    private function ownPosting(ResumeProfile $profile, MarketSamplePosting $posting): void
+    {
+        $this->own($profile);
+        abort_unless($posting->market_sample_id === $profile->market_sample_id, 404);
     }
 
     private function own(ResumeProfile $profile): void

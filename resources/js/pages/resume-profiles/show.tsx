@@ -5,10 +5,15 @@ import { QuestionCard } from '@/components/clarification-panel';
 import type { QuestionRoutes } from '@/components/clarification-panel';
 import AppShell from '@/layouts/app-shell';
 import { answer, build, index, reopen, skip } from '@/routes/resume-profiles';
+import {
+    exclude as excludePosting,
+    restore as restorePosting,
+} from '@/routes/resume-profiles/postings';
 import type {
     CoverageStatus,
     MarketGroup,
     ResumeProfilePage,
+    SamplePosting,
 } from '@/types/resume-profile';
 
 const primary =
@@ -75,6 +80,31 @@ function CapabilityRow({
                     <Percent value={capability.preferred_share} /> preferred
                 </span>
             </div>
+            {capability.weak_postings > 0 && (
+                <p className="mt-1 text-xs text-neutral-500">
+                    Also hinted in {capability.weak_postings} more (only an
+                    ambiguous word, not counted).
+                </p>
+            )}
+            {capability.evidence.length > 0 && (
+                <details className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+                    <summary className="cursor-pointer">Evidence</summary>
+                    <ul className="mt-1 space-y-1">
+                        {capability.evidence.map((e, i) => (
+                            <li key={i}>
+                                <span className="font-medium">
+                                    {e.company}, {e.title}
+                                </span>{' '}
+                                ({e.level}, {e.confidence} confidence
+                                {e.matched ? `, matched "${e.matched}"` : ''}):
+                                <span className="block italic">
+                                    {e.snippet}
+                                </span>
+                            </li>
+                        ))}
+                    </ul>
+                </details>
+            )}
         </li>
     );
 }
@@ -172,29 +202,162 @@ function SampleSummary({ page }: { page: ResumeProfilePage }) {
                         ))}
                     </ul>
                 )}
-                <p className="mt-2 font-medium">Postings in the sample</p>
-                <ul className="mt-1 space-y-0.5">
-                    {sample.postings.map((p) => (
-                        <li key={p.id}>
-                            {p.source_url ? (
-                                <a
-                                    href={p.source_url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="underline underline-offset-2"
-                                >
-                                    {p.title}
-                                </a>
-                            ) : (
-                                p.title
-                            )}
-                            , {p.company} ({p.provider}
-                            {p.posted_at ? `, ${p.posted_at}` : ''})
-                        </li>
-                    ))}
-                </ul>
             </details>
         </div>
+    );
+}
+
+function PostingReviewCard({
+    posting,
+    slug,
+}: {
+    posting: SamplePosting;
+    slug: string;
+}) {
+    const [reason, setReason] = useState('');
+    const [open, setOpen] = useState(false);
+    const [busy, setBusy] = useState(false);
+
+    const remove = () => {
+        setBusy(true);
+        router.post(
+            excludePosting.url({ resumeProfile: slug, posting: posting.id }),
+            { reason },
+            { preserveScroll: true, onFinish: () => setBusy(false) },
+        );
+    };
+
+    return (
+        <li className="rounded-md border border-neutral-200 p-3 text-sm dark:border-neutral-800">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <p className="font-medium">
+                    {posting.source_url ? (
+                        <a
+                            href={posting.source_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline underline-offset-2"
+                        >
+                            {posting.title}
+                        </a>
+                    ) : (
+                        posting.title
+                    )}
+                    , {posting.company}
+                </p>
+                <span className="text-xs text-neutral-500">
+                    {posting.provider}
+                    {posting.posted_at ? ` · ${posting.posted_at}` : ''}
+                    {posting.reused ? ' · already in your opportunities' : ''}
+                </span>
+            </div>
+            <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+                {posting.why_included}
+            </p>
+            <p className="mt-1 text-xs text-neutral-500">
+                {posting.frontend.length > 0 &&
+                    `Front-end: ${posting.frontend.join(', ')}. `}
+                {posting.backend.length > 0 &&
+                    `Back-end: ${posting.backend.join(', ')}. `}
+                {posting.description.complete
+                    ? `Full description (${posting.description.chars.toLocaleString()} characters).`
+                    : 'Only a description preview.'}
+            </p>
+            {open ? (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <input
+                        className="w-64 rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs dark:border-neutral-700 dark:bg-neutral-950"
+                        placeholder="Why? (optional)"
+                        value={reason}
+                        onChange={(e) => setReason(e.target.value)}
+                    />
+                    <button
+                        type="button"
+                        className={secondary}
+                        disabled={busy}
+                        onClick={remove}
+                    >
+                        Remove from sample
+                    </button>
+                    <button
+                        type="button"
+                        className="text-xs underline"
+                        onClick={() => setOpen(false)}
+                    >
+                        Cancel
+                    </button>
+                </div>
+            ) : (
+                <button
+                    type="button"
+                    className={`${secondary} mt-2`}
+                    onClick={() => setOpen(true)}
+                >
+                    Not a good fit
+                </button>
+            )}
+        </li>
+    );
+}
+
+function SampleReview({ page }: { page: ResumeProfilePage }) {
+    const sample = page.sample;
+
+    if (!sample) {
+        return null;
+    }
+
+    return (
+        <details className="mt-3 rounded-md border border-neutral-200 p-3 dark:border-neutral-800">
+            <summary className="cursor-pointer text-sm font-medium">
+                Review the sample ({sample.size} postings)
+            </summary>
+            <p className="mt-2 text-xs text-neutral-500">
+                Removing a posting only takes it out of this study: the market
+                picture and your questions are recalculated, and it stays out
+                when the study is refreshed. Your opportunities are not changed.
+                A small sample is fine to explore; treat it as a first
+                impression.
+            </p>
+            <ul className="mt-3 space-y-2">
+                {sample.postings.map((posting) => (
+                    <PostingReviewCard
+                        key={posting.id}
+                        posting={posting}
+                        slug={page.profile.slug}
+                    />
+                ))}
+            </ul>
+            {sample.user_excluded.length > 0 && (
+                <div className="mt-4">
+                    <p className="text-xs font-medium">Removed by you</p>
+                    <ul className="mt-1 space-y-1 text-xs text-neutral-600 dark:text-neutral-400">
+                        {sample.user_excluded.map((p) => (
+                            <li key={p.id}>
+                                {p.title}, {p.company} ({p.provider}).{' '}
+                                <button
+                                    type="button"
+                                    className="underline underline-offset-2"
+                                    onClick={() =>
+                                        router.post(
+                                            restorePosting.url({
+                                                resumeProfile:
+                                                    page.profile.slug,
+                                                posting: p.id,
+                                            }),
+                                            {},
+                                            { preserveScroll: true },
+                                        )
+                                    }
+                                >
+                                    Put it back
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+        </details>
     );
 }
 
@@ -400,6 +563,7 @@ export default function ResumeProfileShow({
                         </h2>
                         <div className="mt-2">
                             <SampleSummary page={page} />
+                            <SampleReview page={page} />
                         </div>
                         <MarketSection groups={page.market} />
                     </section>

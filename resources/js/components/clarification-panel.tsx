@@ -489,6 +489,13 @@ export function QuestionCard({
         <li className="rounded-md border border-neutral-200 p-3 dark:border-neutral-800">
             <p className="text-xs font-medium tracking-wide text-neutral-500 uppercase">
                 {question.topic_label}
+                {question.why.kind && (
+                    <span className="ml-2 rounded bg-neutral-100 px-1.5 py-0.5 tracking-normal normal-case dark:bg-neutral-800">
+                        {question.why.kind === 'deepening'
+                            ? 'Go deeper'
+                            : 'New to your record'}
+                    </span>
+                )}
             </p>
             <p className="mt-1 text-sm text-neutral-900 dark:text-neutral-100">
                 {question.text}

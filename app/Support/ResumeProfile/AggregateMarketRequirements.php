@@ -81,9 +81,9 @@ final class AggregateMarketRequirements
         foreach ($capabilities as $key => $capability) {
             $entry = [
                 'key' => $key, 'label' => $capability['label'], 'category' => $capability['category'],
-                'postings' => 0, 'required' => 0, 'preferred' => 0, 'duty' => 0, 'mentioned' => 0,
+                'postings' => 0, 'required' => 0, 'preferred' => 0, 'duty' => 0, 'mentioned' => 0, 'weak_postings' => 0,
                 'weight_sum' => 0.0, 'senior_weight_sum' => 0.0, 'senior_postings' => 0,
-                'seniority' => [], 'posting_ids' => [], 'examples' => [],
+                'seniority' => [], 'posting_ids' => [], 'examples' => [], 'evidence' => [],
             ];
 
             foreach ($postings as $posting) {
@@ -94,6 +94,18 @@ final class AggregateMarketRequirements
                 }
 
                 $level = $hit['level'];
+
+                // Every hit is kept as evidence; only explicit phrases count towards prevalence.
+                if (count($entry['evidence']) < 40) {
+                    $entry['evidence'][] = ['posting_id' => $posting->id, 'company' => $posting->company, 'title' => $posting->title, 'level' => $level, 'confidence' => $hit['confidence'] ?? 'medium', 'matched' => $hit['matched'] ?? null, 'snippet' => $hit['snippet']];
+                }
+
+                if (($hit['confidence'] ?? 'medium') === 'low') {
+                    $entry['weak_postings']++;
+
+                    continue;
+                }
+
                 $entry['postings']++;
                 $entry[$level]++;
                 $entry['weight_sum'] += (float) ($weights[$level] ?? 0.5);
@@ -110,7 +122,7 @@ final class AggregateMarketRequirements
                 }
             }
 
-            if ($entry['postings'] === 0) {
+            if ($entry['postings'] === 0 && $entry['weak_postings'] === 0) {
                 continue;
             }
 

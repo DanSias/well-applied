@@ -32,6 +32,7 @@ use Illuminate\Support\Carbon;
  * @property bool $included
  * @property string $decision
  * @property string|null $decision_detail
+ * @property array<string, mixed>|null $signals
  * @property int|null $duplicate_of_id
  * @property string|null $extraction_version
  * @property array<string, mixed>|null $extraction
@@ -39,13 +40,13 @@ use Illuminate\Support\Carbon;
 #[Fillable([
     'market_sample_id', 'job_posting_id', 'provider', 'source_job_id', 'source_url', 'company', 'title', 'location',
     'remote_status', 'seniority', 'primary_stack', 'description_completeness', 'description', 'content_hash',
-    'posted_at', 'retrieved_at', 'included', 'decision', 'decision_detail', 'duplicate_of_id', 'extraction_version', 'extraction',
+    'posted_at', 'retrieved_at', 'included', 'decision', 'decision_detail', 'signals', 'duplicate_of_id', 'extraction_version', 'extraction',
 ])]
 class MarketSamplePosting extends Model
 {
     protected function casts(): array
     {
-        return ['posted_at' => 'datetime', 'retrieved_at' => 'datetime', 'included' => 'boolean', 'extraction' => 'array'];
+        return ['posted_at' => 'datetime', 'retrieved_at' => 'datetime', 'included' => 'boolean', 'extraction' => 'array', 'signals' => 'array'];
     }
 
     /**

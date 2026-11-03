@@ -22,13 +22,38 @@ export type MarketCapability = {
     preferred_share: number;
     coverage: CoverageStatus;
     coverage_label: string;
-    examples: { company: string; title: string; level: string }[];
+    weak_postings: number;
+    depth: 'deep' | 'moderate' | 'shallow' | null;
+    evidence: {
+        company: string;
+        title: string;
+        level: string;
+        confidence: 'high' | 'medium' | 'low';
+        matched: string | null;
+        snippet: string;
+    }[];
 };
 
 export type MarketGroup = {
     category: string;
     label: string;
     capabilities: MarketCapability[];
+};
+
+export type SamplePosting = {
+    id: number;
+    company: string;
+    title: string;
+    provider: string;
+    source_url: string | null;
+    posted_at: string | null;
+    seniority: string | null;
+    why_included: string;
+    basis: 'title' | 'description' | null;
+    frontend: string[];
+    backend: string[];
+    description: { complete: boolean; chars: number };
+    reused: boolean;
 };
 
 export type ProfileSample = {
@@ -49,14 +74,13 @@ export type ProfileSample = {
         retrieved: number;
         reused: number;
     }[];
-    postings: {
+    postings: SamplePosting[];
+    user_excluded: {
         id: number;
         company: string;
         title: string;
         provider: string;
-        source_url: string | null;
-        posted_at: string | null;
-        seniority: string | null;
+        detail: string | null;
     }[];
     excluded_examples: {
         company: string;

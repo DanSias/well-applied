@@ -16,6 +16,13 @@ namespace App\Support\ResumeProfile;
  * strongest level it was seen at in the posting (required > duty > mentioned >
  * preferred), plus the line that showed it.
  *
+ * Each capability lists `patterns` (an explicit phrase) and optionally
+ * `weak_patterns` (an ambiguous word such as "scalable" or "monitoring").
+ * A hit records the phrase that matched and a confidence: `high` (explicit
+ * phrase in a requirement, duty or the title), `medium` (explicit phrase
+ * elsewhere or as a preference) or `low` (only an ambiguous word). Low hits
+ * are kept as evidence but never counted towards prevalence.
+ *
  * Output depends only on (text, title, extraction_version), which is what
  * makes it cacheable by content hash.
  */
@@ -24,7 +31,7 @@ final class RequirementExtractor
     private const RANK = ['preferred' => 1, 'mentioned' => 2, 'duty' => 3, 'required' => 4];
 
     /**
-     * @return array{version: string, seniority: string, years_min: int|null, stack: string|null, capabilities: array<string, array{level: string, snippet: string}>}
+     * @return array{version: string, seniority: string, years_min: int|null, stack: string|null, capabilities: array<string, array{level: string, snippet: string, matched: string, confidence: string}>}
      */
     public function extract(string $title, string $text): array
     {
@@ -32,8 +39,10 @@ final class RequirementExtractor
         $found = [];
 
         foreach ($capabilities as $key => $capability) {
-            if ($this->matches($capability['patterns'], $title)) {
-                $found[$key] = ['level' => 'required', 'snippet' => 'Title: '.$title];
+            $hit = $this->hit($capability, $title);
+
+            if ($hit !== null) {
+                $found[$key] = ['level' => 'required', 'snippet' => 'Title: '.$title, 'matched' => $hit['matched'], 'confidence' => $hit['strong'] ? 'high' : 'low'];
             }
         }
 
@@ -61,12 +70,17 @@ final class RequirementExtractor
             };
 
             foreach ($capabilities as $key => $capability) {
-                if (! $this->matches($capability['patterns'], $line)) {
+                $hit = $this->hit($capability, $line);
+
+                if ($hit === null) {
                     continue;
                 }
 
-                if (! isset($found[$key]) || self::RANK[$level] > self::RANK[$found[$key]['level']]) {
-                    $found[$key] = ['level' => $level, 'snippet' => mb_strimwidth($line, 0, 180, '...')];
+                $confidence = ! $hit['strong'] ? 'low' : (in_array($level, ['required', 'duty'], true) ? 'high' : 'medium');
+                $candidate = ['level' => $level, 'snippet' => mb_strimwidth($line, 0, 180, '...'), 'matched' => $hit['matched'], 'confidence' => $confidence];
+
+                if (! isset($found[$key]) || $this->better($candidate, $found[$key])) {
+                    $found[$key] = $candidate;
                 }
             }
         }
@@ -84,17 +98,37 @@ final class RequirementExtractor
     }
 
     /**
-     * @param  array<int, string>  $patterns
+     * @param  array<string, mixed>  $capability
+     * @return array{matched: string, strong: bool}|null
      */
-    private function matches(array $patterns, string $text): bool
+    private function hit(array $capability, string $text): ?array
     {
-        foreach ($patterns as $pattern) {
-            if (preg_match($pattern, $text) === 1) {
-                return true;
+        foreach ((array) $capability['patterns'] as $pattern) {
+            if (preg_match($pattern, $text, $m) === 1) {
+                return ['matched' => $m[0], 'strong' => true];
             }
         }
 
-        return false;
+        foreach ((array) ($capability['weak_patterns'] ?? []) as $pattern) {
+            if (preg_match($pattern, $text, $m) === 1) {
+                return ['matched' => $m[0], 'strong' => false];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * An explicit phrase beats an ambiguous word; then the stronger level.
+     *
+     * @param  array{level: string, confidence: string}  $new
+     * @param  array{level: string, confidence: string}  $old
+     */
+    private function better(array $new, array $old): bool
+    {
+        $score = fn (array $h) => ($h['confidence'] === 'low' ? 0 : 10) + self::RANK[$h['level']];
+
+        return $score($new) > $score($old);
     }
 
     /**

@@ -20,7 +20,7 @@ return [
      | extractions are keyed by (content hash, this version), so a bump
      | re-reads every sampled posting exactly once and nothing else.
      */
-    'extraction_version' => 'market-extract-v1',
+    'extraction_version' => 'market-extract-v2',
 
     'profiles' => [
         'full-stack-product' => [
@@ -38,7 +38,7 @@ return [
                     'web developer', 'software developer',
                 ],
                 'exclude_terms' => ['intern', 'internship', 'entry level', 'entry-level', 'junior', 'jr.', 'new grad', 'new graduate'],
-                'excluded_title_keywords' => ['site reliability', 'sre', 'devops', 'machine learning', 'data scientist', 'security engineer', 'embedded', 'firmware', 'ios', 'android', 'mobile', 'infrastructure', 'platform engineering', 'data platform', 'data engineer', 'blockchain'],
+                'excluded_title_keywords' => ['site reliability', 'sre', 'devops', 'machine learning', 'data scientist', 'security engineer', 'embedded', 'firmware', 'ios', 'android', 'mobile', 'infrastructure', 'platform engineering', 'data platform', 'data engineer', 'blockchain', 'backend', 'back-end', 'back end', 'data'],
                 'preferred_seniority' => 'Senior',
                 'remote_preference' => 'remote_us',
                 'allowed_locations' => ['United States', 'US', 'USA', 'Remote'],
@@ -75,6 +75,9 @@ return [
                 'min_postings' => 2,
                 'min_share' => 0.08,
                 'skip_cooldown_days' => 30,
+                // A documented capability is revisited only when the market asks for it a lot and the
+                // record is thin on projects, ownership or outcomes (see CapabilityCoverage::depth).
+                'deepening' => ['min_importance' => 0.35, 'categories' => ['technology', 'architecture', 'responsibility', 'practice']],
             ],
         ],
     ],
@@ -156,29 +159,32 @@ return [
         'sql_databases' => ['label' => 'SQL and relational databases', 'category' => 'technology', 'patterns' => ['/\b(?:SQL|PostgreSQL|Postgres|MySQL|relational databases?)\b/i'], 'related' => []],
         'nosql_cache' => ['label' => 'NoSQL and caching', 'category' => 'technology', 'patterns' => ['/\b(?:MongoDB|DynamoDB|Redis|Cassandra|Elasticsearch|NoSQL|Memcached)\b/i'], 'related' => ['sql_databases']],
         'graphql' => ['label' => 'GraphQL', 'category' => 'technology', 'patterns' => ['/\bGraphQL\b/i'], 'related' => ['rest_api_design']],
-        'cloud_platforms' => ['label' => 'Cloud platforms (AWS, GCP, Azure)', 'category' => 'technology', 'patterns' => ['/\b(?:AWS|Amazon Web Services|GCP|Google Cloud|Azure)\b/'], 'related' => ['containers']],
-        'containers' => ['label' => 'Docker and Kubernetes', 'category' => 'technology', 'patterns' => ['/\b(?:Docker|Kubernetes|K8s)\b/i', '/\bcontaineri[sz]ation\b/i'], 'related' => ['cloud_platforms']],
-        'ai_llm' => ['label' => 'AI and LLM features', 'category' => 'technology', 'patterns' => ['/\b(?:LLMs?|large language models?|OpenAI|generative AI|GenAI|prompt engineering|RAG)\b/', '/\bAI[- ]powered\b/i'], 'related' => []],
+        'cloud_platforms' => ['label' => 'Cloud platforms (AWS, GCP, Azure)', 'category' => 'technology', 'patterns' => ['/\b(?:AWS|Amazon Web Services|GCP|Google Cloud|Azure)\b/'], 'related' => []],
+        'docker' => ['label' => 'Docker and containers', 'category' => 'technology', 'patterns' => ['/\bDocker\b/i'], 'weak_patterns' => ['/\bcontaineri[sz](?:e|es|ed|ing|ation)\b/i'], 'related' => []],
+        'kubernetes' => ['label' => 'Kubernetes', 'category' => 'technology', 'patterns' => ['/\b(?:Kubernetes|K8s|Helm|EKS|GKE)\b/'], 'related' => []],
+        'ai_llm' => ['label' => 'AI and LLM features', 'category' => 'technology', 'patterns' => ['/\b(?:LLMs?|large language models?|OpenAI|generative AI|GenAI|prompt engineering|RAG)\b/'], 'weak_patterns' => ['/\bAI[- ]powered\b/i'], 'related' => []],
 
         // ---- Engineering practices ----
-        'ci_cd' => ['label' => 'CI/CD and release automation', 'category' => 'practice', 'patterns' => ['/\bCI\s*\/\s*CD\b/i', '/\bcontinuous (?:integration|delivery|deployment)\b/i', '/\b(?:GitHub Actions|Jenkins|CircleCI)\b/'], 'related' => ['containers']],
+        'ci_cd' => ['label' => 'CI/CD and release automation', 'category' => 'practice', 'patterns' => ['/\bCI\s*\/\s*CD\b/i', '/\bcontinuous (?:integration|delivery|deployment)\b/i', '/\b(?:GitHub Actions|Jenkins|CircleCI)\b/'], 'related' => []],
         'infrastructure_as_code' => ['label' => 'Infrastructure as code', 'category' => 'practice', 'patterns' => ['/\b(?:Terraform|CloudFormation|Pulumi)\b/', '/\binfrastructure as code\b/i'], 'related' => ['ci_cd', 'cloud_platforms']],
         'automated_testing' => ['label' => 'Automated testing', 'category' => 'practice', 'patterns' => ['/\b(?:unit|integration|end[- ]to[- ]end|automated) tests?\b/i', '/\b(?:test[- ]driven|TDD|automated testing)\b/i', '/\b(?:Jest|Cypress|Playwright|Pytest|PHPUnit|RSpec)\b/'], 'related' => []],
-        'observability' => ['label' => 'Monitoring and observability', 'category' => 'practice', 'patterns' => ['/\b(?:observability|monitoring|Datadog|Sentry|New Relic|Prometheus|Grafana)\b/i'], 'related' => ['incident_response']],
-        'code_review' => ['label' => 'Code review and quality', 'category' => 'practice', 'patterns' => ['/\bcode reviews?\b/i', '/\b(?:code quality|engineering standards|best practices)\b/i'], 'related' => []],
+        'observability' => ['label' => 'Monitoring and observability', 'category' => 'practice', 'patterns' => ['/\b(?:observability|Datadog|Sentry|New Relic|Prometheus|Grafana)\b/i'], 'weak_patterns' => ['/\bmonitoring\b/i'], 'related' => ['incident_response']],
+        'code_review' => ['label' => 'Code review and quality', 'category' => 'practice', 'patterns' => ['/\bcode reviews?\b/i', '/\b(?:code quality|engineering standards)\b/i'], 'weak_patterns' => ['/\bbest practices\b/i'], 'related' => []],
         'incident_response' => ['label' => 'Production support and incident response', 'category' => 'practice', 'patterns' => ['/\bon-?call\b/i', '/\bincident (?:response|management)\b/i', '/\b(?:post-?mortems?|production (?:support|issues)|SLAs?|SLOs?)\b/'], 'related' => ['observability']],
         'experimentation' => ['label' => 'Experimentation and feature flags', 'category' => 'practice', 'patterns' => ['/\bA\/B test\w*\b/i', '/\b(?:experimentation|feature flags?|feature toggles?)\b/i'], 'related' => ['conversion_funnels']],
 
         // ---- Architecture and integration patterns ----
         'rest_api_design' => ['label' => 'REST API design and development', 'category' => 'architecture', 'patterns' => ['/\bRESTful\b/i', '/\bREST\s+APIs?\b/', '/\bAPI design\b/i', '/\b(?:design|build|develop|maintain)(?:ing)?\s+(?:\w+\s+){0,2}APIs?\b/i'], 'related' => ['api_integration', 'graphql']],
-        'api_integration' => ['label' => 'Third-party API integration', 'category' => 'architecture', 'patterns' => ['/\bthird[- ]party (?:APIs?|integrations?|services)\b/i', '/\bintegrat(?:e|ing|ion with)\s+(?:\w+\s+){0,2}(?:APIs?|third[- ]party)\b/i', '/\b(?:API|partner|vendor) integrations?\b/i', '/\bexternal (?:APIs?|services)\b/i'], 'related' => ['rest_api_design'], 'ask' => 'integrating your product or a client with someone else\'s API (payments, CRM, messaging, data providers, partner systems)'],
+        'api_integration' => ['label' => 'Third-party API integration', 'category' => 'architecture', 'patterns' => ['/\bthird[- ]party (?:APIs?|integrations?|services)\b/i', '/\bintegrat(?:e|ing|ion with)\s+(?:\w+\s+){0,2}(?:APIs?|third[- ]party)\b/i', '/\b(?:API|partner|vendor) integrations?\b/i', '/\bexternal APIs?\b/i'], 'weak_patterns' => ['/\bexternal services\b/i'], 'related' => ['rest_api_design'], 'ask' => 'integrating your product or a client with someone else\'s API (payments, CRM, messaging, data providers, partner systems)'],
         'webhooks' => ['label' => 'Webhook integration', 'category' => 'architecture', 'patterns' => ['/\bweb-?hooks?\b/i'], 'related' => ['api_integration', 'event_driven'], 'ask' => 'working with webhooks: configuring them, consuming them, supporting merchants or customers who use them'],
-        'webhook_handlers' => ['label' => 'Webhook handler implementation', 'category' => 'architecture', 'parent' => 'webhooks', 'patterns' => ['/\b(?:build|implement|develop|design|handle|handling|process|processing|consum)\w*\s+(?:\w+\s+){0,3}web-?hooks?\b/i', '/\bweb-?hook (?:handlers?|endpoints?|receivers?|consumers?|processing)\b/i'], 'related' => ['webhooks', 'api_integration', 'event_driven'], 'ask' => 'building the receiving side of webhooks: endpoints, signature checks, processing events'],
-        'retry_idempotency' => ['label' => 'Retry, idempotency and failure handling', 'category' => 'architecture', 'patterns' => ['/\bidempoten\w+\b/i', '/\bretry (?:logic|strateg\w+|mechanisms?|handling|schedules?|policies)\b/i', '/\b(?:exponential backoff|dead[- ]letter|at-least-once|exactly-once)\b/i'], 'related' => ['webhooks', 'event_driven'], 'ask' => 'making integrations safe to repeat or fail: retry schedules, idempotency keys, deduplication, recovering from failed events'],
+        'webhook_handlers' => ['label' => 'Webhook handler implementation', 'category' => 'architecture', 'parent' => 'webhooks', 'patterns' => ['/\b(?:build|implement|develop|design|handle|handling|process|processing|consum)\w*\s+(?:\w+\s+){0,3}web-?hooks?\b/i', '/\bweb-?hook (?:handlers?|endpoints?|receivers?|consumers?|processing)\b/i'], 'related' => ['webhooks'], 'ask' => 'building the receiving side of webhooks: endpoints, signature checks, processing events'],
+        'retry_idempotency' => ['label' => 'Retry, idempotency and failure handling', 'category' => 'architecture', 'patterns' => ['/\bidempoten\w+\b/i', '/\bretry (?:logic|strateg\w+|mechanisms?|handling|schedules?|policies)\b/i', '/\b(?:exponential backoff|dead[- ]letter|at-least-once|exactly-once)\b/i'], 'related' => ['event_driven'], 'ask' => 'making integrations safe to repeat or fail: retry schedules, idempotency keys, deduplication, recovering from failed events'],
         'event_driven' => ['label' => 'Queues, events and background jobs', 'category' => 'architecture', 'patterns' => ['/\b(?:Kafka|RabbitMQ|SQS|SNS|Sidekiq|Celery)\b/', '/\b(?:message (?:queues?|brokers?)|event[- ]driven|pub\/?sub|background (?:jobs?|processing|workers?)|job queues?|asynchronous processing)\b/i'], 'related' => ['webhooks']],
-        'auth_security' => ['label' => 'Authentication and application security', 'category' => 'architecture', 'patterns' => ['/\b(?:OAuth2?|SSO|SAML|OIDC|JWT|OWASP)\b/', '/\b(?:authentication|authorization|application security|secure coding)\b/i'], 'related' => []],
-        'system_design' => ['label' => 'System and architecture design', 'category' => 'architecture', 'patterns' => ['/\b(?:system design|software architecture|architectural|technical design|design documents?|technical specs?)\b/i'], 'related' => ['distributed_scale']],
-        'distributed_scale' => ['label' => 'Scalability and distributed systems', 'category' => 'architecture', 'patterns' => ['/\b(?:microservices?|distributed systems?|high[- ]traffic|high availability|scalab\w+)\b/i', '/\bperformance (?:optimi[sz]ation|tuning)\b/i'], 'related' => ['system_design']],
+        'auth_security' => ['label' => 'Authentication and application security', 'category' => 'architecture', 'patterns' => ['/\b(?:OAuth2?|SSO|SAML|OIDC|JWT|OWASP)\b/', '/\b(?:application security|secure coding)\b/i'], 'weak_patterns' => ['/\b(?:authentication|authorization)\b/i'], 'related' => []],
+        'system_design' => ['label' => 'System and architecture design', 'category' => 'architecture', 'patterns' => ['/\b(?:system design|software architecture|technical design|design documents?|technical specs?|design reviews?|architecture reviews?)\b/i', '/\barchitectural (?:design|decisions?|reviews?|patterns?)\b/i'], 'weak_patterns' => ['/\barchitect(?:ure|ing)\b/i'], 'related' => ['rest_api_design', 'data_modeling', 'distributed_systems'], 'ask' => 'system or architecture design (choosing how components fit together, weighing trade-offs, writing design documents)'],
+        'architecture_ownership' => ['label' => 'Owning architecture and technical direction', 'category' => 'responsibility', 'patterns' => ['/\b(?:own|owning|lead|leading|define|defining|drive|driving|set|setting|shape|shaping)\b[^.\n]{0,40}\b(?:architecture|architectural (?:direction|vision|strategy)|technical (?:strategy|direction|vision|roadmap))\b/i'], 'related' => ['system_design'], 'ask' => 'owning architecture or technical direction for a product or team'],
+        'distributed_systems' => ['label' => 'Distributed systems and microservices', 'category' => 'architecture', 'patterns' => ['/\bdistributed (?:systems?|architectures?|computing|services)\b/i', '/\bmicroservices?\b/i', '/\bservice[- ]oriented\b/i', '/\bhigh[- ]availability\b/i', '/\bhorizontal(?:ly)? scal\w+\b/i'], 'weak_patterns' => ['/\bhigh[- ]traffic\b/i'], 'related' => []],
+        'scalability_performance' => ['label' => 'Scalability and performance work', 'category' => 'practice', 'patterns' => ['/\bperformance (?:optimi[sz]ation|tuning|engineering)\b/i', '/\bscal(?:e|ing) (?:the )?(?:product|platform|system|application)s?\b/i', '/\bscalable (?:systems?|applications?|services?|solutions?|architectures?)\b/i'], 'weak_patterns' => ['/\bscalab\w+\b/i'], 'related' => []],
         'data_modeling' => ['label' => 'Data modeling and migrations', 'category' => 'architecture', 'patterns' => ['/\b(?:data model(?:ing|s)?|schema design|database design|database migrations?)\b/i'], 'related' => ['sql_databases']],
         'data_pipelines' => ['label' => 'Data pipelines and warehousing', 'category' => 'architecture', 'patterns' => ['/\b(?:ETL|ELT|data pipelines?|data warehouse|Snowflake|BigQuery|dbt)\b/'], 'related' => ['sql_databases']],
         'frontend_architecture' => ['label' => 'Front-end architecture and design systems', 'category' => 'architecture', 'patterns' => ['/\b(?:design systems?|component librar(?:y|ies)|state management|Redux|accessibility|WCAG)\b/i', '/\bresponsive (?:design|web)\b/i'], 'related' => ['react']],
@@ -187,31 +193,38 @@ return [
         'financial_aggregation' => ['label' => 'Financial-account aggregation', 'category' => 'architecture', 'patterns' => ['/\b(?:Plaid|Finicity|Yodlee)\b/', '/\baccount aggregation\b/i'], 'related' => ['api_integration']],
 
         // ---- Responsibilities and ownership expectations ----
-        'end_to_end_ownership' => ['label' => 'End-to-end feature ownership', 'category' => 'responsibility', 'patterns' => ['/\bend[- ]to[- ]end\b/i', '/\bown(?:ership)?\s+(?:of\s+)?(?:\w+\s+){0,3}(?:features?|products?|projects?|systems?|services?)\b/i', '/\b(?:full (?:software )?(?:development )?lifecycle|from concept to|0[- ]to[- ]1|zero[- ]to[- ]one)\b/i'], 'related' => [], 'ask' => 'taking something from idea to production yourself: what you owned, decided and shipped'],
-        'mentoring_leadership' => ['label' => 'Mentoring and technical leadership', 'category' => 'responsibility', 'patterns' => ['/\bmentor\w*\b/i', '/\b(?:tech(?:nical)? lead\w*|lead (?:a )?(?:team|engineers?|projects?)|set (?:the )?technical direction)\b/i'], 'related' => ['code_review']],
-        'customer_facing' => ['label' => 'Customer-facing technical work', 'category' => 'responsibility', 'patterns' => ['/\b(?:customer|client)[- ]facing\b/i', '/\bwork(?:ing)? directly with (?:customers|clients|merchants)\b/i', '/\b(?:technical support|solutions? engineer\w*|stakeholder management)\b/i'], 'related' => []],
+        'end_to_end_ownership' => ['label' => 'End-to-end feature ownership', 'category' => 'responsibility', 'patterns' => ['/\bown(?:ership)?\s+(?:of\s+)?(?:\w+\s+){0,3}(?:features?|products?|projects?|systems?|services?)\b/i', '/\b(?:full (?:software )?(?:development )?lifecycle|from concept to|0[- ]to[- ]1|zero[- ]to[- ]one)\b/i'], 'weak_patterns' => ['/\bend[- ]to[- ]end\b/i'], 'related' => [], 'ask' => 'taking something from idea to production yourself: what you owned, decided and shipped'],
+        'mentoring_leadership' => ['label' => 'Mentoring and technical leadership', 'category' => 'responsibility', 'patterns' => ['/\bmentor\w*\b/i', '/\b(?:tech(?:nical)? lead\w*|lead (?:a )?(?:team|engineers?|projects?)|set (?:the )?technical direction)\b/i'], 'related' => ['code_review'], 'ask' => 'mentoring other engineers or leading technical work'],
+        'customer_facing' => ['label' => 'Customer-facing technical work', 'category' => 'responsibility', 'patterns' => ['/\b(?:customer|client)[- ]facing\b/i', '/\bwork(?:ing)? directly with (?:customers|clients|merchants)\b/i', '/\b(?:solutions? engineer\w*|stakeholder management)\b/i'], 'weak_patterns' => ['/\btechnical support\b/i'], 'related' => []],
 
         // ---- Collaboration and delivery ----
-        'cross_functional' => ['label' => 'Cross-functional collaboration', 'category' => 'collaboration', 'patterns' => ['/\bcross[- ]functional\b/i', '/\b(?:product managers?|designers?)\b/i', '/\bwork(?:ing)? closely with (?:product|design)\b/i'], 'related' => ['customer_facing']],
+        'cross_functional' => ['label' => 'Cross-functional collaboration', 'category' => 'collaboration', 'patterns' => ['/\bcross[- ]functional\b/i', '/\bwork(?:ing)? closely with (?:product|design)\b/i'], 'weak_patterns' => ['/\b(?:product managers?|designers?)\b/i'], 'related' => ['customer_facing']],
         'agile_delivery' => ['label' => 'Agile delivery', 'category' => 'collaboration', 'patterns' => ['/\b(?:agile|scrum|kanban|sprint planning)\b/i', '/\bship(?:ping)? (?:fast|quickly|frequently|iteratively)\b/i', '/\brapid iteration\b/i'], 'related' => []],
-        'product_sense' => ['label' => 'Product thinking', 'category' => 'collaboration', 'patterns' => ['/\bproduct (?:sense|thinking|mindset|intuition|minded|-minded)\b/i', '/\b(?:user[- ]centric|customer[- ]obsessed|user experience|\bUX\b)\b/i'], 'related' => ['cross_functional', 'conversion_funnels']],
-        'conversion_funnels' => ['label' => 'Conversion funnels, checkout and onboarding flows', 'category' => 'collaboration', 'patterns' => ['/\b(?:conversion|funnels?|checkout|onboarding|registration)\b/i'], 'related' => ['experimentation', 'product_sense']],
+        'product_sense' => ['label' => 'Product thinking', 'category' => 'collaboration', 'patterns' => ['/\bproduct (?:sense|thinking|mindset|intuition|minded|-minded)\b/i', '/\b(?:user[- ]centric|customer[- ]obsessed)\b/i'], 'weak_patterns' => ['/\b(?:user experience|UX)\b/'], 'related' => ['cross_functional', 'conversion_funnels']],
+        'conversion_funnels' => ['label' => 'Conversion funnels, checkout and onboarding flows', 'category' => 'collaboration', 'patterns' => ['/\b(?:conversion (?:rate|optimi[sz]ation|funnels?)|funnels?|checkout (?:flows?|experience|conversion))\b/i'], 'weak_patterns' => ['/\b(?:conversion|checkout|onboarding|registration)\b/i'], 'related' => ['experimentation', 'product_sense']],
 
         // ---- Domain experience ----
         'domain_saas_b2b' => ['label' => 'B2B SaaS', 'category' => 'domain', 'patterns' => ['/\b(?:B2B|SaaS|multi-?tenant|enterprise software)\b/'], 'related' => []],
         'domain_fintech' => ['label' => 'Fintech and payments', 'category' => 'domain', 'patterns' => ['/\b(?:fintech|financial services|banking|lending|insurance)\b/i', '/\bpayments? (?:industry|company|space|platform)\b/i'], 'related' => ['payment_gateways', 'recurring_billing']],
-        'domain_ecommerce' => ['label' => 'E-commerce and marketplaces', 'category' => 'domain', 'patterns' => ['/\b(?:e-?commerce|marketplace|retail|Shopify|storefront)\b/i'], 'related' => ['conversion_funnels']],
+        'domain_ecommerce' => ['label' => 'E-commerce and marketplaces', 'category' => 'domain', 'patterns' => ['/\b(?:e-?commerce|Shopify|storefront)\b/i'], 'weak_patterns' => ['/\b(?:marketplace|retail)\b/i'], 'related' => ['conversion_funnels']],
         'domain_healthcare' => ['label' => 'Healthcare technology', 'category' => 'domain', 'patterns' => ['/\b(?:healthcare|health ?tech|HIPAA|clinical)\b/i'], 'related' => []],
         'domain_devtools' => ['label' => 'Developer tools and platforms', 'category' => 'domain', 'patterns' => ['/\b(?:developer tools?|developer experience|SDKs?|developer platform|API platform)\b/i'], 'related' => ['api_integration']],
     ],
+
+    /*
+     | Optional model phrasing of interview questions, done once per build (never on a page
+     | load). Ranking stays deterministic. Off by default; enable with RESUME_PROFILE_ENRICH=true
+     | or run `php artisan profile:enrich`.
+     */
+    'enrichment' => ['enabled' => (bool) env('RESUME_PROFILE_ENRICH', false), 'prompt_version' => 'profile-question-v1', 'reasoning_effort' => 'low'],
 
     /*
      | Interview ranking. score = importance x gap x answerability x usefulness.
      */
     'ranking' => [
         'level_weight' => ['required' => 1.0, 'duty' => 0.9, 'mentioned' => 0.6, 'preferred' => 0.5],
-        'gap' => ['no_evidence' => 1.0, 'underdocumented' => 0.85, 'transferable' => 0.55],
-        'answerability' => ['underdocumented' => 1.0, 'transferable' => 0.9, 'no_evidence_with_adjacent' => 0.7, 'no_evidence' => 0.4],
+        'gap' => ['no_evidence' => 1.0, 'underdocumented' => 0.85, 'transferable' => 0.55, 'deepening_shallow' => 0.6, 'deepening_moderate' => 0.3],
+        'answerability' => ['deepening' => 1.0, 'underdocumented' => 1.0, 'transferable' => 0.9, 'no_evidence_with_adjacent' => 0.7, 'no_evidence' => 0.4],
         'usefulness' => ['responsibility' => 1.0, 'architecture' => 1.0, 'practice' => 0.9, 'domain' => 0.8, 'collaboration' => 0.8, 'technology' => 0.75],
     ],
 ];

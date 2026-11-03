@@ -16,7 +16,9 @@ use App\Models\ResumeProfile;
  *
  *   importance     how much of the sample asks for it (required counts most;
  *                  the senior-level share is used when it is higher)
- *   gap            how little the approved record already says
+ *   gap            how little the approved record already says; a documented but
+ *                  thinly evidenced capability (one fact, no outcome) is still
+ *                  worth deepening, at a lower weight
  *   answerability  how likely the user holds undocumented experience: related
  *                  or thinly documented evidence makes that likelier than
  *                  nothing nearby
@@ -47,8 +49,20 @@ final class RankDiscoveryTopics
 
         foreach ((array) ($aggregate['capabilities'] ?? []) as $key => $market) {
             $status = $coverage['capabilities'][$key]['status'] ?? CapabilityCoverage::NONE;
+            $depth = $coverage['capabilities'][$key]['depth']['level'] ?? null;
 
-            if (in_array($status, [CapabilityCoverage::DIRECT, CapabilityCoverage::LIMITATION], true) || isset($suppressed[$key])) {
+            if ($status === CapabilityCoverage::LIMITATION || isset($suppressed[$key])) {
+                continue;
+            }
+
+            // Discovery: genuinely absent or only related. Deepening: the user clearly has it, but the
+            // record lacks substance. A well documented capability is not asked about.
+            $deepening = $status === CapabilityCoverage::UNDERDOCUMENTED
+                || ($status === CapabilityCoverage::DIRECT && in_array($depth, ['shallow', 'moderate'], true)
+                    && $market['importance'] >= (float) ($cfg['deepening']['min_importance'] ?? 0.35)
+                    && in_array($market['category'], (array) ($cfg['deepening']['categories'] ?? []), true));
+
+            if ($status === CapabilityCoverage::DIRECT && ! $deepening) {
                 continue;
             }
 
@@ -57,8 +71,12 @@ final class RankDiscoveryTopics
             }
 
             $importance = max((float) $market['importance'], (float) ($market['senior_importance'] ?? 0));
-            $gap = (float) $weights['gap'][$status];
-            $answerability = (float) $weights['answerability'][$status === CapabilityCoverage::NONE ? ($this->hasAdjacent($key, $coverage) ? 'no_evidence_with_adjacent' : 'no_evidence') : $status];
+            $gap = (float) $weights['gap'][$status === CapabilityCoverage::DIRECT ? 'deepening_'.$depth : $status];
+            $answerability = (float) $weights['answerability'][match (true) {
+                $deepening => 'deepening',
+                $status === CapabilityCoverage::NONE => $this->hasAdjacent($key, $coverage) ? 'no_evidence_with_adjacent' : 'no_evidence',
+                default => $status,
+            }];
             $usefulness = (float) $weights['usefulness'][$market['category']];
             $score = round($importance * $gap * $answerability * $usefulness, 4);
 
@@ -67,8 +85,9 @@ final class RankDiscoveryTopics
             }
 
             $ranked[] = [
-                'key' => (string) $key, 'score' => $score, 'status' => $status, 'market' => $market, 'postings_total' => $n,
-                'breakdown' => ['importance' => round($importance, 3), 'gap' => $gap, 'answerability' => $answerability, 'usefulness' => $usefulness, 'coverage' => $status],
+                'key' => (string) $key, 'score' => $score, 'status' => $status, 'kind' => $deepening ? 'deepening' : 'discovery', 'depth' => $depth,
+                'market' => $market, 'postings_total' => $n,
+                'breakdown' => ['importance' => round($importance, 3), 'gap' => $gap, 'answerability' => $answerability, 'usefulness' => $usefulness, 'coverage' => $status, 'kind' => $deepening ? 'deepening' : 'discovery'],
             ];
         }
 

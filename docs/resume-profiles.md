@@ -75,6 +75,38 @@ reopened. Answers use `SubmitClarificationAnswer`, review and approval use `Revi
 (explicit visibility, scope guard, limitations, revision), so evidence revision tracking and
 `ReviseApprovedEvidence` apply unchanged.
 
+## Quality pass
+
+**Sample review.** Every posting stores the signals behind its inclusion (title terms, or the front-end
+and back-end terms a generic title needed) and whether its description was complete. The page's
+"Review the sample" lists them with a "Not a good fit" action. `SampleReview` records a
+`market_sample_exclusions` row (matched by content hash, provider id, or company plus title), marks the
+posting `user_excluded`, re-aggregates (extraction is cached) and re-syncs the interview, so the map
+and ranking follow. Exclusions survive rebuilds and can be undone; job postings and applications are
+never touched. No minimum sample size is required.
+
+**Extraction precision** (`market-extract-v2`). A capability has `patterns` (explicit phrases) and
+optional `weak_patterns` (ambiguous words). Each hit keeps the phrase matched, the line, the level and a
+confidence (`high`, `medium`, `low`); `low` hits are kept as evidence but never counted towards
+prevalence. "Scalable" is its own weak capability and no longer means distributed systems; Docker and
+Kubernetes are separate; API integration does not feed webhook handlers; architecture ownership needs
+an explicit "own/lead/define ... architecture" phrase, not broad ownership language.
+
+**Question kinds.** `CapabilityCoverage` also reports depth (`deep`, `moderate`, `shallow`) and the real
+roles and projects behind the evidence. A capability that is absent or only related is a *discovery*
+question; one the user clearly has but the record documents thinly (a Skill tag, one fact, no outcome)
+is an *evidence deepening* question, weighted lower than a true gap, and a deeply documented one is not
+asked. Deepening questions ask for the most substantial example, what the user personally designed or
+implemented, the problems solved and a quantifiable result, naming the user's real projects. Discovery
+questions about architecture or responsibility anchor on the best-documented real projects.
+
+**Optional model phrasing** (`QuestionEnrichment`, `profile:enrich`, `profile:build --enrich`,
+`RESUME_PROFILE_ENRICH`). Off by default. One batched local-model call rewrites the open questions;
+output is schema-bound and each question is validated (a question, on topic, no invented numbers, no
+asserted experience, no plain yes/no for deepening). Cached by a fingerprint of the evidence revision,
+sample and question; a failed call or rejected text falls back to the deterministic wording; a page
+load never calls a model. Latency and token usage are recorded on each question.
+
 ## Not in this phase
 
 Profile-assisted generation, wording reuse, multiple profile families, pagination beyond each

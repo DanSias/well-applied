@@ -3,7 +3,9 @@
 use App\Enums\ResumeProfileStatus;
 use App\Models\CareerFact;
 use App\Models\ClarificationQuestion;
+use App\Models\Employer;
 use App\Models\ResumeProfile;
+use App\Models\Role;
 use App\Support\ResumeProfile\ProfileDefinitions;
 use App\Support\ResumeProfile\ProfileInterview;
 use Tests\Support\ResumeProfileFixtures as F;
@@ -49,7 +51,7 @@ it('resolves an open question when the record starts to cover the capability, wi
     F::sampleWith($f['profile'], array_fill(0, 4, ['required' => ['Kubernetes in production.', 'Third-party API integration.']]));
     $interview = app(ProfileInterview::class);
     $interview->sync($f['profile']->refresh());
-    $containers = ClarificationQuestion::where('topic_key', 'containers')->sole();
+    $containers = ClarificationQuestion::where('topic_key', 'kubernetes')->sole();
     $api = ClarificationQuestion::where('topic_key', 'api_integration')->sole();
     $api->update(['status' => 'answered']);
 
@@ -62,6 +64,11 @@ it('resolves an open question when the record starts to cover the capability, wi
 
 it('marks the interview complete when nothing is left to ask', function () {
     $f = F::career();
+    // React is documented in depth: three facts across two roles.
+    $other = Role::factory()->create(['employer_id' => Employer::factory()->create(['career_profile_id' => $f['career']->id])->id, 'start_year' => 2019]);
+    foreach ([[$f['role'], 'a'], [$other, 'b'], [$other, 'c']] as [$role, $n]) {
+        CareerFact::factory()->create(['career_profile_id' => $f['career']->id, 'key' => "react-{$n}", 'statement' => "Built React feature {$n}.", 'verification' => 'strongly_supported', 'visibility' => 'public', 'attributable_type' => 'role', 'attributable_id' => $role->id]);
+    }
     F::sampleWith($f['profile'], array_fill(0, 3, ['required' => ['React experience.']]));
 
     $session = app(ProfileInterview::class)->sync($f['profile']->refresh());
@@ -100,15 +107,15 @@ it('refreshes unanswered questions from a newer sample and retires those the mar
     $interview->sync($f['profile']->refresh());
     $api = ClarificationQuestion::where('topic_key', 'api_integration')->sole();
     $api->update(['status' => 'answered']);
-    $oldText = ClarificationQuestion::where('topic_key', 'containers')->sole()->question_text;
-    $position = ClarificationQuestion::where('topic_key', 'containers')->sole()->sort_order;
+    $oldText = ClarificationQuestion::where('topic_key', 'kubernetes')->sole()->question_text;
+    $position = ClarificationQuestion::where('topic_key', 'kubernetes')->sole()->sort_order;
 
     // A new sample of 10 postings: Kubernetes now in half of them; API integration vanishes.
     F::sampleWith($f['profile'], [...array_fill(0, 5, ['required' => ['Kubernetes in production.']]), ...array_fill(0, 5, ['required' => ['Ruby on Rails.']])]);
     $interview->sync($f['profile']->refresh());
 
-    $containers = ClarificationQuestion::where('topic_key', 'containers')->sole();
-    expect($containers->question_text)->not->toBe($oldText)->toContain('5 of the 10')
+    $containers = ClarificationQuestion::where('topic_key', 'kubernetes')->sole();
+    expect($containers->question_text)->not->toBe($oldText)->toContain('5 of 10')
         ->and($containers->sort_order)->toBe($position)
         ->and($api->fresh()->status)->toBe('answered')
         ->and(ClarificationQuestion::where('topic_key', 'ruby_on_rails')->exists())->toBeTrue();

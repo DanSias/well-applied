@@ -82,6 +82,9 @@ export type ClarificationQuestion = {
             visibility: string;
             relationship: string;
         }[];
+        /** discovery (new to the record) or deepening (documented, thin). Profile interviews only. */
+        kind?: 'discovery' | 'deepening' | null;
+        refs?: { type: string; id: number; label: string }[];
         /** Set for Resume Profile interview questions. */
         market?: {
             postings: number;

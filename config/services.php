@@ -66,6 +66,8 @@ return [
         'resume_selection_timeout' => (int) env('OLLAMA_RESUME_SELECTION_TIMEOUT_SECONDS', 900),
         'resume_wording_model' => env('OLLAMA_RESUME_WORDING_MODEL', 'qwen3.8:27b'),
         'resume_wording_timeout' => (int) env('OLLAMA_RESUME_WORDING_TIMEOUT_SECONDS', 900),
+        'profile_question_model' => env('OLLAMA_PROFILE_QUESTION_MODEL', 'qwen3.8:27b'),
+        'profile_question_timeout' => (int) env('OLLAMA_PROFILE_QUESTION_TIMEOUT_SECONDS', 600),
     ],
 
     /*

@@ -48,7 +48,7 @@ it('classifies directly supported, transferable, thinly documented, limitation a
         ->and($c['webhooks']['status'])->toBe(CapabilityCoverage::DIRECT)
         // Related, not stated: webhook integration supports "handler implementation" only as transferable.
         ->and($c['webhook_handlers']['status'])->toBe(CapabilityCoverage::TRANSFERABLE)
-        ->and($c['retry_idempotency']['status'])->toBe(CapabilityCoverage::TRANSFERABLE)
+        ->and($c['retry_idempotency']['status'])->toBe(CapabilityCoverage::NONE)
         ->and($c['graphql']['status'])->toBe(CapabilityCoverage::UNDERDOCUMENTED)
         ->and($c['infrastructure_as_code']['status'])->toBe(CapabilityCoverage::UNDERDOCUMENTED)
         ->and($c['ruby_on_rails']['status'])->toBe(CapabilityCoverage::LIMITATION)
@@ -71,7 +71,7 @@ it('never counts Private evidence, and never exposes its wording', function () {
     $coverage = coverageFor($f);
 
     // The only Kubernetes evidence is a Private fact: it is not eligible, so the gap stays visible.
-    expect($coverage['capabilities']['containers']['status'])->toBe(CapabilityCoverage::NONE)
+    expect($coverage['capabilities']['kubernetes']['status'])->toBe(CapabilityCoverage::NONE)
         ->and(json_encode($coverage))->not->toContain('ZEBRA')->not->toContain('private-zebra');
 });
 
@@ -82,10 +82,12 @@ it('ranks undocumented, prevalent, answerable capabilities first and explains ea
     $ranked = app(RankDiscoveryTopics::class)->rank($f['profile'], $sample->aggregate, coverageFor($f));
     $keys = array_column($ranked, 'key');
 
-    // Documented capabilities are never asked about.
-    expect($keys)->not->toContain('react')->not->toContain('webhooks')
-        ->and($keys)->toContain('containers')->toContain('webhook_handlers')->toContain('api_integration')
-        ->and(array_search('containers', $keys, true))->toBeLessThan(array_search('graphql', $keys, true))
+    // A thinly documented capability is asked about only to deepen it, never as "do you have this?".
+    $kinds = collect($ranked)->pluck('kind', 'key');
+    expect($kinds['react'] ?? 'deepening')->toBe('deepening')
+        ->and($kinds['kubernetes'])->toBe('discovery')
+        ->and($keys)->toContain('kubernetes')->toContain('webhook_handlers')->toContain('api_integration')
+        ->and(array_search('kubernetes', $keys, true))->toBeLessThan(array_search('graphql', $keys, true))
         ->and($ranked[0]['breakdown'])->toHaveKeys(['importance', 'gap', 'answerability', 'usefulness', 'coverage'])
         ->and($ranked[0]['score'])->toBeGreaterThanOrEqual($ranked[1]['score']);
 
@@ -101,7 +103,7 @@ it('gives more weight to what is required and to what the user likely has, than 
     $sample = F::sampleWith($f['profile'], marketSpecs());
     $ranked = collect(app(RankDiscoveryTopics::class)->rank($f['profile'], $sample->aggregate, coverageFor($f)))->keyBy('key');
 
-    expect($ranked['containers']['score'])->toBeGreaterThan($ranked['graphql']['score'] ?? 0)
+    expect($ranked['kubernetes']['score'])->toBeGreaterThan($ranked['graphql']['score'] ?? 0)
         ->and($ranked['webhook_handlers']['breakdown']['answerability'])->toBeGreaterThan($ranked['api_integration']['breakdown']['answerability']);
 });
 
@@ -121,7 +123,7 @@ it('suppresses limitations, approved topics, preferences and recently skipped qu
     $rank = fn () => array_column(app(RankDiscoveryTopics::class)->rank($f['profile'], $sample->aggregate, coverageFor($f)), 'key');
     $base = $rank();
 
-    CareerLimitation::create(['career_profile_id' => $f['career']->id, 'topic_key' => 'containers', 'topic' => 'Containers', 'terms' => ['Docker'], 'status' => 'no_direct_experience', 'source' => 'user_confirmation', 'confirmed_at' => now()]);
+    CareerLimitation::create(['career_profile_id' => $f['career']->id, 'topic_key' => 'kubernetes', 'topic' => 'Containers', 'terms' => ['Docker'], 'status' => 'no_direct_experience', 'source' => 'user_confirmation', 'confirmed_at' => now()]);
     EvidenceProposal::create(['career_profile_id' => $f['career']->id, 'kind' => 'fact', 'status' => 'approved', 'topic_key' => 'api_integration', 'topic_label' => 'API', 'statement' => 'x', 'scopes' => ['integrated'], 'visibility' => 'public', 'verification' => 'strongly_supported', 'history' => []]);
     PresentationPreference::create(['career_profile_id' => $f['career']->id, 'topic_key' => 'end_to_end_ownership', 'topic' => 'Ownership', 'guidance' => 'Emphasize.', 'confirmed_at' => now()]);
 
@@ -129,8 +131,8 @@ it('suppresses limitations, approved topics, preferences and recently skipped qu
     $skipped = ClarificationQuestion::create(['clarification_session_id' => $session->id, 'topic_key' => 'webhook_handlers', 'topic_label' => 'Handlers', 'related_finding_ids' => [], 'question_text' => 'Q', 'score' => 0.5, 'score_breakdown' => [], 'context' => [], 'suggested_visibility' => 'restricted', 'status' => 'skipped']);
 
     $after = $rank();
-    expect($base)->toContain('containers')->toContain('api_integration')->toContain('webhook_handlers')
-        ->and($after)->not->toContain('containers')->not->toContain('api_integration')->not->toContain('end_to_end_ownership')->not->toContain('webhook_handlers');
+    expect($base)->toContain('kubernetes')->toContain('api_integration')->toContain('webhook_handlers')
+        ->and($after)->not->toContain('kubernetes')->not->toContain('api_integration')->not->toContain('end_to_end_ownership')->not->toContain('webhook_handlers');
 
     $skipped->forceFill(['updated_at' => now()->subDays(31)])->saveQuietly();
     expect($rank())->toContain('webhook_handlers');

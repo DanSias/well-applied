@@ -53,6 +53,8 @@ Route::get('/resume-profiles', [ResumeProfileController::class, 'index'])->name(
 Route::get('/resume-profiles/{resumeProfile}', [ResumeProfileController::class, 'show'])->name('resume-profiles.show');
 Route::post('/resume-profiles/{resumeProfile}/build', [ResumeProfileController::class, 'build'])->name('resume-profiles.build');
 Route::post('/resume-profiles/{resumeProfile}/refresh', [ResumeProfileController::class, 'refresh'])->name('resume-profiles.refresh');
+Route::post('/resume-profiles/{resumeProfile}/postings/{posting}/exclude', [ResumeProfileController::class, 'excludePosting'])->name('resume-profiles.postings.exclude');
+Route::post('/resume-profiles/{resumeProfile}/postings/{posting}/restore', [ResumeProfileController::class, 'restorePosting'])->name('resume-profiles.postings.restore');
 Route::post('/resume-profiles/{resumeProfile}/questions/{question}/answer', [ResumeProfileController::class, 'answer'])->name('resume-profiles.answer');
 Route::post('/resume-profiles/{resumeProfile}/questions/{question}/skip', [ResumeProfileController::class, 'skip'])->name('resume-profiles.skip');
 Route::post('/resume-profiles/{resumeProfile}/questions/{question}/reopen', [ResumeProfileController::class, 'reopen'])->name('resume-profiles.reopen');

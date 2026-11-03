@@ -82,8 +82,16 @@ final class ProfileInterview
             $this->refreshQuestion($question, $profile, $candidate, $coverage);
         }
 
+        // A retired question whose topic ranks again is brought back in place.
+        foreach ($session->questions()->where('status', 'retired')->get() as $question) {
+            if (isset($byKey[$question->topic_key])) {
+                $question->update(['status' => 'open']);
+                $this->refreshQuestion($question, $profile, $byKey[$question->topic_key], $coverage);
+            }
+        }
+
         $existing = $session->questions()->pluck('topic_key')->all();
-        $room = $max - count($existing);
+        $room = $max - $session->questions()->whereNotIn('status', ['retired', 'covered'])->count();
         $next = (int) $session->questions()->max('sort_order') + 1;
 
         if ($room > 0) {
@@ -212,17 +220,21 @@ final class ProfileInterview
         $capability = (array) config("resume_profiles.capabilities.{$key}");
         $market = $candidate['market'];
         $facts = (array) ($coverage['capabilities'][$key]['facts'] ?? []);
+        $refs = (array) ($coverage['capabilities'][$key]['refs'] ?? []);
         [$type, $id, $visibility] = $this->suggestAttribution($facts);
 
         return [
             'topic_key' => $key,
             'topic_label' => $capability['label'],
             'related_finding_ids' => [],
-            'question_text' => $this->text($profile, $capability, $market, $candidate['status'], $facts, (int) $candidate['postings_total']),
+            'question_text' => $this->text($profile, $capability, $market, $candidate['status'], $candidate['kind'], $facts, $refs, (int) $candidate['postings_total'], (array) ($coverage['notable'] ?? [])),
             'score' => $candidate['score'],
             'score_breakdown' => $candidate['breakdown'],
             'context' => [
                 'source' => 'market',
+                'kind' => $candidate['kind'],
+                'depth' => $candidate['depth'],
+                'refs' => $refs,
                 'coverage' => $candidate['status'],
                 'requirement' => $capability['label'],
                 'strength' => $market['required'] > 0 ? 'required' : 'preferred',
@@ -261,25 +273,63 @@ final class ProfileInterview
     }
 
     /**
+     * Two kinds of question. Discovery: the capability is absent or only related, so ask whether
+     * the user has done it. Deepening: the user clearly has it (a Skill, a thin fact), so ask for
+     * the substantial example, what they personally did and the outcome, naming their real roles
+     * and projects, because that is what becomes a strong resume accomplishment.
+     *
      * @param  array<string, mixed>  $capability
      * @param  array<string, mixed>  $market
      * @param  array<int, array<string, mixed>>  $facts
+     * @param  array<int, array<string, mixed>>  $refs
+     * @param  array<int, array<string, mixed>>  $notable  the user's best-documented projects, used when nothing closer is known
      */
-    private function text(ResumeProfile $profile, array $capability, array $market, string $status, array $facts, int $total): string
+    private function text(ResumeProfile $profile, array $capability, array $market, string $status, string $kind, array $facts, array $refs, int $total, array $notable = []): string
     {
-        $subject = $capability['ask'] ?? $capability['label'];
+        $label = (string) $capability['label'];
         $pct = (int) round($market['share'] * 100);
         $req = (int) round($market['required_share'] * 100);
+        $demand = "{$market['postings']} of {$total} {$profile->name} postings ({$pct}%) ask for {$label}".($req > 0 ? ", {$req}% as a stated requirement." : '.');
+        $where = $this->names(array_column($refs, 'label'));
 
-        $lead = "{$market['postings']} of the {$total} {$profile->name} postings sampled ({$pct}%) ask for {$subject}"
-            .($req > 0 ? ", {$req}% as a stated requirement." : '.');
+        if ($kind === 'deepening') {
+            $known = match (true) {
+                $where === '' => "Your record shows {$label} but says little about what you did with it.",
+                $status === CapabilityCoverage::UNDERDOCUMENTED => "Your record lists {$label} on {$where}, but says little about what you actually did with it.",
+                default => "Your record mentions {$label} on {$where}".($facts === [] ? '.' : ': "'.mb_strimwidth($facts[0]['statement'], 0, 110, '...').'"'),
+            };
 
-        $record = match ($status) {
-            CapabilityCoverage::TRANSFERABLE => 'Your record has related work, but nothing that says this directly.',
-            CapabilityCoverage::UNDERDOCUMENTED => 'Your record only touches this briefly'.($facts === [] ? '.' : ': "'.mb_strimwidth($facts[0]['statement'], 0, 110, '...').'"'),
-            default => 'Nothing in your record covers this yet.',
+            return "{$demand} {$known} Which of your applications involved the most substantial {$label} work? What did you personally design or implement, what technical problems did you solve, and is there a result you can quantify?";
+        }
+
+        $subject = (string) ($capability['ask'] ?? $label);
+
+        if ($status === CapabilityCoverage::TRANSFERABLE && $where !== '') {
+            return "{$demand} Your record has related work on {$where}, but nothing that says this directly. Did any of that include {$subject}? If so, what was the situation and what did you personally do?";
+        }
+
+        // Architecture and responsibility topics are about what you did on real work: anchor on real projects.
+        if (in_array($capability['category'], ['architecture', 'responsibility'], true) && $notable !== []) {
+            $projects = $this->names(array_column($notable, 'label'));
+
+            return "{$demand} Nothing in your record covers this directly. Thinking of work such as {$projects}: did you do {$subject} on any of it, or elsewhere? If so, what was the situation and what did you personally decide or build?";
+        }
+
+        return "{$demand} Nothing in your record covers this yet. Have you done anything like {$subject}, at a job, for a client, or on your own? If so, what was the situation and what did you personally do?";
+    }
+
+    /**
+     * @param  array<int, string>  $names
+     */
+    private function names(array $names): string
+    {
+        $names = array_values(array_unique($names));
+
+        return match (count($names)) {
+            0 => '',
+            1 => $names[0],
+            2 => "{$names[0]} and {$names[1]}",
+            default => $names[0].', '.$names[1].' and '.$names[2],
         };
-
-        return "{$lead} {$record} Have you done anything like this, at any job, for a client, or on your own? If so, what was the situation and what did you personally do?";
     }
 }

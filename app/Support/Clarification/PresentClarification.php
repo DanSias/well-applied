@@ -77,6 +77,9 @@ final class PresentClarification
                 'related_evidence' => $question->context['related_evidence'] ?? [],
                 // Set for Resume Profile interview questions: what the sampled postings ask.
                 'market' => $question->context['market'] ?? null,
+                // discovery (new to the record) or deepening (documented, thin); set for profile interviews.
+                'kind' => $question->context['kind'] ?? null,
+                'refs' => $question->context['refs'] ?? [],
             ],
             'suggested' => [
                 'attributable_type' => $question->suggested_attributable_type,

@@ -20,6 +20,8 @@ use App\Support\JobAnalysis\Providers\OllamaJobAnalysisClient;
 use App\Support\JobAnalysis\Providers\OpenAIJobAnalysisClient;
 use App\Support\JobMatch\Providers\OllamaJobMatchClient;
 use App\Support\JobMatch\Providers\OpenAIJobMatchClient;
+use App\Support\ResumeProfile\OllamaQuestionWriter;
+use App\Support\ResumeProfile\QuestionWriter;
 use App\Support\ResumeVariant\Providers\OllamaResumeSelectionClient;
 use App\Support\ResumeVariant\Providers\OllamaResumeWordingClient;
 use App\Support\ResumeVariant\Providers\OpenAIResumeSelectionClient;
@@ -51,6 +53,10 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(GeneratesResumeSelection::class, fn () => $this->resolveResumeSelectionProvider());
 
         $this->app->bind(GeneratesResumeWording::class, fn () => $this->resolveResumeWordingProvider());
+
+        $this->app->bind(QuestionWriter::class, fn () => new OllamaQuestionWriter(
+            (string) config('services.ollama.base_url'), (string) config('services.ollama.profile_question_model'), (int) config('services.ollama.profile_question_timeout'),
+        ));
     }
 
     /**

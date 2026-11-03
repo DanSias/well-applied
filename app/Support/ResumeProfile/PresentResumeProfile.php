@@ -7,6 +7,7 @@ use App\Enums\ResponsibilityScope;
 use App\Models\CareerLimitation;
 use App\Models\ClarificationQuestion;
 use App\Models\MarketSample;
+use App\Models\MarketSamplePosting;
 use App\Models\PresentationPreference;
 use App\Models\ResumeProfile;
 use App\Support\Clarification\PresentApprovedEvidence;
@@ -23,6 +24,7 @@ final class PresentResumeProfile
         'incomplete_description' => 'Only a description preview',
         'description_too_short' => 'Description too short',
         'stale' => 'Too old',
+        'user_excluded' => 'Removed by you',
         'outside_search' => 'Outside the role family or location',
         'not_full_stack' => 'Not a full-stack role',
         'duplicate_exact' => 'Duplicate',
@@ -46,6 +48,7 @@ final class PresentResumeProfile
         private readonly ProfileInterview $interview,
         private readonly PresentClarification $clarification,
         private readonly PresentApprovedEvidence $approved,
+        private readonly QuestionEnrichment $enrichment,
     ) {}
 
     /**
@@ -121,9 +124,28 @@ final class PresentResumeProfile
             'exclusions' => collect($sample->decision_counts ?? [])->except('included')
                 ->map(fn (int $count, string $reason) => ['reason' => $reason, 'label' => self::DECISION_LABELS[$reason] ?? $reason, 'count' => $count])->values()->all(),
             'provider_log' => array_map(fn (array $e) => ['provider' => $e['provider'], 'status' => $e['status'], 'retrieved' => $e['retrieved'] ?? 0, 'reused' => $e['reused'] ?? 0], (array) $sample->provider_log),
-            'postings' => $sample->includedPostings()->orderByDesc('posted_at')->get(['id', 'company', 'title', 'provider', 'source_url', 'posted_at', 'seniority'])
-                ->map(fn ($p) => ['id' => $p->id, 'company' => $p->company, 'title' => $p->title, 'provider' => $p->provider, 'source_url' => $p->source_url, 'posted_at' => $p->posted_at?->toDateString(), 'seniority' => $p->seniority])->all(),
+            'postings' => $sample->includedPostings()->orderByDesc('posted_at')->get()->map(fn (MarketSamplePosting $p) => $this->posting($p))->all(),
+            'user_excluded' => $sample->postings()->where('decision', 'user_excluded')->get()->map(fn (MarketSamplePosting $p) => ['id' => $p->id, 'company' => $p->company, 'title' => $p->title, 'provider' => $p->provider, 'detail' => $p->decision_detail])->all(),
             'excluded_examples' => $excluded->take(20)->map(fn ($p) => ['company' => $p->company, 'title' => $p->title, 'provider' => $p->provider, 'decision' => self::DECISION_LABELS[$p->decision] ?? $p->decision, 'detail' => $p->decision_detail])->all(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function posting(MarketSamplePosting $p): array
+    {
+        $signals = (array) ($p->signals ?? []);
+
+        return [
+            'id' => $p->id, 'company' => $p->company, 'title' => $p->title, 'provider' => $p->provider, 'source_url' => $p->source_url,
+            'posted_at' => $p->posted_at?->toDateString(), 'seniority' => $p->seniority,
+            'why_included' => $signals === [] ? 'Matched the role family search.' : RoleSignals::explain($signals),
+            'basis' => $signals['basis'] ?? null,
+            'frontend' => array_slice($signals['frontend'] ?? [], 0, 4),
+            'backend' => array_slice($signals['backend'] ?? [], 0, 4),
+            'description' => ['complete' => $p->description_completeness === 'complete', 'chars' => $signals['chars'] ?? mb_strlen((string) $p->description)],
+            'reused' => $p->job_posting_id !== null,
         ];
     }
 
@@ -139,12 +161,19 @@ final class PresentResumeProfile
         $groups = [];
 
         foreach ((array) ($sample->aggregate['capabilities'] ?? []) as $key => $m) {
+            if ($m['postings'] === 0) {
+                continue;
+            }
+
             $status = $coverage['capabilities'][$key]['status'] ?? CapabilityCoverage::NONE;
             $groups[$m['category']][] = [
                 'key' => $key, 'label' => $m['label'], 'postings' => $m['postings'], 'share' => $m['share'],
                 'required_share' => $m['required_share'], 'preferred_share' => $m['preferred_share'],
                 'coverage' => $status, 'coverage_label' => self::STATUS_LABELS[$status],
-                'examples' => array_map(fn (array $e) => ['company' => $e['company'], 'title' => $e['title'], 'level' => $e['level']], array_slice($m['examples'], 0, 2)),
+                'weak_postings' => $m['weak_postings'] ?? 0,
+                'depth' => $coverage['capabilities'][$key]['depth']['level'] ?? null,
+                // Why it was counted: the posting, where it was read, the phrase, and how sure the match is.
+                'evidence' => array_map(fn (array $e) => ['company' => $e['company'], 'title' => $e['title'], 'level' => $e['level'], 'confidence' => $e['confidence'] ?? 'medium', 'matched' => $e['matched'] ?? null, 'snippet' => $e['snippet']], array_slice($m['evidence'] ?? [], 0, 12)),
             ];
         }
 
@@ -170,6 +199,9 @@ final class PresentResumeProfile
 
         return $questions->values()->map(fn (ClarificationQuestion $q, int $i) => [
             ...$this->clarification->question($q, $options),
+            // The model-phrased text while it is current; otherwise the deterministic wording.
+            'text' => $this->enrichment->display($profile, $q),
+            'enriched' => $this->enrichment->display($profile, $q) !== $q->question_text,
             'group' => intdiv($i, $size) + 1,
         ])->all();
     }

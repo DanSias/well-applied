@@ -31,7 +31,7 @@ it('classifies required, preferred, duty and mentioned from sections and cues', 
 it('does not count benefits, perks or about-us text', function () {
     $x = extractFrom(F::description(['Node.js experience.'], benefits: 'Our perks include Kubernetes training, Stripe stock options and Redis conferences.'));
 
-    expect($x['capabilities'])->not->toHaveKey('containers')->not->toHaveKey('payment_gateways')->not->toHaveKey('nosql_cache')->toHaveKey('nodejs');
+    expect($x['capabilities'])->not->toHaveKey('kubernetes')->not->toHaveKey('payment_gateways')->not->toHaveKey('nosql_cache')->toHaveKey('nodejs');
 });
 
 it('keeps neighbouring integration capabilities separate instead of collapsing them into one "API" skill', function () {
@@ -112,7 +112,7 @@ it('re-reads every posting exactly once when the extraction version changes', fu
     $f = F::career();
     $sample = F::sampleWith($f['profile'], [['required' => ['React experience.']], ['required' => ['Node.js experience.']]]);
 
-    config(['resume_profiles.extraction_version' => 'market-extract-v2']);
+    config(['resume_profiles.extraction_version' => 'market-extract-v3']);
 
     expect(app(AggregateMarketRequirements::class)->run($sample))->toMatchArray(['extracted' => 2, 'cached' => 0])
         ->and(app(AggregateMarketRequirements::class)->run($sample))->toMatchArray(['extracted' => 0, 'cached' => 2]);

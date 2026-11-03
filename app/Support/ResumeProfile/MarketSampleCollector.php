@@ -8,6 +8,7 @@ use App\Enums\MarketSampleStatus;
 use App\Enums\ResumeProfileStatus;
 use App\Models\JobPosting;
 use App\Models\MarketSample;
+use App\Models\MarketSampleExclusion;
 use App\Models\MarketSamplePosting;
 use App\Models\ResumeProfile;
 use App\Support\JobDiscovery\DiscoverySearchCriteria;
@@ -15,6 +16,7 @@ use App\Support\JobDiscovery\FilterDiscoveredCandidates;
 use App\Support\JobDiscovery\Providers\DiscoveryProviderException;
 use App\Support\JobDiscovery\Providers\ProviderDiscoveryContext;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -177,12 +179,13 @@ final class MarketSampleCollector
      *
      * @param  array<int, SampleCandidate>  $candidates
      * @param  array<string, mixed>  $cfg
-     * @return array<int, array{decision: string, detail: string|null, duplicate_of: int|null, stack: string|null}>
+     * @return array<int, array{decision: string, detail: string|null, duplicate_of: int|null, stack: string|null, signals: array<string, mixed>}>
      */
     private function decide(ResumeProfile $profile, array $candidates, array $cfg, int $target): array
     {
         $criteria = ProfileDefinitions::criteria($profile);
         $relevance = (array) ProfileDefinitions::config($profile->slug)['relevance'];
+        $excluded = $this->userExclusions($profile);
         $decisions = [];
         $eligible = [];
         $seenHash = [];
@@ -192,9 +195,18 @@ final class MarketSampleCollector
 
         foreach ($candidates as $i => $c) {
             $stack = $this->extractor->stack($c->text);
-            $reject = function (string $decision, ?string $detail = null, ?int $of = null) use (&$decisions, $i, $stack): void {
-                $decisions[$i] = ['decision' => $decision, 'detail' => $detail, 'duplicate_of' => $of, 'stack' => $stack];
+            $signals = RoleSignals::compute($c, $relevance);
+            $reject = function (string $decision, ?string $detail = null, ?int $of = null) use (&$decisions, $i, $stack, $signals): void {
+                $decisions[$i] = ['decision' => $decision, 'detail' => $detail, 'duplicate_of' => $of, 'stack' => $stack, 'signals' => $signals];
             };
+
+            $removed = $this->removedByUser($c, $excluded);
+
+            if ($removed !== null) {
+                $reject('user_excluded', $removed === '' ? 'You removed this posting from the sample.' : "You removed this posting: {$removed}");
+
+                continue;
+            }
 
             if ($c->completeness !== DescriptionCompleteness::Complete) {
                 $reject('incomplete_description', "Description is {$c->completeness->value}, not the full posting.");
@@ -220,7 +232,7 @@ final class MarketSampleCollector
                 continue;
             }
 
-            if (! $this->isFullStack($c, $relevance)) {
+            if (! $signals['full_stack']) {
                 $reject('not_full_stack', 'Title is generic and the description does not ask for both front-end and back-end work.');
 
                 continue;
@@ -268,7 +280,7 @@ final class MarketSampleCollector
             $seenTitleKey[$titleKey] = $i;
             $shingles[$i] = $own;
             $eligible[$i] = $stack;
-            $decisions[$i] = ['decision' => 'eligible', 'detail' => null, 'duplicate_of' => null, 'stack' => $stack];
+            $decisions[$i] = ['decision' => 'eligible', 'detail' => null, 'duplicate_of' => null, 'stack' => $stack, 'signals' => $signals];
         }
 
         return $this->select($candidates, $decisions, $eligible, $cfg, $target);
@@ -278,10 +290,10 @@ final class MarketSampleCollector
      * Newest first, under per-company, per-provider and per-stack caps.
      *
      * @param  array<int, SampleCandidate>  $candidates
-     * @param  array<int, array{decision: string, detail: string|null, duplicate_of: int|null, stack: string|null}>  $decisions
+     * @param  array<int, array{decision: string, detail: string|null, duplicate_of: int|null, stack: string|null, signals: array<string, mixed>}>  $decisions
      * @param  array<int, string|null>  $eligible  candidate index => stack
      * @param  array<string, mixed>  $cfg
-     * @return array<int, array{decision: string, detail: string|null, duplicate_of: int|null, stack: string|null}>
+     * @return array<int, array{decision: string, detail: string|null, duplicate_of: int|null, stack: string|null, signals: array<string, mixed>}>
      */
     private function select(array $candidates, array $decisions, array $eligible, array $cfg, int $target): array
     {
@@ -326,22 +338,32 @@ final class MarketSampleCollector
     }
 
     /**
-     * @param  array<string, mixed>  $relevance
+     * @return Collection<int, MarketSampleExclusion>
      */
-    private function isFullStack(SampleCandidate $c, array $relevance): bool
+    private function userExclusions(ResumeProfile $profile)
     {
-        $title = mb_strtolower($c->title);
+        return MarketSampleExclusion::query()->where('resume_profile_id', $profile->id)->get();
+    }
 
-        foreach ((array) $relevance['title_terms'] as $term) {
-            if (str_contains($title, $term)) {
-                return true;
+    /**
+     * The user's reason ('' when none) when this posting was removed from the sample, else null.
+     *
+     * @param  Collection<int, MarketSampleExclusion>  $exclusions
+     */
+    private function removedByUser(SampleCandidate $c, $exclusions): ?string
+    {
+        $company = PostingText::normalizeCompany($c->company);
+        $title = PostingText::normalizeTitle($c->title);
+
+        foreach ($exclusions as $e) {
+            if ($e->content_hash === $c->contentHash
+                || ($c->sourceJobId !== null && $e->provider === $c->provider && $e->source_job_id === $c->sourceJobId)
+                || ($e->company_key === $company && $e->title_key === $title)) {
+                return (string) $e->reason;
             }
         }
 
-        $text = mb_strtolower($c->text);
-        $has = fn (array $terms) => array_filter($terms, fn (string $t) => preg_match('/(?<![\p{L}\p{N}])'.preg_quote($t, '/').'(?![\p{L}\p{N}])/u', $text) === 1) !== [];
-
-        return $has((array) $relevance['frontend_terms']) && $has((array) $relevance['backend_terms']);
+        return null;
     }
 
     private function searchRejection(string $title, string $text, DiscoverySearchCriteria $criteria): string
@@ -365,7 +387,7 @@ final class MarketSampleCollector
 
     /**
      * @param  array<int, SampleCandidate>  $candidates
-     * @param  array<int, array{decision: string, detail: string|null, duplicate_of: int|null, stack: string|null}>  $decisions
+     * @param  array<int, array{decision: string, detail: string|null, duplicate_of: int|null, stack: string|null, signals: array<string, mixed>}>  $decisions
      */
     private function persist(MarketSample $sample, array $candidates, array $decisions): void
     {
@@ -382,7 +404,7 @@ final class MarketSampleCollector
                     'location' => $c->location, 'remote_status' => $c->remoteStatus, 'primary_stack' => $d['stack'],
                     'description_completeness' => $c->completeness->value, 'description' => $c->text, 'content_hash' => $c->contentHash,
                     'posted_at' => $c->postedAt, 'retrieved_at' => now(), 'included' => $included, 'decision' => $d['decision'],
-                    'decision_detail' => $d['detail'], 'duplicate_of_id' => $d['duplicate_of'] === null ? null : ($ids[$d['duplicate_of']] ?? null),
+                    'decision_detail' => $d['detail'], 'signals' => $d['signals'], 'duplicate_of_id' => $d['duplicate_of'] === null ? null : ($ids[$d['duplicate_of']] ?? null),
                 ]);
                 $ids[$i] = $row->id;
             }
