@@ -182,6 +182,7 @@ export type ResumeProfilePage = {
         evidence_changed: boolean;
     };
     interview: ProfileInterviewState;
+    consolidation: ConsolidationQueue;
     contributed: ApprovedEvidence;
 };
 
@@ -238,4 +239,72 @@ export type AnswerExpansion = {
         asked_question_id: number | null;
         asked_status: string | null;
     }[];
+};
+
+export type ConsolidationPlace = {
+    type: 'career_profile' | 'role' | 'project';
+    id: number;
+    label: string;
+};
+
+export type ConsolidationItem = {
+    id: number;
+    code: string;
+    theme: string;
+    action: 'revise' | 'create' | 'tag' | 'advice';
+    status: 'proposed' | 'approved' | 'rejected';
+    title: string;
+    summary: string | null;
+    notes: {
+        covered_elsewhere?: string;
+        caution?: string;
+        visibility?: string;
+        why?: string;
+    };
+    original: {
+        kind: 'fact' | 'proposal';
+        key: string;
+        statement: string | null;
+        place: ConsolidationPlace | null;
+        visibility: string;
+        verification: string;
+        shared_with?: string[];
+        skills?: string[];
+        revisions?: number;
+        evidence_rows?: number;
+        status?: string;
+        rationale?: string | null;
+    } | null;
+    tagged: { key: string; statement: string | null; skills: string[] }[];
+    proposed: {
+        statement: string | null;
+        place: ConsolidationPlace | null;
+        visibility: string | null;
+        verification: string | null;
+        scopes: string[];
+    } | null;
+    source: {
+        answer_id: number;
+        topic: string;
+        question: string;
+        answer: string;
+    } | null;
+    links: { key: string; statement: string | null; place: string | null }[];
+    attribution_change: { from: string; to: string | null } | null;
+    skills: string[];
+    effect: { kind: string; text: string };
+    visibility_effect: string;
+    matching: { gains: string[]; loses: string[]; direct: string[] };
+    decision: {
+        required: boolean;
+        question: string;
+        options: ConsolidationPlace[];
+    } | null;
+    applied: Record<string, unknown> | null;
+};
+
+export type ConsolidationQueue = {
+    items: ConsolidationItem[];
+    counts: { proposed: number; approved: number; rejected: number };
+    options: ConsolidationPlace[];
 };

@@ -60,6 +60,9 @@ final class CapabilityCoverage
                 if ($this->anyMatch($capability['patterns'], $fact->statement)) {
                     $bucket = $fact->verification === Verification::NeedsConfirmation ? 'weak' : 'solid';
                     $own[$key][$bucket][] = $fact;
+                } elseif ($this->anyMatch((array) ($capability['weak_patterns'] ?? []), $fact->statement)) {
+                    // Mentioned in passing ("architecture", "monitoring"): worth a question, not direct evidence.
+                    $own[$key]['weak'][] = $fact;
                 } elseif ($this->anyMatch($capability['patterns'], $fact->skills->pluck('name')->implode(' | '))) {
                     $own[$key]['skill_only'][] = $fact;
                 }
@@ -183,17 +186,53 @@ final class CapabilityCoverage
     }
 
     /**
+     * The capabilities a piece of wording would count as direct evidence for. Used to show, before a
+     * revision is approved, how the matcher would read it.
+     *
+     * @return array<int, string> capability keys
+     */
+    public function capabilitiesIn(string $text): array
+    {
+        $found = [];
+
+        foreach ((array) config('resume_profiles.capabilities') as $key => $capability) {
+            if ($this->anyMatch($capability['patterns'], $text)) {
+                $found[] = (string) $key;
+            }
+        }
+
+        return $found;
+    }
+
+    /**
+     * A match counts only when the wording affirms it. "Docker rather than Terraform" is evidence for
+     * Docker; naming Terraform to say it is not the strength must not read as Terraform experience.
+     *
      * @param  array<int, string>  $patterns
      */
     private function anyMatch(array $patterns, string $text): bool
     {
         foreach ($patterns as $pattern) {
-            if (preg_match($pattern, $text) === 1) {
-                return true;
+            if (preg_match_all($pattern, $text, $hits, PREG_OFFSET_CAPTURE) < 1) {
+                continue;
+            }
+
+            foreach ($hits[0] as [, $offset]) {
+                if (! $this->negated($text, (int) $offset)) {
+                    return true;
+                }
             }
         }
 
         return false;
+    }
+
+    private function negated(string $text, int $offset): bool
+    {
+        $before = substr($text, max(0, $offset - 120), min($offset, 120));
+        $clause = (array) preg_split('/[.;:!?]\s/', $before);
+
+        return preg_match('/\b(?:rather than|instead of|other than|without|no direct experience (?:with|in)|not (?:with|using|via))\b/i', (string) end($clause)) === 1;
     }
 
     /**

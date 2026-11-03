@@ -5,6 +5,7 @@ use App\Http\Controllers\ApplicationInspectionStatusController;
 use App\Http\Controllers\BrowserWorkerStatusController;
 use App\Http\Controllers\CareerDataController;
 use App\Http\Controllers\ClarificationController;
+use App\Http\Controllers\EvidenceConsolidationController;
 use App\Http\Controllers\EvidenceExpansionController;
 use App\Http\Controllers\GenerationAttemptController;
 use App\Http\Controllers\JobAnalysisController;
@@ -68,6 +69,10 @@ Route::post('/claim-groups/{group}/approve', [EvidenceExpansionController::class
 Route::post('/claim-groups/{group}/reject', [EvidenceExpansionController::class, 'reject'])->name('claim-groups.reject');
 Route::post('/claim-groups/{group}/merge', [EvidenceExpansionController::class, 'merge'])->name('claim-groups.merge');
 Route::post('/expansions/{expansion}/followups/{index}/ask', [EvidenceExpansionController::class, 'askFollowup'])->whereNumber('index')->name('expansions.followups.ask');
+// Evidence consolidation: reviewed corrections to existing career evidence, each approved or declined on its own.
+Route::patch('/evidence-consolidations/{consolidation}', [EvidenceConsolidationController::class, 'update'])->name('evidence-consolidations.update');
+Route::post('/evidence-consolidations/{consolidation}/approve', [EvidenceConsolidationController::class, 'approve'])->name('evidence-consolidations.approve');
+Route::post('/evidence-consolidations/{consolidation}/reject', [EvidenceConsolidationController::class, 'reject'])->name('evidence-consolidations.reject');
 
 // Phase E3 batch actions (Opportunity Triage): human-initiated, backend-only
 // analyze/match over an explicitly selected set of job postings by id. Both

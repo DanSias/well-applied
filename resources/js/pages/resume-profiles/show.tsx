@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { ApprovedEvidencePanel } from '@/components/approved-evidence-panel';
 import { QuestionCard } from '@/components/clarification-panel';
 import { ClaimExpansion } from '@/components/claim-expansion';
+import { ConsolidationReview } from '@/components/consolidation-review';
 import type { QuestionRoutes } from '@/components/clarification-panel';
 import AppShell from '@/layouts/app-shell';
 import {
@@ -821,6 +822,7 @@ export default function ResumeProfileShow({
                 </section>
             )}
 
+            <ConsolidationReview queue={page.consolidation} />
             <AnswersReview page={page} />
 
             {page.contributed.facts.length > 0 && (

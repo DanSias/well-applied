@@ -357,8 +357,8 @@ final class ReviewEvidenceProposal
     {
         $class = $proposal->attributable_type === null ? null : Relation::getMorphedModel($proposal->attributable_type);
 
-        if ($class === null || ! in_array($proposal->attributable_type, ['employer', 'role', 'project'], true) || $proposal->attributable_id === null) {
-            throw ValidationException::withMessages(['attributable_type' => 'Choose the employer, role or project this belongs to.']);
+        if ($class === null || ! in_array($proposal->attributable_type, ['career_profile', 'employer', 'role', 'project'], true) || $proposal->attributable_id === null) {
+            throw ValidationException::withMessages(['attributable_type' => 'Choose the employer, role or project this belongs to, or the whole career.']);
         }
 
         $target = $class::query()->find($proposal->attributable_id);

@@ -15,6 +15,7 @@ use App\Models\PresentationPreference;
 use App\Models\ResumeProfile;
 use App\Support\Clarification\PresentApprovedEvidence;
 use App\Support\Clarification\PresentClarification;
+use App\Support\Consolidation\PresentConsolidations;
 use App\Support\Expansion\PresentExpansion;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -55,6 +56,7 @@ final class PresentResumeProfile
         private readonly PresentApprovedEvidence $approved,
         private readonly QuestionEnrichment $enrichment,
         private readonly PresentExpansion $expansion,
+        private readonly PresentConsolidations $consolidation,
     ) {}
 
     /**
@@ -95,6 +97,7 @@ final class PresentResumeProfile
                 'preferences' => PresentationPreference::query()->where('career_profile_id', $profile->career_profile_id)->active()->orderBy('topic')->get()
                     ->map(fn (PresentationPreference $p) => ['id' => $p->id, 'topic' => $p->topic, 'guidance' => $p->guidance])->all(),
             ],
+            'consolidation' => $this->consolidation->present($profile->career_profile_id),
             'contributed' => $this->approved->presentProposals($profile->career_profile_id, $this->interview->contributedProposals($profile)),
         ];
     }
