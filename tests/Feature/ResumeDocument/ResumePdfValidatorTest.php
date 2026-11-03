@@ -73,21 +73,23 @@ function deliberatelyOverLongVariant(): ResumeVariant
         'summary' => 'A deliberately long summary used only to force a three-page PDF for a validator rejection test, far beyond anything the deterministic Selection budget would ever approve in real generation.',
     ]);
 
-    $role = $variant->experienceRoles()->create([
-        'role_id' => $candidate['role']->id,
-        'employer_name' => $candidate['employer']->name,
-        'display_title' => 'Senior Software Engineer',
-        'start_year' => $candidate['role']->start_year,
-        'start_month' => $candidate['role']->start_month,
-        'end_year' => $candidate['role']->end_year,
-        'end_month' => $candidate['role']->end_month,
-        'display_order' => 1,
-    ]);
-
+    // One bullet per role, so the PDF fit step has no optional block it
+    // may drop: the over-length result must still reach the validator.
     for ($i = 1; $i <= 40; $i++) {
+        $role = $variant->experienceRoles()->create([
+            'role_id' => $candidate['role']->id,
+            'employer_name' => $candidate['employer']->name,
+            'display_title' => "Senior Software Engineer {$i}",
+            'start_year' => $candidate['role']->start_year,
+            'start_month' => $candidate['role']->start_month,
+            'end_year' => $candidate['role']->end_year,
+            'end_month' => $candidate['role']->end_month,
+            'display_order' => $i,
+        ]);
+
         $role->bullets()->create([
             'resume_variant_id' => $variant->id,
-            'display_order' => $i,
+            'display_order' => 1,
             'text' => "Deliberately verbose bullet number {$i} of forty, written with enough padding words to occupy a realistic full line of resume text purely to force page overflow for this one rejection test.",
         ]);
     }

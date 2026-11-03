@@ -111,14 +111,14 @@ final class GenerateResumeDocument
 
         return new ResumeDocument(
             contact: new ResumeContact(
-                name: $profile->name,
+                name: ResumeText::clean($profile->name),
                 email: $profile->email,
                 phone: $profile->phone,
                 location: $profile->location,
                 portfolio: $this->link($profile->portfolio_url),
                 github: $this->link($profile->github_url),
             ),
-            summary: $variant->summary ?? '',
+            summary: ResumeText::clean($variant->summary ?? ''),
             experience: $variant->experienceRoles
                 ->sortBy('display_order')
                 ->map($this->transformExperienceRole(...))
@@ -183,7 +183,7 @@ final class GenerateResumeDocument
                 continue;
             }
 
-            $groups[] = new ResumeSkillGroup($label, $selectionsInGroup->pluck('name')->all());
+            $groups[] = new ResumeSkillGroup($label, $selectionsInGroup->pluck('name')->map(ResumeText::clean(...))->all());
         }
 
         return $groups;
@@ -215,11 +215,11 @@ final class GenerateResumeDocument
         $dates = RoleDateFormatter::formatRangeAbbreviated($role->start_year, $role->start_month, $role->end_year, $role->end_month);
 
         return new ResumeExperienceRole(
-            employerName: $role->employer_name,
-            displayTitle: $role->display_title,
+            employerName: ResumeText::clean($role->employer_name),
+            displayTitle: ResumeText::clean($role->display_title),
             dateRangeLabel: $dates['label'],
             isCurrent: $dates['is_current'],
-            bullets: $role->bullets->sortBy('display_order')->pluck('text')->all(),
+            bullets: $role->bullets->sortBy('display_order')->pluck('text')->map(ResumeText::clean(...))->all(),
         );
     }
 
@@ -237,9 +237,9 @@ final class GenerateResumeDocument
     private function transformSelectedProject(ResumeVariantProject $project): ResumeSelectedProject
     {
         return new ResumeSelectedProject(
-            name: $project->name,
-            technologies: $project->technology_names,
-            bullet: $project->bullets->sortBy('display_order')->first()->text,
+            name: ResumeText::clean($project->name),
+            technologies: array_map(ResumeText::clean(...), $project->technology_names),
+            bullet: ResumeText::clean($project->bullets->sortBy('display_order')->first()->text),
             liveDemo: $project->live_url === null ? null : new ResumeLink($project->live_url, 'Live Demo'),
             repository: $project->repository_url === null ? null : new ResumeLink($project->repository_url, 'Repository'),
         );

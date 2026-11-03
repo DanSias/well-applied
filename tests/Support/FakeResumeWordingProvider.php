@@ -26,9 +26,26 @@ final class FakeResumeWordingProvider implements GeneratesResumeWording
 
     public int $callCount = 0;
 
+    /** @var array<int, ResumeWordingProviderResponse|ResumeGenerationProviderException> */
+    private array $sequence = [];
+
     public function willReturn(ResumeWordingProviderResponse $response): static
     {
         $this->response = $response;
+        $this->failure = null;
+
+        return $this;
+    }
+
+    /**
+     * Responses returned in order, one per call (the last repeats), for
+     * exercising the corrective-retry path.
+     *
+     * @param  array<int, ResumeWordingProviderResponse|ResumeGenerationProviderException>  $responses
+     */
+    public function willReturnInOrder(array $responses): static
+    {
+        $this->sequence = array_values($responses);
         $this->failure = null;
 
         return $this;
@@ -54,6 +71,12 @@ final class FakeResumeWordingProvider implements GeneratesResumeWording
 
         if ($this->failure !== null) {
             throw $this->failure;
+        }
+
+        if ($this->sequence !== []) {
+            $outcome = $this->sequence[min($this->callCount, count($this->sequence)) - 1];
+
+            return $outcome instanceof ResumeGenerationProviderException ? throw $outcome : $outcome;
         }
 
         return $this->response ?? throw new LogicException('FakeResumeWordingProvider has no configured response.');

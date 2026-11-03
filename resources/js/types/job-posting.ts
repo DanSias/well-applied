@@ -1,4 +1,8 @@
 import type { InspectionSummary } from '@/types/application-inspection';
+import type {
+    ApprovedEvidence,
+    TailoredResumeStatus,
+} from '@/types/tailored-resume';
 import type { GenerationAttempt } from '@/types/generation-attempt';
 
 /**
@@ -127,6 +131,8 @@ export type JobsIndexProps = {
 
 export type JobShowProps = {
     job: JobPostingDetail;
+    tailored_resume: TailoredResumeStatus;
+    approved_evidence: ApprovedEvidence;
 };
 
 /**

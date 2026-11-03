@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Enums\GenerationStatus;
 use App\Exceptions\InvalidJobMatchResponseException;
 use App\Exceptions\JobMatchProviderException;
+use App\Jobs\Concerns\RecordsAttemptMetrics;
 use App\Models\GenerationAttempt;
 use App\Models\JobAnalysis;
 use App\Support\CurrentCareerProfile;
@@ -45,6 +46,7 @@ use Throwable;
 final class GenerateJobMatchJob implements ShouldQueue
 {
     use Queueable;
+    use RecordsAttemptMetrics;
 
     public int $tries = 1;
 
@@ -58,6 +60,7 @@ final class GenerateJobMatchJob implements ShouldQueue
             'status' => GenerationStatus::Running,
             'started_at' => now(),
         ]);
+        $this->beginMetrics();
 
         $analysis = $this->attempt->subject;
 
@@ -116,7 +119,10 @@ final class GenerateJobMatchJob implements ShouldQueue
             'model' => $model,
             'prompt_version' => $match->prompt_version,
             'schema_version' => $match->schema_version,
+            ...$this->successMetrics(),
         ]);
+
+        $this->advancePipeline($analysis->jobPosting);
     }
 
     /**

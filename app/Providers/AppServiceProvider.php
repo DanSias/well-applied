@@ -12,8 +12,10 @@ use App\Models\JobAnalysis;
 use App\Models\JobMatch;
 use App\Models\JobPosting;
 use App\Models\Project;
+use App\Models\ResumeVariant;
 use App\Models\Role;
 use App\Support\DisposableDatabase;
+use App\Support\GenerationAttempt\GenerationMetrics;
 use App\Support\JobAnalysis\Providers\OllamaJobAnalysisClient;
 use App\Support\JobAnalysis\Providers\OpenAIJobAnalysisClient;
 use App\Support\JobMatch\Providers\OllamaJobMatchClient;
@@ -40,6 +42,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->singleton(GenerationMetrics::class);
+
         $this->app->bind(GeneratesJobAnalysis::class, fn () => $this->resolveJobAnalysisProvider());
 
         $this->app->bind(GeneratesJobMatch::class, fn () => $this->resolveJobMatchProvider());
@@ -281,6 +285,7 @@ class AppServiceProvider extends ServiceProvider
             'job_posting' => JobPosting::class,
             'job_analysis' => JobAnalysis::class,
             'job_match' => JobMatch::class,
+            'resume_variant' => ResumeVariant::class,
         ]);
     }
 }

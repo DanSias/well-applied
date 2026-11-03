@@ -344,7 +344,7 @@ it('rejects Wording inventing a Selected Project Selection never approved, and p
     expect(ResumeVariant::count())->toBe(0);
 });
 
-it('rejects a Wording project bullet containing a denylisted target term, and persists nothing', function () {
+it('omits a Wording project highlight containing a denylisted target term, keeping the rest of the resume', function () {
     [$candidate, $job, $jobMatch] = selectedProjectsFixtureSetup();
     $content = baseSelectionContent($candidate);
     $content['selected_projects'] = [[
@@ -363,9 +363,11 @@ it('rejects a Wording project bullet containing a denylisted target term, and pe
     $selection->willReturn(new ResumeSelectionProviderResponse('openai', 'gpt-test', $content));
     $wording->willReturn(new ResumeWordingProviderResponse('openai', 'gpt-test', $wordingContent));
 
-    expect(fn () => app(GenerateResumeVariant::class)->generateFull($jobMatch))
-        ->toThrow(InvalidResumeVariantResponseException::class);
-    expect(ResumeVariant::count())->toBe(0);
+    $variant = app(GenerateResumeVariant::class)->generateFull($jobMatch);
+
+    expect($variant->projects)->toHaveCount(0)
+        ->and($variant->experienceBullets)->not->toBeEmpty()
+        ->and($variant->review_report['counts']['omitted'])->toBe(1);
 });
 
 it('derives technology_names deterministically from only the cited facts\' attached Skills, in first-appearance order, never from Project::derivedSkills()', function () {

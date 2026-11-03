@@ -1,0 +1,99 @@
+{
+    "_meta": {
+        "format": "career-toolkit.approved-evidence",
+        "version": 1,
+        "note": "Approved user evidence only, exported from the database by `php artisan career:export-approved`. Do not edit by hand while the database holds different values; run `career:sync-approved` to detect conflicts."
+    },
+    "facts": [
+        {
+            "key": "rocketgate-recurring-billing-user-confirmed",
+            "fact_type": "bullet",
+            "statement": "Helped merchants with both one-time and recurring payment setup.",
+            "verification": "strongly_supported",
+            "visibility": "restricted",
+            "notes": "Responsibility scope, as stated by the user: Supported it. Wording must not claim more than this.",
+            "sort_order": 2,
+            "attributable": {
+                "type": "role",
+                "employer": "RocketGate",
+                "title": "Developer Support Engineer",
+                "start_year": 2025,
+                "start_month": 5
+            },
+            "evidence": [
+                {
+                    "source": "user_confirmed",
+                    "quoted_text": "At RocketGate, helped merchants with both one-time and recurring payment setup.",
+                    "confirmed_at": "2026-11-03T05:28:08+00:00",
+                    "note": "Confirmed by the user while preparing for Boldin, Full Stack Engineer (job #104): Recurring billing and subscriptions.",
+                    "metadata": {
+                        "origin": "clarification",
+                        "topic_key": "recurring_billing",
+                        "scopes": [
+                            "supported"
+                        ]
+                    }
+                }
+            ],
+            "content_hash": "f1c7d9a7ea585632620239390b0b0e66710ba9a6baad98a591babb4ae943bff0"
+        },
+        {
+            "key": "rocketgate-webhooks-user-confirmed",
+            "fact_type": "bullet",
+            "statement": "Worked with merchant integrations involving webhooks for retry schedules, account management, and related functionality.",
+            "verification": "strongly_supported",
+            "visibility": "restricted",
+            "notes": "Responsibility scope, as stated by the user: Integrated it; Supported it. Wording must not claim more than this.",
+            "sort_order": 1,
+            "attributable": {
+                "type": "role",
+                "employer": "RocketGate",
+                "title": "Developer Support Engineer",
+                "start_year": 2025,
+                "start_month": 5
+            },
+            "evidence": [
+                {
+                    "source": "user_confirmed",
+                    "quoted_text": "At RocketGate, worked with merchant integrations involving webhooks for retry schedules, account management, and related functionality.",
+                    "confirmed_at": "2026-11-03T05:28:08+00:00",
+                    "note": "Confirmed by the user while preparing for Boldin, Full Stack Engineer (job #104): Webhooks and event-driven integrations.",
+                    "metadata": {
+                        "origin": "clarification",
+                        "topic_key": "webhooks",
+                        "scopes": [
+                            "integrated",
+                            "supported"
+                        ]
+                    }
+                }
+            ],
+            "content_hash": "86d4c2a4164c580fb2b677c189b8397ee91c08a776b8b2fa1baa784c6fb2d076"
+        }
+    ],
+    "limitations": [
+        {
+            "topic_key": "ruby_on_rails",
+            "topic": "Ruby on Rails",
+            "terms": [
+                "Ruby on Rails",
+                "Rails",
+                "Ruby"
+            ],
+            "status": "no_direct_experience",
+            "note": "No direct Ruby or Rails experience.",
+            "source": "user_confirmation",
+            "confirmed_at": "2026-11-03T05:28:09+00:00",
+            "revoked_at": null
+        }
+    ],
+    "presentation_preferences": [
+        {
+            "topic_key": "conversion_funnels",
+            "topic": "Conversion funnels, checkout and onboarding flows",
+            "guidance": "Marketing and conversion experience may be emphasized where relevant.",
+            "confirmed_at": "2026-11-03T05:28:09+00:00",
+            "revoked_at": null
+        }
+    ]
+}

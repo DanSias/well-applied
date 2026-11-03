@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -49,6 +50,7 @@ use Illuminate\Support\Carbon;
  * @property array<string, mixed> $wording_input_snapshot
  * @property array<string, mixed>|null $wording_raw_response
  * @property string|null $summary
+ * @property array<string, mixed>|null $review_report
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -66,6 +68,7 @@ use Illuminate\Support\Carbon;
     'wording_input_snapshot',
     'wording_raw_response',
     'summary',
+    'review_report',
 ])]
 class ResumeVariant extends Model
 {
@@ -80,6 +83,7 @@ class ResumeVariant extends Model
             'selection_raw_response' => 'array',
             'wording_input_snapshot' => 'array',
             'wording_raw_response' => 'array',
+            'review_report' => 'array',
         ];
     }
 
@@ -180,5 +184,16 @@ class ResumeVariant extends Model
                 'ResumeVariant snapshots are immutable once created — create a new ResumeVariant instead of updating an existing one.'
             );
         });
+    }
+
+    /**
+     * Durable generation attempts whose subject is this variant (today:
+     * the resume_pdf render/validate stage).
+     *
+     * @return MorphMany<GenerationAttempt, $this>
+     */
+    public function generationAttempts(): MorphMany
+    {
+        return $this->morphMany(GenerationAttempt::class, 'subject');
     }
 }

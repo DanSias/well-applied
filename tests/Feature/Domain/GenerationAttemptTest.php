@@ -274,6 +274,26 @@ it('keeps GenerationAttempt\'s fillable list limited to lifecycle/version/diagno
         'failure_category',
         'failure_message',
         'result_id',
+        // Sprint 2: one-click pipeline linkage and provider-neutral
+        // timing/usage/layout metadata. Still no prompt, response, or
+        // candidate content.
+        'pipeline_run_id',
+        'chain',
+        'regenerate',
+        'phase',
+        'queue_wait_ms',
+        'duration_ms',
+        'selection_ms',
+        'wording_ms',
+        'render_ms',
+        'reasoning_tokens',
+        'provider_calls',
+        'wording_attempts',
+        'pdf_page_count',
+        'layout_mode',
+        'layout_diagnostics',
+        'retry_log',
+        'selection_reused',
     ]);
 });
 

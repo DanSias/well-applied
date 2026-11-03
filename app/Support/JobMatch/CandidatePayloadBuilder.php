@@ -7,6 +7,7 @@ use App\Models\CareerProfile;
 use App\Models\Education;
 use App\Models\Project;
 use App\Models\Role;
+use App\Support\ResumeVariant\ResumeEligibility;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -14,7 +15,8 @@ use Illuminate\Support\Collection;
 
 /**
  * Builds the normalized candidate payload for one CareerProfile — every
- * CareerFact and Education row belonging to it, reduced to exactly the
+ * model-eligible CareerFact (never Private; see ResumeEligibility) and
+ * Education row belonging to it, reduced to exactly the
  * approved matcher-facing fields. This exact array (nothing more) is
  * both what gets embedded in the provider prompt and what gets frozen,
  * verbatim, into JobMatch.input_snapshot — see
@@ -45,8 +47,10 @@ final class CandidatePayloadBuilder
      */
     private function buildCareerFacts(CareerProfile $profile): array
     {
-        $facts = CareerFact::query()
-            ->where('career_profile_id', $profile->id)
+        // The same boundary Selection and Wording use: a Private fact (or one
+        // under a Private project) is never sent to any model. This is a
+        // query-level rule, not a prompt instruction.
+        $facts = ResumeEligibility::eligibleCareerFactsQuery($profile)
             ->with([
                 'metric',
                 'skills',

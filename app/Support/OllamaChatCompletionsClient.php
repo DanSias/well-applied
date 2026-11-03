@@ -136,13 +136,18 @@ final class OllamaChatCompletionsClient
         try {
             $decoded = $this->decodeStructuredContent($this->extractMessageContent($body, $logPrefix));
         } catch (OllamaChatCompletionsException $e) {
-            throw new OllamaChatCompletionsException(
-                $e->getMessage(),
-                previous: $e,
-                model: $resolvedModel,
-                finishReason: $finishReasonForDiagnostics,
-                usage: $usageForDiagnostics,
-            );
+            if ($e instanceof OllamaEmptyOutputException) {
+                Log::warning("{$logPrefix}: Ollama returned no message content.", [
+                    'model' => $resolvedModel,
+                    'finish_reason' => $finishReasonForDiagnostics,
+                    'prompt_tokens' => $usageForDiagnostics['prompt_tokens'] ?? null,
+                    'completion_tokens' => $usageForDiagnostics['completion_tokens'] ?? null,
+                    'reasoning_field_present' => $e->reasoningPresent,
+                    'reasoning_field_chars' => $e->reasoningChars,
+                ]);
+            }
+
+            throw $e->withDiagnostics($resolvedModel, $finishReasonForDiagnostics, $usageForDiagnostics);
         }
 
         if ($usageForDiagnostics !== null) {
@@ -219,8 +224,17 @@ final class OllamaChatCompletionsClient
         $message = is_array($firstChoice['message'] ?? null) ? $firstChoice['message'] : null;
         $content = $message['content'] ?? null;
 
-        if (! is_string($content) || $content === '') {
-            throw new OllamaChatCompletionsException('Ollama response contained no message content.');
+        if (! is_string($content) || trim($content) === '') {
+            // Only the presence and size of a reasoning field is noted
+            // (never its text), and it is never used as final content.
+            $reasoning = $message['reasoning'] ?? $message['reasoning_content'] ?? null;
+            $reasoningChars = is_string($reasoning) ? strlen($reasoning) : 0;
+
+            throw new OllamaEmptyOutputException(
+                'Ollama response contained no message content.',
+                reasoningPresent: $reasoningChars > 0,
+                reasoningChars: $reasoningChars,
+            );
         }
 
         return $content;

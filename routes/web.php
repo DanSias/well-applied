@@ -4,6 +4,7 @@ use App\Http\Controllers\ApplicationController;
 use App\Http\Controllers\ApplicationInspectionStatusController;
 use App\Http\Controllers\BrowserWorkerStatusController;
 use App\Http\Controllers\CareerDataController;
+use App\Http\Controllers\ClarificationController;
 use App\Http\Controllers\GenerationAttemptController;
 use App\Http\Controllers\JobAnalysisController;
 use App\Http\Controllers\JobBatchController;
@@ -12,6 +13,7 @@ use App\Http\Controllers\JobPostingController;
 use App\Http\Controllers\ResumeVariantController;
 use App\Http\Controllers\ResumeVariantPdfController;
 use App\Http\Controllers\ResumeVariantPreviewController;
+use App\Http\Controllers\TailoredResumeController;
 use App\Http\Middleware\AllowLongRunningGeneration;
 use Illuminate\Support\Facades\Route;
 
@@ -22,6 +24,27 @@ Route::get('/jobs', [JobPostingController::class, 'index'])->name('jobs.index');
 Route::get('/jobs/create', [JobPostingController::class, 'create'])->name('jobs.create');
 Route::post('/jobs', [JobPostingController::class, 'store'])->name('jobs.store');
 Route::get('/jobs/{jobPosting}', [JobPostingController::class, 'show'])->name('jobs.show');
+
+// One-click "Generate Tailored Resume": starts (or resumes) the durable
+// analysis -> match -> resume -> PDF pipeline, and a read-only unified
+// status for polling. Never involves Application inspection. See
+// App\Support\TailoredResume\TailoredResumePipeline.
+Route::post('/jobs/{jobPosting}/tailored-resume', [TailoredResumeController::class, 'store'])->name('jobs.tailored-resume.store');
+Route::get('/jobs/{jobPosting}/tailored-resume/status', [TailoredResumeController::class, 'status'])->name('jobs.tailored-resume.status');
+
+// Optional targeted clarification between matching and Selection:
+// answer ranked questions, review the evidence proposals they produce,
+// then continue (or Generate Now). See App\Support\Clarification.
+Route::post('/jobs/{jobPosting}/clarification/start', [ClarificationController::class, 'start'])->name('jobs.clarification.start');
+Route::post('/jobs/{jobPosting}/clarification/questions/{question}/answer', [ClarificationController::class, 'answer'])->name('jobs.clarification.answer');
+Route::post('/jobs/{jobPosting}/clarification/questions/{question}/skip', [ClarificationController::class, 'skip'])->name('jobs.clarification.skip');
+Route::post('/jobs/{jobPosting}/clarification/deepen', [ClarificationController::class, 'deepen'])->name('jobs.clarification.deepen');
+Route::post('/jobs/{jobPosting}/clarification/continue', [ClarificationController::class, 'continue'])->name('jobs.clarification.continue');
+Route::patch('/evidence-proposals/{evidenceProposal}', [ClarificationController::class, 'updateProposal'])->name('evidence-proposals.update');
+Route::post('/evidence-proposals/{evidenceProposal}/approve', [ClarificationController::class, 'approveProposal'])->name('evidence-proposals.approve');
+Route::post('/evidence-proposals/{evidenceProposal}/reject', [ClarificationController::class, 'rejectProposal'])->name('evidence-proposals.reject');
+Route::patch('/career-facts/{careerFact}/revise', [ClarificationController::class, 'reviseFact'])->name('career-facts.revise');
+Route::delete('/career-limitations/{careerLimitation}', [ClarificationController::class, 'revokeLimitation'])->name('career-limitations.revoke');
 
 // Phase E3 batch actions (Opportunity Triage): human-initiated, backend-only
 // analyze/match over an explicitly selected set of job postings by id. Both

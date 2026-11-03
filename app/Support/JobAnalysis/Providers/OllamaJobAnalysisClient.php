@@ -4,6 +4,7 @@ namespace App\Support\JobAnalysis\Providers;
 
 use App\Contracts\GeneratesJobAnalysis;
 use App\Exceptions\JobAnalysisProviderException;
+use App\Support\GenerationAttempt\TokenUsage;
 use App\Support\JobAnalysis\JobAnalysisProviderResponse;
 use App\Support\OllamaChatCompletionsClient;
 use App\Support\OllamaChatCompletionsException;
@@ -90,6 +91,7 @@ final class OllamaJobAnalysisClient implements GeneratesJobAnalysis
             provider: 'ollama',
             model: $result->model,
             structuredContent: $result->structuredContent,
+            usage: TokenUsage::fromChatCompletions($result->usage),
         );
     }
 }

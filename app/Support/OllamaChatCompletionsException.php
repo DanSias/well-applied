@@ -40,4 +40,14 @@ class OllamaChatCompletionsException extends RuntimeException
     ) {
         parent::__construct($message, previous: $previous);
     }
+
+    /**
+     * The same failure with the response diagnostics attached.
+     *
+     * @param  array<string, mixed>|null  $usage
+     */
+    public function withDiagnostics(?string $model, ?string $finishReason, ?array $usage): self
+    {
+        return new self($this->getMessage(), $this, $model, $finishReason, $usage);
+    }
 }

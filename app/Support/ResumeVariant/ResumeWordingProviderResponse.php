@@ -17,6 +17,8 @@ final readonly class ResumeWordingProviderResponse
         public string $provider,
         public string $model,
         public array $structuredContent,
+        /** @var array{input_tokens: int|null, output_tokens: int|null, reasoning_tokens: int|null}|null Provider-neutral usage, when reported. See TokenUsage. */
+        public ?array $usage = null,
     ) {}
 
     public function generatedBy(): string

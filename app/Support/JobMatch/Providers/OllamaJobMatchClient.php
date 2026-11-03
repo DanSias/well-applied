@@ -4,6 +4,7 @@ namespace App\Support\JobMatch\Providers;
 
 use App\Contracts\GeneratesJobMatch;
 use App\Exceptions\JobMatchProviderException;
+use App\Support\GenerationAttempt\TokenUsage;
 use App\Support\JobMatch\JobMatchProviderResponse;
 use App\Support\OllamaChatCompletionsClient;
 use App\Support\OllamaChatCompletionsException;
@@ -94,6 +95,7 @@ final class OllamaJobMatchClient implements GeneratesJobMatch
             provider: 'ollama',
             model: $result->model,
             structuredContent: $result->structuredContent,
+            usage: TokenUsage::fromChatCompletions($result->usage),
         );
     }
 }

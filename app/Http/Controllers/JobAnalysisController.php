@@ -119,7 +119,11 @@ class JobAnalysisController extends Controller
             ->latest('id')
             ->first();
 
-        if ($attempt === null || $attempt->status === GenerationStatus::Succeeded) {
+        // Attempts owned by the one-click pipeline are presented by the
+        // Tailored Resume panel on the job page; the legacy per-stage
+        // pages must not poll them (and navigate away) or show their
+        // errors without the pipeline's stage context.
+        if ($attempt === null || $attempt->chain || $attempt->status === GenerationStatus::Succeeded) {
             return null;
         }
 

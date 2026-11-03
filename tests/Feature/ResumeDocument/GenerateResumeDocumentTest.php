@@ -312,7 +312,7 @@ it('assembles a complete, real ResumeDocument from the Pearly fixture', function
     $document = (new GenerateResumeDocument)->generate($variant);
 
     expect($document->contact->name)->toBe('Daniel Sias')
-        ->and($document->contact->email)->toBe('dan.sias@gmail.com')
+        ->and($document->contact->email)->toBe('daniel.sias@gmail.com')
         ->and($document->contact->phone)->toBeNull()
         ->and($document->summary)->toContain('Full-stack developer who independently delivers')
         ->and($document->experience)->toHaveCount(2)

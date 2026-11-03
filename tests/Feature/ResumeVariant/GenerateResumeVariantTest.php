@@ -19,11 +19,18 @@ use App\Models\ResumeVariant;
 use App\Models\ResumeVariantExperienceBullet;
 use App\Models\Role;
 use App\Models\Skill;
+use App\Support\ResumeDocument\GenerateResumePdf;
+use App\Support\ResumeDocument\ResumePdfValidator;
 use App\Support\ResumeVariant\GenerateResumeVariant;
+use App\Support\ResumeVariant\Prompts\ResumeSelectionPromptV6;
+use App\Support\ResumeVariant\RecoverWording;
 use App\Support\ResumeVariant\ResumeSelectionProviderResponse;
 use App\Support\ResumeVariant\ResumeWordingProviderResponse;
+use App\Support\ResumeVariant\WordingCheckContext;
+use App\Support\ResumeVariant\WordingTriage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Smalot\PdfParser\Parser as PdfParser;
 use Tests\Support\FakeResumeSelectionProvider;
 use Tests\Support\FakeResumeWordingProvider;
 use Tests\Support\ResumeVariantFixtures;
@@ -178,8 +185,8 @@ it('persists the full graph from a valid two-stage response', function () {
         ->and($variant->targetTermUsages)->toHaveCount(1)
         ->and($variant->summary)->not->toBeNull()
         ->and($variant->schema_version)->toBe('2.0')
-        ->and($variant->selection_prompt_version)->toBe('resume-selection-v4')
-        ->and($variant->wording_prompt_version)->toBe('resume-wording-v2')
+        ->and($variant->selection_prompt_version)->toBe('resume-selection-v6')
+        ->and($variant->wording_prompt_version)->toBe('resume-wording-v3')
         ->and($variant->selection_generated_by)->toBe('openai:gpt-test')
         ->and($variant->wording_generated_by)->toBe('openai:gpt-test');
 });
@@ -291,7 +298,7 @@ it('persists a capability posture explicitly, not as the absence of a row', func
     expect($variant->targetTermUsages->first()->posture)->toBe(ResumeClaimPosture::Capability);
 });
 
-it('rejects a qualified target term that leaks into Stage 2 free text, and persists nothing', function () {
+it('omits a bullet where a qualified target term leaks into Stage 2 free text, keeping the rest of the resume', function () {
     [$candidate, $job, $jobMatch] = fullFixtureSetup();
     $wordingContent = validWordingContent($candidate);
     $wordingContent['experience'][0]['bullets'][0]['text'] = 'Built cloud deployment workflows on AWS and Azure directly.';
@@ -300,9 +307,13 @@ it('rejects a qualified target term that leaks into Stage 2 free text, and persi
     $selection->willReturn(new ResumeSelectionProviderResponse('openai', 'gpt-test', validSelectionContent($candidate, $job)));
     $wording->willReturn(new ResumeWordingProviderResponse('openai', 'gpt-test', $wordingContent));
 
-    expect(fn () => app(GenerateResumeVariant::class)->generateFull($jobMatch))
-        ->toThrow(InvalidResumeVariantResponseException::class);
-    expect(ResumeVariant::count())->toBe(0);
+    $variant = app(GenerateResumeVariant::class)->generateFull($jobMatch);
+
+    expect($wording->callCount)->toBe(1)
+        ->and($variant->experienceBullets->pluck('text')->implode(' '))->not->toContain('Azure')
+        ->and($variant->experienceBullets)->toHaveCount(1)
+        ->and($variant->review_report['counts']['omitted'])->toBe(1)
+        ->and(collect($variant->review_report['items'])->firstWhere('status', 'omitted')['findings'][0]['kind'])->toBe('denylist');
 });
 
 it('rejects a qualified usage with an invalid job_analysis_finding_id', function () {
@@ -1570,4 +1581,456 @@ it('never attaches an authorized-Skills field to an Experience bullet group or a
         expect($project)->not->toHaveKey('authorized_skills')
             ->and($project)->not->toHaveKey('summary_authorized_skills');
     }
+});
+
+// --- Sprint 1: resume quality ---------------------------------------------
+
+it('normalizes em dashes in Wording output before validation, so no persisted text contains one', function () {
+    [$candidate, $job, $jobMatch] = fullFixtureSetup();
+    [$selection, $wording] = bindFakeResumeProviders();
+    $selection->willReturn(new ResumeSelectionProviderResponse('openai', 'gpt-test', validSelectionContent($candidate, $job)));
+
+    $content = validWordingContent($candidate);
+    $content['summary'] = 'Senior engineer who builds production systems—keeping AI out of the decision path.';
+    $content['experience'][0]['bullets'][0]['text'] = 'Built cloud-hosted deployment workflows — CI/CD pipelines on AWS';
+    $wording->willReturn(new ResumeWordingProviderResponse('openai', 'gpt-test', $content));
+
+    $variant = app(GenerateResumeVariant::class)->generateFull($jobMatch);
+
+    expect($variant->summary)->toBe('Senior engineer who builds production systems, keeping AI out of the decision path.')
+        ->and($variant->summary)->not->toContain("\u{2014}");
+
+    foreach ($variant->experienceBullets as $bullet) {
+        expect($bullet->text)->not->toContain("\u{2014}");
+    }
+});
+
+it('allows a professional Project as a dedicated highlight when its facts are not reused in Experience', function () {
+    [$candidate, $job, $jobMatch] = fullFixtureSetup();
+    $highlightFact = CareerFact::factory()->create([
+        'career_profile_id' => $candidate['profile']->id,
+        'key' => 'fixture-toolkit-highlight',
+        'statement' => 'Designed a local-first credential store for the Transaction Toolkit.',
+        'attributable_type' => (new Project)->getMorphClass(),
+        'attributable_id' => $candidate['project']->id,
+        'visibility' => Visibility::Public,
+    ]);
+    [$selection, $wording] = bindFakeResumeProviders();
+
+    $selectionContent = validSelectionContent($candidate, $job);
+    $selectionContent['experience'][0]['bullet_groups'] = [[
+        'order' => 1,
+        'career_fact_keys' => [$candidate['factIndependent']->key],
+        'job_analysis_finding_ids' => [$job['ownershipFinding']->id],
+    ]];
+    $selectionContent['target_term_usages'] = [];
+    $selectionContent['selected_projects'] = [[
+        'project_id' => $candidate['project']->id,
+        'order' => 1,
+        'career_fact_keys' => [$highlightFact->key],
+    ]];
+    $selection->willReturn(new ResumeSelectionProviderResponse('openai', 'gpt-test', $selectionContent));
+
+    $wordingContent = validWordingContent($candidate);
+    $wordingContent['experience'][0]['bullets'] = [
+        ['bullet_group_index' => 0, 'text' => 'Implemented the technical solution from team-provided requirements.'],
+    ];
+    $wordingContent['selected_projects'] = [
+        ['project_id' => $candidate['project']->id, 'text' => 'Designed a local-first credential store for the Transaction Toolkit.'],
+    ];
+    $wording->willReturn(new ResumeWordingProviderResponse('openai', 'gpt-test', $wordingContent));
+
+    $variant = app(GenerateResumeVariant::class)->generateFull($jobMatch);
+
+    expect($variant->projects)->toHaveCount(1)
+        ->and($variant->projects->first()->project_id)->toBe($candidate['project']->id)
+        ->and($variant->projects->first()->name)->toBe('Transaction Toolkit');
+});
+
+it('rejects a Project Highlight that reuses a CareerFact already cited in an Experience bullet', function () {
+    [$candidate, $job, $jobMatch] = fullFixtureSetup();
+    [$selection, $wording] = bindFakeResumeProviders();
+
+    $selectionContent = validSelectionContent($candidate, $job);
+    $selectionContent['target_term_usages'] = [];
+    // factAws is a Transaction Toolkit fact AND cited in the first bullet group.
+    $selectionContent['selected_projects'] = [[
+        'project_id' => $candidate['project']->id,
+        'order' => 1,
+        'career_fact_keys' => [$candidate['factAws']->key],
+    ]];
+    $selection->willReturn(new ResumeSelectionProviderResponse('openai', 'gpt-test', $selectionContent));
+
+    expect(fn () => app(GenerateResumeVariant::class)->generateFull($jobMatch))
+        ->toThrow(InvalidResumeVariantResponseException::class, 'only one place');
+
+    expect(ResumeVariant::count())->toBe(0)
+        ->and($wording->callCount)->toBe(0);
+});
+
+it('retries Wording with the rejection reason only for a structural problem, and succeeds when the second response is acceptable', function () {
+    [$candidate, $job, $jobMatch] = fullFixtureSetup();
+    [$selection, $wording] = bindFakeResumeProviders();
+    $selection->willReturn(new ResumeSelectionProviderResponse('openai', 'gpt-test', validSelectionContent($candidate, $job)));
+
+    $bad = validWordingContent($candidate);
+    $bad['experience'][0]['bullets'][1]['bullet_group_index'] = 99; // no such approved bullet group
+    $wording->willReturnInOrder([
+        new ResumeWordingProviderResponse('openai', 'gpt-test', $bad),
+        new ResumeWordingProviderResponse('openai', 'gpt-test', validWordingContent($candidate)),
+    ]);
+
+    $variant = app(GenerateResumeVariant::class)->generateFull($jobMatch);
+
+    expect($wording->callCount)->toBe(2)
+        ->and($wording->capturedUserPrompt)->toContain('Your previous response was rejected')
+        ->and($variant->experienceBullets)->toHaveCount(2);
+});
+
+it('fails after the shared Wording retry budget when the response stays structurally invalid', function () {
+    [$candidate, $job, $jobMatch] = fullFixtureSetup();
+    [$selection, $wording] = bindFakeResumeProviders();
+    $selection->willReturn(new ResumeSelectionProviderResponse('openai', 'gpt-test', validSelectionContent($candidate, $job)));
+
+    $bad = validWordingContent($candidate);
+    $bad['experience'][0]['bullets'][1]['bullet_group_index'] = 99;
+    $wording->willReturn(new ResumeWordingProviderResponse('openai', 'gpt-test', $bad));
+
+    expect(fn () => app(GenerateResumeVariant::class)->generateFull($jobMatch))
+        ->toThrow(InvalidResumeVariantResponseException::class);
+
+    expect($wording->callCount)->toBe(3)
+        ->and(ResumeVariant::count())->toBe(0);
+});
+
+it('does not send Private facts to either provider, and flags Restricted facts in the payloads', function () {
+    [$candidate, $job, $jobMatch] = fullFixtureSetup();
+    [$selection, $wording] = bindFakeResumeProviders();
+    $selection->willReturn(new ResumeSelectionProviderResponse('openai', 'gpt-test', validSelectionContent($candidate, $job)));
+    $wording->willReturn(new ResumeWordingProviderResponse('openai', 'gpt-test', validWordingContent($candidate)));
+
+    app(GenerateResumeVariant::class)->generateFull($jobMatch);
+
+    expect($selection->capturedUserPrompt)->not->toContain('fixture-merchant-confidential-figure')
+        ->and($selection->capturedUserPrompt)->not->toContain('24,589')
+        ->and($wording->capturedUserPrompt)->not->toContain('24,589')
+        ->and($wording->capturedUserPrompt)->toContain('"visibility": "restricted"');
+});
+
+it('derives Skills deterministically from selected non-Restricted evidence when Selection returns none', function () {
+    [$candidate, $job, $jobMatch] = fullFixtureSetup();
+    [$selection, $wording] = bindFakeResumeProviders();
+
+    $content = validSelectionContent($candidate, $job);
+    $content['skills'] = [];
+    $selection->willReturn(new ResumeSelectionProviderResponse('openai', 'gpt-test', $content));
+    $wording->willReturn(new ResumeWordingProviderResponse('openai', 'gpt-test', validWordingContent($candidate)));
+
+    $variant = app(GenerateResumeVariant::class)->generateFull($jobMatch);
+
+    // factAws (public, cited) carries AWS; factIndependent is Restricted and contributes none.
+    expect($variant->skillSelections->pluck('name')->all())->toBe(['AWS']);
+});
+
+it('lists no technologies on a Project Highlight whose only evidence is Restricted', function () {
+    [$candidate, $job, $jobMatch] = fullFixtureSetup();
+    $secretSkill = Skill::factory()->create(['career_profile_id' => $candidate['profile']->id, 'name' => 'Internal Settlement API']);
+    $restrictedFact = CareerFact::factory()->create([
+        'career_profile_id' => $candidate['profile']->id,
+        'key' => 'fixture-restricted-highlight',
+        'statement' => 'Built safe, reviewable correction tooling for a confidential engagement.',
+        'attributable_type' => (new Project)->getMorphClass(),
+        'attributable_id' => $candidate['project']->id,
+        'visibility' => Visibility::Restricted,
+    ]);
+    $restrictedFact->skills()->attach($secretSkill);
+    [$selection, $wording] = bindFakeResumeProviders();
+
+    $content = validSelectionContent($candidate, $job);
+    $content['experience'][0]['bullet_groups'] = [[
+        'order' => 1,
+        'career_fact_keys' => [$candidate['factIndependent']->key],
+        'job_analysis_finding_ids' => [$job['ownershipFinding']->id],
+    ]];
+    $content['target_term_usages'] = [];
+    $content['selected_projects'] = [['project_id' => $candidate['project']->id, 'order' => 1, 'career_fact_keys' => [$restrictedFact->key]]];
+    $selection->willReturn(new ResumeSelectionProviderResponse('openai', 'gpt-test', $content));
+
+    $wordingContent = validWordingContent($candidate);
+    $wordingContent['experience'][0]['bullets'] = [['bullet_group_index' => 0, 'text' => 'Implemented the technical solution from team-provided requirements.']];
+    $wordingContent['selected_projects'] = [['project_id' => $candidate['project']->id, 'text' => 'Built safe, reviewable correction tooling.']];
+    $wording->willReturn(new ResumeWordingProviderResponse('openai', 'gpt-test', $wordingContent));
+
+    $variant = app(GenerateResumeVariant::class)->generateFull($jobMatch);
+
+    expect($variant->projects->first()->technology_names)->toBe([]);
+});
+
+it('uses Selection V6, whose guidance separates implementation from impact and treats one bullet as a floor, with no quota', function () {
+    $prompt = app(ResumeSelectionPromptV6::class);
+    $text = preg_replace('/\s+/', ' ', $prompt->systemPrompt());
+
+    expect($prompt->version())->toBe('resume-selection-v6')
+        ->and($text)->toContain('floor, never a ceiling')
+        ->and($text)->toContain('do not merge them')
+        ->and($text)->toContain('no quota applies')
+        // V5's sections are inherited intact.
+        ->and($text)->toContain('Project Highlights (selected_projects)')
+        ->and($text)->toContain('Overall resume length: relevance and evidence, not a quota');
+});
+
+// --- Recoverable, bullet-level validation ---------------------------------
+//
+// Group 0 of the standard fixture cites the Public AWS fact; group 1 cites
+// the Restricted "independent implementation" fact. A problem confined to
+// one bullet must not discard the others, and must never reach a variant.
+
+/**
+ * @param  array<int, string>  $texts  Wording text for bullet groups 0 and 1.
+ */
+function generateWithBullets(array $texts, ?string $restrictedStatement = null, ?string $summary = null): array
+{
+    [$candidate, $job, $jobMatch] = fullFixtureSetup();
+
+    if ($restrictedStatement !== null) {
+        $candidate['factIndependent']->update(['statement' => $restrictedStatement]);
+    }
+
+    [$selection, $wording] = bindFakeResumeProviders();
+    $selection->willReturn(new ResumeSelectionProviderResponse('openai', 'gpt-test', validSelectionContent($candidate, $job)));
+
+    $content = validWordingContent($candidate);
+    $content['experience'][0]['bullets'] = collect($texts)
+        ->map(fn (string $text, int $index) => ['bullet_group_index' => $index, 'text' => $text])
+        ->values()->all();
+    if ($summary !== null) {
+        $content['summary'] = $summary;
+    }
+    $wording->willReturn(new ResumeWordingProviderResponse('openai', 'gpt-test', $content));
+
+    $variant = app(GenerateResumeVariant::class)->generateFull($jobMatch);
+
+    return [$variant, $wording, $candidate];
+}
+
+function reportItem(ResumeVariant $variant, int $groupIndex): array
+{
+    return collect($variant->review_report['items'])->first(fn (array $item) => ($item['bullet_group_index'] ?? null) === $groupIndex);
+}
+
+it('keeps the valid bullets and omits only the bullet that names a confidential identifier, without another model call', function () {
+    [$variant, $wording] = generateWithBullets([
+        'Built cloud-hosted deployment workflows and CI/CD pipelines on AWS.',
+        'Independently implemented the correction tooling for Brute Strength.',
+    ]);
+
+    $text = $variant->experienceBullets->pluck('text')->implode(' ');
+
+    expect($wording->callCount)->toBe(1)
+        ->and($variant->experienceBullets)->toHaveCount(1)
+        ->and($text)->toContain('AWS')->not->toContain('Brute Strength')
+        ->and(reportItem($variant, 0)['status'])->toBe('passed')
+        ->and(reportItem($variant, 1))->toMatchArray(['status' => 'omitted', 'needs_verification' => false])
+        ->and(reportItem($variant, 1)['findings'][0])->toMatchArray(['kind' => 'confidential_term', 'severity' => 'block', 'detail' => 'Brute Strength'])
+        ->and($variant->review_report['counts'])->toBe(['passed' => 2, 'review' => 0, 'generalized' => 0, 'omitted' => 1]);
+
+    // The report never keeps the text of what was blocked.
+    expect(json_encode($variant->review_report))->not->toContain('correction tooling')
+        ->and(json_encode($variant->wording_raw_response))->not->toContain('Brute Strength');
+});
+
+it('lists the supporting evidence for a flagged claim, with its visibility', function () {
+    [$variant] = generateWithBullets([
+        'Built cloud-hosted deployment workflows and CI/CD pipelines on AWS.',
+        'Independently implemented the correction tooling for Brute Strength.',
+    ]);
+
+    $evidence = reportItem($variant, 1)['evidence'];
+
+    expect($evidence)->toHaveCount(1)
+        ->and($evidence[0])->toMatchArray(['fact_key' => 'fixture-independent-implementation', 'visibility' => 'restricted'])
+        ->and($evidence[0]['statement'])->toContain('Independently implemented');
+});
+
+it('treats a generic industry term as a review warning, not a block', function () {
+    [$variant] = generateWithBullets(
+        ['Built cloud-hosted deployment workflows and CI/CD pipelines on AWS.', 'Independently corrected billing records for a payments merchant.'],
+        'Independently corrected billing records for a payments merchant.',
+    );
+
+    expect($variant->experienceBullets)->toHaveCount(2)
+        ->and($variant->experienceBullets->pluck('text')->implode(' '))->toContain('merchant')
+        ->and(reportItem($variant, 1))->toMatchArray(['status' => 'review', 'needs_verification' => true])
+        ->and(reportItem($variant, 1)['findings'][0])->toMatchArray(['kind' => 'generic_term', 'severity' => 'review', 'detail' => 'merchant'])
+        ->and($variant->review_report['counts']['review'])->toBe(1);
+});
+
+it('generalizes a restricted-only figure that sits in front of a plain noun, and flags it for verification', function () {
+    [$variant] = generateWithBullets(
+        ['Built cloud-hosted deployment workflows and CI/CD pipelines on AWS.', 'Migrated 32,000 merchant accounts to the new billing platform independently.'],
+        'Migrated 32,000 merchant accounts to the new billing platform independently.',
+    );
+
+    $bullet = $variant->experienceBullets->first(fn ($b) => str_starts_with($b->text, 'Migrated'));
+
+    expect($bullet->text)->toBe('Migrated merchant accounts to the new billing platform independently.')
+        ->and($variant->experienceBullets->pluck('text')->implode(' '))->not->toContain('32')
+        ->and(reportItem($variant, 1))->toMatchArray(['status' => 'generalized', 'needs_verification' => true])
+        ->and(reportItem($variant, 1)['action'])->toContain('32000')
+        ->and(collect(reportItem($variant, 1)['findings'])->pluck('kind')->all())->toContain('restricted_figure');
+});
+
+it('omits a bullet whose restricted-only figure cannot be removed without breaking the sentence', function () {
+    [$variant] = generateWithBullets(
+        ['Built cloud-hosted deployment workflows and CI/CD pipelines on AWS.', 'Independently reduced reconciliation time by 32000 records.'],
+        'Independently reduced reconciliation time by 32000 records.',
+    );
+
+    expect($variant->experienceBullets)->toHaveCount(1)
+        ->and(reportItem($variant, 1)['status'])->toBe('omitted')
+        ->and(json_encode($variant->wording_raw_response))->not->toContain('32000');
+});
+
+it('keeps a figure that a cited Public fact also states', function () {
+    [$candidate, $job, $jobMatch] = fullFixtureSetup();
+    $candidate['factAws']->update(['statement' => 'Built deployment workflows and CI/CD pipelines on AWS, cutting release time 40 percent.']);
+    $candidate['factIndependent']->update(['statement' => 'Independently cut release time 40 percent.']);
+    [$selection, $wording] = bindFakeResumeProviders();
+    $content = validSelectionContent($candidate, $job);
+    $content['experience'][0]['bullet_groups'][1]['career_fact_keys'] = [$candidate['factIndependent']->key, $candidate['factAws']->key];
+    $selection->willReturn(new ResumeSelectionProviderResponse('openai', 'gpt-test', $content));
+    $wordingContent = validWordingContent($candidate);
+    $wordingContent['experience'][0]['bullets'][1]['text'] = 'Independently cut release time 40 percent.';
+    $wording->willReturn(new ResumeWordingProviderResponse('openai', 'gpt-test', $wordingContent));
+
+    $variant = app(GenerateResumeVariant::class)->generateFull($jobMatch);
+
+    expect($variant->experienceBullets->pluck('text')->implode(' '))->toContain('40 percent')
+        ->and(reportItem($variant, 1)['status'])->toBe('passed');
+});
+
+it('omits a bullet that claims a technology its evidence does not support', function () {
+    [$variant] = generateWithBullets([
+        'Built cloud-hosted deployment workflows and CI/CD pipelines on AWS.',
+        'Independently implemented the technical solution on AWS.', // AWS is attached only to the group 0 fact.
+    ]);
+
+    expect($variant->experienceBullets)->toHaveCount(1)
+        ->and(reportItem($variant, 1)['status'])->toBe('omitted')
+        ->and(reportItem($variant, 1)['findings'][0]['kind'])->toBe('unsupported_technology');
+});
+
+it('keeps an over-long bullet and flags it for review instead of discarding it', function () {
+    [$variant] = generateWithBullets([
+        'Built cloud-hosted deployment workflows and CI/CD pipelines on AWS.',
+        'Independently implemented the technical solution from team-provided requirements '.str_repeat('and carefully documented every decision ', 8),
+    ]);
+
+    expect($variant->experienceBullets)->toHaveCount(2)
+        ->and(reportItem($variant, 1)['status'])->toBe('review')
+        ->and(reportItem($variant, 1)['findings'][0]['kind'])->toBe('word_count');
+});
+
+it('drops only the offending sentence from a summary, and an unrecoverable summary becomes empty', function () {
+    [$variant] = generateWithBullets(
+        ['Built cloud-hosted deployment workflows and CI/CD pipelines on AWS.', 'Independently implemented the technical solution from team-provided requirements.'],
+        null,
+        'Senior engineer who implements production systems. Previously built tooling for Brute Strength.',
+    );
+
+    // The standard summary evidence cites the Restricted fact, so the guard applies to the summary.
+    expect($variant->summary)->toBe('Senior engineer who implements production systems.')
+        ->and(collect($variant->review_report['items'])->firstWhere('location', 'summary')['status'])->toBe('generalized');
+});
+
+it('applies a curated generalization only when one is configured for the confidential term', function () {
+    config(['resume.generalizations' => ['Brute Strength' => 'a marketing client']]);
+
+    [$variant] = generateWithBullets([
+        'Built cloud-hosted deployment workflows and CI/CD pipelines on AWS.',
+        'Independently implemented the correction tooling for Brute Strength.',
+    ]);
+
+    expect($variant->experienceBullets->pluck('text')->implode(' '))->toContain('for a marketing client')->not->toContain('Brute Strength')
+        ->and(reportItem($variant, 1))->toMatchArray(['status' => 'generalized', 'needs_verification' => true]);
+});
+
+it('never persists a target-term usage located at an omitted bullet', function () {
+    [$variant] = generateWithBullets([
+        'Built cloud deployment workflows on AWS and Azure directly.', // group 0 carries the qualified Azure usage; the term leak omits it
+        'Independently implemented the technical solution from team-provided requirements.',
+    ]);
+
+    expect($variant->experienceBullets)->toHaveCount(1)
+        ->and($variant->targetTermUsages)->toHaveCount(0);
+});
+
+it('refuses, before anything is saved, a recovered response that still contains blocked content', function () {
+    $context = new WordingCheckContext(
+        validRoleIds: [1], expectedBulletGroupIndexesByRole: [1 => [0]], validSelectedProjectIds: [],
+        denylistTerms: [], careerFactKeysByLocation: ['1:0' => ['restricted-fact']], guardrailByFactKey: [],
+        skillIdsByFactKey: [], canonicalSkillsById: [], textRecognizedSkillIdsByFactKey: [], directTargetTermsByLocation: [],
+        restrictedFactKeys: ['restricted-fact'], factTextByKey: ['restricted-fact' => 'Tooling for a client.'],
+        restrictedTerms: ['Brute Strength'], genericTerms: [],
+    );
+
+    // A triage claiming a clean response whose text is nevertheless blocked (as if triage had a bug).
+    $triage = new WordingTriage([], [], [
+        'summary' => '',
+        'experience' => [['role_id' => 1, 'bullets' => [['bullet_group_index' => 0, 'text' => 'Implemented tooling for Brute Strength.']]]],
+        'selected_projects' => [],
+    ]);
+
+    expect(fn () => app(RecoverWording::class)->recover($triage, $context))
+        ->toThrow(InvalidResumeVariantResponseException::class, 'recovery left blocked content');
+});
+
+it('renders a PDF that contains the valid and review-flagged content and none of the blocked claims, as selectable ATS text', function () {
+    [$variant] = generateWithBullets(
+        [
+            'Built cloud-hosted deployment workflows and CI/CD pipelines on AWS.',
+            'Migrated 32,000 merchant accounts to the new billing platform independently.',
+        ],
+        'Migrated 32,000 merchant accounts to the new billing platform independently.',
+        'Senior engineer who implements production systems. Previously built tooling for Brute Strength.',
+    );
+
+    $pdf = app(GenerateResumePdf::class)->generate($variant);
+    $text = (new PdfParser)->parseContent($pdf)->getText();
+
+    expect(str_starts_with($pdf, '%PDF'))->toBeTrue()
+        // Valid content is preserved, selectable and in reading order.
+        ->and($text)->toContain('deployment workflows')
+        ->and($text)->toContain('Migrated merchant accounts to the new billing platform independently')
+        ->and($text)->toContain('Senior engineer who implements production systems.')
+        ->and(strpos($text, 'EXPERIENCE'))->toBeLessThan(strpos($text, 'EDUCATION'))
+        // Blocked claims never reach the document.
+        ->and($text)->not->toContain('Brute Strength')
+        ->and($text)->not->toContain('32,000')
+        ->and($text)->not->toContain('32000')
+        ->and($text)->not->toContain('Previously built tooling');
+
+    // A review warning is information about the variant, not a reason to withhold the PDF.
+    expect($variant->review_report['counts']['generalized'])->toBeGreaterThan(0)
+        ->and(app(ResumePdfValidator::class))->not->toBeNull();
+});
+
+it('still renders a PDF when every bullet of a role is omitted', function () {
+    [$candidate, $job, $jobMatch] = fullFixtureSetup();
+    $candidate['factAws']->update(['visibility' => Visibility::Restricted]);
+    [$selection, $wording] = bindFakeResumeProviders();
+    $selection->willReturn(new ResumeSelectionProviderResponse('openai', 'gpt-test', validSelectionContent($candidate, $job)));
+    $content = validWordingContent($candidate);
+    $content['experience'][0]['bullets'] = [
+        ['bullet_group_index' => 0, 'text' => 'Implemented tooling for Brute Strength.'],
+        ['bullet_group_index' => 1, 'text' => 'Independently delivered work for Brute Strength.'],
+    ];
+    $wording->willReturn(new ResumeWordingProviderResponse('openai', 'gpt-test', $content));
+
+    $variant = app(GenerateResumeVariant::class)->generateFull($jobMatch);
+    $pdf = app(GenerateResumePdf::class)->generate($variant);
+
+    expect($variant->experienceBullets)->toHaveCount(0)
+        ->and($variant->review_report['counts']['omitted'])->toBe(2)
+        ->and((new PdfParser)->parseContent($pdf)->getText())->not->toContain('Brute Strength');
 });

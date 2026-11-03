@@ -32,6 +32,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $location
  * @property string|null $portfolio_url
  * @property string|null $github_url
+ * @property int $evidence_revision Bumped whenever approved evidence changes the career fact corpus; see App\Support\Clarification\EvidenceRevision.
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -47,6 +48,22 @@ class CareerProfile extends Model implements HasCareerProfileOwnership
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * @return HasMany<CareerLimitation, $this>
+     */
+    public function limitations(): HasMany
+    {
+        return $this->hasMany(CareerLimitation::class);
+    }
+
+    /**
+     * @return HasMany<PresentationPreference, $this>
+     */
+    public function presentationPreferences(): HasMany
+    {
+        return $this->hasMany(PresentationPreference::class);
     }
 
     /**

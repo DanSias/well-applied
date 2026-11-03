@@ -29,7 +29,7 @@
     "career_profile": {
         "key": "daniel-sias",
         "name": "Daniel Sias",
-        "email": "dan.sias@gmail.com",
+        "email": "daniel.sias@gmail.com",
         "phone": "(407) 272-1720",
         "location": null,
         "portfolio_url": "https://danielsias.dev",
@@ -64,8 +64,8 @@
             "title": "Developer Support Engineer",
             "start_year": 2025,
             "start_month": 5,
-            "end_year": null,
-            "end_month": null,
+            "end_year": 2026,
+            "end_month": 10,
             "sort_order": 0,
             "summary": null
         },

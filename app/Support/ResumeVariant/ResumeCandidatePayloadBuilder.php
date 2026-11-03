@@ -10,6 +10,7 @@ use App\Models\JobMatch;
 use App\Models\Project;
 use App\Models\Role;
 use App\Models\Skill;
+use App\Support\Clarification\ActiveLimitations;
 use App\Support\JobMatch\CareerFactAttribution;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
@@ -63,7 +64,7 @@ final class ResumeCandidatePayloadBuilder
         return [
             'career_facts' => $facts->map(fn (CareerFact $fact) => $this->normalizeCareerFact($fact, $annotationsByFactId[$fact->id] ?? []))->all(),
             'education' => $this->buildEducation($profile),
-            'eligible_skills' => $this->buildEligibleSkills($facts),
+            'eligible_skills' => $this->buildEligibleSkills($facts, $profile),
             'role_project_map' => $this->buildRoleProjectMap($profile),
         ];
     }
@@ -119,6 +120,10 @@ final class ResumeCandidatePayloadBuilder
             'key' => $fact->key,
             'statement' => $fact->statement,
             'fact_type' => $fact->fact_type->value,
+            // Surfaced so Wording can generalize Restricted evidence and
+            // RestrictedEvidenceGuard can enforce it; Private facts never
+            // reach this payload (ResumeEligibility).
+            'visibility' => $fact->visibility->value,
             'attribution' => [
                 'employer' => $attribution->employer,
                 'role_id' => $ids['role_id'],
@@ -206,15 +211,19 @@ final class ResumeCandidatePayloadBuilder
      * Every canonical Skill attached to at least one eligible CareerFact
      * — a bare Skill with no supporting CareerFact never appears here.
      * See docs/domain-model.md "ResumeVariant" Skills eligibility rule.
+     * A Skill the user has confirmed a CareerLimitation for is withheld.
      *
      * @param  Collection<int, CareerFact>  $eligibleFacts
      * @return array<int, array<string, mixed>>
      */
-    private function buildEligibleSkills(Collection $eligibleFacts): array
+    private function buildEligibleSkills(Collection $eligibleFacts, CareerProfile $profile): array
     {
+        $limited = ActiveLimitations::terms($profile);
+
         return $eligibleFacts
             ->flatMap(fn (CareerFact $fact) => $fact->skills)
             ->unique('id')
+            ->reject(fn (Skill $skill) => ActiveLimitations::matches($skill->name, $limited))
             ->sortBy('name')
             ->values()
             ->map(fn (Skill $skill) => [

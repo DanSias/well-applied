@@ -41,7 +41,10 @@ final class PresentGenerationAttempt
 
     private function resultUrl(GenerationAttempt $attempt): ?string
     {
-        if ($attempt->status !== GenerationStatus::Succeeded || $attempt->result_id === null) {
+        // No result URL for pipeline-owned attempts: anything that polls
+        // an attempt and follows result_url must not pull the user off
+        // the job page, where the pipeline reports its own progress.
+        if ($attempt->chain || $attempt->status !== GenerationStatus::Succeeded || $attempt->result_id === null) {
             return null;
         }
 
@@ -52,6 +55,7 @@ final class PresentGenerationAttempt
             ]),
             GenerationType::JobMatch => $this->jobMatchResultUrl($attempt),
             GenerationType::ResumeVariant => $this->resumeVariantResultUrl($attempt),
+            GenerationType::ResumePdf => route('resume-variants.preview', ['resumeVariant' => $attempt->result_id]),
         };
     }
 

@@ -4,7 +4,9 @@ import {
     DescriptionCompletenessBadge,
     InspectionStateBadge,
 } from '@/components/badges';
+import { ApprovedEvidencePanel } from '@/components/approved-evidence-panel';
 import { GenerationStatus } from '@/components/generation-status';
+import { TailoredResumePanel } from '@/components/tailored-resume-panel';
 import { WaitingForWorkerNotice } from '@/components/worker-status-badge';
 import { useGenerationAttemptPolling } from '@/hooks/use-generation-attempt-polling';
 import { useWorkerStatusPolling } from '@/hooks/use-worker-status-polling';
@@ -177,7 +179,11 @@ function GenerateAnalysisAction({
     );
 }
 
-export default function JobsShow({ job }: JobShowProps) {
+export default function JobsShow({
+    job,
+    tailored_resume,
+    approved_evidence,
+}: JobShowProps) {
     return (
         <AppShell>
             <Head title={`${job.title} at ${job.company}`} />
@@ -253,6 +259,15 @@ export default function JobsShow({ job }: JobShowProps) {
                 </dl>
 
                 <div className="mt-4">
+                    <TailoredResumePanel
+                        jobId={job.id}
+                        initial={tailored_resume}
+                    />
+                </div>
+
+                <ApprovedEvidencePanel evidence={approved_evidence} />
+
+                <div className="mt-4">
                     <InspectApplicationAction
                         jobId={job.id}
                         inspection={job.inspection}
@@ -264,7 +279,10 @@ export default function JobsShow({ job }: JobShowProps) {
             <div className="mt-6">
                 <div className="flex items-center justify-between">
                     <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                        Job Analysis
+                        Job Analysis{' '}
+                        <span className="text-xs font-normal text-neutral-400">
+                            (manual stage action)
+                        </span>
                     </h2>
                     <GenerateAnalysisAction
                         jobId={job.id}

@@ -7,6 +7,8 @@ use App\Enums\GenerationType;
 use App\Exceptions\UnsupportedGenerationTypeException;
 use App\Jobs\GenerateJobAnalysisJob;
 use App\Jobs\GenerateJobMatchJob;
+use App\Jobs\GenerateResumeVariantJob;
+use App\Jobs\RenderResumePdfJob;
 use App\Models\GenerationAttempt;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
@@ -75,9 +77,9 @@ final class QueueGenerationAttempt
      * does so before touching the cache lock, creating a row, or
      * dispatching, so an unsupported type leaves no side effects at all.
      *
-     * @param  Model  $subject  A JobPosting for JobAnalysis, a JobAnalysis for JobMatch.
+     * @param  Model  $subject  A JobPosting for JobAnalysis, a JobAnalysis for JobMatch, a JobMatch for ResumeVariant, a ResumeVariant for ResumePdf.
      */
-    public function claim(GenerationType $type, Model $subject): ?GenerationAttempt
+    public function claim(GenerationType $type, Model $subject, ?string $pipelineRunId = null, bool $chain = false, bool $regenerate = false): ?GenerationAttempt
     {
         $this->ensureSupported($type);
 
@@ -105,6 +107,9 @@ final class QueueGenerationAttempt
                 'generation_type' => $type,
                 'status' => GenerationStatus::Queued,
                 'queued_at' => now(),
+                'pipeline_run_id' => $pipelineRunId,
+                'chain' => $chain,
+                'regenerate' => $regenerate,
             ]);
 
             try {
@@ -148,7 +153,7 @@ final class QueueGenerationAttempt
      */
     private function ensureSupported(GenerationType $type): void
     {
-        if (! in_array($type, [GenerationType::JobAnalysis, GenerationType::JobMatch], true)) {
+        if (! in_array($type, [GenerationType::JobAnalysis, GenerationType::JobMatch, GenerationType::ResumeVariant, GenerationType::ResumePdf], true)) {
             throw new UnsupportedGenerationTypeException($type);
         }
     }
@@ -193,7 +198,8 @@ final class QueueGenerationAttempt
         match ($type) {
             GenerationType::JobAnalysis => GenerateJobAnalysisJob::dispatch($attempt),
             GenerationType::JobMatch => GenerateJobMatchJob::dispatch($attempt),
-            default => throw new UnsupportedGenerationTypeException($type),
+            GenerationType::ResumeVariant => GenerateResumeVariantJob::dispatch($attempt),
+            GenerationType::ResumePdf => RenderResumePdfJob::dispatch($attempt),
         };
     }
 

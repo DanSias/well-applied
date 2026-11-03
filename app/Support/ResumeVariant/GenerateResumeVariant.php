@@ -7,19 +7,28 @@ use App\Contracts\GeneratesResumeWording;
 use App\Enums\ResumeClaimPosture;
 use App\Enums\ResumeQualifiedPhrase;
 use App\Enums\ResumeTermUsageLocation;
+use App\Exceptions\InvalidResumeVariantResponseException;
+use App\Exceptions\ResumeEmptyOutputException;
 use App\Models\CareerFact;
 use App\Models\CareerProfile;
 use App\Models\Education;
 use App\Models\JobMatch;
 use App\Models\Project;
+use App\Models\ResumeSelectionCheckpoint;
 use App\Models\ResumeVariant;
 use App\Models\Role;
 use App\Models\Skill;
+use App\Support\Clarification\ActiveLimitations;
+use App\Support\Clarification\ActivePresentationPreferences;
+use App\Support\Clarification\DeclaredScopes;
+use App\Support\GenerationAttempt\GenerationMetrics;
 use App\Support\JobMatch\JobPayloadBuilder;
-use App\Support\ResumeVariant\Prompts\ResumeSelectionPromptV4;
-use App\Support\ResumeVariant\Prompts\ResumeWordingPromptV2;
+use App\Support\ResumeDocument\ResumeText;
+use App\Support\ResumeVariant\Prompts\ResumeSelectionPromptV6;
+use App\Support\ResumeVariant\Prompts\ResumeWordingPromptV3;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * The whole resume-generation pipeline for one JobMatch, start to
@@ -50,11 +59,17 @@ use Illuminate\Support\Facades\DB;
  */
 final class GenerateResumeVariant
 {
+    /** Total provider calls allowed for Wording, shared by validation rejections and empty outputs. */
+    private const MAX_WORDING_CALLS = 3;
+
+    /** Selection is retried only for an empty output (one retry); its validation failures stay fatal. */
+    private const MAX_SELECTION_CALLS = 2;
+
     public function __construct(
         private readonly GeneratesResumeSelection $selectionProvider,
         private readonly GeneratesResumeWording $wordingProvider,
-        private readonly ResumeSelectionPromptV4 $selectionPrompt,
-        private readonly ResumeWordingPromptV2 $wordingPrompt,
+        private readonly ResumeSelectionPromptV6 $selectionPrompt,
+        private readonly ResumeWordingPromptV3 $wordingPrompt,
         private readonly ResumeCandidatePayloadBuilder $candidateBuilder,
         private readonly JobPayloadBuilder $jobPayloadBuilder,
         private readonly TargetTerminologyBuilder $targetTerminologyBuilder,
@@ -62,8 +77,15 @@ final class GenerateResumeVariant
         private readonly ResumeWordingResponseValidator $wordingValidator,
     ) {}
 
-    public function generateFull(JobMatch $jobMatch): ResumeVariant
+    /**
+     * @param  (\Closure(string): void)|null  $onPhase  Notified as the run enters 'selection', 'wording', and 'saving', so the caller can surface live progress.
+     * @param  bool  $reuseCheckpoint  Reuse an unconsumed, still-matching validated Selection checkpoint instead of calling the provider. False for an explicit regenerate.
+     */
+    public function generateFull(JobMatch $jobMatch, ?\Closure $onPhase = null, bool $reuseCheckpoint = true): ResumeVariant
     {
+        $metrics = app(GenerationMetrics::class);
+        $onPhase ??= static fn (string $phase) => null;
+
         $profile = $jobMatch->careerProfile;
 
         // ---- Stage 0: deterministic payload construction ----
@@ -108,10 +130,13 @@ final class GenerateResumeVariant
         // never be converted into a Selected Projects entry, since its
         // id is structurally absent from this set. See
         // docs/domain-model.md "ResumeVariant" -> "Selected Projects".
+        // Sprint 1: Project Highlights may be independent OR professional
+        // (role-owned) Projects. Eligibility is unchanged: only Projects
+        // that carry real Public/Restricted-eligible evidence and are not
+        // Private by default. The no-duplicate rule between highlights and
+        // Experience is enforced by ResumeSelectionResponseValidator.
         $eligibleProjectIdsFromFacts = array_unique(array_values($projectIdByFactKey));
         $validIndependentProjectIds = Project::query()
-            ->where('career_profile_id', $profile->id)
-            ->whereNull('role_id')
             ->where(fn ($query) => $query->whereNull('default_visibility')->orWhere('default_visibility', '!=', 'private'))
             ->whereIn('id', $eligibleProjectIdsFromFacts)
             ->pluck('id')
@@ -155,14 +180,24 @@ final class GenerateResumeVariant
             $validIndependentProjectIds,
         );
 
-        $selectionResponse = $this->selectionProvider->generate(
-            $this->selectionPrompt->systemPrompt(),
-            $this->selectionPrompt->userPrompt($candidatePayload, $jobPayload, $targetTerminology),
-            $selectionSchema,
-        );
+        $selectionSystemPrompt = $this->selectionPrompt->systemPrompt();
+        $presentationPreferences = ActivePresentationPreferences::forProfile($profile);
+        $selectionUserPrompt = $this->selectionPrompt->userPrompt($candidatePayload, $jobPayload, $targetTerminology, $presentationPreferences);
 
-        $validatedSelection = $this->selectionValidator->validate(
-            $selectionResponse->structuredContent,
+        // Everything that determined Selection's answer: the prompt
+        // version and text, the schema, and every input the model saw.
+        // Any change (profile, match, visibility, prompt) changes this
+        // and makes an earlier checkpoint unusable.
+        $selectionFingerprint = hash('sha256', json_encode([
+            $this->selectionPrompt->version(),
+            $this->selectionPrompt->schemaVersion(),
+            $selectionSystemPrompt,
+            $selectionSchema,
+            $selectionUserPrompt,
+        ], JSON_THROW_ON_ERROR));
+
+        $validateSelection = fn (array $content): array => $this->selectionValidator->validate(
+            $content,
             $validRoleIds,
             $validFactKeys,
             $validSkillIds,
@@ -175,11 +210,78 @@ final class GenerateResumeVariant
             $projectIdByFactKey,
         );
 
+        $selectionResponse = null;
+        $validatedSelection = null;
+
+        $checkpoint = $reuseCheckpoint
+            ? ResumeSelectionCheckpoint::query()
+                ->where('job_match_id', $jobMatch->id)
+                ->where('fingerprint', $selectionFingerprint)
+                ->whereNull('consumed_at')
+                ->latest('id')
+                ->first()
+            : null;
+
+        if ($checkpoint !== null) {
+            // The stored response is revalidated against the current
+            // rules, so reuse never bypasses grounding or visibility.
+            try {
+                $validatedSelection = $validateSelection($checkpoint->structured_content);
+                $selectionResponse = new ResumeSelectionProviderResponse($checkpoint->provider, $checkpoint->model, $checkpoint->structured_content);
+                $metrics->markSelectionReused();
+                $metrics->event(['stage' => 'selection', 'kind' => 'checkpoint_reused', 'checkpoint_id' => $checkpoint->id]);
+            } catch (InvalidResumeVariantResponseException $e) {
+                $metrics->event(['stage' => 'selection', 'kind' => 'checkpoint_rejected', 'checkpoint_id' => $checkpoint->id, 'reason' => mb_substr($e->getMessage(), 0, 500)]);
+            }
+        }
+
+        if ($validatedSelection === null) {
+            $onPhase('selection');
+
+            $selectionResponse = $this->selectWithEmptyOutputRetry(
+                $metrics,
+                self::MAX_SELECTION_CALLS,
+                fn () => $this->selectionProvider->generate($selectionSystemPrompt, $selectionUserPrompt, $selectionSchema),
+            );
+
+            $validatedSelection = $validateSelection($selectionResponse->structuredContent);
+
+            ResumeSelectionCheckpoint::create([
+                'job_match_id' => $jobMatch->id,
+                'fingerprint' => $selectionFingerprint,
+                'prompt_version' => $this->selectionPrompt->version(),
+                'schema_version' => $this->selectionPrompt->schemaVersion(),
+                'provider' => $selectionResponse->provider,
+                'model' => $selectionResponse->model,
+                'structured_content' => $selectionResponse->structuredContent,
+                'duration_ms' => $metrics->stageMs('selection'),
+            ]);
+        }
+
+        // The Technical Skills section must not be empty. If Selection
+        // returned no Skills, derive them deterministically from the
+        // Skills attached to the non-Restricted facts it already chose
+        // (Experience, Project Highlights, Summary), most-cited first.
+        // Nothing is invented: every Skill is canonical and backed by
+        // selected evidence.
+        if (($validatedSelection['skills'] ?? []) === []) {
+            $validatedSelection['skills'] = $this->deriveSkillsFromSelectedEvidence(
+                $validatedSelection, collect($candidatePayload['career_facts'])->keyBy('key'),
+            );
+        }
+
         $selectionDraft = $this->toSelectionDraft($validatedSelection, $titleChoicesByRole, $projectIdByFactKey);
 
         // ---- Build Stage 2 input from exactly what Selection approved ----
         $factsByKey = collect($candidatePayload['career_facts'])->keyBy('key');
         $guardrailByFactKey = $factsByKey->map(fn (array $fact) => $fact['metric']['guardrail'] ?? null)->all();
+
+        // Restricted-evidence enforcement inputs (RestrictedEvidenceGuard):
+        // which eligible facts are Restricted, and every fact's
+        // evidence-bearing text for the "figure appears only in
+        // restricted evidence" check.
+        $restrictedFactKeys = $factsByKey->filter(fn (array $fact) => $fact['visibility'] === 'restricted')->keys()->all();
+        $factTextByKey = $factsByKey->map(fn (array $fact) => trim($fact['statement'].' '.($fact['metric']['scope_note'] ?? '').' '.($fact['metric']['guardrail'] ?? '').' '.(isset($fact['metric']['value']) ? (string) $fact['metric']['value'] : '')))->all();
 
         // For ResumeWordingResponseValidator::assertSkillProvenance() —
         // see that method's own docblock. $skillIdsByFactKey reuses the
@@ -259,35 +361,104 @@ final class GenerateResumeVariant
         // ---- Stage 2: Wording ----
         $wordingSchema = $this->wordingPrompt->jsonSchema($rolesInSelection, $selectedProjectIds);
 
-        $wordingResponse = $this->wordingProvider->generate(
-            $this->wordingPrompt->systemPrompt(),
-            $this->wordingPrompt->userPrompt($wordingInput, $denylistTerms),
-            $wordingSchema,
+        // Wording's validators are strict (grounding, guardrails,
+        // Restricted evidence), and a rejection after minutes of work
+        // gets informed retries with the exact rejection reason. Transport
+        // failures are not retried here (the transport already retries).
+        $baseWordingPrompt = $this->wordingPrompt->userPrompt($wordingInput, $denylistTerms);
+        $wordingContext = new WordingCheckContext(
+            validRoleIds: $rolesInSelection,
+            expectedBulletGroupIndexesByRole: $expectedBulletGroupIndexesByRole,
+            validSelectedProjectIds: $selectedProjectIds,
+            denylistTerms: $denylistTerms,
+            careerFactKeysByLocation: $careerFactKeysByLocation,
+            guardrailByFactKey: $guardrailByFactKey,
+            skillIdsByFactKey: $skillIdsByFactKey,
+            canonicalSkillsById: $canonicalSkillsById,
+            textRecognizedSkillIdsByFactKey: $textRecognizedSkillIdsByFactKey,
+            directTargetTermsByLocation: $directTargetTermsByLocation,
+            restrictedFactKeys: $restrictedFactKeys,
+            factTextByKey: $factTextByKey,
+            restrictedTerms: (array) config('resume.restricted_terms', []),
+            genericTerms: (array) config('resume.generic_terms', []),
+            limitationTerms: ActiveLimitations::terms($profile),
+            declaredScopesByKey: DeclaredScopes::forFacts($profile, $factsByKey->keys()->all()),
         );
+        $reviewItems = [];
+        $rejection = null;
 
-        $validatedWording = $this->wordingValidator->validate(
-            $wordingResponse->structuredContent,
-            $rolesInSelection,
-            $expectedBulletGroupIndexesByRole,
-            $selectedProjectIds,
-            $denylistTerms,
-            $careerFactKeysByLocation,
-            $guardrailByFactKey,
-            $skillIdsByFactKey,
-            $canonicalSkillsById,
-            $textRecognizedSkillIdsByFactKey,
-            $directTargetTermsByLocation,
-        );
+        $onPhase('wording');
+
+        // One shared budget of provider calls covers validation
+        // rejections (retried with the exact reason as feedback) and
+        // empty model outputs (retried unchanged: there is nothing to
+        // correct). Every rejection and empty output is logged and
+        // recorded on the attempt.
+        for ($wordingCall = 1; ; $wordingCall++) {
+            $wordingUserPrompt = $rejection === null ? $baseWordingPrompt : $baseWordingPrompt
+                ."\n\n--- Your previous response was rejected ---\n".$rejection
+                ."\nWrite the response again, fixing exactly the problems listed above and changing nothing else.\n"
+                .'--- End of rejection notice ---';
+
+            try {
+                $wordingResponse = $metrics->measure('wording', fn () => $this->wordingProvider->generate(
+                    $this->wordingPrompt->systemPrompt(),
+                    $wordingUserPrompt,
+                    $wordingSchema,
+                ), fn ($response) => $response->usage);
+            } catch (ResumeEmptyOutputException $e) {
+                $this->recordEmptyOutput($metrics, 'wording', $wordingCall, $e);
+
+                if ($wordingCall >= self::MAX_WORDING_CALLS) {
+                    throw $this->exhaustedEmptyOutput('Wording', $wordingCall, $e);
+                }
+
+                continue;
+            }
+
+            // Em dashes are normalized deterministically before judging
+            // (ResumeText::clean()). Judging never throws on content: a
+            // location that must not ship is generalized or omitted by
+            // RecoverWording while every other location is kept. Only a
+            // structural problem (missing or duplicate bullets) needs a
+            // new model response.
+            $triage = $this->wordingValidator->triage($this->cleanStrings($wordingResponse->structuredContent), $wordingContext);
+
+            if ($triage->isStructurallyValid()) {
+                $recovered = app(RecoverWording::class)->recover($triage, $wordingContext);
+                $validatedWording = $recovered['content'];
+                $reviewItems = $recovered['items'];
+
+                break;
+            }
+
+            $reason = mb_substr('Resume Wording provider response failed validation: '.implode(' ', $triage->structuralErrors), 0, 1000);
+            $metrics->event(['stage' => 'wording', 'call' => $wordingCall, 'kind' => 'validation_rejected', 'reason' => $reason]);
+            Log::warning('Resume Wording response rejected by validation.', [
+                'job_match_id' => $jobMatch->id,
+                'call' => $wordingCall,
+                'reason' => $reason,
+            ]);
+
+            if ($wordingCall >= self::MAX_WORDING_CALLS) {
+                throw new InvalidResumeVariantResponseException($reason, context: $wordingResponse->structuredContent);
+            }
+
+            $rejection = $reason;
+        }
 
         $wordingDraft = $this->toWordingDraft($validatedWording);
+        $reviewReport = $this->buildReviewReport($reviewItems, collect($candidatePayload['career_facts'])->keyBy('key'), $roles);
 
         // ---- Persist ----
+        $onPhase('saving');
+
         return DB::transaction(function () use (
             $profile, $jobMatch, $selectionDraft, $wordingDraft,
-            $candidatePayload, $jobPayload, $targetTerminology,
+            $candidatePayload, $jobPayload, $targetTerminology, $presentationPreferences,
             $selectionResponse, $wordingResponse,
             $validatedSelection, $validatedWording, $wordingInput,
-            $factsByKey,
+            $factsByKey, $reviewReport,
         ) {
             $factIdsByKey = CareerFact::query()
                 ->where('career_profile_id', $profile->id)
@@ -325,7 +496,7 @@ final class GenerateResumeVariant
                     && $usage->posture === ResumeClaimPosture::Qualified
             );
 
-            $finalSummary = $summaryQualified === null
+            $finalSummary = $summaryQualified === null || $wordingDraft->summary === ''
                 ? $wordingDraft->summary
                 : $this->appendQualifiedClause($wordingDraft->summary, $summaryQualified->relationshipPhraseKey, $summaryQualified->term);
 
@@ -342,12 +513,19 @@ final class GenerateResumeVariant
                     'candidate' => $candidatePayload,
                     'job' => $jobPayload,
                     'target_terminology' => $targetTerminology,
+                    'presentation_preferences' => $presentationPreferences,
                 ],
                 'selection_raw_response' => $validatedSelection,
                 'wording_input_snapshot' => $wordingInput,
                 'wording_raw_response' => $validatedWording,
                 'summary' => $finalSummary,
+                'review_report' => $reviewReport,
             ]);
+
+            ResumeSelectionCheckpoint::query()
+                ->where('job_match_id', $jobMatch->id)
+                ->whereNull('consumed_at')
+                ->update(['consumed_at' => now()]);
 
             $bulletIdsByLocation = [];
 
@@ -391,12 +569,13 @@ final class GenerateResumeVariant
                             && $usage->posture === ResumeClaimPosture::Qualified
                     );
 
-                    // Wording's own completeness check (assertCompleteness
-                    // in ResumeWordingResponseValidator) already guarantees
-                    // a matching bullet exists for every approved bullet
-                    // group by the time persistence runs — trusted, not
-                    // re-guarded here, mirroring how GenerateJobMatch
-                    // trusts validated data during its own persist step.
+                    // Completeness was checked before recovery; a missing
+                    // bullet here is one RecoverWording omitted (see the
+                    // review report), so it is simply not persisted.
+                    if ($wordingBullet === null) {
+                        continue;
+                    }
+
                     $baseText = $wordingBullet->text;
                     $finalText = $bulletQualified === null
                         ? $baseText
@@ -453,6 +632,11 @@ final class GenerateResumeVariant
                 $projectModel = $selectedProjectsById->get($project->projectId);
                 $wordingProject = collect($wordingDraft->selectedProjects)->first(fn (ProjectWordingDraft $p) => $p->projectId === $project->projectId);
 
+                // A highlight RecoverWording omitted is not persisted.
+                if ($wordingProject === null) {
+                    continue;
+                }
+
                 // Technology names are never model-authored (neither
                 // Selection nor Wording write them) — deterministically
                 // derived here from the cited facts' own attached
@@ -462,6 +646,13 @@ final class GenerateResumeVariant
                 // Projects".
                 $technologyNames = [];
                 foreach ($project->careerFactKeys as $key) {
+                    // Skills attached to Restricted evidence can name
+                    // confidential systems or endpoints, so a highlight
+                    // never lists technologies derived from them.
+                    if ($factsByKey->get($key)['visibility'] === 'restricted') {
+                        continue;
+                    }
+
                     foreach ($factsByKey->get($key)['skills'] as $skill) {
                         if (! in_array($skill['name'], $technologyNames, true)) {
                             $technologyNames[] = $skill['name'];
@@ -501,6 +692,12 @@ final class GenerateResumeVariant
                 $bulletId = $usage->location === ResumeTermUsageLocation::Bullet
                     ? ($bulletIdsByLocation["{$usage->roleId}:{$usage->bulletGroupIndex}"] ?? null)
                     : null;
+
+                // A term usage located at an omitted bullet describes a
+                // claim that is not in the resume.
+                if ($usage->location === ResumeTermUsageLocation::Bullet && $bulletId === null) {
+                    continue;
+                }
 
                 $usageRow = $variant->targetTermUsages()->create([
                     'bullet_id' => $bulletId,
@@ -733,6 +930,171 @@ final class GenerateResumeVariant
         }
 
         return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $selection  Validated Selection response.
+     * @param  Collection<string, array<string, mixed>>  $factsByKey
+     * @return array<int, array{skill_id: int, order: int}>
+     */
+    private function deriveSkillsFromSelectedEvidence(array $selection, Collection $factsByKey): array
+    {
+        $citedKeys = array_merge(
+            $selection['summary_evidence'] ?? [],
+            ...array_map(
+                fn (array $role) => array_merge(...array_map(fn (array $g) => $g['career_fact_keys'], $role['bullet_groups'] ?? []) ?: [[]]),
+                $selection['experience'] ?? [],
+            ),
+            ...array_map(fn (array $p) => $p['career_fact_keys'], $selection['selected_projects'] ?? []) ?: [[]],
+        );
+
+        $counts = [];
+        $names = [];
+
+        foreach ($citedKeys as $key) {
+            $fact = $factsByKey->get($key);
+
+            if ($fact === null || $fact['visibility'] === 'restricted') {
+                continue;
+            }
+
+            foreach ($fact['skills'] as $skill) {
+                $counts[$skill['id']] = ($counts[$skill['id']] ?? 0) + 1;
+                $names[$skill['id']] = $skill['name'];
+            }
+        }
+
+        uksort($counts, fn (int $a, int $b) => [$counts[$b], $names[$a]] <=> [$counts[$a], $names[$b]]);
+
+        $order = 0;
+
+        return array_map(
+            fn (int $id) => ['skill_id' => $id, 'order' => ++$order],
+            array_slice(array_keys($counts), 0, 16),
+        );
+    }
+
+    /**
+     * @param  array<mixed>  $content
+     * @return array<mixed>
+     */
+    private function cleanStrings(array $content): array
+    {
+        return array_map(fn (mixed $value) => match (true) {
+            is_string($value) => ResumeText::clean($value),
+            is_array($value) => $this->cleanStrings($value),
+            default => $value,
+        }, $content);
+    }
+
+    /**
+     * The human-readable account of what happened to each generated
+     * location: which passed, which were generalized or omitted, and
+     * which need verification, each with the evidence behind it. Holds
+     * finding kinds, terms and figures, and the supporting facts' own
+     * text, but never the text of an omitted or blocked claim.
+     *
+     * @param  array<int, array<string, mixed>>  $items
+     * @param  Collection<string, array<string, mixed>>  $factsByKey
+     * @param  \Illuminate\Database\Eloquent\Collection<int, Role>  $roles
+     * @return array<string, mixed>
+     */
+    private function buildReviewReport(array $items, Collection $factsByKey, Collection $roles): array
+    {
+        $rolesById = $roles->load('employer')->keyBy('id');
+        $projectNames = Project::query()
+            ->whereIn('id', array_filter(array_column($items, 'project_id')))
+            ->pluck('name', 'id');
+        $counts = ['passed' => 0, 'review' => 0, 'generalized' => 0, 'omitted' => 0];
+        $report = [];
+
+        foreach ($items as $item) {
+            $counts[$item['status']]++;
+            $flagged = $item['status'] !== 'passed';
+
+            $role = $item['location'] === 'experience' ? $rolesById->get($item['role_id']) : null;
+
+            $label = match ($item['location']) {
+                'summary' => 'Summary',
+                'project' => 'Project: '.($projectNames[$item['project_id']] ?? $item['project_id']),
+                default => $role === null
+                    ? 'Role '.$item['role_id'].', bullet '.($item['bullet_group_index'] + 1)
+                    : "{$role->employer->name}, {$role->title}, bullet ".($item['bullet_group_index'] + 1),
+            };
+
+            $report[] = [
+                'location' => $item['location'],
+                'label' => $label,
+                'status' => $item['status'],
+                'role_id' => $item['role_id'] ?? null,
+                'bullet_group_index' => $item['bullet_group_index'] ?? null,
+                'project_id' => $item['project_id'] ?? null,
+                'needs_verification' => in_array($item['status'], ['review', 'generalized'], true),
+                // The exact sentence under review (for an omitted item, the text that was removed).
+                'text' => $flagged ? ($item['text'] ?? null) : null,
+                'findings' => array_map(fn (array $f) => ['kind' => $f['kind'], 'severity' => $f['severity'], 'detail' => $f['detail'], 'message' => $f['message']], $item['findings']),
+                'action' => $item['action'],
+                'evidence' => array_map(fn (string $key) => array_filter([
+                    'fact_key' => $key,
+                    'visibility' => $factsByKey->get($key)['visibility'] ?? null,
+                    // The supporting statement is included only where a
+                    // person has something to verify.
+                    'statement' => $flagged ? ($factsByKey->get($key)['statement'] ?? null) : null,
+                ], fn ($v) => $v !== null), $item['fact_keys']),
+            ];
+        }
+
+        return ['version' => 1, 'counts' => $counts, 'items' => $report];
+    }
+
+    /**
+     * Calls Selection, repeating the identical call (up to $maxCalls in
+     * total) only when the model returned no final content. Any other
+     * failure propagates immediately.
+     *
+     * @param  \Closure(): ResumeSelectionProviderResponse  $call
+     */
+    private function selectWithEmptyOutputRetry(GenerationMetrics $metrics, int $maxCalls, \Closure $call): ResumeSelectionProviderResponse
+    {
+        for ($attempt = 1; ; $attempt++) {
+            try {
+                return $metrics->measure('selection', $call, fn (ResumeSelectionProviderResponse $response) => $response->usage);
+            } catch (ResumeEmptyOutputException $e) {
+                $this->recordEmptyOutput($metrics, 'selection', $attempt, $e);
+
+                if ($attempt >= $maxCalls) {
+                    throw $this->exhaustedEmptyOutput('Selection', $attempt, $e);
+                }
+            }
+        }
+    }
+
+    private function recordEmptyOutput(GenerationMetrics $metrics, string $stage, int $call, ResumeEmptyOutputException $e): void
+    {
+        $context = [
+            'stage' => $stage,
+            'call' => $call,
+            'kind' => 'empty_output',
+            'finish_reason' => $e->diagnostics?->finishReason,
+            'prompt_tokens' => $e->diagnostics?->usage['prompt_tokens'] ?? null,
+            'completion_tokens' => $e->diagnostics?->usage['completion_tokens'] ?? null,
+            'reasoning_field_present' => $e->reasoningPresent,
+            'reasoning_field_chars' => $e->reasoningChars,
+        ];
+
+        $metrics->event($context);
+        Log::warning('Resume generation received no final content from the model.', $context);
+    }
+
+    private function exhaustedEmptyOutput(string $stage, int $calls, ResumeEmptyOutputException $last): ResumeEmptyOutputException
+    {
+        return new ResumeEmptyOutputException(
+            "Resume {$stage} provider returned no final content after {$calls} ".($calls === 1 ? 'attempt' : 'attempts').'.',
+            $last->diagnostics,
+            $last,
+            $last->reasoningPresent,
+            $last->reasoningChars,
+        );
     }
 
     /**

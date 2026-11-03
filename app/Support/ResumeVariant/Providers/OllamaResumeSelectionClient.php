@@ -3,9 +3,12 @@
 namespace App\Support\ResumeVariant\Providers;
 
 use App\Contracts\GeneratesResumeSelection;
+use App\Exceptions\ResumeEmptyOutputException;
 use App\Exceptions\ResumeGenerationProviderException;
+use App\Support\GenerationAttempt\TokenUsage;
 use App\Support\OllamaChatCompletionsClient;
 use App\Support\OllamaChatCompletionsException;
+use App\Support\OllamaEmptyOutputException;
 use App\Support\ProviderDiagnostics;
 use App\Support\ResumeVariant\ResumeSelectionProviderResponse;
 
@@ -79,19 +82,26 @@ final class OllamaResumeSelectionClient implements GeneratesResumeSelection
                 logPrefix: 'Resume Selection generation (Ollama)',
             );
         } catch (OllamaChatCompletionsException $e) {
-            throw new ResumeGenerationProviderException($e->getMessage(), diagnostics: new ProviderDiagnostics(
+            $diagnostics = new ProviderDiagnostics(
                 model: $e->model,
                 finishReason: $e->finishReason,
                 usage: $e->usage,
                 maxOutputTokens: self::MAX_OUTPUT_TOKENS,
                 timeoutSeconds: $this->timeoutSeconds,
-            ), previous: $e);
+            );
+
+            if ($e instanceof OllamaEmptyOutputException) {
+                throw new ResumeEmptyOutputException($e->getMessage(), $diagnostics, $e, $e->reasoningPresent, $e->reasoningChars);
+            }
+
+            throw new ResumeGenerationProviderException($e->getMessage(), diagnostics: $diagnostics, previous: $e);
         }
 
         return new ResumeSelectionProviderResponse(
             provider: 'ollama',
             model: $result->model,
             structuredContent: $result->structuredContent,
+            usage: TokenUsage::fromChatCompletions($result->usage),
         );
     }
 }

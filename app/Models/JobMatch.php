@@ -45,6 +45,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon $generated_at
  * @property array<string, mixed> $input_snapshot
  * @property array<string, mixed>|null $raw_response
+ * @property int $evidence_revision CareerProfile::$evidence_revision the candidate corpus was read at; a match is reusable only while this still equals the profile's.
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read int|null $findings_count Only present when loaded via withCount('findings').
@@ -58,6 +59,7 @@ use Illuminate\Support\Carbon;
     'generated_at',
     'input_snapshot',
     'raw_response',
+    'evidence_revision',
 ])]
 class JobMatch extends Model
 {

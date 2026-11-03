@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Exceptions\InvalidResumePdfException;
 use App\Exceptions\ResumePdfPageBudgetExceededException;
 use App\Models\ResumeVariant;
+use App\Support\ResumeDocument\GenerateResumeDocument;
 use App\Support\ResumeDocument\GenerateResumePdf;
 use App\Support\ResumeDocument\ResumePdfFilename;
+use App\Support\ResumeDocument\ResumePdfStore;
 use App\Support\ResumeDocument\ResumePdfValidator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -47,11 +49,21 @@ class ResumeVariantPdfController extends Controller
         ResumeVariant $resumeVariant,
         GenerateResumePdf $generator,
         ResumePdfValidator $validator,
+        ResumePdfStore $store,
+        GenerateResumeDocument $documents,
     ): Response|JsonResponse {
-        $pdf = $generator->generate($resumeVariant);
+        // Serve the validated PDF the pipeline already rendered when it
+        // exists (content-addressed, so never stale); otherwise compose
+        // and validate on demand exactly as before.
+        $document = $documents->generate($resumeVariant);
+        $pdf = $store->get($document);
 
         try {
-            $validator->validate($pdf);
+            if ($pdf === null) {
+                $pdf = $generator->generate($resumeVariant);
+                $validator->validate($pdf);
+                $store->put($document, $pdf);
+            }
         } catch (ResumePdfPageBudgetExceededException $e) {
             return response()->json([
                 'error' => "This resume rendered to {$e->pageCount} pages, exceeding the {$e->maxPages}-page resume export target. Reduce selected Experience bullets or the Selected Project and regenerate the resume before exporting again.",

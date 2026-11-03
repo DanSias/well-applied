@@ -12,6 +12,7 @@ use App\Models\Project;
 use App\Models\Role;
 use App\Models\Skill;
 use App\Models\User;
+use App\Support\CareerData\ApprovedEvidenceFile;
 use Closure;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
@@ -42,6 +43,16 @@ use Throwable;
 #[Description('Deterministically import the reviewed canonical career dataset into the database. Safe to re-run.')]
 class ImportCanonicalCareerData extends Command
 {
+    /**
+     * Keys in the dataset that collide with a fact created from approved
+     * user evidence. Such a fact is never overwritten by this import (the
+     * database is the operational source for approved evidence); each is
+     * reported so the difference can be resolved deliberately.
+     *
+     * @var array<int, string>
+     */
+    protected array $approvedEvidenceConflicts = [];
+
     public function handle(): int
     {
         $path = $this->argument('path') ?? 'data/canonical-career-data.proposed.json';
@@ -81,6 +92,10 @@ class ImportCanonicalCareerData extends Command
         $this->info('Import complete — database now reflects '.$fullPath.'.');
         foreach ($summary as $label => $count) {
             $this->line(sprintf('  %-12s %d', $label, $count));
+        }
+
+        foreach ($this->approvedEvidenceConflicts as $key) {
+            $this->warn("Conflict: [{$key}] is approved user evidence in the database; the dataset's version was NOT applied.");
         }
 
         return self::SUCCESS;
@@ -440,6 +455,14 @@ class ImportCanonicalCareerData extends Command
                 throw new CanonicalDataImportException(
                     "CareerFact [{$data['key']}] references unknown {$attributableType} key [{$attributableKey}]."
                 );
+            }
+
+            $existing = CareerFact::query()->where('key', $data['key'])->first();
+
+            if ($existing !== null && ApprovedEvidenceFile::isApprovedUserEvidence($existing)) {
+                $this->approvedEvidenceConflicts[] = $data['key'];
+
+                continue;
             }
 
             $fact = CareerFact::updateOrCreate(

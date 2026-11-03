@@ -76,6 +76,23 @@ use Illuminate\Support\Carbon;
  * @property string|null $failure_category
  * @property string|null $failure_message
  * @property int|null $result_id
+ * @property string|null $pipeline_run_id
+ * @property bool $chain
+ * @property bool $regenerate
+ * @property string|null $phase
+ * @property int|null $queue_wait_ms
+ * @property int|null $duration_ms
+ * @property int|null $selection_ms
+ * @property int|null $wording_ms
+ * @property int|null $render_ms
+ * @property int|null $reasoning_tokens
+ * @property int|null $provider_calls
+ * @property int|null $wording_attempts
+ * @property int|null $pdf_page_count
+ * @property string|null $layout_mode
+ * @property array<string, mixed>|null $layout_diagnostics
+ * @property array<int, array<string, mixed>>|null $retry_log
+ * @property bool $selection_reused
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -98,6 +115,23 @@ use Illuminate\Support\Carbon;
     'failure_category',
     'failure_message',
     'result_id',
+    'pipeline_run_id',
+    'chain',
+    'regenerate',
+    'phase',
+    'queue_wait_ms',
+    'duration_ms',
+    'selection_ms',
+    'wording_ms',
+    'render_ms',
+    'reasoning_tokens',
+    'provider_calls',
+    'wording_attempts',
+    'pdf_page_count',
+    'layout_mode',
+    'layout_diagnostics',
+    'retry_log',
+    'selection_reused',
 ])]
 class GenerationAttempt extends Model
 {
@@ -112,6 +146,11 @@ class GenerationAttempt extends Model
             'queued_at' => 'datetime',
             'started_at' => 'datetime',
             'finished_at' => 'datetime',
+            'chain' => 'boolean',
+            'regenerate' => 'boolean',
+            'layout_diagnostics' => 'array',
+            'retry_log' => 'array',
+            'selection_reused' => 'boolean',
         ];
     }
 
@@ -144,7 +183,7 @@ class GenerationAttempt extends Model
         return match ($this->generation_type) {
             GenerationType::JobAnalysis => JobAnalysis::find($this->result_id),
             GenerationType::JobMatch => JobMatch::find($this->result_id),
-            GenerationType::ResumeVariant => ResumeVariant::find($this->result_id),
+            GenerationType::ResumeVariant, GenerationType::ResumePdf => ResumeVariant::find($this->result_id),
         };
     }
 

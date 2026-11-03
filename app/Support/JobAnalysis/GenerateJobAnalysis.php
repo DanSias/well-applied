@@ -13,6 +13,7 @@ use App\Exceptions\InvalidJobAnalysisResponseException;
 use App\Exceptions\JobAnalysisProviderException;
 use App\Models\JobAnalysis;
 use App\Models\JobPosting;
+use App\Support\GenerationAttempt\GenerationMetrics;
 use App\Support\JobAnalysis\Prompts\JobAnalysisPromptV4;
 use Illuminate\Support\Facades\DB;
 
@@ -60,11 +61,11 @@ final class GenerateJobAnalysis
     {
         $segments = $this->segmenter->segment($posting->description);
 
-        $providerResponse = $this->provider->generate(
+        $providerResponse = app(GenerationMetrics::class)->measure('model', fn () => $this->provider->generate(
             $this->prompt->systemPrompt(),
             $this->prompt->userPrompt($posting, $segments),
             $this->prompt->jsonSchema(array_keys($segments)),
-        );
+        ), fn ($response) => $response->usage);
 
         $validated = $this->validator->validate($providerResponse->structuredContent, array_keys($segments));
 

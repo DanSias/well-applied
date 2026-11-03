@@ -42,4 +42,65 @@ final readonly class ResumeDocument
         public array $selectedProjects,
         public array $education,
     ) {}
+
+    /**
+     * A copy with the single lowest-priority optional block removed, or
+     * null when nothing optional remains. Used only by the PDF fit step
+     * when a document cannot fit the two-page limit: Selected Projects
+     * go first (last-ranked first), then the last bullet of whichever
+     * role currently has the most bullets (oldest role on ties). Every
+     * role keeps at least one bullet, and Selection already orders a
+     * role's bullets strongest first, so this only ever drops the
+     * weakest remaining evidence. Never adds or rewrites anything.
+     */
+    public function withoutLowestPriorityBlock(): ?self
+    {
+        if ($this->selectedProjects !== []) {
+            return $this->with(selectedProjects: array_slice($this->selectedProjects, 0, -1));
+        }
+
+        $target = null;
+        $targetCount = 1;
+
+        foreach ($this->experience as $index => $role) {
+            $count = count($role->bullets);
+
+            if ($count >= 2 && $count >= $targetCount) {
+                $target = $index;
+                $targetCount = $count;
+            }
+        }
+
+        if ($target === null) {
+            return null;
+        }
+
+        $experience = $this->experience;
+        $role = $experience[$target];
+        $experience[$target] = new ResumeExperienceRole(
+            employerName: $role->employerName,
+            displayTitle: $role->displayTitle,
+            dateRangeLabel: $role->dateRangeLabel,
+            isCurrent: $role->isCurrent,
+            bullets: array_slice($role->bullets, 0, -1),
+        );
+
+        return $this->with(experience: $experience);
+    }
+
+    /**
+     * @param  array<int, ResumeExperienceRole>|null  $experience
+     * @param  array<int, ResumeSelectedProject>|null  $selectedProjects
+     */
+    private function with(?array $experience = null, ?array $selectedProjects = null): self
+    {
+        return new self(
+            contact: $this->contact,
+            summary: $this->summary,
+            experience: $experience ?? $this->experience,
+            skills: $this->skills,
+            selectedProjects: $selectedProjects ?? $this->selectedProjects,
+            education: $this->education,
+        );
+    }
 }

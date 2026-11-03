@@ -20,4 +20,5 @@ enum GenerationType: string
     case JobAnalysis = 'job_analysis';
     case JobMatch = 'job_match';
     case ResumeVariant = 'resume_variant';
+    case ResumePdf = 'resume_pdf';
 }

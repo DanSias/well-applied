@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\GenerationStatus;
 use App\Enums\GenerationType;
 use App\Enums\ResumeClaimPosture;
 use App\Enums\ResumeTermUsageLocation;
@@ -17,6 +16,7 @@ use App\Models\ResumeVariantExperienceBullet;
 use App\Models\ResumeVariantExperienceRole;
 use App\Models\ResumeVariantTargetTermUsage;
 use App\Models\Skill;
+use App\Support\GenerationAttempt\QueueGenerationAttempt;
 use App\Support\JobMatch\CareerFactAttribution;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
@@ -43,24 +43,13 @@ class ResumeVariantController extends Controller
         JobPosting $jobPosting,
         JobAnalysis $jobAnalysis,
         JobMatch $jobMatch,
+        QueueGenerationAttempt $claims,
     ): RedirectResponse {
         abort_unless($jobAnalysis->job_posting_id === $jobPosting->id, 404);
         abort_unless($jobMatch->job_analysis_id === $jobAnalysis->id, 404);
 
-        $hasActiveAttempt = $jobMatch->generationAttempts()
-            ->active()
-            ->where('generation_type', GenerationType::ResumeVariant)
-            ->exists();
-
-        if (! $hasActiveAttempt) {
-            $attempt = $jobMatch->generationAttempts()->create([
-                'generation_type' => GenerationType::ResumeVariant,
-                'status' => GenerationStatus::Queued,
-                'queued_at' => now(),
-            ]);
-
-            GenerateResumeVariantJob::dispatch($attempt);
-        }
+        // Atomic duplicate-safe claim, shared with Job Analysis / Job Match.
+        $claims->claim(GenerationType::ResumeVariant, $jobMatch);
 
         return redirect()->route('jobs.analyses.matches.show', [$jobPosting, $jobAnalysis, $jobMatch]);
     }

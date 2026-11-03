@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Enums\GenerationStatus;
 use App\Exceptions\InvalidJobAnalysisResponseException;
 use App\Exceptions\JobAnalysisProviderException;
+use App\Jobs\Concerns\RecordsAttemptMetrics;
 use App\Models\GenerationAttempt;
 use App\Models\JobPosting;
 use App\Support\JobAnalysis\GenerateJobAnalysis;
@@ -48,6 +49,7 @@ use Throwable;
 final class GenerateJobAnalysisJob implements ShouldQueue
 {
     use Queueable;
+    use RecordsAttemptMetrics;
 
     public int $tries = 1;
 
@@ -61,6 +63,7 @@ final class GenerateJobAnalysisJob implements ShouldQueue
             'status' => GenerationStatus::Running,
             'started_at' => now(),
         ]);
+        $this->beginMetrics();
 
         $posting = $this->attempt->subject;
 
@@ -129,13 +132,13 @@ final class GenerateJobAnalysisJob implements ShouldQueue
             'model' => $model,
             'prompt_version' => $analysis->prompt_version,
             'schema_version' => $analysis->schema_version,
-            // Token/finish_reason diagnostics are only ever captured on
-            // a *failed* provider call today (see
-            // OllamaJobAnalysisClient) — GenerateJobAnalysis's success
-            // path doesn't expose them, and widening that contract is
-            // out of scope for this milestone. Left null here rather
-            // than guessed at.
+            // Timing and provider-neutral token usage recorded by
+            // GenerationMetrics around the provider call; token fields
+            // stay null when the provider reported none.
+            ...$this->successMetrics(),
         ]);
+
+        $this->advancePipeline($posting);
     }
 
     /**

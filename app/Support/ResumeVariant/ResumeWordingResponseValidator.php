@@ -3,6 +3,7 @@
 namespace App\Support\ResumeVariant;
 
 use App\Exceptions\InvalidResumeVariantResponseException;
+use App\Support\ResumeDocument\ResumeText;
 use Illuminate\Support\Facades\Validator as ValidatorFacade;
 use Illuminate\Validation\Validator;
 
@@ -81,6 +82,9 @@ final class ResumeWordingResponseValidator
      * @param  array<string, array<int, int>>  $skillIdsByFactKey  career_fact_key => Skill id[] attached to that fact.
      * @param  array<int, string>  $canonicalSkillsById  Every canonical Skill (id => name) that could legitimately appear anywhere in this profile's eligible corpus — the recognition catalog for assertSkillProvenance(), not a per-location authorization set.
      * @param  array<string, array<int, int>>  $textRecognizedSkillIdsByFactKey  career_fact_key => Skill id[] recognized (via recognizedSkillIds()) in that fact's own evidence-bearing text (statement + metric scope_note/guardrail) — computed once per fact by the caller, never re-scanned per location. See authorizedSkillIds()'s own docblock.
+     * @param  array<int, string>  $restrictedFactKeys  Keys of eligible Restricted facts. See RestrictedEvidenceGuard.
+     * @param  array<string, string>  $factTextByKey  career_fact_key => evidence-bearing text for every eligible fact.
+     * @param  array<int, string>|null  $restrictedTerms  Confidential terms; null reads config('resume.restricted_terms').
      * @param  array<string, array<int, string>>  $directTargetTermsByLocation  "summary" or "role_id:index" => direct-posture target term[] Selection approved at that exact location. See assertTargetTermLocationScope()'s own docblock.
      * @return array<string, mixed>
      *
@@ -98,7 +102,11 @@ final class ResumeWordingResponseValidator
         array $canonicalSkillsById,
         array $textRecognizedSkillIdsByFactKey,
         array $directTargetTermsByLocation,
+        array $restrictedFactKeys = [],
+        array $factTextByKey = [],
+        ?array $restrictedTerms = null,
     ): array {
+        $restrictedTerms ??= (array) config('resume.restricted_terms', []);
         $validator = ValidatorFacade::make($structuredContent, $this->rules());
 
         $allDirectTargetTerms = array_values(array_unique(array_merge([], ...array_values($directTargetTermsByLocation))));
@@ -107,6 +115,7 @@ final class ResumeWordingResponseValidator
             $structuredContent, $validRoleIds, $expectedBulletGroupIndexesByRole, $validSelectedProjectIds,
             $denylistTerms, $careerFactKeysByLocation, $guardrailByFactKey, $skillIdsByFactKey, $canonicalSkillsById,
             $textRecognizedSkillIdsByFactKey, $directTargetTermsByLocation, $allDirectTargetTerms,
+            $restrictedFactKeys, $factTextByKey, $restrictedTerms,
         ) {
             $experience = is_array($structuredContent['experience'] ?? null) ? $structuredContent['experience'] : [];
             $selectedProjects = is_array($structuredContent['selected_projects'] ?? null) ? $structuredContent['selected_projects'] : [];
@@ -115,6 +124,7 @@ final class ResumeWordingResponseValidator
             $this->assertCompleteness($validator, $experience, $validRoleIds, $expectedBulletGroupIndexesByRole);
             $this->assertSelectedProjectsCompleteness($validator, $selectedProjects, $validSelectedProjectIds);
             $this->assertDenylistRespected($validator, 'summary', $summary, $denylistTerms);
+            $this->assertEditorialRules($validator, 'summary', $summary, $careerFactKeysByLocation['summary'] ?? [], $restrictedFactKeys, $factTextByKey, $restrictedTerms);
             $this->assertGuardrails($validator, 'summary', $summary, $careerFactKeysByLocation['summary'] ?? [], $guardrailByFactKey);
             $this->assertSkillProvenance(
                 $validator, 'summary', $summary,
@@ -146,6 +156,7 @@ final class ResumeWordingResponseValidator
                     $field = "experience.{$roleIndex}.bullets.{$bulletIndex}.text";
 
                     $this->assertDenylistRespected($validator, $field, $text, $denylistTerms);
+                    $this->assertEditorialRules($validator, $field, $text, $careerFactKeysByLocation[$locationKey] ?? [], $restrictedFactKeys, $factTextByKey, $restrictedTerms);
                     $this->assertGuardrails($validator, $field, $text, $careerFactKeysByLocation[$locationKey] ?? [], $guardrailByFactKey);
                     $this->assertWordCountCeiling($validator, $field, $text);
                     $this->assertSkillProvenance(
@@ -176,6 +187,7 @@ final class ResumeWordingResponseValidator
                 $field = "selected_projects.{$projectIndex}.text";
 
                 $this->assertDenylistRespected($validator, $field, $text, $denylistTerms);
+                $this->assertEditorialRules($validator, $field, $text, $careerFactKeysByLocation[$locationKey] ?? [], $restrictedFactKeys, $factTextByKey, $restrictedTerms);
                 $this->assertGuardrails($validator, $field, $text, $careerFactKeysByLocation[$locationKey] ?? [], $guardrailByFactKey);
                 $this->assertWordCountCeiling($validator, $field, $text);
                 $this->assertSkillProvenance(
@@ -198,6 +210,158 @@ final class ResumeWordingResponseValidator
         $validated = $validator->validated();
 
         return $validated;
+    }
+
+    /**
+     * Judges a Wording response without throwing, so one bad bullet does
+     * not discard the rest. Structure (shape, completeness) is checked
+     * as a whole; every text location is then checked on its own, each
+     * check in isolation so a finding carries exactly which rule it
+     * came from. Block findings are for content that must not ship
+     * (Restricted-only detail, unsupported claims); review findings are
+     * kept and flagged. The strict validate() remains the contract for
+     * callers that want all-or-nothing.
+     *
+     * @param  array<string, mixed>  $structuredContent
+     */
+    public function triage(array $structuredContent, WordingCheckContext $context): WordingTriage
+    {
+        $structure = ValidatorFacade::make($structuredContent, $this->rules());
+        $structure->after(function (Validator $validator) use ($structuredContent, $context) {
+            $experience = is_array($structuredContent['experience'] ?? null) ? $structuredContent['experience'] : [];
+            $selectedProjects = is_array($structuredContent['selected_projects'] ?? null) ? $structuredContent['selected_projects'] : [];
+
+            $this->assertCompleteness($validator, $experience, $context->validRoleIds, $context->expectedBulletGroupIndexesByRole);
+            $this->assertSelectedProjectsCompleteness($validator, $selectedProjects, $context->validSelectedProjectIds);
+        });
+
+        if ($structure->fails()) {
+            return new WordingTriage($structure->errors()->all(), [], null);
+        }
+
+        $findings = [];
+        $add = function (string $field, array $list) use (&$findings): void {
+            if ($list !== []) {
+                $findings[$field] = $list;
+            }
+        };
+
+        $summary = is_string($structuredContent['summary'] ?? null) ? $structuredContent['summary'] : '';
+        $add('summary', $this->textFindings('summary', $summary, 'summary', $context, targetTerms: true, wordCount: false));
+
+        foreach ((array) ($structuredContent['experience'] ?? []) as $roleIndex => $role) {
+            foreach ((array) ($role['bullets'] ?? []) as $bulletIndex => $bullet) {
+                $field = "experience.{$roleIndex}.bullets.{$bulletIndex}.text";
+                $add($field, $this->textFindings($field, (string) $bullet['text'], "{$role['role_id']}:{$bullet['bullet_group_index']}", $context, targetTerms: true, wordCount: true));
+            }
+        }
+
+        foreach ((array) ($structuredContent['selected_projects'] ?? []) as $projectIndex => $project) {
+            $field = "selected_projects.{$projectIndex}.text";
+            $add($field, $this->textFindings($field, (string) $project['text'], "project:{$project['project_id']}", $context, targetTerms: false, wordCount: true));
+        }
+
+        return new WordingTriage([], $findings, $structure->validated());
+    }
+
+    /**
+     * Findings for one piece of generated text, as `block` or `review`.
+     * Public so a deterministic recovery can re-check its own rewrite
+     * against exactly the same rules.
+     *
+     * @return array<int, array{kind: string, severity: string, detail: string, message: string}>
+     */
+    public function textFindings(string $field, string $text, string $locationKey, WordingCheckContext $context, bool $targetTerms, bool $wordCount): array
+    {
+        $citedKeys = $context->careerFactKeysByLocation[$locationKey] ?? [];
+        $allDirectTargetTerms = array_values(array_unique(array_merge([], ...array_values($context->directTargetTermsByLocation))));
+
+        /** @var array<string, array{0: string, 1: \Closure(Validator): void}> $checks */
+        $checks = [
+            'denylist' => ['block', fn (Validator $v) => $this->assertDenylistRespected($v, $field, $text, $context->denylistTerms)],
+            'unsupported_claim' => ['block', fn (Validator $v) => $this->assertGuardrails($v, $field, $text, $citedKeys, $context->guardrailByFactKey)],
+            'unsupported_technology' => ['block', fn (Validator $v) => $this->assertSkillProvenance(
+                $v, $field, $text,
+                $this->authorizedSkillIds($citedKeys, $context->skillIdsByFactKey, $context->textRecognizedSkillIdsByFactKey),
+                $context->canonicalSkillsById,
+            )],
+        ];
+
+        if ($targetTerms) {
+            $checks['target_term_scope'] = ['block', fn (Validator $v) => $this->assertTargetTermLocationScope(
+                $v, $field, $text, $context->directTargetTermsByLocation[$locationKey] ?? [], $allDirectTargetTerms,
+            )];
+        }
+
+        if ($wordCount) {
+            $checks['word_count'] = ['review', fn (Validator $v) => $this->assertWordCountCeiling($v, $field, $text)];
+        }
+
+        $findings = [];
+
+        if (ResumeText::containsEmDash($text)) {
+            $findings[] = ['kind' => 'em_dash', 'severity' => 'block', 'detail' => '', 'message' => 'contains an em dash'];
+        }
+
+        foreach ($checks as $kind => [$severity, $check]) {
+            $isolated = ValidatorFacade::make([], []);
+            $check($isolated);
+
+            foreach ($isolated->errors()->all() as $message) {
+                $findings[] = ['kind' => $kind, 'severity' => $severity, 'detail' => '', 'message' => $message];
+            }
+        }
+
+        foreach ($context->limitationTerms as $term) {
+            if ($term !== '' && preg_match('/(?<![\w])'.preg_quote($term, '/').'(?![\w])/iu', $text) === 1) {
+                $findings[] = [
+                    'kind' => 'known_limitation',
+                    'severity' => 'block',
+                    'detail' => $term,
+                    'message' => "mentions \"{$term}\", which you have confirmed you have no direct experience with",
+                ];
+            }
+        }
+
+        foreach ((new ClaimScopeChecker)->findings($text, $citedKeys, $context->factTextByKey, $context->declaredScopesByKey) as $finding) {
+            $findings[] = $finding;
+        }
+
+        foreach ((new RestrictedEvidenceGuard)->findings($text, $citedKeys, $context->factTextByKey, $context->restrictedFactKeys, $context->restrictedTerms, $context->genericTerms) as $finding) {
+            $findings[] = $finding;
+        }
+
+        return $findings;
+    }
+
+    /**
+     * Resume-wide editorial rules independent of any one fact: no em
+     * dash anywhere in generated text, and text citing Restricted
+     * evidence must stay a generalized claim (RestrictedEvidenceGuard).
+     * GenerateResumeVariant normalizes em dashes before validating, so
+     * a violation here is a tripwire, not an expected rejection path.
+     *
+     * @param  array<int, string>  $citedFactKeys
+     * @param  array<int, string>  $restrictedFactKeys
+     * @param  array<string, string>  $factTextByKey
+     * @param  array<int, string>  $restrictedTerms
+     */
+    private function assertEditorialRules(
+        Validator $validator,
+        string $field,
+        string $text,
+        array $citedFactKeys,
+        array $restrictedFactKeys,
+        array $factTextByKey,
+        array $restrictedTerms,
+    ): void {
+        if (ResumeText::containsEmDash($text)) {
+            $validator->errors()->add($field, 'Generated text contains an em dash, which resumes must never contain.');
+        }
+
+        foreach ((new RestrictedEvidenceGuard)->violations($text, $citedFactKeys, $factTextByKey, $restrictedFactKeys, $restrictedTerms) as $violation) {
+            $validator->errors()->add($field, "Generated text at [{$field}] cites Restricted evidence and {$violation}; Restricted evidence may only support a generalized claim.");
+        }
     }
 
     /**

@@ -11,6 +11,8 @@ use App\Models\CareerFact;
 use App\Models\CareerProfile;
 use App\Models\JobAnalysis;
 use App\Models\JobMatch;
+use App\Support\Clarification\EvidenceRevision;
+use App\Support\GenerationAttempt\GenerationMetrics;
 use App\Support\JobMatch\Prompts\JobMatchPromptV3;
 use Illuminate\Support\Facades\DB;
 
@@ -50,6 +52,10 @@ final class GenerateJobMatch
      */
     public function generate(JobAnalysis $analysis, CareerProfile $profile): JobMatch
     {
+        // Read BEFORE the corpus is built, so evidence approved while the
+        // provider is running leaves this match visibly stale instead of
+        // being silently stamped as current.
+        $evidenceRevision = EvidenceRevision::current($profile);
         $candidatePayload = $this->candidateBuilder->build($profile);
         $jobPayload = $this->jobBuilder->build($analysis);
 
@@ -60,11 +66,11 @@ final class GenerateJobMatch
         /** @var array<int, int> $validEducationIds */
         $validEducationIds = array_column($candidatePayload['education'], 'id');
 
-        $providerResponse = $this->provider->generate(
+        $providerResponse = app(GenerationMetrics::class)->measure('model', fn () => $this->provider->generate(
             $this->prompt->systemPrompt(),
             $this->prompt->userPrompt($candidatePayload, $jobPayload),
             $this->prompt->jsonSchema($validFindingIds, $validFactKeys, $validEducationIds),
-        );
+        ), fn ($response) => $response->usage);
 
         $validated = $this->validator->validate(
             $providerResponse->structuredContent,
@@ -80,7 +86,7 @@ final class GenerateJobMatch
             'job' => $jobPayload,
         ];
 
-        return DB::transaction(function () use ($analysis, $profile, $draft, $providerResponse, $validated, $inputSnapshot) {
+        return DB::transaction(function () use ($analysis, $profile, $draft, $providerResponse, $validated, $inputSnapshot, $evidenceRevision) {
             $match = JobMatch::create([
                 'job_analysis_id' => $analysis->id,
                 'career_profile_id' => $profile->id,
@@ -90,6 +96,7 @@ final class GenerateJobMatch
                 'generated_at' => now(),
                 'input_snapshot' => $inputSnapshot,
                 'raw_response' => $validated,
+                'evidence_revision' => $evidenceRevision,
             ]);
 
             /** @var array<string, int> $factIdsByKey */

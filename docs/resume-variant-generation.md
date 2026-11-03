@@ -1070,3 +1070,120 @@ polling mechanism was introduced.
 resolves a succeeded Resume attempt's result URL by traversing
 `subject` (a `JobMatch`) -> `jobAnalysis` for `job_posting_id` (the one
 ancestor id not already present on the `JobMatch` row itself).
+
+## Sprint 1: resume quality (selection policy, restricted evidence, fit-aware layout)
+
+A read-only audit of the finished Spotify resume found it underfilled
+(10 bullets, no project highlights, older roles compressed to one
+bullet) although the eligible corpus held 10+ facts per older role. The
+cause was policy, not evidence. Sprint 1 changes policy and rendering;
+the pipeline, models, citation tables and validators are reused.
+
+**Content selection (`resume-selection-v5`, `resume-wording-v3`).**
+Both are new classes derived from V4 / V2 (the earlier versions stay
+frozen because they are persisted version strings).
+
+- No bullet or Skill quota. The Selection prompt ranks strongest-first
+  and includes everything that adds distinct, relevant, supported
+  evidence; depth follows relevance, including for older roles. The
+  validator keeps only sanity ceilings (24 bullet groups, 24 Skills,
+  3 Project Highlights), enough to catch runaway output.
+- Project Highlights may be independent **or professional** projects.
+  A CareerFact may appear in exactly one place among Experience bullet
+  groups and Project Highlights
+  (`assertNoFactReuseBetweenExperienceAndProjects`). Role completeness
+  still applies: every eligible role keeps at least one bullet group.
+- Role introductions stay optional and are never generated (canonical
+  `roles.summary` is empty and nothing fills it).
+
+**Punctuation.** `ResumeText::clean()` replaces em dashes with a clause
+break. It runs on Wording output before validation (the validator still
+rejects any survivor), and again at document-build time, so variants
+persisted earlier also render clean. The PDF `<title>` has no dash.
+
+**Restricted evidence.** `Visibility` values are unchanged. Restricted
+facts reach the providers flagged `"visibility": "restricted"`; Wording
+V3 is told to generalize them, and `RestrictedEvidenceGuard` enforces it
+deterministically for any location citing a Restricted fact: no term from
+`config/resume.php` `restricted_terms`, no hostnames, and no figure that
+exists only in Restricted evidence. Private facts never reach generation
+(`ResumeEligibility`). Wording gets one corrective retry that includes
+the exact rejection reason before the run fails.
+
+**Layout (`GenerateResumePdf`).** Renders are fit-aware but never
+rewrite or pad content: standard density; if that is two pages, also try
+compact density and keep it only if it yields one page (an intentional
+one-pager); if it exceeds two pages, drop the lowest-priority optional
+block (last Project Highlight, then the last bullet of the role with the
+most bullets) and re-render. The stored variant is untouched. The last
+two words of every paragraph/bullet are kept together with a CSS-only
+wrapper, so a final line is never one orphaned word, and extracted text
+is unchanged.
+
+## Sprint 2: one-click tailored resume, measured layout, instrumentation
+
+**One action.** `POST /jobs/{jobPosting}/tailored-resume` (route
+`jobs.tailored-resume.store`) starts or joins a run;
+`GET /jobs/{jobPosting}/tailored-resume/status` is the unified status.
+`App\Support\TailoredResume\TailoredResumePipeline` derives what is
+already valid from persisted state (latest analysis/match produced by the
+current prompt versions for the current profile; a variant produced by
+the current Selection/Wording versions; a cached PDF) and claims only the
+first missing stage through `QueueGenerationAttempt` (now supporting
+`resume_variant` and the new `resume_pdf` type). A claimed attempt has
+`chain = true`; its job calls `advance()` on success, so the chain is
+analysis, match, resume, PDF. A retry simply starts again: completed
+stages are reused and the failed stage is re-claimed. `regenerate`
+forces a new resume and PDF while reusing analysis and match. The
+description-completeness safeguard is kept as an explicit confirmation.
+Application inspection is never involved; manual stage actions are
+unchanged (their attempts have `chain = false`).
+
+**PDF stage.** `RenderResumePdfJob` runs `GenerateResumePdf::compose()`,
+validates with `ResumePdfValidator`, and caches the file
+(`ResumePdfStore`, content-addressed by document and template). Preview
+and download read that file. Composition: standard render, a compact
+one-page trial when it is two pages, and for over-length documents a
+binary search (at most `MAX_RENDERS` = 8 renders in total) over how
+many lowest-priority optional blocks to drop. Diagnostics (mode, renders,
+last-page fill via `pdftotext -bbox` when installed) are stored on the
+attempt. Growing an underfilled resume from a ranked pool of optional,
+already-worded content is deferred: stored variants have no such pool.
+
+**Metrics.** `GenerationMetrics` (container singleton) times provider
+calls and collects normalized usage (`TokenUsage`); jobs persist queue
+wait, duration, selection/wording time, tokens, reasoning tokens (when
+reported), wording attempts, PDF render time and page count on the
+attempt. Ollama reports input/output tokens but not reasoning tokens;
+OpenAI usage is not yet surfaced.
+
+**Selection V6** adds implementation-versus-impact guidance and states
+that the one-bullet floor is never a ceiling (Liquid Gravity had 10
+eligible facts but one merged bullet group).
+
+## Recoverable, bullet-level validation
+
+A problem with one generated bullet no longer fails the whole Wording
+response. After Wording, `ResumeWordingResponseValidator::triage()` judges
+every location (summary, experience bullet, project highlight) on its own
+and tags each finding `block` or `review`; only structural problems
+(missing or duplicate bullets) still trigger a corrective model retry.
+
+- **Block**: confidential terms (`config/resume.php` `restricted_terms`),
+  hostnames, figures that appear only in Restricted evidence, em dashes,
+  denylisted or location-scoped target terms, unsupported technologies,
+  metric guardrail violations.
+- **Review**: generic industry terms (`generic_terms`, e.g. "merchant",
+  "donor") where Restricted evidence is cited, and over-long bullets. They
+  are kept and flagged.
+- **Recovery** (`RecoverWording`, no model call): a blocked location is
+  generalized only by removing a Restricted-only figure that precedes a
+  plain noun, or applying a curated `generalizations` entry; the rewrite is
+  re-checked with the same rules. Otherwise it is omitted (a summary drops
+  only the offending sentences). A final backstop refuses the response if
+  anything blocked remains.
+- **Report**: `resume_variants.review_report` records passed, review,
+  generalized and omitted locations with the supporting facts and their
+  visibility. It never stores the text of an omitted claim. The Tailored
+  Resume panel lists the items to verify. A review warning never blocks PDF
+  generation.

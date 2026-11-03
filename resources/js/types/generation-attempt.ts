@@ -13,7 +13,11 @@ export type GenerationAttemptStatus =
 export type GenerationAttempt = {
     id: number;
     status: GenerationAttemptStatus;
-    generation_type: 'job_analysis' | 'job_match' | 'resume_variant';
+    generation_type:
+        | 'job_analysis'
+        | 'job_match'
+        | 'resume_variant'
+        | 'resume_pdf';
     queued_at: string | null;
     started_at: string | null;
     finished_at: string | null;

@@ -91,7 +91,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>{{ $document->contact->name }} — Resume</title>
+    <title>{{ $document->contact->name }} Resume</title>
     <style>
         :root {
             /* The one accent color this document uses — section
@@ -131,6 +131,19 @@
 
         @page :first {
             margin-top: 0;
+        }
+
+        /* Final-line control: the last two words of every paragraph and
+           bullet are wrapped in .nw (see App\Support\ResumeDocument\
+           ResumeText::html), so a final line is never a single orphaned
+           word; text-wrap: pretty additionally lets Chromium rebalance
+           short last lines. Extracted/ATS text is unaffected. */
+        .nw {
+            white-space: nowrap;
+        }
+
+        p, li {
+            text-wrap: pretty;
         }
 
         html, body {
@@ -419,11 +432,15 @@
         }
 
         .education-line {
-            /* One compact line — degree/field, institution, and dates —
-               that wraps naturally via ordinary inline text flow when
-               its own content doesn't fit, rather than the two stacked
-               <p> lines used previously. No white-space: nowrap and no
-               fixed width: a genuinely long entry is allowed to wrap. */
+            /* One compact line: degree/field, institution, and dates,
+               joined by the same middle-dot separator used elsewhere in
+               this document, as ordinary inline text in one contiguous
+               run. Deliberately NOT a two-sided/right-aligned row: that
+               layout made layout-analysis extractors (e.g. pdftotext in
+               its default mode) read all degrees and then all
+               institutions, losing which degree belongs to which school.
+               Wraps naturally via ordinary inline text flow when its own
+               content doesn't fit. */
             margin: 0;
             line-height: 1.25;
         }
@@ -443,9 +460,46 @@
             font-size: 10pt;
             color: #444444;
         }
+
+        /* Compact density — selected by GenerateResumePdf only when the
+           standard layout overflows onto a second page by a small
+           amount, so a near-one-page resume becomes an intentional
+           one-page document. Tighter spacing and type, same structure
+           and reading order; never used to squeeze a genuinely
+           two-page resume. */
+        body.compact {
+            font-size: 10pt;
+            line-height: 1.32;
+        }
+
+        body.compact .page,
+        body.compact .page {
+            padding: 0.5in 0.6in;
+        }
+
+        @media print {
+            body.compact .page {
+                padding: 0.5in 0.6in;
+            }
+        }
+
+        body.compact h1 { font-size: 20pt; margin-bottom: 0.03in; }
+        body.compact header { margin-bottom: 0.06in; padding-bottom: 0.05in; }
+        body.compact h2 { font-size: 11pt; margin: 0.12in 0 0.06in; }
+        body.compact section.summary + section h2 { margin-top: 0.05in; }
+        body.compact .role { margin-bottom: 0.1in; }
+        body.compact .role-header { margin-bottom: 0.03in; }
+        body.compact .role-title { font-size: 10.5pt; }
+        body.compact .role-dates,
+        body.compact .role-employer,
+        body.compact .contact-line { font-size: 9.5pt; }
+        body.compact ul.bullets li { margin-bottom: 0.03in; }
+        body.compact .skill-group { margin-bottom: 0.03in; }
+        body.compact .selected-project { margin-bottom: 0.1in; }
+        body.compact .education-entry { margin-bottom: 0.04in; }
     </style>
 </head>
-<body>
+<body class="{{ ($density ?? 'standard') === 'compact' ? 'compact' : '' }}">
     <div class="page">
         <header>
             <h1>{{ $document->contact->name }}</h1>
@@ -476,10 +530,13 @@
             @endif
         </header>
 
+        @if ($document->summary !== '')
         <section class="summary">
-            <p class="summary-text">{{ $document->summary }}</p>
+            <p class="summary-text">{{ \App\Support\ResumeDocument\ResumeText::html($document->summary) }}</p>
         </section>
+        @endif
 
+        @if (count($document->skills) > 0)
         <section class="skills">
             <h2>Technical Skills</h2>
             @foreach ($document->skills as $group)
@@ -489,6 +546,7 @@
                 </p>
             @endforeach
         </section>
+        @endif
 
         <section class="experience">
             <h2>Professional Experience</h2>
@@ -503,7 +561,7 @@
                     </div>
                     <ul class="bullets">
                         @foreach ($role->bullets as $bullet)
-                            <li>{{ $bullet }}</li>
+                            <li>{{ \App\Support\ResumeDocument\ResumeText::html($bullet) }}</li>
                         @endforeach
                     </ul>
                 </div>
@@ -522,7 +580,7 @@
                             <p class="selected-project-meta-line">{{ implode(', ', $project->technologies) }}</p>
                         @endif
                         <ul class="bullets">
-                            <li>{{ $project->bullet }}</li>
+                            <li>{{ \App\Support\ResumeDocument\ResumeText::html($project->bullet) }}</li>
                         </ul>
                         @if ($project->liveDemo || $project->repository)
                             <p class="selected-project-links">

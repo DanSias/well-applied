@@ -2,13 +2,15 @@
 
 use App\Enums\GenerationStatus;
 use App\Enums\GenerationType;
-use App\Exceptions\UnsupportedGenerationTypeException;
 use App\Jobs\GenerateJobAnalysisJob;
 use App\Jobs\GenerateJobMatchJob;
+use App\Jobs\GenerateResumeVariantJob;
+use App\Jobs\RenderResumePdfJob;
 use App\Models\GenerationAttempt;
 use App\Models\JobAnalysis;
 use App\Models\JobMatch;
 use App\Models\JobPosting;
+use App\Models\ResumeVariant;
 use App\Support\GenerationAttempt\QueueGenerationAttempt;
 use Illuminate\Bus\Dispatcher as BusDispatcher;
 use Illuminate\Contracts\Bus\Dispatcher as BusDispatcherContract;
@@ -198,23 +200,29 @@ it('marks the new attempt Failed (dispatch_error), logs, and rethrows the origin
         ->toBeTrue();
 });
 
-it('throws UnsupportedGenerationTypeException up front — no lock, no row, no dispatch — for a type this path does not support', function () {
+it('claims and dispatches a resume_variant attempt for a JobMatch, atomically and exactly once', function () {
     Queue::fake();
+    $match = JobMatch::factory()->create();
 
-    // JobMatch is a sufficient any-subject stand-in: ResumeVariant's
-    // store() still runs its own inline check-then-create today, so
-    // claiming one of those is a caller bug, not a supported path.
-    $subject = JobMatch::factory()->create();
+    $first = app(QueueGenerationAttempt::class)->claim(GenerationType::ResumeVariant, $match);
+    $second = app(QueueGenerationAttempt::class)->claim(GenerationType::ResumeVariant, $match);
 
-    expect(fn () => app(QueueGenerationAttempt::class)->claim(GenerationType::ResumeVariant, $subject))
-        ->toThrow(UnsupportedGenerationTypeException::class, 'resume_variant');
+    expect($first)->not->toBeNull()
+        ->and($second)->toBeNull()
+        ->and(GenerationAttempt::count())->toBe(1);
+    Queue::assertPushed(GenerateResumeVariantJob::class, 1);
+});
 
-    expect(GenerationAttempt::count())->toBe(0);
-    Queue::assertNothingPushed();
+it('claims a resume_pdf attempt for a ResumeVariant and dispatches the render job', function () {
+    Queue::fake();
+    $variant = ResumeVariant::factory()->create();
 
-    // No side effect on the lock either: it is still acquirable.
-    expect(Cache::lock(QueueGenerationAttempt::claimLockKey(GenerationType::ResumeVariant, $subject), 10)->acquire())
-        ->toBeTrue();
+    $attempt = app(QueueGenerationAttempt::class)->claim(GenerationType::ResumePdf, $variant, 'run-1', chain: true);
+
+    expect($attempt->subject_type)->toBe('resume_variant')
+        ->and($attempt->pipeline_run_id)->toBe('run-1')
+        ->and($attempt->chain)->toBeTrue();
+    Queue::assertPushed(RenderResumePdfJob::class, 1);
 });
 
 it('does not let an active job_match attempt on the posting block a job_analysis claim', function () {

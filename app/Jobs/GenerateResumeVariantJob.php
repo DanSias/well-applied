@@ -4,7 +4,9 @@ namespace App\Jobs;
 
 use App\Enums\GenerationStatus;
 use App\Exceptions\InvalidResumeVariantResponseException;
+use App\Exceptions\ResumeEmptyOutputException;
 use App\Exceptions\ResumeGenerationProviderException;
+use App\Jobs\Concerns\RecordsAttemptMetrics;
 use App\Models\GenerationAttempt;
 use App\Models\JobMatch;
 use App\Support\ResumeVariant\GenerateResumeVariant;
@@ -59,6 +61,7 @@ use Throwable;
 final class GenerateResumeVariantJob implements ShouldQueue
 {
     use Queueable;
+    use RecordsAttemptMetrics;
 
     public int $tries = 1;
 
@@ -72,6 +75,7 @@ final class GenerateResumeVariantJob implements ShouldQueue
             'status' => GenerationStatus::Running,
             'started_at' => now(),
         ]);
+        $this->beginMetrics();
 
         $jobMatch = $this->attempt->subject;
 
@@ -82,7 +86,32 @@ final class GenerateResumeVariantJob implements ShouldQueue
         }
 
         try {
-            $variant = $generator->generateFull($jobMatch);
+            $variant = $generator->generateFull(
+                $jobMatch,
+                function (string $phase): void {
+                    $this->attempt->update(['phase' => $phase]);
+                },
+                reuseCheckpoint: ! $this->attempt->regenerate,
+            );
+        } catch (ResumeEmptyOutputException $e) {
+            $diagnostics = $e->diagnostics;
+
+            Log::warning('ResumeVariant generation failed: empty model output.', [
+                'job_match_id' => $jobMatch->id,
+                'generation_attempt_id' => $this->attempt->id,
+                'message' => $e->getMessage(),
+                'generation_stage' => $this->validationStage($e->getMessage()),
+                'reasoning_field_present' => $e->reasoningPresent,
+                'reasoning_field_chars' => $e->reasoningChars,
+                ...($diagnostics?->toLogContext() ?? []),
+            ]);
+
+            $this->markFailed('empty_model_output', $e->getMessage(), [
+                'model' => $diagnostics?->model,
+                'finish_reason' => $diagnostics?->finishReason,
+            ]);
+
+            return;
         } catch (ResumeGenerationProviderException $e) {
             $diagnostics = $e->diagnostics;
 
@@ -137,7 +166,10 @@ final class GenerateResumeVariantJob implements ShouldQueue
             'finished_at' => now(),
             'result_id' => $variant->id,
             'schema_version' => $variant->schema_version,
+            ...$this->successMetrics(),
         ]);
+
+        $this->advancePipeline($jobMatch->jobAnalysis->jobPosting);
     }
 
     /**
@@ -183,6 +215,7 @@ final class GenerateResumeVariantJob implements ShouldQueue
             'finished_at' => now(),
             'failure_category' => $category,
             'failure_message' => $message,
+            ...$this->failureMetrics(),
             ...$diagnostics,
         ]);
     }

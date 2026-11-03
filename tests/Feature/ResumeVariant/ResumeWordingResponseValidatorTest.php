@@ -767,8 +767,8 @@ it('authorizes "AI-assisted development" for the real well-prompted-what-it-is f
     // The second live qwen3.8:27b run's real Selected Project bullet.
     $content = minimalValidWordingContent([
         'selected_projects' => [
-            ['project_id' => 14, 'text' => 'Built a structured prompt library for recurring developer tasks—'
-                .'debugging, documentation, code review—using React, Node, and Prisma to make AI-assisted '
+            ['project_id' => 14, 'text' => 'Built a structured prompt library for recurring developer tasks, '
+                .'including debugging, documentation, code review, using React, Node, and Prisma to make AI-assisted '
                 .'development consistent and reusable across a codebase rather than ad hoc.'],
         ],
     ]);

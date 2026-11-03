@@ -9,9 +9,11 @@ use App\Models\GenerationAttempt;
 use App\Models\JobAnalysis;
 use App\Models\JobPosting;
 use App\Support\ApplicationInspection\SummarizeInspectionStates;
+use App\Support\Clarification\PresentApprovedEvidence;
 use App\Support\CurrentCareerProfile;
 use App\Support\GenerationAttempt\PresentGenerationAttempt;
 use App\Support\OpportunityTriage\SummarizeTriageStates;
+use App\Support\TailoredResume\PresentTailoredResume;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -107,10 +109,12 @@ class JobPostingController extends Controller
         return redirect()->route('jobs.show', $job);
     }
 
-    public function show(JobPosting $jobPosting, PresentGenerationAttempt $presenter, SummarizeInspectionStates $summarizer): Response
+    public function show(JobPosting $jobPosting, PresentGenerationAttempt $presenter, SummarizeInspectionStates $summarizer, PresentTailoredResume $tailoredResume, PresentApprovedEvidence $approvedEvidence): Response
     {
         return Inertia::render('jobs/show', [
             'job' => $this->transformDetail($jobPosting, $presenter, $summarizer),
+            'tailored_resume' => $tailoredResume->present($jobPosting),
+            'approved_evidence' => $approvedEvidence->present($jobPosting),
         ]);
     }
 
@@ -204,7 +208,11 @@ class JobPostingController extends Controller
             ->latest('id')
             ->first();
 
-        if ($attempt === null || $attempt->status === GenerationStatus::Succeeded) {
+        // Attempts owned by the one-click pipeline are presented by the
+        // Tailored Resume panel on the job page; the legacy per-stage
+        // pages must not poll them (and navigate away) or show their
+        // errors without the pipeline's stage context.
+        if ($attempt === null || $attempt->chain || $attempt->status === GenerationStatus::Succeeded) {
             return null;
         }
 

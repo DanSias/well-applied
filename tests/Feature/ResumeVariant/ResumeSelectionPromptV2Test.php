@@ -26,12 +26,12 @@ it('produces a JSON schema identical to JobMatchPromptV1 except the Selected Pro
     expect($v1Schema['properties']['selected_projects']['maxItems'])->toBe(3)
         ->and($v2Schema['properties']['selected_projects']['maxItems'])
         ->toBe(ResumeSelectionResponseValidator::MAX_SELECTED_PROJECTS)
-        ->toBe(1);
+        ->toBe(3);
 
     // Everything else — every other field, type, enum, and nesting —
     // remains byte-identical: prove it by neutralizing only the one
     // known, deliberate difference before comparing the rest.
-    $v1Schema['properties']['selected_projects']['maxItems'] = 1;
+    $v1Schema['properties']['selected_projects']['maxItems'] = 3;
 
     expect($v2Schema)->toBe($v1Schema);
 });

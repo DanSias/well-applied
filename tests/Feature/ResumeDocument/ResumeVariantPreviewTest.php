@@ -22,9 +22,14 @@ use Tests\Support\ResumeVariantFixtures;
  */
 function renderResumePrintView(ResumeVariant $variant): string
 {
-    return view('resume.print', [
+    $html = view('resume.print', [
         'document' => app(GenerateResumeDocument::class)->generate($variant),
     ])->render();
+
+    // The unbreakable final-two-words wrapper (ResumeText::html()) is
+    // presentation only; strip it so content assertions read as text.
+    // Its own coverage lives in ResumeTextTest / ResumeLayoutTest.
+    return preg_replace('~<span class="nw">(.*?)</span>~s', '$1', $html);
 }
 
 function previewCandidateVariant(): array
@@ -341,15 +346,15 @@ it('renders the Role date range with abbreviated three-letter months', function 
     expect($html)->toContain('Jan 2021 – Present');
 });
 
-it('renders an Education entry\'s degree, institution, and dates on one compact line', function () {
+it('renders an Education entry\'s degree, institution, and dates on one compact inline line', function () {
     [$candidate, $variant] = previewCandidateVariant();
 
     $html = renderResumePrintView($variant);
 
-    // One <p class="education-line"> holding all three spans, in DOM/
-    // reading order degree -> institution -> dates, joined by the same
-    // middle-dot separator used elsewhere in this document (Skills,
-    // contact line) — not two stacked <p> lines.
+    // One <p class="education-line"> holding all three spans as plain
+    // inline text, in DOM/reading order degree -> institution -> dates,
+    // joined by the middle-dot separator used elsewhere in this document.
+    // Deliberately not a flex/two-sided row: see print.blade.php.
     expect($html)->toMatch(
         '/<p class="education-line">\s*'
         .'<span class="education-degree">[^<]*<\/span>\s*'
@@ -358,7 +363,8 @@ it('renders an Education entry\'s degree, institution, and dates on one compact 
         .'<\/p>/'
     );
 
-    expect($html)->not->toContain('education-degree-line')
+    expect($html)->not->toContain('education-meta')
+        ->and($html)->not->toContain('education-degree-line')
         ->and($html)->not->toContain('education-meta-line');
 });
 

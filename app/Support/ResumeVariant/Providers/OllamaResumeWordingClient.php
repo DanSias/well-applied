@@ -3,9 +3,12 @@
 namespace App\Support\ResumeVariant\Providers;
 
 use App\Contracts\GeneratesResumeWording;
+use App\Exceptions\ResumeEmptyOutputException;
 use App\Exceptions\ResumeGenerationProviderException;
+use App\Support\GenerationAttempt\TokenUsage;
 use App\Support\OllamaChatCompletionsClient;
 use App\Support\OllamaChatCompletionsException;
+use App\Support\OllamaEmptyOutputException;
 use App\Support\ProviderDiagnostics;
 use App\Support\ResumeVariant\ResumeWordingProviderResponse;
 
@@ -85,19 +88,26 @@ final class OllamaResumeWordingClient implements GeneratesResumeWording
                 logPrefix: 'Resume Wording generation (Ollama)',
             );
         } catch (OllamaChatCompletionsException $e) {
-            throw new ResumeGenerationProviderException($e->getMessage(), diagnostics: new ProviderDiagnostics(
+            $diagnostics = new ProviderDiagnostics(
                 model: $e->model,
                 finishReason: $e->finishReason,
                 usage: $e->usage,
                 maxOutputTokens: self::MAX_OUTPUT_TOKENS,
                 timeoutSeconds: $this->timeoutSeconds,
-            ), previous: $e);
+            );
+
+            if ($e instanceof OllamaEmptyOutputException) {
+                throw new ResumeEmptyOutputException($e->getMessage(), $diagnostics, $e, $e->reasoningPresent, $e->reasoningChars);
+            }
+
+            throw new ResumeGenerationProviderException($e->getMessage(), diagnostics: $diagnostics, previous: $e);
         }
 
         return new ResumeWordingProviderResponse(
             provider: 'ollama',
             model: $result->model,
             structuredContent: $result->structuredContent,
+            usage: TokenUsage::fromChatCompletions($result->usage),
         );
     }
 }

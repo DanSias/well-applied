@@ -4,11 +4,13 @@ use App\Contracts\GeneratesResumeSelection;
 use App\Contracts\GeneratesResumeWording;
 use App\Enums\GenerationStatus;
 use App\Enums\GenerationType;
+use App\Exceptions\ResumeEmptyOutputException;
 use App\Exceptions\ResumeGenerationProviderException;
 use App\Jobs\GenerateResumeVariantJob;
 use App\Models\CareerProfile;
 use App\Models\GenerationAttempt;
 use App\Models\JobMatch;
+use App\Models\ResumeSelectionCheckpoint;
 use App\Models\ResumeVariant;
 use App\Support\ProviderDiagnostics;
 use App\Support\ResumeVariant\GenerateResumeVariant;
@@ -263,10 +265,14 @@ it('transitions running -> failed on a Wording validation failure, logging gener
         ->and($fresh->result_id)->toBeNull();
     expect(ResumeVariant::count())->toBe(0);
     Log::shouldHaveReceived('warning')
-        ->once()
         ->withArgs(fn (string $message, array $context) => $message === 'ResumeVariant generation failed.'
             && $context['generation_stage'] === 'wording'
-        );
+        )
+        ->once();
+    // Every rejection is recorded (reasons only) on the attempt.
+    expect($fresh->wording_attempts)->toBe(3)
+        ->and(collect($fresh->retry_log)->where('kind', 'validation_rejected')->count())->toBe(3)
+        ->and($fresh->phase)->toBe('wording');
 });
 
 it('does not leave the attempt stuck in running when an unexpected exception escapes handle()', function () {
@@ -313,4 +319,218 @@ it('never persists raw prompt/response/candidate/resume content on the Generatio
         ->and(array_keys((array) $raw))->not->toContain('selection_input_snapshot')
         ->and(array_keys((array) $raw))->not->toContain('wording_input_snapshot')
         ->and(array_keys((array) $raw))->not->toContain('prompt');
+});
+
+function emptyOutput(bool $reasoning = true): ResumeEmptyOutputException
+{
+    return new ResumeEmptyOutputException(
+        'Ollama response contained no message content.',
+        new ProviderDiagnostics(model: 'qwen3.8:27b', finishReason: 'stop', usage: ['prompt_tokens' => 100, 'completion_tokens' => 50, 'total_tokens' => 150]),
+        reasoningPresent: $reasoning,
+        reasoningChars: $reasoning ? 4000 : 0,
+    );
+}
+
+it('retries an empty Wording response without feedback and succeeds, recording the event', function () {
+    [$candidate, $job, $match] = resumeJobFixtures();
+    $attempt = queuedResumeAttemptFor($match);
+    [$selection, $wording] = bindResumeVariantFakes();
+    $selection->willReturn(new ResumeSelectionProviderResponse('openai', 'gpt-test', validResumeSelectionPayload($candidate, $job)));
+    $wording->willReturnInOrder([
+        emptyOutput(),
+        new ResumeWordingProviderResponse('openai', 'gpt-test', validResumeWordingPayload($candidate)),
+    ]);
+
+    (new GenerateResumeVariantJob($attempt))->handle(app(GenerateResumeVariant::class));
+
+    $fresh = $attempt->fresh();
+    expect($fresh->status)->toBe(GenerationStatus::Succeeded)
+        ->and($wording->callCount)->toBe(2)
+        ->and($wording->capturedUserPrompt)->not->toContain('previous response was rejected')
+        ->and($fresh->wording_attempts)->toBe(2)
+        ->and($fresh->retry_log)->toHaveCount(1)
+        ->and($fresh->retry_log[0])->toMatchArray([
+            'stage' => 'wording', 'call' => 1, 'kind' => 'empty_output',
+            'finish_reason' => 'stop', 'reasoning_field_present' => true, 'reasoning_field_chars' => 4000,
+        ]);
+});
+
+it('shares one budget of three Wording calls across a rejection and empty outputs, then fails as empty_model_output', function () {
+    [$candidate, $job, $match] = resumeJobFixtures();
+    $attempt = queuedResumeAttemptFor($match);
+    [$selection, $wording] = bindResumeVariantFakes();
+    $selection->willReturn(new ResumeSelectionProviderResponse('openai', 'gpt-test', validResumeSelectionPayload($candidate, $job)));
+    $invalid = validResumeWordingPayload($candidate);
+    $invalid['experience'][0]['bullets'][0]['bullet_group_index'] = 99;
+    $wording->willReturnInOrder([
+        new ResumeWordingProviderResponse('openai', 'gpt-test', $invalid),
+        emptyOutput(),
+        emptyOutput(false),
+    ]);
+
+    (new GenerateResumeVariantJob($attempt))->handle(app(GenerateResumeVariant::class));
+
+    $fresh = $attempt->fresh();
+    expect($wording->callCount)->toBe(3)
+        ->and($fresh->status)->toBe(GenerationStatus::Failed)
+        ->and($fresh->failure_category)->toBe('empty_model_output')
+        ->and($fresh->failure_message)->toBe('Resume Wording provider returned no final content after 3 attempts.')
+        ->and($fresh->finish_reason)->toBe('stop')
+        ->and($fresh->phase)->toBe('wording')
+        ->and($fresh->selection_ms)->not->toBeNull()
+        ->and(collect($fresh->retry_log)->pluck('kind')->all())->toBe(['validation_rejected', 'empty_output', 'empty_output'])
+        ->and($fresh->retry_log[0]['reason'])->toStartWith('Resume Wording provider response failed validation:')
+        ->and(ResumeVariant::count())->toBe(0);
+    // The call after the rejection carried the exact reason as feedback.
+    expect($wording->capturedUserPrompt)->toContain('Your previous response was rejected');
+});
+
+it('retries an empty Selection response once and fails with a Selection-prefixed empty_model_output', function () {
+    [, , $match] = resumeJobFixtures();
+    $attempt = queuedResumeAttemptFor($match);
+    [$selection, $wording] = bindResumeVariantFakes();
+    $selection->willReturnInOrder([emptyOutput(), emptyOutput()]);
+
+    (new GenerateResumeVariantJob($attempt))->handle(app(GenerateResumeVariant::class));
+
+    $fresh = $attempt->fresh();
+    expect($selection->callCount)->toBe(2)
+        ->and($wording->callCount)->toBe(0)
+        ->and($fresh->failure_category)->toBe('empty_model_output')
+        ->and($fresh->failure_message)->toBe('Resume Selection provider returned no final content after 2 attempts.')
+        ->and($fresh->phase)->toBe('selection');
+});
+
+it('does not retry an ordinary provider failure', function () {
+    [$candidate, $job, $match] = resumeJobFixtures();
+    $attempt = queuedResumeAttemptFor($match);
+    [$selection, $wording] = bindResumeVariantFakes();
+    $selection->willReturn(new ResumeSelectionProviderResponse('openai', 'gpt-test', validResumeSelectionPayload($candidate, $job)));
+    $wording->willFail(new ResumeGenerationProviderException('Ollama request failed: connection error.'));
+
+    (new GenerateResumeVariantJob($attempt))->handle(app(GenerateResumeVariant::class));
+
+    expect($wording->callCount)->toBe(1)
+        ->and($attempt->fresh()->failure_category)->toBe('provider_error');
+});
+
+function failWordingWithEmptyOutput(array $candidate, array $job, JobMatch $match): array
+{
+    $attempt = queuedResumeAttemptFor($match);
+    [$selection, $wording] = bindResumeVariantFakes();
+    $selection->willReturn(new ResumeSelectionProviderResponse('openai', 'gpt-test', validResumeSelectionPayload($candidate, $job)));
+    $wording->willReturnInOrder([emptyOutput(), emptyOutput(), emptyOutput()]);
+
+    (new GenerateResumeVariantJob($attempt))->handle(app(GenerateResumeVariant::class));
+
+    return [$selection, $wording, $attempt->fresh()];
+}
+
+it('checkpoints a validated Selection so a Wording failure does not repeat it', function () {
+    [$candidate, $job, $match] = resumeJobFixtures();
+
+    [$selection, , $failed] = failWordingWithEmptyOutput($candidate, $job, $match);
+
+    expect($failed->status)->toBe(GenerationStatus::Failed)
+        ->and($failed->selection_reused)->toBeFalse()
+        ->and(ResumeSelectionCheckpoint::count())->toBe(1);
+
+    // Retry: a new attempt, fresh fakes, Selection must not be called.
+    $retry = queuedResumeAttemptFor($match);
+    [$selection2, $wording2] = bindResumeVariantFakes();
+    $wording2->willReturn(new ResumeWordingProviderResponse('openai', 'gpt-test', validResumeWordingPayload($candidate)));
+
+    (new GenerateResumeVariantJob($retry))->handle(app(GenerateResumeVariant::class));
+
+    $retry = $retry->fresh();
+    $variant = ResumeVariant::query()->sole();
+    expect($retry->status)->toBe(GenerationStatus::Succeeded)
+        ->and($selection2->callCount)->toBe(0)
+        ->and($retry->selection_reused)->toBeTrue()
+        ->and($retry->selection_ms)->toBeNull()
+        ->and($retry->retry_log[0]['kind'])->toBe('checkpoint_reused')
+        ->and($variant->selection_generated_by)->toBe('openai:gpt-test')
+        ->and($variant->selection_raw_response)->not->toBeEmpty()
+        ->and(ResumeSelectionCheckpoint::query()->sole()->consumed_at)->not->toBeNull();
+});
+
+it('does not reuse a checkpoint after the inputs change', function () {
+    [$candidate, $job, $match] = resumeJobFixtures();
+    failWordingWithEmptyOutput($candidate, $job, $match);
+
+    $candidate['factAws']->update(['statement' => $candidate['factAws']->statement.' (edited)']);
+
+    $retry = queuedResumeAttemptFor($match);
+    [$selection2, $wording2] = bindResumeVariantFakes();
+    $selection2->willReturn(new ResumeSelectionProviderResponse('openai', 'gpt-test', validResumeSelectionPayload($candidate, $job)));
+    $wording2->willReturn(new ResumeWordingProviderResponse('openai', 'gpt-test', validResumeWordingPayload($candidate)));
+
+    (new GenerateResumeVariantJob($retry))->handle(app(GenerateResumeVariant::class));
+
+    expect($selection2->callCount)->toBe(1)
+        ->and($retry->fresh()->selection_reused)->toBeFalse()
+        ->and(ResumeSelectionCheckpoint::count())->toBe(2);
+});
+
+it('ignores a checkpoint on an explicit regenerate and after it has been consumed', function () {
+    [$candidate, $job, $match] = resumeJobFixtures();
+    failWordingWithEmptyOutput($candidate, $job, $match);
+
+    $regen = queuedResumeAttemptFor($match);
+    $regen->update(['regenerate' => true]);
+    [$selection2, $wording2] = bindResumeVariantFakes();
+    $selection2->willReturn(new ResumeSelectionProviderResponse('openai', 'gpt-test', validResumeSelectionPayload($candidate, $job)));
+    $wording2->willReturn(new ResumeWordingProviderResponse('openai', 'gpt-test', validResumeWordingPayload($candidate)));
+
+    (new GenerateResumeVariantJob($regen))->handle(app(GenerateResumeVariant::class));
+
+    expect($selection2->callCount)->toBe(1)
+        ->and(ResumeSelectionCheckpoint::query()->whereNull('consumed_at')->count())->toBe(0);
+
+    // Everything is now consumed; a plain new attempt starts fresh.
+    $next = queuedResumeAttemptFor($match);
+    [$selection3, $wording3] = bindResumeVariantFakes();
+    $selection3->willReturn(new ResumeSelectionProviderResponse('openai', 'gpt-test', validResumeSelectionPayload($candidate, $job)));
+    $wording3->willReturn(new ResumeWordingProviderResponse('openai', 'gpt-test', validResumeWordingPayload($candidate)));
+
+    (new GenerateResumeVariantJob($next))->handle(app(GenerateResumeVariant::class));
+
+    expect($selection3->callCount)->toBe(1);
+});
+
+it('revalidates a stored checkpoint and falls back to the provider if it no longer passes', function () {
+    [$candidate, $job, $match] = resumeJobFixtures();
+    failWordingWithEmptyOutput($candidate, $job, $match);
+
+    $checkpoint = ResumeSelectionCheckpoint::query()->sole();
+    $tampered = $checkpoint->structured_content;
+    $tampered['experience'] = [];
+    $checkpoint->update(['structured_content' => $tampered]);
+
+    $retry = queuedResumeAttemptFor($match);
+    [$selection2, $wording2] = bindResumeVariantFakes();
+    $selection2->willReturn(new ResumeSelectionProviderResponse('openai', 'gpt-test', validResumeSelectionPayload($candidate, $job)));
+    $wording2->willReturn(new ResumeWordingProviderResponse('openai', 'gpt-test', validResumeWordingPayload($candidate)));
+
+    (new GenerateResumeVariantJob($retry))->handle(app(GenerateResumeVariant::class));
+
+    $retry = $retry->fresh();
+    expect($retry->status)->toBe(GenerationStatus::Succeeded)
+        ->and($selection2->callCount)->toBe(1)
+        ->and($retry->selection_reused)->toBeFalse()
+        ->and($retry->retry_log[0]['kind'])->toBe('checkpoint_rejected');
+});
+
+it('never checkpoints a Selection that fails validation', function () {
+    [$candidate, $job, $match] = resumeJobFixtures();
+    $attempt = queuedResumeAttemptFor($match);
+    [$selection] = bindResumeVariantFakes();
+    $bad = validResumeSelectionPayload($candidate, $job);
+    $bad['experience'] = [];
+    $selection->willReturn(new ResumeSelectionProviderResponse('openai', 'gpt-test', $bad));
+
+    (new GenerateResumeVariantJob($attempt))->handle(app(GenerateResumeVariant::class));
+
+    expect($attempt->fresh()->failure_category)->toBe('validation_error')
+        ->and(ResumeSelectionCheckpoint::count())->toBe(0);
 });

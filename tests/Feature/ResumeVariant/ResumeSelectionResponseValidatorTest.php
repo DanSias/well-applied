@@ -111,30 +111,30 @@ function validateSelectionResponse(array $response, array $overrides = []): arra
 
 // --- Experience bullet-group budget -----------------------------------
 
-it('accepts exactly the maximum of 13 total Experience bullet groups', function () {
-    $response = selectionResponseWithBulletGroups([1 => 12, 2 => 1]);
+it('accepts exactly the sanity ceiling of 24 total Experience bullet groups', function () {
+    $response = selectionResponseWithBulletGroups([1 => 12, 2 => 12]);
 
     $validated = validateSelectionResponse($response);
 
     expect($validated['experience'])->toHaveCount(2);
 });
 
-it('rejects 14 total Experience bullet groups — one over the maximum', function () {
-    $response = selectionResponseWithBulletGroups([1 => 13, 2 => 1]);
+it('rejects 25 total Experience bullet groups — one over the sanity ceiling', function () {
+    $response = selectionResponseWithBulletGroups([1 => 13, 2 => 12]);
 
     expect(fn () => validateSelectionResponse($response))
         ->toThrow(InvalidResumeVariantResponseException::class);
 });
 
 it('rejects the bullet-group maximum regardless of how the total is distributed across roles', function () {
-    $response = selectionResponseWithBulletGroups([1 => 7, 2 => 7]);
+    $response = selectionResponseWithBulletGroups([1 => 9, 2 => 8, 3 => 8]);
 
     expect(fn () => validateSelectionResponse($response))
         ->toThrow(InvalidResumeVariantResponseException::class);
 });
 
-it('accepts a 13-bullet total split unevenly across three roles', function () {
-    $response = selectionResponseWithBulletGroups([1 => 11, 2 => 1, 3 => 1]);
+it('accepts a 24-bullet total split unevenly across three roles, including a deep older role', function () {
+    $response = selectionResponseWithBulletGroups([1 => 10, 2 => 12, 3 => 2]);
 
     $validated = validateSelectionResponse($response);
 
@@ -149,13 +149,13 @@ it('still enforces role completeness alongside the new budget — a missing resu
 });
 
 it('does not count Selected Projects toward the Experience bullet-group budget', function () {
-    $response = selectionResponseWithBulletGroups([1 => 12, 2 => 1]);
+    $response = selectionResponseWithBulletGroups([1 => 23, 2 => 1]);
     $response['selected_projects'] = [
         ['project_id' => 100, 'order' => 1, 'career_fact_keys' => ['project-fact']],
     ];
 
     $validated = validateSelectionResponse($response, [
-        'validFactKeys' => [...array_map(fn (int $i) => "fact-{$i}", range(1, 13)), 'project-fact'],
+        'validFactKeys' => [...array_map(fn (int $i) => "fact-{$i}", range(1, 24)), 'project-fact'],
         'validIndependentProjectIds' => [100],
         'projectIdByFactKey' => ['project-fact' => 100],
     ]);
@@ -166,28 +166,28 @@ it('does not count Selected Projects toward the Experience bullet-group budget',
 
 // --- Skills budget ------------------------------------------------------
 
-it('accepts exactly the maximum of 18 selected Skills', function () {
-    $response = selectionResponseWithBulletGroups([1 => 1], skillCount: 18);
+it('accepts exactly the sanity ceiling of 24 selected Skills', function () {
+    $response = selectionResponseWithBulletGroups([1 => 1], skillCount: 24);
 
     $validated = validateSelectionResponse($response);
 
-    expect($validated['skills'])->toHaveCount(18);
+    expect($validated['skills'])->toHaveCount(24);
 });
 
-it('rejects 19 selected Skills — one over the maximum', function () {
-    $response = selectionResponseWithBulletGroups([1 => 1], skillCount: 19);
+it('rejects 25 selected Skills — one over the sanity ceiling', function () {
+    $response = selectionResponseWithBulletGroups([1 => 1], skillCount: 25);
 
     expect(fn () => validateSelectionResponse($response))
         ->toThrow(InvalidResumeVariantResponseException::class);
 });
 
 it('keeps the Skills budget independent of the Experience bullet-group budget', function () {
-    $response = selectionResponseWithBulletGroups([1 => 13], skillCount: 18);
+    $response = selectionResponseWithBulletGroups([1 => 24], skillCount: 24);
 
     $validated = validateSelectionResponse($response);
 
-    expect($validated['experience'][0]['bullet_groups'])->toHaveCount(13)
-        ->and($validated['skills'])->toHaveCount(18);
+    expect($validated['experience'][0]['bullet_groups'])->toHaveCount(24)
+        ->and($validated['skills'])->toHaveCount(24);
 });
 
 // --- Selected Projects budget (MAX_SELECTED_PROJECTS) --------------------
@@ -221,7 +221,7 @@ it('accepts 0 Selected Projects', function () {
     expect($validated['selected_projects'])->toHaveCount(0);
 });
 
-it('accepts exactly the maximum of 1 Selected Project', function () {
+it('accepts 1 Project Highlight', function () {
     $response = selectionResponseWithBulletGroups([1 => 1]);
     $response['selected_projects'] = selectedProjectsOf([100]);
 
@@ -234,26 +234,60 @@ it('accepts exactly the maximum of 1 Selected Project', function () {
     expect($validated['selected_projects'])->toHaveCount(1);
 });
 
-it('rejects 2 Selected Projects — one over the maximum of 1', function () {
+it('accepts 2 Project Highlights', function () {
     $response = selectionResponseWithBulletGroups([1 => 1]);
     $response['selected_projects'] = selectedProjectsOf([100, 101]);
 
-    expect(fn () => validateSelectionResponse($response, [
+    $validated = validateSelectionResponse($response, [
         'validFactKeys' => ['fact-1', 'project-fact-100', 'project-fact-101'],
         'validIndependentProjectIds' => [100, 101],
         'projectIdByFactKey' => ['project-fact-100' => 100, 'project-fact-101' => 101],
-    ]))->toThrow(InvalidResumeVariantResponseException::class);
+    ]);
+
+    expect($validated['selected_projects'])->toHaveCount(2);
 });
 
-it('rejects 3 Selected Projects — the old maximum is no longer accepted', function () {
+it('accepts exactly the maximum of 3 Project Highlights and rejects a fourth', function () {
+    $keys = ['fact-1', 'project-fact-100', 'project-fact-101', 'project-fact-102', 'project-fact-103'];
+    $byFact = ['project-fact-100' => 100, 'project-fact-101' => 101, 'project-fact-102' => 102, 'project-fact-103' => 103];
+
+    $three = selectionResponseWithBulletGroups([1 => 1]);
+    $three['selected_projects'] = selectedProjectsOf([100, 101, 102]);
+
+    expect(validateSelectionResponse($three, ['validFactKeys' => $keys, 'validIndependentProjectIds' => [100, 101, 102, 103], 'projectIdByFactKey' => $byFact])['selected_projects'])
+        ->toHaveCount(3);
+
+    $four = selectionResponseWithBulletGroups([1 => 1]);
+    $four['selected_projects'] = selectedProjectsOf([100, 101, 102, 103]);
+
+    expect(fn () => validateSelectionResponse($four, ['validFactKeys' => $keys, 'validIndependentProjectIds' => [100, 101, 102, 103], 'projectIdByFactKey' => $byFact]))
+        ->toThrow(InvalidResumeVariantResponseException::class);
+});
+
+it('rejects a CareerFact cited by both an Experience bullet group and a Project Highlight', function () {
     $response = selectionResponseWithBulletGroups([1 => 1]);
-    $response['selected_projects'] = selectedProjectsOf([100, 101, 102]);
+    $response['selected_projects'] = [
+        ['project_id' => 100, 'order' => 1, 'career_fact_keys' => ['fact-1']],
+    ];
 
     expect(fn () => validateSelectionResponse($response, [
-        'validFactKeys' => ['fact-1', 'project-fact-100', 'project-fact-101', 'project-fact-102'],
-        'validIndependentProjectIds' => [100, 101, 102],
-        'projectIdByFactKey' => ['project-fact-100' => 100, 'project-fact-101' => 101, 'project-fact-102' => 102],
-    ]))->toThrow(InvalidResumeVariantResponseException::class);
+        'validFactKeys' => ['fact-1'],
+        'validIndependentProjectIds' => [100],
+        'projectIdByFactKey' => ['fact-1' => 100],
+    ]))->toThrow(InvalidResumeVariantResponseException::class, 'only one place');
+});
+
+it('accepts a Project Highlight whose facts are disjoint from every Experience bullet group', function () {
+    $response = selectionResponseWithBulletGroups([1 => 1]);
+    $response['selected_projects'] = selectedProjectsOf([100]);
+
+    $validated = validateSelectionResponse($response, [
+        'validFactKeys' => ['fact-1', 'project-fact-100'],
+        'validIndependentProjectIds' => [100],
+        'projectIdByFactKey' => ['project-fact-100' => 100],
+    ]);
+
+    expect($validated['selected_projects'])->toHaveCount(1);
 });
 
 it('still rejects a Selected Project whose project_id is not a valid independent Project — pre-existing behavior preserved', function () {
@@ -267,8 +301,8 @@ it('still rejects a Selected Project whose project_id is not a valid independent
     ]))->toThrow(InvalidResumeVariantResponseException::class);
 });
 
-it('exposes MAX_SELECTED_PROJECTS as 1, the single source of truth the prompt schema also reads', function () {
-    expect(ResumeSelectionResponseValidator::MAX_SELECTED_PROJECTS)->toBe(1);
+it('exposes MAX_SELECTED_PROJECTS as 3, the single source of truth the prompt schema also reads', function () {
+    expect(ResumeSelectionResponseValidator::MAX_SELECTED_PROJECTS)->toBe(3);
 });
 
 // --- Experience CareerFact eligibility -----------------------------------

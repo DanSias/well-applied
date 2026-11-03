@@ -58,9 +58,15 @@ final class ResumeSelectionResponseValidator
      * over-selection outright while remaining generous enough for
      * legitimate tailoring; they are not a page-count guarantee.
      */
-    private const MAX_EXPERIENCE_BULLET_GROUPS = 13;
+    // Sprint 1 (resume quality): the former 13 / 18 / 1 ceilings were
+    // renderer-evidence budgets, not relevance rules, and left the
+    // Spotify resume underfilled. They are now wide sanity ceilings
+    // only (runaway output); volume follows relevance and evidence, and
+    // page fit is handled deterministically after generation by
+    // GenerateResumePdf (compact one-pager, or trim from the end).
+    private const MAX_EXPERIENCE_BULLET_GROUPS = 24;
 
-    private const MAX_SELECTED_SKILLS = 18;
+    private const MAX_SELECTED_SKILLS = 24;
 
     /**
      * Hard cap on Selected Projects — public, and the single source of
@@ -77,7 +83,7 @@ final class ResumeSelectionResponseValidator
      * docs/resume-variant-generation.md "PDF export" and "Selected
      * Projects".
      */
-    public const MAX_SELECTED_PROJECTS = 1;
+    public const MAX_SELECTED_PROJECTS = 3;
 
     /**
      * @param  array<string, mixed>  $structuredContent  Untrusted, decoded provider output.
@@ -131,6 +137,7 @@ final class ResumeSelectionResponseValidator
             $this->assertExperienceBulletBudget($validator, $experience);
             $this->assertSkillsBudget($validator, $structuredContent);
             $this->assertSelectedProjects($validator, $selectedProjects, $validFactKeys, $validIndependentProjectIds, $projectIdByFactKey);
+            $this->assertNoFactReuseBetweenExperienceAndProjects($validator, $experience, $selectedProjects);
             $this->assertTargetTermUsages($validator, $targetTermUsages, $experience, $directEvidenceExistsByTerm, $summaryEvidenceFactKeys);
         });
 
@@ -550,6 +557,44 @@ final class ResumeSelectionResponseValidator
                     $validator->errors()->add(
                         "selected_projects.{$i}.career_fact_keys.{$j}",
                         "career_fact_key [{$key}] is not attributed to project_id [{$projectId}]."
+                    );
+                }
+            }
+        }
+    }
+
+    /**
+     * A CareerFact is cited in exactly one place across Experience
+     * bullet groups and Project Highlights: a highlight may not repeat
+     * a fact an Experience bullet already tells, and vice versa. This is
+     * the duplicate-content rule for professional-project highlights,
+     * where a project's facts are otherwise legitimate Experience
+     * evidence for its owning role too. (Reuse elsewhere, e.g. summary
+     * evidence, remains allowed.)
+     *
+     * @param  array<int, mixed>  $experience
+     * @param  array<int, mixed>  $selectedProjects
+     */
+    private function assertNoFactReuseBetweenExperienceAndProjects(Validator $validator, array $experience, array $selectedProjects): void
+    {
+        $experienceKeys = [];
+
+        foreach ($experience as $role) {
+            foreach ((is_array($role) && is_array($role['bullet_groups'] ?? null)) ? $role['bullet_groups'] : [] as $group) {
+                foreach ((is_array($group) && is_array($group['career_fact_keys'] ?? null)) ? $group['career_fact_keys'] : [] as $key) {
+                    if (is_string($key)) {
+                        $experienceKeys[$key] = true;
+                    }
+                }
+            }
+        }
+
+        foreach ($selectedProjects as $i => $project) {
+            foreach ((is_array($project) && is_array($project['career_fact_keys'] ?? null)) ? $project['career_fact_keys'] : [] as $j => $key) {
+                if (is_string($key) && isset($experienceKeys[$key])) {
+                    $validator->errors()->add(
+                        "selected_projects.{$i}.career_fact_keys.{$j}",
+                        "career_fact_key [{$key}] is cited by both an Experience bullet group and a Project Highlight; a fact may appear in only one place."
                     );
                 }
             }

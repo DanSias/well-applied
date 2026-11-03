@@ -2,6 +2,7 @@
 
 use App\Models\JobPosting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /*
@@ -17,6 +18,7 @@ use Tests\TestCase;
 
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
+    ->beforeEach(fn () => Storage::fake('local'))
     ->in('Feature');
 
 // tests/Llm holds the opt-in, real-provider five-posting evaluation —

@@ -40,7 +40,7 @@ final class PearlyResumeVariantFixture
         $profile = CareerProfile::factory()->create([
             'user_id' => $user->id,
             'name' => 'Daniel Sias',
-            'email' => 'dan.sias@gmail.com',
+            'email' => 'daniel.sias@gmail.com',
             'phone' => null,
             'location' => null,
             'portfolio_url' => null,
