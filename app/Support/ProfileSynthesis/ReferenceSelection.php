@@ -2,6 +2,7 @@
 
 namespace App\Support\ProfileSynthesis;
 
+use App\Models\CareerFact;
 use App\Models\Role;
 use App\Support\ResumeProfile\CapabilityCoverage;
 
@@ -75,13 +76,17 @@ final class ReferenceSelection
                 continue;
             }
 
-            $candidates[$roleId][] = [...$a, 'order_index' => $i, 'project_id' => $fact['attribution']['project_id'] ?? null];
+            // A result whose figure is confidential cannot be stated, so it is not an outcome bullet: it keeps its place
+            // as evidence (the engagement it belongs to) without being promised a number.
+            $kind = $a['kind'] === 'outcome' && ($fact['visibility'] ?? null) === 'restricted' && preg_match('/\d/', (string) $fact['statement']) === 1 ? 'implementation' : $a['kind'];
+            $candidates[$roleId][] = [...$a, 'kind' => $kind, 'order_index' => $i, 'project_id' => $fact['attribution']['project_id'] ?? null];
         }
 
         $titles = Role::query()->whereIn('id', $roleIds)->pluck('title', 'id');
+        $meta = $this->meta($effective, $offered);
         $allocation = $this->allocate($roleIds, $candidates, (int) $cfg['total_bullets'], (int) $cfg['per_role_max'], (int) $cfg['developer_role_floor'], $titles->all());
         $weights = $this->projectWeights($effective, (int) $cfg['priority_projects']);
-        $priority = array_keys(array_filter($weights, fn (float $w) => $w >= 1.2));
+        $priority = array_keys(array_filter($weights, fn (float $w) => $w >= 1.1));
         $extraLeft = (int) $cfg['coverage_extra_bullets'];
         $experience = [];
         $traceRoles = [];
@@ -92,7 +97,7 @@ final class ReferenceSelection
         usort($order, fn (int $a, int $b) => ($allocation[$b] ?? 1) <=> ($allocation[$a] ?? 1));
 
         foreach ($order as $roleId) {
-            $units = $this->units($candidates[$roleId] ?? [], $offered, (int) $cfg['outcomes_per_lead'], (float) $cfg['overlap_limit']);
+            $units = $this->units($candidates[$roleId] ?? [], $offered, (int) $cfg['outcomes_per_lead'], (float) $cfg['overlap_limit'], $meta);
             $fallback = false;
 
             if ($units === []) {
@@ -104,7 +109,8 @@ final class ReferenceSelection
 
             $result = $this->pick($units, $allocation[$roleId] ?? 1, [
                 'per_project_max' => (int) $cfg['per_project_max'], 'weights' => $weights, 'priority' => $priority,
-                'overlap_limit' => (float) $cfg['overlap_limit'], 'extra' => min(1, $extraLeft), 'role_has_projects' => array_filter($units, fn (array $u) => $u['project_id'] !== null) !== [], 'texts' => array_map(fn (array $f) => $f['statement'], $offered),
+                'overlap_limit' => (float) $cfg['overlap_limit'], 'extra' => min(1, $extraLeft), 'role_has_projects' => array_filter($units, fn (array $u) => $u['project_id'] !== null) !== [],
+                'technical_floor' => preg_match('/\b(?:developer|engineer)\b/i', (string) $titles[$roleId]) === 1, 'texts' => array_map(fn (array $f) => $f['statement'], $offered),
             ]);
             $extraLeft -= $result['extra_used'];
 
@@ -132,7 +138,7 @@ final class ReferenceSelection
 
         return [
             'content' => [
-                'summary_evidence' => $summary, 'skills' => [], 'experience' => $experience,
+                'summary_evidence' => $summary, 'skills' => $this->skills($effective, $offered, $experience, $summary), 'experience' => $experience,
                 'selected_projects' => $this->personalProjects($effective, $offered, (int) $cfg['personal_projects_max']),
                 'target_term_usages' => [],
             ],
@@ -220,7 +226,8 @@ final class ReferenceSelection
                 continue;
             }
 
-            $weights[$p['project_id']] = $p['pinned'] ? 1.35 : ($rank < $priorityCount ? 1.2 : 1.0);
+            // The user's own order counts: their first project is protected most, then the next two.
+            $weights[$p['project_id']] = $p['pinned'] ? 1.35 : ($rank < $priorityCount ? 1.3 - 0.1 * min($rank, 2) : 1.0);
             $rank++;
         }
 
@@ -259,14 +266,14 @@ final class ReferenceSelection
      */
     private function unit(array $facts, int $rank, ?int $projectId, float $score, string $facet, bool $hasOutcome, bool $pinned): array
     {
-        return ['facts' => $facts, 'rank' => $rank, 'project_id' => $projectId, 'score' => $score, 'facet' => $facet, 'has_outcome' => $hasOutcome, 'pinned' => $pinned];
+        return ['facts' => $facts, 'rank' => $rank, 'project_id' => $projectId, 'score' => $score, 'facet' => $facet, 'has_outcome' => $hasOutcome, 'pinned' => $pinned, 'boost' => 1.0, 'shared' => false, 'technical' => false];
     }
 
     /**
      * Fills one role's bullets by kind of evidence (see the class comment).
      *
      * @param  array<int, array<string, mixed>>  $units
-     * @param  array{per_project_max: int, weights: array<int, float>, priority: array<int, int>, overlap_limit: float, extra: int, role_has_projects: bool, texts: array<string, string>}  $ctx
+     * @param  array{per_project_max: int, weights: array<int, float>, priority: array<int, int>, overlap_limit: float, extra: int, role_has_projects: bool, technical_floor: bool, texts: array<string, string>}  $ctx
      * @return array{chosen: array<int, array<string, mixed>>, left: array<int, array{0: array<string, mixed>, 1: string}>, extra_used: int, uncovered: array<int, int>}
      */
     private function pick(array $units, int $slots, array $ctx): array
@@ -284,7 +291,11 @@ final class ReferenceSelection
             // A role-level statement is less specific than a project's (often a list of areas worked in), except a measured result, which stands alone.
             $weight = $project === null ? ($u['facet'] === 'outcome' || ! $ctx['role_has_projects'] ? 1.0 : 0.9) : ($ctx['weights'][$project] ?? 0.9);
 
-            return (0.8 + 0.2 * $u['score'] / $maxScore) * (self::FACET_WEIGHT[$u['facet']] ?? 1.0) * $novelty * $sameFacetInProject * $weight * ($u['pinned'] ? 1.4 : 1.0);
+            // A claim shared by several projects and phrased in general terms ("owned the frontend", "built it in TypeScript")
+            // is weaker as a bullet than concrete work specific to one.
+            $shared = $u['shared'] && in_array($u['facet'], ['frontend', 'ownership', 'generic_dev'], true) ? 0.8 : 1.0;
+
+            return (0.8 + 0.2 * $u['score'] / $maxScore) * (self::FACET_WEIGHT[$u['facet']] ?? 1.0) * $novelty * $sameFacetInProject * $weight * $shared * $u['boost'] * ($u['pinned'] ? 1.4 : 1.0);
         };
 
         $eligible = function (array $u) use ($state, $ctx): bool {
@@ -364,6 +375,34 @@ final class ReferenceSelection
                 } else {
                     array_unshift($state->chosen, $weakest);
                 }
+            }
+        }
+
+        // A developer or engineer role shows at least one thing that was built, not only results and engagements.
+        if ($ctx['technical_floor'] && array_filter($state->chosen, fn (array $u) => $u['technical']) === [] && array_filter($remaining, fn (array $u) => $u['technical']) !== []) {
+            usort($state->chosen, fn (array $a, array $b) => $a['selected_score'] <=> $b['selected_score']);
+            $weakest = array_shift($state->chosen);
+
+            if ($weakest !== null && ! $weakest['pinned']) {
+                // Judge the candidate as if the bullet it would replace were gone (its kind no longer counts against it).
+                $state->facetCount[$weakest['facet']] = max(0, ($state->facetCount[$weakest['facet']] ?? 0) - 1);
+
+                if ($weakest['project_id'] !== null) {
+                    unset($state->projectFacet[$weakest['project_id'].'|'.$weakest['facet']]);
+                    $state->perProject[$weakest['project_id']] = max(0, ($state->perProject[$weakest['project_id']] ?? 0) - 1);
+                }
+
+                $technical = $best(array_filter($remaining, fn (array $u) => $u['technical']));
+
+                if ($technical !== null && $technical[1] >= 0.6 * $weakest['selected_score']) {
+                    $remaining[] = $weakest;
+                    $take($technical[0], $technical[1]);
+                    $remaining = array_values(array_filter($remaining, fn (array $u) => $u !== $technical[0]));
+                } else {
+                    $take($weakest, $weakest['selected_score']);
+                }
+            } elseif ($weakest !== null) {
+                array_unshift($state->chosen, $weakest);
             }
         }
 
@@ -448,9 +487,10 @@ final class ReferenceSelection
      *
      * @param  array<int, array<string, mixed>>  $candidates  one role's accomplishments in the profile's order
      * @param  array<string, array<string, mixed>>  $offered
+     * @param  array{boost?: array<string, float>, shared?: array<string, bool>}  $meta
      * @return array<int, array<string, mixed>>
      */
-    private function units(array $candidates, array $offered, int $outcomesPerLead, float $overlapLimit): array
+    private function units(array $candidates, array $offered, int $outcomesPerLead, float $overlapLimit, array $meta = []): array
     {
         // A statement that only says a technology was used is a skill, not a bullet: it fills a slot last.
         $candidates = array_map(fn (array $a) => $a['kind'] === 'platform_use' ? [...$a, 'score' => $a['score'] * 0.5] : $a, $candidates);
@@ -527,9 +567,214 @@ final class ReferenceSelection
             }
         }
 
+        // What the approved profile says about these facts: its cited ones weigh a little more; a claim shared by several places
+        // is flagged; and whether the lead fact states something that was built.
+        $units = array_map(function (array $u) use ($meta, $offered) {
+            $lead = (string) ($offered[$u['facts'][0]]['statement'] ?? '');
+
+            return [
+                ...$u,
+                'boost' => max([1.0, ...array_map(fn (string $k) => $meta['boost'][$k] ?? 1.0, $u['facts'])]),
+                'shared' => array_filter($u['facts'], fn (string $k) => isset($meta['shared'][$k])) !== [],
+                'technical' => in_array($u['facet'], ['architecture', 'security_reliability', 'backend_api', 'frontend'], true)
+                    || (preg_match('/^(?:Built|Implemented|Developed|Integrated|Designed|Automated|Created|Configured)\b/', $lead) === 1 && $u['facet'] !== 'outcome'),
+            ];
+        }, $units);
+
         usort($units, fn (array $a, array $b) => $a['rank'] <=> $b['rank']);
 
         return $units;
+    }
+
+    /**
+     * The facts a cited list can actually use here. A fact the profile cites may not be the one offered when it is one
+     * place of a shared claim (the claim is offered once, under its strongest place): the offered place stands for it,
+     * because it is the same claim, so approved summary content never loses its evidence to claim collapsing.
+     *
+     * @param  array<int, string>  $keys
+     * @param  array<string, array<string, mixed>>  $offered
+     * @return array<int, string>
+     */
+    private function offeredKeys(array $keys, array $offered): array
+    {
+        $missing = array_values(array_filter(array_unique($keys), fn (string $k) => ! isset($offered[$k])));
+        $groups = $missing === [] ? [] : CareerFact::query()->whereIn('key', $missing)->whereNotNull('claim_group')->pluck('claim_group', 'key')->all();
+        $stand = $groups === [] ? [] : CareerFact::query()->whereIn('key', array_keys($offered))->whereIn('claim_group', array_values($groups))->pluck('key', 'claim_group')->all();
+        $out = [];
+
+        foreach (array_unique($keys) as $k) {
+            $resolved = isset($offered[$k]) ? $k : ($stand[$groups[$k] ?? ''] ?? null);
+
+            if ($resolved !== null) {
+                $out[] = $resolved;
+            }
+        }
+
+        return array_values(array_unique($out));
+    }
+
+    /**
+     * What the approved profile says about facts: those its differentiators and summary cite weigh a little more,
+     * and facts that are places of a shared claim are flagged.
+     *
+     * @param  array<string, mixed>  $effective
+     * @param  array<string, array<string, mixed>>  $offered
+     * @return array{boost: array<string, float>, shared: array<string, bool>}
+     */
+    private function meta(array $effective, array $offered): array
+    {
+        $boost = [];
+
+        foreach ($this->offeredKeys($effective['presentation']['summary_fact_keys'], $offered) as $k) {
+            $boost[$k] = max($boost[$k] ?? 1.0, 1.1);
+        }
+
+        foreach (array_filter($effective['presentation']['differentiators'], fn (array $d) => $d['included']) as $d) {
+            foreach ($this->offeredKeys($d['fact_keys'], $offered) as $k) {
+                $boost[$k] = max($boost[$k] ?? 1.0, 1.15);
+            }
+        }
+
+        $shared = [];
+
+        foreach ($offered as $key => $f) {
+            if (! empty($f['shared_claim']['also_attached_to'])) {
+                $shared[$key] = true;
+            }
+        }
+
+        return ['boost' => $boost, 'shared' => $shared];
+    }
+
+    /**
+     * What the approved summary states that the generated summary must keep: the technologies it names that its
+     * cited evidence supports, and the projects it names that a cited fact mentions. Never a demand for something
+     * the evidence does not state.
+     *
+     * @param  array<string, mixed>  $effective
+     * @param  array<int, string>  $evidenceStatements  the statements of the facts the summary may draw on
+     * @return array{capabilities: array<string, string>, names: array<int, string>}
+     */
+    public function retention(array $effective, array $evidenceStatements): array
+    {
+        $approved = (string) $effective['presentation']['summary'];
+        $evidence = implode(' ', $evidenceStatements);
+        $supported = $this->coverage->capabilitiesIn($evidence);
+        $capabilities = [];
+
+        foreach ($this->coverage->capabilitiesIn($approved) as $key) {
+            if (config("resume_profiles.capabilities.{$key}.category") === 'technology' && in_array($key, $supported, true)) {
+                $capabilities[$key] = (string) config("resume_profiles.capabilities.{$key}.label", $key);
+            }
+        }
+
+        $names = [];
+
+        foreach ($effective['projects'] as $p) {
+            if (! $p['personal'] && stripos($approved, (string) $p['name']) !== false && stripos($evidence, (string) $p['name']) !== false) {
+                $names[] = (string) $p['name'];
+            }
+        }
+
+        return ['capabilities' => $capabilities, 'names' => $names];
+    }
+
+    /**
+     * The Technical Skills section, from the curated profile rather than citation counts: a skill scores for being a
+     * direct capability the user kept (weighted by how often the market asks for it), for being part of the stack of
+     * the user's included employment projects (priority projects count fully), and a little for being cited by a
+     * chosen bullet. A skill that only restricted evidence carries is never listed. Practice and capability tags are
+     * limited so the section stays a short, relevant stack and not an inventory.
+     *
+     * @param  array<string, mixed>  $effective
+     * @param  array<string, array<string, mixed>>  $offered
+     * @param  array<int, array<string, mixed>>  $experience
+     * @param  array<int, string>  $summaryKeys
+     * @return array<int, array{skill_id: int, order: int}>
+     */
+    private function skills(array $effective, array $offered, array $experience, array $summaryKeys): array
+    {
+        $cfg = (array) config('resume_profiles.reference');
+        $kept = [];
+
+        foreach ($effective['capabilities']['direct'] as $c) {
+            if ($c['included']) {
+                $kept[$c['key']] = 1.0 + (float) ($c['market_share'] ?? 0);
+            }
+        }
+
+        $priority = array_slice(array_values(array_filter($effective['projects'], fn (array $p) => ! $p['personal'] && $p['included'])), 0, (int) $cfg['priority_projects']);
+        $priorityIds = array_column($priority, 'project_id');
+        $includedIds = array_column(array_filter($effective['projects'], fn (array $p) => ! $p['personal'] && $p['included']), 'project_id');
+        $cited = array_merge(...array_map(fn (array $r) => array_merge(...array_column($r['bullet_groups'], 'career_fact_keys') ?: [[]]), $experience ?: [['bullet_groups' => []]]));
+        $summaryCaps = $this->coverage->capabilitiesIn(implode(' ', array_map(fn (string $k) => (string) ($offered[$k]['statement'] ?? ''), $summaryKeys)).' '.(string) $effective['presentation']['summary']);
+        $scores = [];
+        $meta = [];
+
+        foreach ($offered as $key => $f) {
+            if (($f['visibility'] ?? null) === 'restricted') {
+                continue;
+            }
+
+            $project = $f['attribution']['project_id'] ?? null;
+
+            foreach ($f['skills'] ?? [] as $skill) {
+                $id = (int) $skill['id'];
+                $meta[$id] = $skill;
+                $scores[$id]['projects'][$project ?? 0] = true;
+                $scores[$id]['cited'] = ($scores[$id]['cited'] ?? 0) + (in_array($key, $cited, true) ? 1 : 0);
+            }
+        }
+
+        $rows = [];
+
+        foreach ($scores as $id => $s) {
+            $skill = $meta[$id];
+            $caps = $this->coverage->capabilitiesIn((string) $skill['name']);
+            $capScore = max([0.0, ...array_map(fn (string $c) => $kept[$c] ?? 0.0, $caps)]);
+            $stack = 0.0;
+
+            foreach (array_keys($s['projects']) as $projectId) {
+                if (in_array($projectId, $priorityIds, true)) {
+                    $stack += 1.0;
+                } elseif (in_array($projectId, $includedIds, true)) {
+                    $stack += 0.5;
+                }
+            }
+
+            $score = 0.8 * $capScore + min(1.5, $stack) + min(0.75, 0.25 * $s['cited']) + (array_intersect($caps, $summaryCaps) !== [] ? 0.5 : 0.0);
+            $technology = in_array($skill['category'], ['build_technology', 'platform_integration'], true);
+
+            if ($score > 0) {
+                $rows[] = ['id' => $id, 'name' => (string) $skill['name'], 'score' => $score, 'technology' => $technology];
+            }
+        }
+
+        usort($rows, fn (array $a, array $b) => [$b['score'], $a['name']] <=> [$a['score'], $b['name']]);
+        $practice = 0;
+        $perCapability = [];
+        $out = [];
+
+        foreach ($rows as $r) {
+            if (! $r['technology'] && ++$practice > 3) {
+                continue;
+            }
+
+            // Three cloud or database tags say less than two: each capability contributes at most two skills.
+            $family = $this->coverage->capabilitiesIn($r['name'])[0] ?? 'skill:'.$r['id'];
+
+            if (($perCapability[$family] = ($perCapability[$family] ?? 0) + 1) > 2) {
+                continue;
+            }
+
+            $out[] = ['skill_id' => $r['id'], 'order' => count($out) + 1];
+
+            if (count($out) >= (int) ($cfg['skills'] ?? 14)) {
+                break;
+            }
+        }
+
+        return $out;
     }
 
     /**
@@ -540,14 +785,14 @@ final class ReferenceSelection
      */
     private function summaryFacts(array $effective, array $offered, array $candidates): array
     {
-        $cited = array_values(array_filter(array_unique($effective['presentation']['summary_fact_keys']), fn (string $k) => isset($offered[$k])));
+        $cited = $this->offeredKeys($effective['presentation']['summary_fact_keys'], $offered);
         $keys = $cited;
 
         foreach (array_filter($effective['presentation']['differentiators'], fn (array $d) => $d['included']) as $d) {
-            $keys = [...$keys, ...$d['fact_keys']];
+            $keys = [...$keys, ...$this->offeredKeys($d['fact_keys'], $offered)];
         }
 
-        $keys = array_values(array_filter(array_unique($keys), fn (string $k) => isset($offered[$k])));
+        $keys = array_values(array_unique($keys));
 
         if ($keys === []) {
             $keys = array_slice(array_column(array_merge(...array_values($candidates ?: [[]])), 'fact_key'), 0, 3);

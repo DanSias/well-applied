@@ -27,7 +27,7 @@ use App\Support\JobMatch\JobPayloadBuilder;
 use App\Support\ProfileSynthesis\EffectiveProfile;
 use App\Support\ProfileSynthesis\ReferenceSelection;
 use App\Support\ResumeDocument\ResumeText;
-use App\Support\ResumeVariant\Prompts\ReferenceWordingPrompt;
+use App\Support\ResumeVariant\Prompts\ReferenceWordingPromptV2;
 use App\Support\ResumeVariant\Prompts\ResumeSelectionPromptV6;
 use App\Support\ResumeVariant\Prompts\ResumeWordingPromptV3;
 use Illuminate\Support\Collection;
@@ -65,6 +65,9 @@ final class GenerateResumeVariant
 {
     /** Total provider calls allowed for Wording, shared by validation rejections and empty outputs. */
     private const MAX_WORDING_CALLS = 3;
+
+    /** A valid reference wording that drops approved content gets one corrective retry (calls 1 and 2), no more. */
+    private const MAX_SOFT_RETRY_CALLS = 2;
 
     /** Selection is retried only for an empty output (one retry); its validation failures stay fatal. */
     private const MAX_SELECTION_CALLS = 2;
@@ -108,7 +111,7 @@ final class GenerateResumeVariant
     {
         $metrics = app(GenerationMetrics::class);
         $onPhase ??= static fn (string $phase) => null;
-        $wordingPrompt = $synthesis === null ? $this->wordingPrompt : app(ReferenceWordingPrompt::class);
+        $wordingPrompt = $synthesis === null ? $this->wordingPrompt : app(ReferenceWordingPromptV2::class);
         $effective = $synthesis === null ? null : EffectiveProfile::resolve($synthesis);
 
         // ---- Stage 0: deterministic payload construction ----
@@ -444,6 +447,9 @@ final class GenerateResumeVariant
             genericTerms: (array) config('resume.generic_terms', []),
             limitationTerms: ActiveLimitations::terms($profile),
             declaredScopesByKey: DeclaredScopes::forFacts($profile, $factsByKey->keys()->all()),
+            // A reference resume is judged on its material claims, and its summary must keep what the approved profile's does.
+            claimFidelity: $synthesis !== null,
+            retention: $effective === null ? [] : app(ReferenceSelection::class)->retention($effective, array_map(fn (string $key) => (string) ($factsByKey->get($key)['statement'] ?? ''), $selectionDraft->summaryEvidenceFactKeys)),
         );
         $reviewItems = [];
         $rejection = null;
@@ -485,10 +491,24 @@ final class GenerateResumeVariant
             // new model response.
             $triage = $this->wordingValidator->triage($this->cleanStrings($wordingResponse->structuredContent), $wordingContext);
 
+            // A valid response that dropped something the approved profile states, or never says a fact it cites, earns
+            // one corrective retry; if it persists, it ships with the omission flagged in the review report.
+            if ($triage->isStructurallyValid() && $triage->softProblems !== [] && $wordingCall < self::MAX_SOFT_RETRY_CALLS) {
+                $reason = mb_substr('The response is valid but should keep the following: '.implode(' ', $triage->softProblems), 0, 1500);
+                $metrics->event(['stage' => 'wording', 'call' => $wordingCall, 'kind' => 'retention_retry', 'reason' => $reason]);
+                $rejection = $reason;
+
+                continue;
+            }
+
             if ($triage->isStructurallyValid()) {
                 $recovered = app(RecoverWording::class)->recover($triage, $wordingContext);
                 $validatedWording = $recovered['content'];
                 $reviewItems = $recovered['items'];
+
+                if ($triage->softProblems !== []) {
+                    $reviewItems[] = ['location' => 'profile', 'status' => 'review', 'findings' => array_map(fn (string $m) => ['kind' => 'retention', 'severity' => 'review', 'detail' => '', 'message' => $m], $triage->softProblems), 'action' => null, 'text' => null, 'fact_keys' => []];
+                }
 
                 break;
             }
@@ -1080,6 +1100,7 @@ final class GenerateResumeVariant
 
             $label = match ($item['location']) {
                 'summary' => 'Summary',
+                'profile' => 'Approved profile coverage',
                 'project' => 'Project: '.($projectNames[$item['project_id']] ?? $item['project_id']),
                 default => $role === null
                     ? 'Role '.$item['role_id'].', bullet '.($item['bullet_group_index'] + 1)

@@ -26,6 +26,8 @@ use App\Support\ResumeProfile\QuestionWriter;
 use App\Support\ResumeVariant\GenerateResumeVariant;
 use App\Support\ResumeVariant\ResumeCandidatePayloadBuilder;
 use App\Support\ResumeVariant\ResumeWordingProviderResponse;
+use App\Support\ResumeVariant\ResumeWordingResponseValidator;
+use App\Support\ResumeVariant\WordingCheckContext;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
 use Tests\Support\FakeSequenceWriter;
@@ -348,7 +350,7 @@ it('composes a job-independent resume through the existing validators, without p
     $cited = $variant->experienceRoles->flatMap(fn ($r) => $r->bullets->flatMap(fn ($b) => $b->citations->map(fn ($c) => $c->careerFact->key)))->all();
 
     expect($variant->job_match_id)->toBeNull()->and($variant->resume_profile_synthesis_id)->toBe($synthesis->id)
-        ->and($variant->selection_prompt_version)->toBe('reference-selection-v2')->and($variant->wording_prompt_version)->toBe('resume-wording-reference-v1')
+        ->and($variant->selection_prompt_version)->toBe('reference-selection-v2')->and($variant->wording_prompt_version)->toBe('resume-wording-reference-v2')
         ->and($variant->selection_generated_by)->toBe('deterministic:profile-v1')
         // Every role that has evidence appears; the whole-career fact and the Private fact are in no bullet.
         ->and($variant->experienceRoles)->toHaveCount(2)->and($cited)->not->toContain('personal-docker', 'private-secret', 'first-person')
@@ -442,4 +444,131 @@ it('offers the editor every eligible fact as a candidate, and none that are Priv
 
     $this->patch(route('profile-syntheses.update', $synthesis), ['id' => 'differentiator:0', 'fact_keys' => ['wi-owned', 'wi-deterministic']])->assertRedirect();
     $this->patch(route('profile-syntheses.update', $synthesis), ['id' => 'summary', 'fact_keys' => []])->assertSessionHasErrors();
+});
+
+/**
+ * Approves the scenario's profile and runs generateReference with a stand-in wording provider. `$wording` receives the
+ * call number and the approved selection the model would have seen, and returns the response content.
+ */
+function referenceRunWith(array $s, Closure $wording, ?array $presentation = null): array
+{
+    $synthesis = synthesize($s, $presentation);
+    app(ReviewProfileSynthesis::class)->approve($synthesis);
+    $log = new stdClass;
+    $log->calls = 0;
+    $log->prompts = [];
+    app()->instance(GeneratesResumeWording::class, new class($wording, $log) implements GeneratesResumeWording
+    {
+        public function __construct(private Closure $wording, private stdClass $log) {}
+
+        public function generate(string $system, string $user, array $schema): ResumeWordingProviderResponse
+        {
+            $this->log->calls++;
+            $this->log->prompts[] = $user;
+            preg_match('/--- Approved selection[^\n]*\n(.*?)\n--- End of approved selection/s', $user, $m);
+
+            return new ResumeWordingProviderResponse('fake', 'stub', ($this->wording)($this->log->calls, json_decode($m[1], true)));
+        }
+    });
+
+    $variant = app(GenerateResumeVariant::class)->generateReference($synthesis->fresh());
+
+    return [$variant->fresh(['experienceRoles.bullets', 'projects']), $log, $synthesis];
+}
+
+/** Facts a reference resume would be tempted to embellish, on top of the standard scenario. */
+function embellishableScenario(): array
+{
+    $s = synthesisScenario();
+    $mk = fn (string $key, string $statement, string $type, int $id) => CareerFact::factory()->create([
+        'career_profile_id' => $s['career']->id, 'key' => $key, 'statement' => $statement, 'visibility' => Visibility::Public, 'verification' => Verification::Verified,
+        'fact_type' => CareerFactType::Bullet, 'attributable_type' => $type, 'attributable_id' => $id,
+    ]);
+    $mk('nexus-20', "Nexus's automated reporting saved approximately 20+ hours per week across teams by replacing spreadsheet-driven workflows.", 'project', $s['projects']['nexus']->id);
+    $mk('conv-37', 'Delivered a 37% increase in post-purchase conversion rates.', 'role', $s['pearson']->id);
+    $mk('onboard', 'Reduced average new-merchant onboarding effort from approximately 10 active hours to approximately 3 active hours.', 'role', $s['role']->id);
+
+    return $s;
+}
+
+function goodSummary(): string
+{
+    return 'Full-Stack Developer who independently owned Workflow Intelligence from business requirements through delivery. Built Nexus, a full-stack React and Node.js analytics platform unifying BigQuery and Salesforce data, reducing reporting time by 85%.';
+}
+
+it('repairs unsupported scope, cause, role and figure precision in a reference resume without another model call', function () {
+    $s = embellishableScenario();
+
+    [$variant, $log] = referenceRunWith($s, function (int $call, array $in) {
+        // A faithful bullet states every cited fact; the stand-in then adds exactly the embellishment under test.
+        $embellish = function (array $facts): string {
+            $keys = array_column($facts, 'key');
+            $text = implode(' ', array_map(fn ($f) => rtrim($f['statement'], '.').'.', $facts));
+
+            in_array('conv-37', $keys, true) && $text = rtrim($text, '.').' across managed client engagements.';
+            in_array('onboard', $keys, true) && $text = rtrim($text, '.').' through improved documentation and knowledge-base content.';
+            in_array('nexus-20', $keys, true) && $text = str_replace('approximately 20+', '20+', $text);
+            in_array('nexus-built', $keys, true) && $text = str_replace('Built Nexus', 'Architected Nexus', $text);
+
+            return $text;
+        };
+
+        return [
+            'summary' => goodSummary(),
+            'experience' => array_map(fn ($r) => ['role_id' => $r['role_id'], 'bullets' => array_map(fn ($g) => ['bullet_group_index' => $g['bullet_group_index'], 'text' => $embellish($g['career_facts'])], $r['bullet_groups'])], $in['experience']),
+            'selected_projects' => array_map(fn ($p) => ['project_id' => $p['project_id'], 'text' => rtrim($p['career_facts'][0]['statement'], '.').'.'], $in['selected_projects']),
+        ];
+    });
+
+    $texts = $variant->experienceRoles->flatMap(fn ($r) => $r->bullets->pluck('text'))->implode(' | ');
+    $report = collect($variant->review_report['items']);
+    $kinds = $report->flatMap(fn ($i) => collect($i['findings'])->pluck('kind'))->unique()->values()->all();
+
+    expect($log->calls)->toBe(1)
+        ->and($texts)->not->toContain('across managed client engagements')->and($texts)->toContain('37% increase in post-purchase conversion rates')
+        ->and($texts)->not->toContain('through improved documentation')->and($texts)->toContain('approximately 3 active hours')
+        ->and($texts)->toContain('approximately 20+ hours')
+        ->and($texts)->not->toContain('Architected')
+        // Each repair is on the record, flagged for the person reviewing.
+        ->and($kinds)->toContain('scope_expansion', 'unsupported_cause', 'figure_precision', 'ownership_upgrade')
+        ->and($report->where('status', 'generalized')->count())->toBeGreaterThanOrEqual(3);
+});
+
+it('gives a reference summary that drops approved content one corrective retry, naming exactly what was dropped', function () {
+    $s = embellishableScenario();
+
+    [$variant, $log] = referenceRunWith($s, function (int $call, array $in) {
+        return [
+            'summary' => $call === 1 ? 'Full-Stack Developer who independently owns applications end to end.' : goodSummary(),
+            'experience' => array_map(fn ($r) => ['role_id' => $r['role_id'], 'bullets' => array_map(fn ($g) => ['bullet_group_index' => $g['bullet_group_index'], 'text' => implode(' ', array_map(fn ($f) => rtrim($f['statement'], '.').'.', $g['career_facts']))], $r['bullet_groups'])], $in['experience']),
+            'selected_projects' => array_map(fn ($p) => ['project_id' => $p['project_id'], 'text' => rtrim($p['career_facts'][0]['statement'], '.').'.'], $in['selected_projects']),
+        ];
+    });
+
+    expect($log->calls)->toBe(2)->and($variant->summary)->toContain('Workflow Intelligence')->and($variant->summary)->toContain('React')
+        ->and($log->prompts[1])->toContain('The summary dropped')->and($log->prompts[1])->toContain('Workflow Intelligence')
+        ->and(collect($variant->review_report['items'])->where('location', 'profile'))->toBeEmpty();
+});
+
+it('ships a reference resume that keeps dropping approved content after one retry, flagged for review rather than failing', function () {
+    $s = embellishableScenario();
+
+    [$variant, $log] = referenceRunWith($s, fn (int $call, array $in) => [
+        'summary' => 'Full-Stack Developer who independently owns applications end to end.',
+        'experience' => array_map(fn ($r) => ['role_id' => $r['role_id'], 'bullets' => array_map(fn ($g) => ['bullet_group_index' => $g['bullet_group_index'], 'text' => implode(' ', array_map(fn ($f) => rtrim($f['statement'], '.').'.', $g['career_facts']))], $r['bullet_groups'])], $in['experience']),
+        'selected_projects' => array_map(fn ($p) => ['project_id' => $p['project_id'], 'text' => rtrim($p['career_facts'][0]['statement'], '.').'.'], $in['selected_projects']),
+    ]);
+
+    $coverage = collect($variant->review_report['items'])->firstWhere('location', 'profile');
+
+    // Two calls, no more: the dropped content is on the review report, not a failed run.
+    expect($log->calls)->toBe(2)->and($variant->exists)->toBeTrue()->and($coverage['status'])->toBe('review')
+        ->and(collect($coverage['findings'])->pluck('kind')->unique()->all())->toBe(['retention']);
+});
+
+it('keeps the job-linked wording checks exactly as they were', function () {
+    $context = new WordingCheckContext([], [], [], [], ['summary' => ['conv']], [], [], [], [], [], [], ['conv' => 'Delivered a 37% increase in conversion.'], [], []);
+
+    expect($context->claimFidelity)->toBeFalse()->and($context->retention)->toBe([])
+        ->and(app(ResumeWordingResponseValidator::class)->textFindings('summary', 'Drove a 37% increase across managed client engagements.', 'summary', $context, false, false))->toBe([]);
 });

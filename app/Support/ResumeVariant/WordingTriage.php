@@ -17,13 +17,15 @@ final readonly class WordingTriage
 {
     /**
      * @param  array<int, string>  $structuralErrors
-     * @param  array<string, array<int, array{kind: string, severity: string, detail: string, message: string}>>  $findings
+     * @param  array<string, array<int, array{kind: string, severity: string, detail: string, message: string, repair?: array<string, string>}>>  $findings
      * @param  array<string, mixed>|null  $validated
+     * @param  array<int, string>  $softProblems  Things a better response would fix (an approved capability dropped, a cited fact never stated). They earn one corrective retry and, if they persist, ship flagged rather than failing the run.
      */
     public function __construct(
         public array $structuralErrors,
         public array $findings,
         public ?array $validated,
+        public array $softProblems = [],
     ) {}
 
     public function isStructurallyValid(): bool
@@ -32,7 +34,7 @@ final readonly class WordingTriage
     }
 
     /**
-     * @return array<string, array<int, array{kind: string, severity: string, detail: string, message: string}>>
+     * @return array<string, array<int, array{kind: string, severity: string, detail: string, message: string, repair?: array<string, string>}>>
      */
     public function blocked(): array
     {

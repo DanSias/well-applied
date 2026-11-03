@@ -61,3 +61,35 @@ priority: their top few employment projects (`priority_projects`) are protected,
 and only then by a bounded extra allowance (`coverage_extra_bullets`, at most one per role). Other projects compete on
 their merits and may be absent: the profile is an evidence pool, not a checklist. The trace records the facet of every
 bullet and the reason each omitted fact was left out.
+
+## Fidelity checks for the reference wording (reference-wording v2)
+
+The first real reference resume showed wording that read well but added claims no fact made. A reference resume's
+wording is now judged on its **material claims**, against the combined evidence of the facts cited at that location
+(`ClaimFidelityChecker`, reference resumes only; job-linked generation is unchanged until reviewed):
+
+| Finding | Example | Repair (deterministic, never adds a claim) |
+|---|---|---|
+| `scope_expansion` | "... across managed client engagements" | the phrase is removed |
+| `unsupported_cause` | "reduced onboarding effort ... through improved documentation" | the clause is removed |
+| `ownership_upgrade` | "Designed and implemented" for "Owned the implementation of" | "Designed and" is dropped; a bare unsupported lead verb takes the evidence's own ("Drove" becomes "Delivered") |
+| `figure_precision` | "20+ hours" for "approximately 20+ hours"; a figure no cited fact contains | the evidence's wording is restored; an invented figure omits the bullet |
+
+Ordinary words ("through", "by", "enabling") are never findings: a cause is unsupported only when what it names is absent
+from the evidence, and a scope only when its breadth words are. A repaired bullet is kept as `generalized` and flagged in
+the review report; when no repair exists the bullet is omitted.
+
+Two retention problems earn **one** corrective retry and then ship flagged ("Approved profile coverage" in the review
+report), never a failed run: the summary dropped a technology or project the approved summary names and the cited evidence
+supports, and a bullet cites a fact it never states.
+
+## Selection follows the approved profile
+
+Besides the facet scoring above, facts the approved profile cites (differentiators, summary) weigh a little more; a
+claim shared by several projects and phrased generally weighs less; a result whose figure is confidential is not an outcome
+bullet (it cannot be stated); a developer or engineer role always shows at least one thing that was built; the user's first
+three projects are protected in order. A fact the profile cites that is only one place of a shared claim is represented by
+the offered place, so approved summary content never loses its evidence to claim collapsing, and every fact the summary
+cites stays in its evidence. **Skills** come from the curated profile (kept direct capabilities weighted by market demand,
+the stacks of included projects with priority projects counting fully, and a little for being cited), never from restricted
+evidence, at most two per capability and three practice tags, 14 in all.

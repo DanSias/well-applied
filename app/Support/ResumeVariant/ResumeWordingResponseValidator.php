@@ -4,6 +4,7 @@ namespace App\Support\ResumeVariant;
 
 use App\Exceptions\InvalidResumeVariantResponseException;
 use App\Support\ResumeDocument\ResumeText;
+use App\Support\ResumeProfile\CapabilityCoverage;
 use Illuminate\Support\Facades\Validator as ValidatorFacade;
 use Illuminate\Validation\Validator;
 
@@ -261,7 +262,91 @@ final class ResumeWordingResponseValidator
             $add($field, $this->textFindings($field, (string) $project['text'], "project:{$project['project_id']}", $context, targetTerms: false, wordCount: true));
         }
 
-        return new WordingTriage([], $findings, $structure->validated());
+        return new WordingTriage([], $findings, $structure->validated(), $context->claimFidelity ? $this->retentionProblems($structuredContent, $context) : []);
+    }
+
+    /**
+     * What a better response would keep. Not a rule violation: the summary dropped something the approved profile's
+     * summary states and the evidence supports, or a bullet cites a fact it never states.
+     *
+     * @param  array<string, mixed>  $content
+     * @return array<int, string>
+     */
+    private function retentionProblems(array $content, WordingCheckContext $context): array
+    {
+        $problems = [];
+        $summary = is_string($content['summary'] ?? null) ? $content['summary'] : '';
+        $have = app(CapabilityCoverage::class)->capabilitiesIn($summary);
+
+        foreach ((array) ($context->retention['capabilities'] ?? []) as $key => $label) {
+            if (! in_array($key, $have, true)) {
+                $problems[] = "The summary dropped {$label}, which the approved profile's summary states and the cited summary evidence supports. Keep it.";
+            }
+        }
+
+        foreach ((array) ($context->retention['names'] ?? []) as $name) {
+            if (stripos($summary, (string) $name) === false) {
+                $problems[] = "The summary dropped {$name}, which the approved profile's summary names and the cited evidence supports. Keep it.";
+            }
+        }
+
+        foreach ((array) ($content['experience'] ?? []) as $role) {
+            foreach ((array) ($role['bullets'] ?? []) as $bullet) {
+                $keys = $context->careerFactKeysByLocation["{$role['role_id']}:{$bullet['bullet_group_index']}"] ?? [];
+
+                foreach ($this->unstatedFacts((string) $bullet['text'], $keys, $context) as $key) {
+                    $problems[] = "The bullet citing [{$key}] never says what that fact says (it states something the bullet leaves out). State it in the bullet, or say less of the other facts.";
+                }
+            }
+        }
+
+        return array_values(array_unique($problems));
+    }
+
+    /**
+     * Cited facts whose own specifics (words found in no other cited fact) appear nowhere in the bullet. A restricted
+     * fact that carries a figure is skipped: what it adds may not be statable.
+     *
+     * @param  array<int, string>  $keys
+     * @return array<int, string>
+     */
+    private function unstatedFacts(string $text, array $keys, WordingCheckContext $context): array
+    {
+        if (count($keys) < 2) {
+            return [];
+        }
+
+        $words = fn (string $t) => array_unique(array_filter(preg_split('/[^a-z0-9]+/', strtolower($t)) ?: [], fn (string $w) => strlen($w) >= 6));
+        $unstated = [];
+
+        foreach ($keys as $key) {
+            $own = $context->factTextByKey[$key] ?? '';
+
+            if (in_array($key, $context->restrictedFactKeys, true) && preg_match('/\d/', $own) === 1) {
+                continue;
+            }
+
+            $others = [];
+
+            foreach ($keys as $other) {
+                if ($other !== $key) {
+                    $others = [...$others, ...$words($context->factTextByKey[$other] ?? '')];
+                }
+            }
+
+            $specific = array_diff($words($own), $others);
+            $present = array_filter($specific, fn (string $w) => stripos($text, substr($w, 0, 6)) !== false);
+
+            // A fact whose figure the bullet states is stated, however the sentence is worded.
+            preg_match_all('/\d[\d,.]*%?/', $own, $figures);
+            $figureStated = array_filter($figures[0], fn (string $f) => strlen(rtrim($f, '.,')) >= 2 && str_contains($text, rtrim($f, '.,')));
+
+            if ($specific !== [] && $present === [] && $figureStated === []) {
+                $unstated[] = $key;
+            }
+        }
+
+        return $unstated;
     }
 
     /**
@@ -269,7 +354,7 @@ final class ResumeWordingResponseValidator
      * Public so a deterministic recovery can re-check its own rewrite
      * against exactly the same rules.
      *
-     * @return array<int, array{kind: string, severity: string, detail: string, message: string}>
+     * @return array<int, array{kind: string, severity: string, detail: string, message: string, repair?: array<string, string>}>
      */
     public function textFindings(string $field, string $text, string $locationKey, WordingCheckContext $context, bool $targetTerms, bool $wordCount): array
     {
@@ -329,6 +414,12 @@ final class ResumeWordingResponseValidator
 
         foreach ((new RestrictedEvidenceGuard)->findings($text, $citedKeys, $context->factTextByKey, $context->restrictedFactKeys, $context->restrictedTerms, $context->genericTerms) as $finding) {
             $findings[] = $finding;
+        }
+
+        if ($context->claimFidelity) {
+            foreach ((new ClaimFidelityChecker)->findings($text, $citedKeys, $context->factTextByKey) as $f) {
+                $findings[] = ['kind' => (string) $f['kind'], 'severity' => (string) $f['severity'], 'detail' => (string) $f['detail'], 'message' => (string) $f['message'], ...(isset($f['repair']) ? ['repair' => (array) $f['repair']] : [])];
+            }
         }
 
         return $findings;

@@ -26,6 +26,8 @@ final readonly class WordingCheckContext
      * @param  array<int, string>  $genericTerms
      * @param  array<int, string>  $limitationTerms  Terms the user has confirmed they have no direct experience with; never claimable. See App\Models\CareerLimitation.
      * @param  array<string, array<int, string>>  $declaredScopesByKey  Fact key => the ResponsibilityScope values the user selected when confirming it. Used by ClaimScopeChecker.
+     * @param  bool  $claimFidelity  Judge each location's material claims against its combined cited evidence (ClaimFidelityChecker). On for reference resumes.
+     * @param  array{capabilities?: array<string, string>, names?: array<int, string>}  $retention  What the approved profile's summary states that the generated summary must keep (capability key => label, project names). Judged as a retry-once problem, never a block.
      */
     public function __construct(
         public array $validRoleIds,
@@ -44,5 +46,7 @@ final readonly class WordingCheckContext
         public array $genericTerms,
         public array $limitationTerms = [],
         public array $declaredScopesByKey = [],
+        public bool $claimFidelity = false,
+        public array $retention = [],
     ) {}
 }

@@ -131,7 +131,7 @@ final class RecoverWording
     }
 
     /**
-     * @param  array<int, array{kind: string, severity: string, detail: string, message: string}>  $findings
+     * @param  array<int, array{kind: string, severity: string, detail: string, message: string, repair?: array<string, string>}>  $findings
      */
     private function blockedIn(array $findings): bool
     {
@@ -139,7 +139,7 @@ final class RecoverWording
     }
 
     /**
-     * @param  array<int, array{kind: string, severity: string, detail: string, message: string}>  $findings
+     * @param  array<int, array{kind: string, severity: string, detail: string, message: string, repair?: array<string, string>}>  $findings
      * @return array{text: string, action: string}|null
      */
     private function generalize(string $field, string $text, string $locationKey, array $findings, WordingCheckContext $context, bool $targetTerms, bool $wordCount): ?array
@@ -181,6 +181,22 @@ final class RecoverWording
 
                 $rewritten = (string) preg_replace('/(?<![\p{L}\p{N}])'.preg_quote($finding['detail'], '/').'(?![\p{L}\p{N}])/iu', $replacement, $rewritten);
                 $actions[] = "replaced [{$finding['detail']}] with \"{$replacement}\"";
+            } elseif (in_array($finding['kind'], ClaimFidelityChecker::KINDS, true)) {
+                // An unsupported scope, cause or role is REMOVED, and a figure's qualifier is RESTORED to the evidence's
+                // own: edits that only take a claim away. When no such edit exists the location is omitted.
+                $fixed = (new ClaimFidelityChecker)->repair($rewritten, $finding);
+
+                if ($fixed === null) {
+                    return null;
+                }
+
+                $rewritten = $fixed;
+                $actions[] = match ($finding['kind']) {
+                    'scope_expansion' => "removed the unsupported scope [{$finding['detail']}]",
+                    'unsupported_cause' => "removed the unsupported attribution [{$finding['detail']}]",
+                    'ownership_upgrade' => "removed the stronger role [{$finding['detail']}] the evidence does not state",
+                    default => "restored the evidence's own figure wording [{$finding['detail']}]",
+                };
             } else {
                 return null; // Unsupported claims and the like are never rewritten.
             }
@@ -215,7 +231,7 @@ final class RecoverWording
     }
 
     /**
-     * @param  array<int, array{kind: string, severity: string, detail: string, message: string}>  $findings
+     * @param  array<int, array{kind: string, severity: string, detail: string, message: string, repair?: array<string, string>}>  $findings
      * @return array{0: string, 1: string, 2: string|null}
      */
     private function recoverSummary(string $summary, array $findings, WordingCheckContext $context): array
