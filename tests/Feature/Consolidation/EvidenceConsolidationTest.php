@@ -1,10 +1,14 @@
 <?php
 
 use App\Enums\ClarificationSessionStatus;
+use App\Enums\Verification;
+use App\Enums\Visibility;
 use App\Models\CareerFact;
 use App\Models\ClarificationSession;
+use App\Models\Evidence;
 use App\Models\EvidenceConsolidation;
 use App\Models\EvidenceProposal;
+use App\Models\Metric;
 use App\Models\Project;
 use App\Models\Skill;
 use App\Support\Clarification\EvidenceRevision;
@@ -282,4 +286,65 @@ it('reports a mention-only capability as underdocumented, never as direct experi
     $coverage = app(CapabilityCoverage::class)->compute($s['career'])['capabilities']['observability'];
 
     expect($coverage['status'])->toBe(CapabilityCoverage::UNDERDOCUMENTED);
+});
+
+/**
+ * A fact that came from the resume and portfolio (no interview answer, so no revision chain) with its metric and
+ * original evidence, plus the user's recorded confirmation of what produced the result.
+ */
+function originalFactScenario(): array
+{
+    $s = consolidationScenario();
+    $fact = CareerFact::factory()->create([
+        'career_profile_id' => $s['career']->id, 'key' => 'lg-37', 'statement' => 'Delivered a 37% increase in post-purchase conversion rates.',
+        'visibility' => Visibility::Public, 'verification' => Verification::Verified, 'attributable_type' => 'role', 'attributable_id' => $s['role']->id,
+    ]);
+    Metric::factory()->create(['career_fact_id' => $fact->id, 'value' => 37, 'unit' => 'percent_increase']);
+    foreach (['resume', 'portfolio'] as $source) {
+        Evidence::factory()->create(['career_fact_id' => $fact->id, 'source' => $source, 'quoted_text' => '37% increase in post-purchase conversion']);
+    }
+    $answer = $s['answer']->question->answers()->create(['mode' => 'experience', 'scopes' => ['implemented'], 'answer_text' => "The 37% improvement came from better alignment of upsell offers with the customer's initial purchase, multiple post-purchase upsell paths, and ongoing conversion optimization."]);
+
+    return [...$s, 'original' => $fact, 'confirmation' => $answer];
+}
+
+it('revises a resume-and-portfolio fact from the user\'s confirmation without a duplicate, keeping its metric, evidence and original wording', function () {
+    $s = originalFactScenario();
+    $item = consolidationItem($s, [
+        'target_fact_id' => $s['original']->id, 'source_answer_id' => $s['confirmation']->id, 'topic_key' => 'post_purchase_conversion', 'notes' => ['topic_label' => 'Post-purchase conversion'],
+        'statement' => 'Improved post-purchase conversion rates by 37% through better alignment between initial purchases and follow-up offers, multiple upsell paths, and ongoing conversion optimization.',
+        'attributable_type' => 'role', 'attributable_id' => $s['role']->id, 'visibility' => 'public', 'verification' => 'verified', 'scopes' => ['implemented'],
+    ]);
+    $facts = CareerFact::count();
+    $revision = EvidenceRevision::current($s['career']);
+
+    app(ApplyConsolidation::class)->approve($item);
+
+    $fact = $s['original']->fresh();
+    $chain = EvidenceProposal::where('career_fact_id', $fact->id)->orderBy('revision')->get();
+
+    expect(CareerFact::count())->toBe($facts)->and($fact->key)->toBe('lg-37')->and($fact->statement)->toStartWith('Improved post-purchase conversion rates by 37%')
+        // The metric, visibility, verification and attribution are exactly as they were.
+        ->and((float) $fact->metric->value)->toBe(37.0)->and($fact->visibility->value)->toBe('public')->and($fact->verification->value)->toBe('verified')
+        ->and($fact->attributable_type)->toBe('role')->and($fact->attributable_id)->toBe($s['role']->id)
+        // The original sources stay as evidence and the confirmation is added beside them.
+        ->and($fact->evidence()->pluck('source')->map(fn ($x) => $x->value)->all())->toBe(['resume', 'portfolio', 'user_confirmed'])
+        // The original wording is the first revision, kept as superseded, with where it came from.
+        ->and($chain->pluck('status')->map(fn ($x) => $x->value)->all())->toBe(['superseded', 'approved'])
+        ->and($chain[0]->statement)->toBe('Delivered a 37% increase in post-purchase conversion rates.')->and($chain[0]->history[0]['action'])->toBe('adopted_original')
+        ->and($chain[0]->history[0]['original_sources'])->toBe(['resume', 'portfolio'])
+        ->and(EvidenceRevision::current($s['career']))->toBeGreaterThan($revision);
+});
+
+it('refuses to revise a resume-and-portfolio fact that has no recorded confirmation, and a declined item changes nothing', function () {
+    $s = originalFactScenario();
+    $item = consolidationItem($s, ['target_fact_id' => $s['original']->id, 'source_answer_id' => null, 'statement' => 'Improved post-purchase conversion rates by 37% through upsells.', 'visibility' => 'public', 'verification' => 'verified']);
+
+    expect(fn () => app(ApplyConsolidation::class)->approve($item))->toThrow(ValidationException::class)
+        ->and($s['original']->fresh()->statement)->toBe('Delivered a 37% increase in post-purchase conversion rates.')
+        ->and(EvidenceProposal::where('career_fact_id', $s['original']->id)->count())->toBe(0);
+
+    app(ApplyConsolidation::class)->reject($item->fresh());
+
+    expect($s['original']->fresh()->evidence()->count())->toBe(2);
 });

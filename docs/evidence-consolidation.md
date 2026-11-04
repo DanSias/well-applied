@@ -37,3 +37,13 @@ an existing item, fact, proposal or answer.
 ("Docker rather than Terraform" is Docker evidence, not Terraform evidence). A statement that only
 mentions a capability in passing (`weak_patterns`) is `underdocumented`, never direct. The review
 card shows how the matcher would read the proposed wording (`capabilitiesIn`).
+
+## Revising a fact that came from the resume or portfolio
+
+A fact imported from the resume and portfolio has no interview answer, so it has no revision chain and cannot be revised
+in place. A `revise` item may carry a `confirmation` (the user's own statement, recorded as an answered interview
+question). Approving such an item first records the fact's current wording as its first revision (an approved proposal
+tied to that confirmation, with the original sources in its history), then revises it through the normal path: the fact
+keeps its key, metric, visibility, verification and original evidence rows; the confirmation is added as `user_confirmed`
+evidence; the original wording stays as the superseded revision; and no second fact is created. The figure was verified by
+the original sources, so it is not treated as a newly self-reported one.

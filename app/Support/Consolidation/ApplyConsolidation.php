@@ -146,6 +146,7 @@ final class ApplyConsolidation
             'visibility' => $item->visibility, 'verification' => $item->verification,
         ], fn ($v) => $v !== null);
         $revision = null;
+        $options = $this->adoptOriginal($item, $fact) ? [...$options, 'acknowledge_metric' => true] : $options;
 
         try {
             $revision = $this->revisions->revise($fact, $fields, ['shared' => 'none', 'note' => "Evidence consolidation {$item->code}: {$item->title}.", ...array_intersect_key($options, ['acknowledge_metric' => true])]);
@@ -166,6 +167,38 @@ final class ApplyConsolidation
         EvidenceRevision::bump(CareerProfile::query()->findOrFail($fact->career_profile_id));
 
         return ['fact_id' => $fact->id, 'fact_key' => $fact->key, 'proposal_id' => $revision?->id, 'revision' => $revision?->revision];
+    }
+
+    /**
+     * A fact that came from the resume and portfolio has no revision chain, so it cannot be revised. Its first
+     * revision is recorded here: an approved proposal that says exactly what the fact says now, tied to the user's
+     * confirmation. The fact keeps its key, metric, visibility, verification and original evidence rows; its original
+     * wording is kept as the superseded revision. The figure was verified by those sources, so it is not treated as a
+     * newly self-reported one. Returns whether this item adopted the fact.
+     */
+    private function adoptOriginal(EvidenceConsolidation $item, CareerFact $fact): bool
+    {
+        $has = EvidenceProposal::query()->where('career_fact_id', $fact->id)->where('kind', ProposalKind::Fact)->where('status', ProposalStatus::Approved)->exists();
+
+        if ($has) {
+            return false;
+        }
+
+        if ($item->source_answer_id === null) {
+            throw ValidationException::withMessages(['item' => "[{$fact->key}] has no recorded confirmation to revise it from."]);
+        }
+
+        $sources = $fact->evidence()->pluck('source')->map(fn ($s) => $s->value ?? (string) $s)->unique()->values()->all();
+
+        EvidenceProposal::create([
+            'career_profile_id' => $fact->career_profile_id, 'clarification_answer_id' => $item->source_answer_id, 'kind' => ProposalKind::Fact, 'status' => ProposalStatus::Approved,
+            'topic_key' => (string) $item->topic_key, 'topic_label' => (string) ($item->notes['topic_label'] ?? $item->topic_key),
+            'statement' => $fact->statement, 'scopes' => $item->scopes ?? [], 'attributable_type' => $fact->attributable_type, 'attributable_id' => $fact->attributable_id,
+            'visibility' => $fact->visibility, 'verification' => $fact->verification, 'career_fact_id' => $fact->id, 'revision' => 1, 'decided_at' => now(),
+            'history' => [['at' => now()->toIso8601String(), 'action' => 'adopted_original', 'consolidation' => $item->code, 'original_sources' => $sources, 'original_statement' => $fact->statement]],
+        ]);
+
+        return true;
     }
 
     /**

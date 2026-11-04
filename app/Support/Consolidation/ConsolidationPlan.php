@@ -147,6 +147,41 @@ final class ConsolidationPlan
                 'decision' => ['required' => false, 'question' => 'Did this apply to a specific project (for example Nexus)?', 'candidates' => [$nexus, ['project', 'Executive Insights Dashboard'], ['project', 'Marketing Budget & Forecast Hub']]],
                 'notes' => ['caution' => 'No measured speedup is claimed; your answer gives none.'],
             ],
+            // --- Liquid Gravity outcomes: what produced each result, as the user confirmed it (2026-11-04) ----------
+            [
+                'code' => 'LG-37', 'theme' => 'Liquid Gravity outcomes', 'action' => 'revise', 'fact' => 'liquid-gravity-conversion-increase',
+                'title' => 'Liquid Gravity: what produced the 37% post-purchase conversion increase',
+                'summary' => 'The 37% figure is unchanged (it came from your resume and portfolio). Your confirmation adds what produced it. The fact keeps its key, metric, visibility and original evidence; the current wording becomes its first revision.',
+                'statement' => 'Improved post-purchase conversion rates by 37% through better alignment between initial purchases and follow-up offers, multiple upsell paths, and ongoing conversion optimization.',
+                'place' => ['role', 'Founder & Full Stack Developer / Marketing Consultant'], 'scopes' => ['implemented'],
+                'links' => ['liquid-gravity-ecommerce-checkout-upsell', 'liquid-gravity-experimentation-cro-landing-funnel'],
+                'confirmation' => [
+                    'topic_key' => 'post_purchase_conversion', 'topic_label' => 'Liquid Gravity: post-purchase conversion',
+                    'question' => 'What produced the 37% increase in post-purchase conversion at Liquid Gravity?',
+                    'answer' => 'The 37% improvement in post-purchase conversion came from better alignment of upsell offers with the customer\'s initial purchase, multiple post-purchase upsell paths, and ongoing conversion optimization.',
+                ],
+                'notes' => [
+                    'why' => 'This fact came from your resume and portfolio, not an interview answer. Approving records those sources as its first revision and keeps them as evidence; no second fact is created.',
+                    'caution' => 'Still unrecorded: which client or site, the platform, and whether the results were one engagement or consultancy-wide. The wording does not claim any of them, and the metric\'s scope note ("consultancy/role-level") is unchanged. "Ongoing conversion optimization" is general: no A/B method is claimed.',
+                ],
+            ],
+            [
+                'code' => 'LG-201', 'theme' => 'Liquid Gravity outcomes', 'action' => 'revise', 'fact' => 'liquid-gravity-lead-generation-growth',
+                'title' => 'Liquid Gravity: what produced the 201.2% lead-generation growth',
+                'summary' => 'The 201.2% figure and its "no added ad spend" qualifier are unchanged. Your confirmation adds what produced the growth: a direct-response landing page, a refined offer and ongoing optimization.',
+                'statement' => 'Increased lead generation by 201.2% without additional advertising spend by developing a direct-response landing page, refining the offer, and continuously optimizing conversion performance.',
+                'place' => ['role', 'Founder & Full Stack Developer / Marketing Consultant'], 'scopes' => ['implemented'],
+                'links' => ['liquid-gravity-lead-generation-systems', 'liquid-gravity-experimentation-cro-landing-funnel'],
+                'confirmation' => [
+                    'topic_key' => 'lead_generation_growth', 'topic_label' => 'Liquid Gravity: lead-generation growth',
+                    'question' => 'What produced the 201.2% increase in lead generation without increased advertising spend at Liquid Gravity?',
+                    'answer' => 'The 201.2% increase in lead generation without increased advertising spend came from developing a landing page using direct-response marketing principles, improving the offer, and ongoing conversion optimization.',
+                ],
+                'notes' => [
+                    'why' => 'This fact came from your resume and portfolio, not an interview answer. Approving records those sources as its first revision and keeps them as evidence; no second fact is created.',
+                    'caution' => 'Still unrecorded: the client or site, the landing page\'s technology, and whether this was one engagement. No lead-generation system, funnel or A/B test is claimed beyond what is stated.',
+                ],
+            ],
             // --- Capability indexing (skill associations only) ---------------------------------------
             self::tag('TAG-TS', 'TypeScript', ['workflow-intelligence-typescript-user-confirmed', 'verbatim-typescript-user-confirmed', 'transaction-toolkit-typescript-user-confirmed'], ['TypeScript']),
             self::tag('TAG-GCP', 'GCP and BigQuery', ['salesforce-migration-data-warehouse-cloud-platforms-user-confirmed', 'executive-insights-dashboard-cloud-platforms-user-confirmed'], ['Google Cloud (general)', 'BigQuery']),
