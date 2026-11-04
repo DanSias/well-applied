@@ -75,6 +75,7 @@ Route::post('/resume-profiles/{resumeProfile}/synthesis', [ProfileSynthesisContr
 Route::patch('/profile-syntheses/{synthesis}', [ProfileSynthesisController::class, 'update'])->name('profile-syntheses.update');
 Route::post('/profile-syntheses/{synthesis}/approve', [ProfileSynthesisController::class, 'approve'])->name('profile-syntheses.approve');
 Route::post('/profile-syntheses/{synthesis}/new-version', [ProfileSynthesisController::class, 'newVersion'])->name('profile-syntheses.new-version');
+Route::post('/profile-syntheses/{synthesis}/refresh-evidence', [ProfileSynthesisController::class, 'refreshEvidence'])->name('profile-syntheses.refresh-evidence');
 Route::post('/profile-syntheses/{synthesis}/reference-resume', [ProfileSynthesisController::class, 'generate'])->name('profile-syntheses.reference-resume');
 
 // Evidence consolidation: reviewed corrections to existing career evidence, each approved or declined on its own.

@@ -371,6 +371,23 @@
             font-weight: 700;
         }
 
+        /* Reference resumes pre-break skill lines in PHP: the label sits in a fixed column, each line is one block that is
+           never re-wrapped, so no skill is stranded and every line starts under the first. */
+        .skill-group-packed {
+            display: flex;
+            gap: 0.08in;
+        }
+
+        .skill-group-packed .skill-group-label {
+            flex: none;
+            width: 1.45in;
+        }
+
+        .skill-line {
+            display: block;
+            white-space: nowrap;
+        }
+
         .selected-project {
             margin-bottom: 0.18in;
             /* Unlike .role, a selected-project entry is always small and
@@ -540,10 +557,17 @@
         <section class="skills">
             <h2>Technical Skills</h2>
             @foreach ($document->skills as $group)
+                @if ($group->lines !== [])
+                <p class="skill-group skill-group-packed">
+                    <span class="skill-group-label">{{ $group->label }}:</span>
+                    <span class="skill-lines">@foreach ($group->lines as $line)<span class="skill-line">{{ $line }}</span>@endforeach</span>
+                </p>
+                @else
                 <p class="skill-group">
                     <span class="skill-group-label">{{ $group->label }}:</span>
                     {{ implode(' · ', $group->skills) }}
                 </p>
+                @endif
             @endforeach
         </section>
         @endif

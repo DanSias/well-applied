@@ -9,6 +9,7 @@ use App\Models\ResumeVariantProject;
 use App\Models\ResumeVariantSkillSelection;
 use App\Models\Skill;
 use App\Support\CareerData\RoleDateFormatter;
+use Illuminate\Support\Collection;
 
 /**
  * Assembles a presentation-ready ResumeDocument from one ResumeVariant
@@ -150,6 +151,12 @@ final class GenerateResumeDocument
     {
         $selections = $variant->skillSelections->sortBy('display_order')->values();
 
+        // A reference resume presents skills in recognizable categories with professional labels and fixed line breaks.
+        // Variants generated for a job keep the original presentation, so their PDFs do not change.
+        if ($variant->resume_profile_synthesis_id !== null) {
+            return $this->buildReferenceSkillGroups($selections);
+        }
+
         // The one deliberate, narrow exception to this class's own
         // "frozen snapshot only" rule (see class docblock), exactly
         // mirroring ResumeContact's own live CareerProfile read: a
@@ -184,6 +191,34 @@ final class GenerateResumeDocument
             }
 
             $groups[] = new ResumeSkillGroup($label, $selectionsInGroup->pluck('name')->map(ResumeText::clean(...))->all());
+        }
+
+        return $groups;
+    }
+
+    /**
+     * @param  Collection<int, ResumeVariantSkillSelection>  $selections
+     * @return ResumeSkillGroup[]
+     */
+    private function buildReferenceSkillGroups($selections): array
+    {
+        $byGroup = [];
+
+        foreach ($selections as $selection) {
+            $entry = SkillPresentation::for($selection->name);
+
+            if ($entry !== null) {
+                $byGroup[$entry[0]][] = ResumeText::clean($entry[1]);
+            }
+        }
+
+        $groups = [];
+
+        foreach (SkillPresentation::groups() as $label) {
+            if (! empty($byGroup[$label])) {
+                $skills = array_values(array_unique($byGroup[$label]));
+                $groups[] = new ResumeSkillGroup($label, $skills, SkillPresentation::pack($label, $skills));
+            }
         }
 
         return $groups;

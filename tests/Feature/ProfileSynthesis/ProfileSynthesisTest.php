@@ -22,6 +22,8 @@ use App\Support\ProfileSynthesis\ProfileSynthesisPrompt;
 use App\Support\ProfileSynthesis\ReferenceSelection;
 use App\Support\ProfileSynthesis\ReviewProfileSynthesis;
 use App\Support\ProfileSynthesis\SynthesizeProfile;
+use App\Support\ResumeDocument\GenerateResumeDocument;
+use App\Support\ResumeDocument\SkillPresentation;
 use App\Support\ResumeProfile\QuestionWriter;
 use App\Support\ResumeVariant\GenerateResumeVariant;
 use App\Support\ResumeVariant\ResumeCandidatePayloadBuilder;
@@ -323,7 +325,9 @@ it('will not generate a reference resume from a draft', function () {
 it('composes a job-independent resume through the existing validators, without presenting personal evidence as employment', function () {
     $s = synthesisScenario();
     $synthesis = synthesize($s);
-    app(ReviewProfileSynthesis::class)->approve($synthesis);
+    // A personal project appears on a reference resume only when the user includes it.
+    app(ReviewProfileSynthesis::class)->edit($synthesis, "project:{$s['projects']['personal']->id}", ['include' => true]);
+    app(ReviewProfileSynthesis::class)->approve($synthesis->fresh());
     $seen = new stdClass;
     app()->instance(GeneratesResumeWording::class, new class($seen) implements GeneratesResumeWording
     {
@@ -571,4 +575,123 @@ it('keeps the job-linked wording checks exactly as they were', function () {
 
     expect($context->claimFidelity)->toBeFalse()->and($context->retention)->toBe([])
         ->and(app(ResumeWordingResponseValidator::class)->textFindings('summary', 'Drove a 37% increase across managed client engagements.', 'summary', $context, false, false))->toBe([]);
+});
+
+it('leaves personal projects out of a reference resume unless the user includes them', function () {
+    $s = synthesisScenario();
+    $synthesis = synthesize($s);
+    $id = "project:{$s['projects']['personal']->id}";
+    $personal = fn (ResumeProfileSynthesis $x) => collect(EffectiveProfile::resolve($x)['projects'])->firstWhere('id', $id);
+    $selected = function (ResumeProfileSynthesis $x) use ($s) {
+        $payload = app(ResumeCandidatePayloadBuilder::class)->buildForCareer($s['career'], [], []);
+
+        return app(ReferenceSelection::class)->build(EffectiveProfile::resolve($x), $payload)['content']['selected_projects'];
+    };
+
+    // Nothing fills the space; the project is still in the profile and its record is untouched.
+    expect($personal($synthesis)['included'])->toBeFalse()->and($selected($synthesis))->toBe([])->and(Project::find($s['projects']['personal']->id)->exists)->toBeTrue();
+
+    app(ReviewProfileSynthesis::class)->edit($synthesis, $id, ['include' => true]);
+
+    expect($personal($synthesis->fresh())['included'])->toBeTrue()->and(array_column($selected($synthesis->fresh()), 'project_id'))->toBe([$s['projects']['personal']->id]);
+});
+
+it('presents reference skills in recognizable categories with professional labels and no stranded skill', function () {
+    config(['resume.skill_presentation.line_chars' => 60]);
+    $skills = ['TypeScript', 'JavaScript', 'PHP', 'SQL', 'Python-like internal tag'];
+    $mapped = array_values(array_filter(array_map(fn ($n) => SkillPresentation::for($n)[1] ?? null, $skills)));
+
+    expect($mapped)->toBe(['TypeScript', 'JavaScript', 'PHP', 'SQL'])
+        ->and(SkillPresentation::for('Google Cloud (general)'))->toBe(['Data & Cloud', 'Google Cloud'])
+        ->and(SkillPresentation::for('Node.js'))->toBe(['Backend', 'Node.js'])
+        ->and(SkillPresentation::for('Deterministic AI boundaries'))->toBeNull()
+        ->and(SkillPresentation::groups())->toBe(['Languages', 'Frontend', 'Backend', 'Data & Cloud', 'AI & Integrations']);
+
+    // Eight short skills in a narrow column: balanced lines, never one skill alone, deterministic.
+    $items = ['TypeScript', 'JavaScript', 'PHP', 'SQL', 'Go', 'Rust', 'Kotlin', 'Swift'];
+    $lines = SkillPresentation::pack('Languages', $items);
+
+    expect($lines)->toBe(SkillPresentation::pack('Languages', $items))
+        ->and(count($lines))->toBeGreaterThan(1)
+        ->and(collect($lines)->every(fn ($l) => substr_count($l, ' · ') >= 1))->toBeTrue()
+        ->and(collect($lines)->every(fn ($l, $i) => mb_strlen(($i === 0 ? 'Languages: ' : '').$l) <= 60))->toBeTrue()
+        ->and(implode(' · ', $lines))->toBe(implode(' · ', $items))
+        ->and(SkillPresentation::pack('Languages', ['TypeScript', 'SQL']))->toBe(['TypeScript · SQL']);
+});
+
+it('keeps the original skills presentation for job-linked variants and uses the new one for reference resumes', function () {
+    $s = synthesisScenario();
+    $synthesis = synthesize($s);
+    app(ReviewProfileSynthesis::class)->approve($synthesis);
+    app()->instance(GeneratesResumeWording::class, new class implements GeneratesResumeWording
+    {
+        public function generate(string $system, string $user, array $schema): ResumeWordingProviderResponse
+        {
+            preg_match('/--- Approved selection[^\n]*\n(.*?)\n--- End of approved selection/s', $user, $m);
+            $in = json_decode($m[1], true);
+
+            return new ResumeWordingProviderResponse('fake', 'stub', [
+                'summary' => 'Full-Stack Developer.',
+                'experience' => array_map(fn ($r) => ['role_id' => $r['role_id'], 'bullets' => array_map(fn ($g) => ['bullet_group_index' => $g['bullet_group_index'], 'text' => implode(' ', array_map(fn ($f) => rtrim($f['statement'], '.').'.', $g['career_facts']))], $r['bullet_groups'])], $in['experience']),
+                'selected_projects' => [],
+            ]);
+        }
+    });
+
+    $variant = app(GenerateResumeVariant::class)->generateReference($synthesis->fresh());
+    $groups = app(GenerateResumeDocument::class)->generate($variant)->skills;
+
+    expect(array_map(fn ($g) => $g->label, $groups))->each->toBeIn(SkillPresentation::groups())
+        ->and(collect($groups)->every(fn ($g) => $g->lines !== []))->toBeTrue();
+
+    // The same selections on a variant with no profile keep the original groups and a single flowing line.
+    // (Variants are immutable, so the copy is changed in memory only.)
+    $copy = $variant->fresh();
+    $copy->resume_profile_synthesis_id = null;
+    $legacy = app(GenerateResumeDocument::class)->generate($copy)->skills;
+
+    expect(collect($legacy)->every(fn ($g) => $g->lines === []))->toBeTrue()->and(array_map(fn ($g) => $g->label, $legacy))->toContain('Languages & Frameworks');
+});
+
+it('refreshes a stale profile\'s evidence without a model call, keeping its language and the user\'s decisions', function () {
+    $s = synthesisScenario();
+    $synthesis = synthesize($s);
+    $review = app(ReviewProfileSynthesis::class);
+    $review->edit($synthesis, 'project:'.$s['projects']['nexus']->id, ['pinned' => true]);
+    $review->approve($synthesis->fresh());
+    $s['facts']['nexus-85']->update(['statement' => 'Nexus reduced reporting time by 85% and removed the manual export step.']);
+    EvidenceRevision::bump($s['career']);
+    $writer = useSynthesisWriter([]);
+
+    expect($synthesis->fresh()->isStale())->toBeTrue();
+
+    $draft = $review->refreshEvidence($synthesis->fresh());
+
+    expect($writer->calls)->toBe(0)->and($draft->status)->toBe('draft')->and($draft->version)->toBe(2)->and($draft->isStale())->toBeFalse()
+        ->and($draft->content['inventory']['facts']['nexus-85']['statement'])->toContain('removed the manual export step')
+        ->and($draft->content['presentation'])->toEqual($synthesis->content['presentation'])->and($draft->edits)->toEqual($synthesis->fresh()->edits)
+        ->and($draft->usage['model_calls'])->toBe(0)
+        // Nothing is approved for the user, and the approved version is untouched until they approve this one.
+        ->and($synthesis->fresh()->status)->toBe('approved');
+
+    $review->approve($draft);
+
+    expect($synthesis->fresh()->status)->toBe('superseded');
+});
+
+it('refuses to refresh when the changed evidence no longer supports the language', function () {
+    $s = synthesisScenario();
+    $synthesis = synthesize($s);
+    $s['facts']['nexus-built']->update(['statement' => 'Built Nexus, an analytics platform.']);
+    EvidenceRevision::bump($s['career']);
+
+    expect(fn () => app(ReviewProfileSynthesis::class)->refreshEvidence($synthesis->fresh()))->toThrow(ValidationException::class, 'no longer matches')
+        ->and(ResumeProfileSynthesis::count())->toBe(1);
+});
+
+it('records the confirmed RocketGate dates in the canonical import file', function () {
+    $roles = collect(json_decode((string) file_get_contents(base_path('data/canonical-career-data.proposed.json')), true)['roles']);
+    $rocketgate = $roles->firstWhere('key', 'rocketgate-developer-support-engineer');
+
+    expect([$rocketgate['start_year'], $rocketgate['start_month'], $rocketgate['end_year'], $rocketgate['end_month']])->toBe([2025, 8, 2026, 10]);
 });

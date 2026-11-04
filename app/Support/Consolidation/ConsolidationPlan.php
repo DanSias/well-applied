@@ -183,6 +183,7 @@ final class ConsolidationPlan
                 ],
             ],
             // --- Capability indexing (skill associations only) ---------------------------------------
+            self::tag('TAG-JS', 'JavaScript', ['rocketgate-javascript-core-user-confirmed'], ['JavaScript']),
             self::tag('TAG-TS', 'TypeScript', ['workflow-intelligence-typescript-user-confirmed', 'verbatim-typescript-user-confirmed', 'transaction-toolkit-typescript-user-confirmed'], ['TypeScript']),
             self::tag('TAG-GCP', 'GCP and BigQuery', ['salesforce-migration-data-warehouse-cloud-platforms-user-confirmed', 'executive-insights-dashboard-cloud-platforms-user-confirmed'], ['Google Cloud (general)', 'BigQuery']),
             self::tag('TAG-WEBHOOKS', 'Payment webhooks', ['rocketgate-webhooks-user-confirmed'], ['Webhooks']),

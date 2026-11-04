@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import {
     approve,
     newVersion,
+    refreshEvidence,
     referenceResume,
     update,
 } from '@/routes/profile-syntheses';
@@ -852,6 +853,16 @@ function ApprovalBar({
                     >
                         Approve this profile
                     </button>
+                    {s.stale && (
+                        <button
+                            type="button"
+                            className={`${secondary} mt-2 ml-2`}
+                            disabled={busy}
+                            onClick={() => send(refreshEvidence.post(s.id), {})}
+                        >
+                            Refresh evidence (no model call)
+                        </button>
+                    )}
                 </>
             ) : (
                 <>
@@ -867,6 +878,16 @@ function ApprovalBar({
                     >
                         Edit as a new draft
                     </button>
+                    {s.stale && (
+                        <button
+                            type="button"
+                            className={`${secondary} mt-2 ml-2`}
+                            disabled={busy}
+                            onClick={() => send(refreshEvidence.post(s.id), {})}
+                        >
+                            Refresh evidence (no model call)
+                        </button>
+                    )}
                 </>
             )}
             <Errors errors={errors} />

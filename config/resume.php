@@ -49,4 +49,28 @@ return [
     */
     'generalizations' => [],
 
+    /*
+    | How a reference resume presents Technical Skills (see SkillPresentation). Keyed by the canonical Skill name:
+    | [category, display label]. A skill that is not listed is not shown, which keeps internal taxonomy tags
+    | ("Deterministic AI boundaries", "Data pipelines") and obscure tools off the page; a listed skill still has to be
+    | selected from approved evidence. `line_chars` is the width, label included, a line is packed to.
+    */
+    'skill_presentation' => [
+        'groups' => ['Languages', 'Frontend', 'Backend', 'Data & Cloud', 'AI & Integrations'],
+        'line_chars' => 88,
+        'max_per_group' => 5,
+        // The technologies a Full-Stack Developer resume should lead with; a skill gets this lift only if approved evidence carries it.
+        'core' => ['TypeScript', 'JavaScript', 'SQL', 'React', 'Vue.js', 'Node.js', 'Laravel', 'REST APIs', 'PostgreSQL', 'MySQL', 'AWS', 'Google Cloud (general)'],
+        'skills' => [
+            'TypeScript' => ['Languages', 'TypeScript'], 'JavaScript' => ['Languages', 'JavaScript'], 'PHP' => ['Languages', 'PHP'], 'SQL' => ['Languages', 'SQL'],
+            'React' => ['Frontend', 'React'], 'Vue.js' => ['Frontend', 'Vue.js'], 'Next.js' => ['Frontend', 'Next.js'], 'Tailwind CSS' => ['Frontend', 'Tailwind CSS'],
+            'Node.js' => ['Backend', 'Node.js'], 'Express.js' => ['Backend', 'Express.js'], 'Laravel' => ['Backend', 'Laravel'], 'REST APIs' => ['Backend', 'REST APIs'],
+            'PostgreSQL' => ['Data & Cloud', 'PostgreSQL'], 'MySQL' => ['Data & Cloud', 'MySQL'], 'SQLite' => ['Data & Cloud', 'SQLite'], 'BigQuery' => ['Data & Cloud', 'BigQuery'],
+            'Google Cloud (general)' => ['Data & Cloud', 'Google Cloud'], 'Google Cloud Functions' => ['Data & Cloud', 'Cloud Functions'], 'AWS' => ['Data & Cloud', 'AWS'],
+            'Microsoft Azure' => ['Data & Cloud', 'Azure'], 'Docker' => ['Data & Cloud', 'Docker'],
+            'OpenAI' => ['AI & Integrations', 'OpenAI'], 'Anthropic' => ['AI & Integrations', 'Anthropic'], 'Jira' => ['AI & Integrations', 'Jira'],
+            'GitLab' => ['AI & Integrations', 'GitLab'], 'Salesforce' => ['AI & Integrations', 'Salesforce'], 'API integration & design' => ['AI & Integrations', 'API integration'],
+        ],
+    ],
+
 ];

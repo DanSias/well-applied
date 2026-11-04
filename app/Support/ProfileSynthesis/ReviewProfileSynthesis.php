@@ -3,6 +3,7 @@
 namespace App\Support\ProfileSynthesis;
 
 use App\Models\ResumeProfileSynthesis;
+use App\Support\Clarification\EvidenceRevision;
 use App\Support\ResumeProfile\CapabilityCoverage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -21,7 +22,7 @@ final class ReviewProfileSynthesis
 
     private const ITEM_IDS = '/^(?:project:\d+|capability:[a-z0-9_]+|accomplishment:[a-z0-9._-]+|differentiator:\d+)$/';
 
-    public function __construct(private readonly ProfilePresentationValidator $validator, private readonly CapabilityCoverage $coverage) {}
+    public function __construct(private readonly ProfilePresentationValidator $validator, private readonly CapabilityCoverage $coverage, private readonly ProfileAssembly $assembly) {}
 
     /**
      * @param  array{include?: bool, pinned?: bool, order?: int|null, text?: string, fact_keys?: array<int, string>}  $fields  `fact_keys` replaces the facts a piece of language cites (summary, differentiators and project notes); it is judged with the wording in one step
@@ -212,6 +213,41 @@ final class ReviewProfileSynthesis
         $words = fn (string $t) => array_unique(array_filter(preg_split('/[^a-z0-9]+/', strtolower($t)) ?: [], fn (string $w) => strlen($w) >= 5));
 
         return count(array_intersect($words($text), $words((string) $fact['statement']))) >= 2;
+    }
+
+    /**
+     * Rebuilds the evidence inventory from the approved record as a NEW draft, keeping the written language and the
+     * user's decisions. For when the evidence moved on (a fact was revised, a skill tagged) and the version is stale,
+     * but the positioning still stands. No model call. The language is re-judged against the fresh inventory, so a
+     * sentence the changed evidence no longer supports is refused rather than carried along; approval stays yours.
+     */
+    public function refreshEvidence(ResumeProfileSynthesis $from): ResumeProfileSynthesis
+    {
+        $profile = $from->resumeProfile;
+        $inventory = $this->assembly->assemble($profile);
+        $candidate = $from->replicate();
+        $candidate->content = ['inventory' => $inventory, 'presentation' => $from->content['presentation']];
+        $candidate->setRelation('careerProfile', $from->careerProfile);
+        $errors = $this->problems($candidate, EffectiveProfile::resolve($candidate));
+
+        if ($errors !== []) {
+            throw ValidationException::withMessages(['profile' => ['The positioning no longer matches the evidence: '.implode(' ', $errors), 'Edit it, or build a new version.']]);
+        }
+
+        return DB::transaction(function () use ($from, $inventory) {
+            ResumeProfileSynthesis::query()->where('resume_profile_id', $from->resume_profile_id)->where('status', 'draft')->update(['status' => 'superseded']);
+
+            return ResumeProfileSynthesis::create([
+                'career_profile_id' => $from->career_profile_id, 'resume_profile_id' => $from->resume_profile_id,
+                'version' => (int) ResumeProfileSynthesis::query()->where('resume_profile_id', $from->resume_profile_id)->max('version') + 1,
+                'status' => 'draft', 'evidence_revision' => EvidenceRevision::current($from->careerProfile),
+                'market_sample_id' => $inventory['provenance']['sample']['id'] ?? $from->market_sample_id, 'pilot' => (bool) ($inventory['provenance']['sample']['pilot'] ?? $from->pilot),
+                'input_hash' => hash('sha256', json_encode([ProfileSynthesisPrompt::VERSION, $inventory], JSON_THROW_ON_ERROR)),
+                'prompt_version' => $from->prompt_version, 'generated_by' => $from->generated_by,
+                'content' => ['inventory' => $inventory, 'presentation' => $from->content['presentation']], 'edits' => $from->edits,
+                'usage' => ['refreshed_from_version' => $from->version, 'model_calls' => 0], 'validation' => $from->validation,
+            ]);
+        });
     }
 
     /**

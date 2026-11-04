@@ -12,9 +12,11 @@ final readonly class ResumeSkillGroup
 {
     /**
      * @param  string[]  $skills
+     * @param  string[]  $lines  The skills already broken into display lines (reference resumes). Empty means one flowing line.
      */
     public function __construct(
         public string $label,
         public array $skills,
+        public array $lines = [],
     ) {}
 }

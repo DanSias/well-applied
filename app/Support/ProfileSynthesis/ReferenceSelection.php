@@ -4,6 +4,7 @@ namespace App\Support\ProfileSynthesis;
 
 use App\Models\CareerFact;
 use App\Models\Role;
+use App\Support\ResumeDocument\SkillPresentation;
 use App\Support\ResumeProfile\CapabilityCoverage;
 
 /**
@@ -712,13 +713,15 @@ final class ReferenceSelection
         $meta = [];
 
         foreach ($offered as $key => $f) {
-            if (($f['visibility'] ?? null) === 'restricted') {
-                continue;
-            }
-
             $project = $f['attribution']['project_id'] ?? null;
 
             foreach ($f['skills'] ?? [] as $skill) {
+                // Only skills the reference resume can present. They are general technologies (never a confidential system),
+                // so a skill that only a restricted fact carries may still be listed.
+                if (SkillPresentation::for((string) $skill['name']) === null) {
+                    continue;
+                }
+
                 $id = (int) $skill['id'];
                 $meta[$id] = $skill;
                 $scores[$id]['projects'][$project ?? 0] = true;
@@ -742,7 +745,8 @@ final class ReferenceSelection
                 }
             }
 
-            $score = 0.8 * $capScore + min(1.5, $stack) + min(0.75, 0.25 * $s['cited']) + (array_intersect($caps, $summaryCaps) !== [] ? 0.5 : 0.0);
+            $score = 0.8 * $capScore + min(1.5, $stack) + min(0.75, 0.25 * $s['cited']) + (array_intersect($caps, $summaryCaps) !== [] ? 0.5 : 0.0)
+                + (in_array($skill['name'], (array) config('resume.skill_presentation.core'), true) ? 1.5 : 0.0);
             $technology = in_array($skill['category'], ['build_technology', 'platform_integration'], true);
 
             if ($score > 0) {
@@ -751,22 +755,26 @@ final class ReferenceSelection
         }
 
         usort($rows, fn (array $a, array $b) => [$b['score'], $a['name']] <=> [$a['score'], $b['name']]);
-        $practice = 0;
         $perCapability = [];
+        $perGroup = [];
         $out = [];
 
         foreach ($rows as $r) {
-            if (! $r['technology'] && ++$practice > 3) {
+            [$group] = SkillPresentation::for($r['name']) ?? ['', ''];
+
+            // A category holds at most a handful, and cloud platforms at most two: a third cloud says less than two.
+            if (($perGroup[$group] ?? 0) >= (int) config('resume.skill_presentation.max_per_group', 5)) {
                 continue;
             }
 
-            // Three cloud or database tags say less than two: each capability contributes at most two skills.
             $family = $this->coverage->capabilitiesIn($r['name'])[0] ?? 'skill:'.$r['id'];
 
-            if (($perCapability[$family] = ($perCapability[$family] ?? 0) + 1) > 2) {
+            if ($family === 'cloud_platforms' && ($perCapability[$family] ?? 0) >= 2) {
                 continue;
             }
 
+            $perCapability[$family] = ($perCapability[$family] ?? 0) + 1;
+            $perGroup[$group] = ($perGroup[$group] ?? 0) + 1;
             $out[] = ['skill_id' => $r['id'], 'order' => count($out) + 1];
 
             if (count($out) >= (int) ($cfg['skills'] ?? 14)) {

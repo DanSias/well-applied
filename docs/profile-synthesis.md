@@ -93,3 +93,18 @@ the offered place, so approved summary content never loses its evidence to claim
 cites stays in its evidence. **Skills** come from the curated profile (kept direct capabilities weighted by market demand,
 the stacks of included projects with priority projects counting fully, and a little for being cited), never from restricted
 evidence, at most two per capability and three practice tags, 14 in all.
+
+## Editorial controls for the reference resume
+
+- **Personal projects** are not shown unless the user includes (or pins) them in the profile: their default in the
+  profile is excluded, so nothing fills the space freed by leaving them out. Their records, links and availability for
+  job-specific resumes are untouched.
+- **Technical Skills** on a reference resume use `SkillPresentation` and `config/resume.php` `skill_presentation`:
+  categories Languages, Frontend, Backend, Data & Cloud and AI & Integrations; professional labels ("Google Cloud", not
+  "Google Cloud (general)"); and a canonical skill that is not listed is not shown (internal tags stay off the page). The
+  selection ranks listed skills from approved evidence, with a short `core` list of lead technologies lifted. Lines are
+  packed in PHP to a fixed width, balanced, with no skill left alone on a line. Job-linked variants keep the original
+  presentation, so their PDFs do not change.
+- **A stale profile** (the approved evidence moved on) can be refreshed without a model call: the inventory is rebuilt, the
+  written language and the user's decisions are kept, and the language is re-judged against the new inventory. The result
+  is a new draft; approving it is the user's step.

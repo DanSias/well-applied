@@ -62,6 +62,14 @@ class ProfileSynthesisController extends Controller
         return back();
     }
 
+    public function refreshEvidence(ResumeProfileSynthesis $synthesis, ReviewProfileSynthesis $review): RedirectResponse
+    {
+        $this->own($synthesis);
+        $review->refreshEvidence($synthesis);
+
+        return back();
+    }
+
     public function generate(ResumeProfileSynthesis $synthesis): RedirectResponse
     {
         $this->own($synthesis);

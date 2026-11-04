@@ -28,7 +28,8 @@ final class EffectiveProfile
         $decorate = function (array $rows) use ($items): array {
             $rows = array_map(fn (array $row) => [
                 ...$row,
-                'included' => (bool) ($items[$row['id']]['include'] ?? true),
+                // A personal project is shown on a reference resume only when the user includes it; nothing fills the space.
+                'included' => (bool) ($items[$row['id']]['include'] ?? ! ($row['personal'] ?? false)),
                 'pinned' => (bool) ($items[$row['id']]['pinned'] ?? false),
                 'order' => $items[$row['id']]['order'] ?? null,
                 'edited' => isset($items[$row['id']]),
