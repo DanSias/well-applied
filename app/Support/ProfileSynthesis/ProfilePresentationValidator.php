@@ -21,8 +21,6 @@ final class ProfilePresentationValidator
 {
     private const YEARS = '/\b\d+\+?\s*(?:years?|yrs?)\b/i';
 
-    private const FIRST_PERSON = "/(?<![\\w'])(?:I|I've|I'm|my|me)(?![\\w])/";
-
     /** Verbs that claim more ownership or authority than building or working on something does. */
     private const STRONG_VERBS = [
         'architected' => '/\barchitect(?:ed|ing)\b/i', 'led' => '/\b(?:led|leading|spearhead\w*|pioneer\w*)\b/i',
@@ -64,7 +62,7 @@ final class ProfilePresentationValidator
                 return;
             }
 
-            if (preg_match(self::FIRST_PERSON, $text) === 1) {
+            if (FirstPerson::in($text)) {
                 $errors[] = "{$where}: uses the first person.";
             }
 
@@ -161,7 +159,7 @@ final class ProfilePresentationValidator
 
         if ($headline === '' || str_word_count($headline) > 14 || mb_strlen($headline) > 100) {
             $errors[] = 'headline: must be a short title line of at most 12 words.';
-        } elseif (preg_match(self::FIRST_PERSON, $headline) === 1 || preg_match('/\d/', $headline) === 1) {
+        } elseif (FirstPerson::in($headline) || preg_match('/\d/', $headline) === 1) {
             $errors[] = 'headline: must not use the first person or contain a number.';
         }
 

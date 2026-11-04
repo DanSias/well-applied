@@ -1187,3 +1187,13 @@ and tags each finding `block` or `review`; only structural problems
   visibility. It never stores the text of an omitted claim. The Tailored
   Resume panel lists the items to verify. A review warning never blocks PDF
   generation.
+
+## Automatic evidence resolution (profile editor)
+
+Editing the wording of a profile summary, headline, differentiator or project note no longer asks you to pick facts. `ResolveEvidence` (deterministic, no model call) reads each sentence's claims — capabilities, figures, named projects and employers, technical approaches, scale terms, ownership verbs — and finds approved facts that *state* them (negation-safe, so "rather than high-traffic systems" is not support). Facts already cited are kept when still relevant; several facts may jointly support a sentence; shared claims count once. The result is then judged by the profile validator and the claim-fidelity check against the combined evidence.
+
+- supported: wording and resolved facts are saved, with an audit record in `edits.resolution`;
+- uncertain: nothing is saved; the gap is explained and up to three candidate facts are offered;
+- unsupported: nothing is saved; the unsupported claim is named and removing the sentence is offered.
+
+Summaries/headlines search the whole eligible record; a project note only its project and that role's evidence. First-person facts may authorize a capability but are support-only: never shown to a model or used as resume wording (a `first_person` finding blocks it). The full picker survives as the lazily loaded "Advanced evidence editor". Resolution never changes career facts, approved profiles or variants. Limits: sentence-level lexical matching, not semantic understanding; a paraphrase that shares no specific term with its fact resolves as uncertain.

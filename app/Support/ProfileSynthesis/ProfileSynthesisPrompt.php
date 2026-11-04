@@ -105,7 +105,7 @@ final class ProfileSynthesisPrompt
 
         // Whole-career and personal facts the profile may cite, clearly marked as such.
         foreach ($inventory['facts'] as $key => $fact) {
-            if ($fact['personal']) {
+            if ($fact['personal'] && ! ($fact['support_only'] ?? false)) {
                 $keys[] = $key;
             }
         }

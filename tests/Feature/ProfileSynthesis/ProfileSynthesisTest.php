@@ -20,6 +20,7 @@ use App\Support\ProfileSynthesis\GenerateReferenceResume;
 use App\Support\ProfileSynthesis\ProfileAssembly;
 use App\Support\ProfileSynthesis\ProfileSynthesisPrompt;
 use App\Support\ProfileSynthesis\ReferenceSelection;
+use App\Support\ProfileSynthesis\ResolveEvidence;
 use App\Support\ProfileSynthesis\ReviewProfileSynthesis;
 use App\Support\ProfileSynthesis\SynthesizeProfile;
 use App\Support\ResumeDocument\GenerateResumeDocument;
@@ -145,7 +146,9 @@ it('keeps Private evidence out entirely and flags what was not used as written',
     expect(json_encode($inventory))->not->toContain('SECRET-PROJECT-ZEBRA')->and($inventory['facts'])->not->toHaveKey('private-secret')
         ->and($inventory['private_omitted'])->toBe(2)
         ->and(array_column($inventory['excluded'], 'fact_key'))->toContain('first-person')
-        ->and($inventory['facts'])->not->toHaveKey('first-person');
+        // First-person wording may authorize a capability but is support-only: never an accomplishment, never in a project's facts.
+        ->and($inventory['facts']['first-person']['support_only'])->toBeTrue()
+        ->and(array_column($inventory['accomplishments'], 'fact_key'))->not->toContain('first-person');
 });
 
 it('counts a shared claim once, under the place whose project ranks highest, and keeps whole-career facts out of the bullets', function () {
@@ -354,7 +357,7 @@ it('composes a job-independent resume through the existing validators, without p
     $cited = $variant->experienceRoles->flatMap(fn ($r) => $r->bullets->flatMap(fn ($b) => $b->citations->map(fn ($c) => $c->careerFact->key)))->all();
 
     expect($variant->job_match_id)->toBeNull()->and($variant->resume_profile_synthesis_id)->toBe($synthesis->id)
-        ->and($variant->selection_prompt_version)->toBe('reference-selection-v2')->and($variant->wording_prompt_version)->toBe('resume-wording-reference-v2')
+        ->and($variant->selection_prompt_version)->toBe('reference-selection-v2')->and($variant->wording_prompt_version)->toBe('resume-wording-reference-v3')
         ->and($variant->selection_generated_by)->toBe('deterministic:profile-v1')
         // Every role that has evidence appears; the whole-career fact and the Private fact are in no bullet.
         ->and($variant->experienceRoles)->toHaveCount(2)->and($cited)->not->toContain('personal-docker', 'private-secret', 'first-person')
@@ -411,9 +414,13 @@ it('lets the user add an existing fact as supporting evidence for an edited summ
     $draft = $review->newVersion($synthesis->fresh());
     $edited = goodPresentation()['summary'].' Moved Nexus reporting totals into SQL aggregation in the database.';
 
-    // The wording alone is refused: nothing it cites states SQL, and the refusal names the facts that do.
-    expect(fn () => $review->edit($draft, 'summary', ['text' => $edited]))->toThrow(ValidationException::class, 'SQL')
-        ->and($draft->fresh()->edits['text'] ?? [])->toBe([]);
+    // The inventory predates the new fact; a refresh brings it in. Then the wording alone resolves to it automatically.
+    $draft = $review->refreshEvidence($draft);
+    $review->edit($draft, 'summary', ['text' => $edited]);
+    expect(EffectiveProfile::resolve($draft->fresh())['presentation']['summary_fact_keys'])->toContain('nexus-sql')
+        ->and($draft->fresh()->edits['resolution']['summary']['status'])->toBe('supported');
+    $draft = $review->refreshEvidence($draft->fresh());
+    $draft->update(['edits' => []]);
 
     // An unrelated fact is refused as evidence, and so is one that is not in the inventory.
     expect(fn () => $review->edit($draft, 'summary', ['text' => $edited, 'fact_keys' => [...goodPresentation()['summary_fact_keys'], 'personal-docker']]))->toThrow(ValidationException::class, 'does not support')
@@ -442,9 +449,9 @@ it('offers the editor every eligible fact as a candidate, and none that are Priv
     $s = synthesisScenario();
     $synthesis = synthesize($s);
 
-    $this->get(route('resume-profiles.show', $s['profile']))->assertInertia(fn ($page) => $page
-        ->has('resume_profile.synthesis.synthesis.candidates')
-        ->where('resume_profile.synthesis.synthesis.candidates', fn ($candidates) => collect($candidates)->pluck('key')->contains('wi-owned') && ! collect($candidates)->pluck('key')->contains('private-secret')));
+    $this->get(route('resume-profiles.show', $s['profile']))->assertInertia(fn ($page) => $page->missing('resume_profile.synthesis.synthesis.candidates'));
+    $keys = collect($this->getJson(route('profile-syntheses.evidence-candidates', $synthesis))->assertOk()->json('candidates'))->pluck('key');
+    expect($keys)->toContain('wi-owned')->not->toContain('private-secret');
 
     $this->patch(route('profile-syntheses.update', $synthesis), ['id' => 'differentiator:0', 'fact_keys' => ['wi-owned', 'wi-deterministic']])->assertRedirect();
     $this->patch(route('profile-syntheses.update', $synthesis), ['id' => 'summary', 'fact_keys' => []])->assertSessionHasErrors();
@@ -694,4 +701,144 @@ it('records the confirmed RocketGate dates in the canonical import file', functi
     $rocketgate = $roles->firstWhere('key', 'rocketgate-developer-support-engineer');
 
     expect([$rocketgate['start_year'], $rocketgate['start_month'], $rocketgate['end_year'], $rocketgate['end_month']])->toBe([2025, 8, 2026, 10]);
+});
+
+/**
+ * A draft whose inventory includes every fact the scenario defines (extra facts are created first).
+ *
+ * @param  array<int, array{0: string, 1: string, 2?: Visibility}>  $extra  key, statement, visibility
+ */
+function resolutionDraft(?array &$s = null, array $extra = []): ResumeProfileSynthesis
+{
+    $s = synthesisScenario();
+
+    foreach ($extra as [$key, $statement, $visibility]) {
+        CareerFact::factory()->create([
+            'career_profile_id' => $s['career']->id, 'key' => $key, 'statement' => $statement, 'visibility' => $visibility ?? Visibility::Public,
+            'verification' => Verification::StronglySupported, 'fact_type' => CareerFactType::Bullet, 'attributable_type' => 'role', 'attributable_id' => $s['pearson']->id,
+        ]);
+    }
+
+    return synthesize($s);
+}
+
+function resolveText(ResumeProfileSynthesis $draft, string $id, string $text, array $preferred = []): array
+{
+    return app(ResolveEvidence::class)->resolve($draft, $id, $text, $preferred);
+}
+
+it('keeps the wording of an existing approved summary supported, with no more citations than it needs', function () {
+    $draft = resolutionDraft();
+    $r = resolveText($draft, 'summary', goodPresentation()['summary'], goodPresentation()['summary_fact_keys']);
+
+    expect($r['status'])->toBe('supported')->and($r['keys'])->toContain('wi-owned', 'nexus-85')->and(count($r['keys']))->toBeLessThanOrEqual(5);
+});
+
+it('resolves a SQL aggregation sentence to the aggregation fact, not to a generic database fact', function () {
+    $draft = resolutionDraft(extra: [
+        ['nexus-sql', 'Optimized Nexus analytics queries using SQL-side aggregation, including GROUP BY and SUM, to calculate reporting totals in the database.', Visibility::Restricted],
+        ['generic-mssql', 'Migrated Salesforce data between systems, working with MS SQL Server tables.', Visibility::Public],
+    ]);
+    $r = resolveText($draft, 'summary', 'Moved Nexus reporting totals into SQL aggregation in the database.');
+
+    expect($r['status'])->toBe('supported')->and($r['keys'])->toContain('nexus-sql')->not->toContain('generic-mssql');
+});
+
+it('lets first-person evidence authorize a capability without ever putting its wording on a resume', function () {
+    $draft = resolutionDraft();
+    $r = resolveText($draft, 'summary', 'Full-Stack Developer with extensive JavaScript experience.');
+
+    expect($r['status'])->toBe('supported')->and($r['keys'])->toContain('first-person');
+
+    $review = app(ReviewProfileSynthesis::class);
+    $summary = goodPresentation()['summary'].' Brings extensive JavaScript experience.';
+    $review->edit($draft, 'summary', ['text' => $summary]);
+
+    // The wording is the user's; the first-person sentence is support-only.
+    expect(EffectiveProfile::resolve($draft->fresh())['presentation']['summary_fact_keys'])->toContain('first-person')
+        ->and(EffectiveProfile::resolve($draft->fresh())['presentation']['summary'])->not->toContain("I've")->and($draft->fresh()->content['inventory']['facts']['first-person']['support_only'])->toBeTrue();
+});
+
+it('lets several facts jointly support one sentence', function () {
+    $draft = resolutionDraft();
+    $r = resolveText($draft, 'differentiator:2', 'Built a full-stack React and Node.js analytics platform for Nexus that reduced reporting time by 85%.');
+
+    expect($r['status'])->toBe('supported')->and($r['keys'])->toContain('nexus-built', 'nexus-85');
+});
+
+it('refuses technologies and scale that no approved fact states', function () {
+    $draft = resolutionDraft();
+
+    foreach (['Built Kubernetes deployment pipelines for Workflow Intelligence.', 'Built a Rust analytics engine.'] as $text) {
+        $r = resolveText($draft, 'summary', $text);
+        expect($r['status'])->not->toBe('supported');
+    }
+
+    $scale = resolveText($draft, 'summary', 'Built Nexus, a high-traffic analytics platform serving millions of users.');
+    expect($scale['status'])->toBe('unsupported')->and(collect($scale['gaps'])->pluck('kind'))->toContain('scale');
+});
+
+it('does not let a fact that denies scale authorize it', function () {
+    $draft = resolutionDraft(extra: [['scale-denied', 'Built internal tools for small teams rather than high-traffic consumer systems.', Visibility::Public]]);
+    $r = resolveText($draft, 'summary', 'Built high-traffic consumer systems.');
+
+    expect($r['status'])->toBe('unsupported');
+});
+
+it('refuses a stronger ownership, a widened scope and an unexplained cause', function () {
+    $draft = resolutionDraft();
+
+    $owner = resolveText($draft, 'differentiator:2', 'Led and architected the Nexus analytics platform.');
+    $scope = resolveText($draft, 'differentiator:2', 'Built Nexus analytics across all client portfolios.');
+    $cause = resolveText($draft, 'differentiator:2', 'Built Nexus, which cut reporting time by 85% by introducing caching.');
+
+    expect($owner['status'])->not->toBe('supported')->and($scope['status'])->not->toBe('supported')->and($cause['status'])->not->toBe('supported');
+});
+
+it('refuses a figure that only Restricted evidence states in a place the policy does not allow, and never offers Private facts', function () {
+    $draft = resolutionDraft();
+    $r = resolveText($draft, 'summary', 'Corrected 32,000 merchant transaction records through idempotent, audited writes.');
+
+    expect(collect($r['gaps'])->pluck('claim')->implode(' '))->not->toContain('ZEBRA')
+        ->and(json_encode($r))->not->toContain('SECRET-PROJECT-ZEBRA')->and($draft->content['inventory']['facts'])->not->toHaveKey('private-secret');
+});
+
+it('restricts a project note to its project and the role evidence around it', function () {
+    $s = null;
+    $draft = resolutionDraft($s);
+    $note = 'note:'.$s['projects']['nexus']->id;
+    $r = resolveText($draft, $note, 'Built a full-stack analytics platform that reduced reporting time by 85%.');
+    $stray = resolveText($draft, $note, 'Independently owned Workflow Intelligence end to end.');
+
+    expect($r['status'])->toBe('supported')->and($r['keys'])->not->toContain('wi-owned')->and($stray['status'])->not->toBe('supported');
+});
+
+it('saves resolved wording automatically with an audit record, makes no model call, and still honors manual evidence', function () {
+    $draft = resolutionDraft();
+    $writer = useSynthesisWriter([]);
+    $review = app(ReviewProfileSynthesis::class);
+    $text = 'Designs around deterministic, evidence-linked metrics, each computed once and reused.';
+
+    $review->edit($draft, 'differentiator:1', ['text' => $text]);
+    $saved = $draft->fresh();
+
+    expect($saved->edits['keys']['differentiator:1'])->toBe(['wi-deterministic'])
+        ->and($saved->edits['resolution']['differentiator:1'])->toMatchArray(['mode' => 'auto', 'status' => 'supported', 'fact_count' => 1])
+        ->and($writer->calls)->toBe(0);
+
+    // Unsupported wording is not saved; the error explains the claim and carries the structured gap.
+    try {
+        $review->edit($saved, 'differentiator:1', ['text' => 'Built Kubernetes clusters at scale.']);
+        $thrown = null;
+    } catch (ValidationException $e) {
+        $thrown = $e;
+    }
+
+    expect($thrown)->not->toBeNull()->and(json_decode($thrown->errors()['resolution'][0], true)['gaps'])->not->toBeEmpty()
+        ->and($saved->fresh()->edits['text']['differentiator:1'])->toBe($text);
+
+    // Manual evidence editing still works and is judged with the wording.
+    expect(fn () => $review->edit($saved->fresh(), 'differentiator:1', ['text' => $text, 'fact_keys' => ['wi-deterministic', 'personal-docker']]))->toThrow(ValidationException::class, 'does not support');
+    $review->edit($saved->fresh(), 'differentiator:1', ['text' => $text, 'fact_keys' => ['wi-deterministic']]);
+    expect($saved->fresh()->edits['keys']['differentiator:1'])->toBe(['wi-deterministic']);
 });

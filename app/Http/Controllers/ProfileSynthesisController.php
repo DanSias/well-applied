@@ -7,7 +7,9 @@ use App\Jobs\SynthesizeProfileJob;
 use App\Models\ResumeProfile;
 use App\Models\ResumeProfileSynthesis;
 use App\Support\CurrentCareerProfile;
+use App\Support\ProfileSynthesis\PresentProfileSynthesis;
 use App\Support\ProfileSynthesis\ReviewProfileSynthesis;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -44,6 +46,17 @@ class ProfileSynthesisController extends Controller
         isset($data['reorder']) ? $review->reorder($synthesis, $data['reorder']) : $review->edit($synthesis, $data['id'], array_intersect_key($data, array_flip(['include', 'pinned', 'text', 'fact_keys'])));
 
         return back();
+    }
+
+    /**
+     * Every eligible fact, for the Advanced evidence editor. Loaded only when the editor is opened.
+     */
+    public function evidenceCandidates(ResumeProfileSynthesis $synthesis, PresentProfileSynthesis $present): JsonResponse
+    {
+        $this->own($synthesis);
+        abort_unless($synthesis->status === 'draft', 404);
+
+        return response()->json(['candidates' => $present->candidates($synthesis->content['inventory']['facts'])]);
     }
 
     public function approve(ResumeProfileSynthesis $synthesis, ReviewProfileSynthesis $review): RedirectResponse

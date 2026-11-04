@@ -3,6 +3,7 @@ import { router } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import {
     approve,
+    evidenceCandidates,
     newVersion,
     refreshEvidence,
     referenceResume,
@@ -201,6 +202,42 @@ function Row({
     );
 }
 
+type Gap = {
+    kind: string;
+    level: string;
+    sentence: string;
+    claim: string;
+    message: string;
+    candidates: string[];
+    repaired: string | null;
+};
+
+type Resolution = {
+    status: 'uncertain' | 'unsupported';
+    gaps: Gap[];
+    alternative: string | null;
+};
+
+function readResolution(errors: Errors): Resolution | null {
+    try {
+        return errors.resolution
+            ? (JSON.parse(errors.resolution) as Resolution)
+            : null;
+    } catch {
+        return null;
+    }
+}
+
+function factLabel(f: SynthesisFact | undefined): string {
+    if (!f) {
+        return 'A career fact';
+    }
+
+    const place = f.project ?? f.role ?? (f.whole_career ? 'Whole career' : '');
+
+    return `${f.statement.length > 150 ? `${f.statement.slice(0, 150)}…` : f.statement}${place ? ` — ${place}` : ''}`;
+}
+
 function EditableText({
     id,
     value,
@@ -209,7 +246,7 @@ function EditableText({
     editable,
     rows = 3,
     keys,
-    candidates = [],
+    facts = {},
 }: {
     id: string;
     value: string;
@@ -218,12 +255,18 @@ function EditableText({
     editable: boolean;
     rows?: number;
     keys?: string[];
-    candidates?: SynthesisCandidate[];
+    facts?: Record<string, SynthesisFact>;
 }) {
     const [text, setText] = useState(value);
+    const [advanced, setAdvanced] = useState(false);
+    const [candidates, setCandidates] = useState<SynthesisCandidate[] | null>(
+        null,
+    );
     const [cited, setCited] = useState<string[]>(keys ?? []);
     const [adding, setAdding] = useState('');
     const { busy, send, errors } = useSend();
+    const resolution = readResolution(errors);
+    const shown = Object.entries(errors).filter(([k]) => k !== 'resolution');
     const keysChanged =
         keys !== undefined &&
         (cited.length !== keys.length || cited.some((k) => !keys.includes(k)));
@@ -235,9 +278,27 @@ function EditableText({
         return <p className="text-sm">{value}</p>;
     }
 
-    const label = (key: string) =>
-        candidates.find((c) => c.key === key)?.statement ?? key;
-    const available = candidates.filter((c) => !cited.includes(c.key));
+    const open = async () => {
+        setAdvanced(true);
+
+        if (candidates === null) {
+            const res = await fetch(evidenceCandidates.url(sid), {
+                headers: { Accept: 'application/json' },
+            });
+            setCandidates(
+                ((await res.json()) as { candidates: SynthesisCandidate[] })
+                    .candidates,
+            );
+        }
+    };
+    const save = (wording: string, extra: Record<string, unknown> = {}) =>
+        send(update.patch(sid), { id, text: wording, ...extra });
+    const pick = (gap: Gap, key: string) => {
+        // Choosing a fact for an uncertain sentence is the manual path: it is still judged with the wording.
+        save(text, { fact_keys: [...new Set([...(keys ?? []), key])] });
+        void gap;
+    };
+    const available = (candidates ?? []).filter((c) => !cited.includes(c.key));
 
     return (
         <div>
@@ -248,10 +309,126 @@ function EditableText({
                 onChange={(e) => setText(e.target.value)}
             />
             {keys !== undefined && (
+                <div className="mt-1 text-xs text-neutral-500">
+                    <p>
+                        {keys.length === 0
+                            ? 'Not tied to specific career facts.'
+                            : `Supported by ${keys.length} career fact${keys.length === 1 ? '' : 's'}`}
+                    </p>
+                    {keys.length > 0 && (
+                        <details className="mt-1">
+                            <summary className="cursor-pointer">
+                                View supporting evidence
+                            </summary>
+                            <ul className="mt-1 space-y-1">
+                                {keys.map((key) => (
+                                    <li key={key}>
+                                        {factLabel(facts[key])}{' '}
+                                        <span className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">
+                                            {facts[key]?.support_only
+                                                ? 'support only'
+                                                : facts[key]?.visibility}
+                                        </span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </details>
+                    )}
+                </div>
+            )}
+            {resolution && (
+                <div
+                    role="alert"
+                    className="mt-2 rounded border border-amber-300 p-2 text-xs dark:border-amber-700"
+                >
+                    <p className="font-medium">
+                        {resolution.status === 'uncertain'
+                            ? 'Not saved: support is uncertain.'
+                            : 'Not saved: part of this is not supported by your career facts.'}
+                    </p>
+                    <ul className="mt-1 space-y-2">
+                        {resolution.gaps.slice(0, 4).map((gap, i) => (
+                            <li key={i}>
+                                <p>{gap.message}</p>
+                                {gap.sentence && gap.sentence !== text && (
+                                    <p className="text-neutral-500">
+                                        “{gap.sentence}”
+                                    </p>
+                                )}
+                                {gap.candidates.slice(0, 3).map((key) => (
+                                    <button
+                                        key={key}
+                                        type="button"
+                                        className={`${secondary} mt-1 block text-left`}
+                                        disabled={busy}
+                                        onClick={() => pick(gap, key)}
+                                    >
+                                        Use: {factLabel(facts[key])}
+                                    </button>
+                                ))}
+                            </li>
+                        ))}
+                    </ul>
+                    <div className="mt-2 flex gap-2">
+                        {resolution.alternative && (
+                            <button
+                                type="button"
+                                className={secondary}
+                                disabled={busy}
+                                onClick={() => {
+                                    setText(resolution.alternative ?? text);
+                                    save(resolution.alternative ?? text);
+                                }}
+                            >
+                                Remove the unsupported sentence
+                            </button>
+                        )}
+                        <button
+                            type="button"
+                            className={secondary}
+                            onClick={() => setText(value)}
+                        >
+                            Return to editing
+                        </button>
+                    </div>
+                </div>
+            )}
+            <div className="mt-1 flex gap-2">
+                <button
+                    type="button"
+                    className={secondary}
+                    disabled={busy || (text === value && !keysChanged)}
+                    onClick={() =>
+                        save(text, keysChanged ? { fact_keys: cited } : {})
+                    }
+                >
+                    Save wording{keysChanged ? ' and evidence' : ''}
+                </button>
+                {value !== original && (
+                    <button
+                        type="button"
+                        className={secondary}
+                        disabled={busy}
+                        onClick={() => save(original)}
+                    >
+                        Restore original wording
+                    </button>
+                )}
+                {keys !== undefined && !advanced && (
+                    <button
+                        type="button"
+                        className={secondary}
+                        onClick={() => void open()}
+                    >
+                        Advanced evidence editor
+                    </button>
+                )}
+            </div>
+            {advanced && keys !== undefined && (
                 <div className="mt-2 text-xs">
                     <p className="font-medium text-neutral-500">
-                        Supporting evidence ({cited.length}). Everything the
-                        wording says must be stated by these facts.
+                        Advanced evidence editor. Everything the wording says
+                        must be stated by the facts you choose.
                     </p>
                     <ul className="mt-1 space-y-1">
                         {cited.map((key) => (
@@ -259,10 +436,7 @@ function EditableText({
                                 key={key}
                                 className="flex items-start justify-between gap-2 rounded bg-neutral-50 px-2 py-1 dark:bg-neutral-900"
                             >
-                                <span>
-                                    <span className="font-mono">{key}</span>{' '}
-                                    {label(key)}
-                                </span>
+                                <span>{factLabel(facts[key])}</span>
                                 <button
                                     type="button"
                                     className={secondary}
@@ -270,7 +444,7 @@ function EditableText({
                                     onClick={() =>
                                         setCited(cited.filter((k) => k !== key))
                                     }
-                                    aria-label={`Remove ${key}`}
+                                    aria-label="Remove this fact"
                                 >
                                     Remove
                                 </button>
@@ -284,7 +458,11 @@ function EditableText({
                             onChange={(e) => setAdding(e.target.value)}
                             aria-label="Add a supporting fact"
                         >
-                            <option value="">Add a supporting fact…</option>
+                            <option value="">
+                                {candidates === null
+                                    ? 'Loading…'
+                                    : 'Add a supporting fact…'}
+                            </option>
                             {[...new Set(available.map((c) => c.place))].map(
                                 (place) => (
                                     <optgroup key={place} label={place}>
@@ -296,9 +474,6 @@ function EditableText({
                                                     value={c.key}
                                                 >
                                                     {c.statement}
-                                                    {c.capabilities.length > 0
-                                                        ? ` [${c.capabilities.join(', ')}]`
-                                                        : ''}
                                                 </option>
                                             ))}
                                     </optgroup>
@@ -319,35 +494,7 @@ function EditableText({
                     </div>
                 </div>
             )}
-            <div className="mt-1 flex gap-2">
-                <button
-                    type="button"
-                    className={secondary}
-                    disabled={busy || (text === value && !keysChanged)}
-                    onClick={() =>
-                        send(update.patch(sid), {
-                            id,
-                            text,
-                            ...(keysChanged ? { fact_keys: cited } : {}),
-                        })
-                    }
-                >
-                    Save wording{keysChanged ? ' and evidence' : ''}
-                </button>
-                {value !== original && (
-                    <button
-                        type="button"
-                        className={secondary}
-                        disabled={busy}
-                        onClick={() =>
-                            send(update.patch(sid), { id, text: original })
-                        }
-                    >
-                        Restore original wording
-                    </button>
-                )}
-            </div>
-            <Errors errors={errors} />
+            <Errors errors={Object.fromEntries(shown)} />
         </div>
     );
 }
@@ -447,12 +594,10 @@ function Profile({
     p,
     sid,
     editable,
-    candidates,
 }: {
     p: SynthesisProfile;
     sid: number;
     editable: boolean;
-    candidates: SynthesisCandidate[];
 }) {
     const pres = p.presentation;
     const projects = p.projects.filter((x) => !x.personal);
@@ -511,7 +656,7 @@ function Profile({
                     editable={editable}
                     rows={5}
                     keys={pres.summary_fact_keys}
-                    candidates={candidates}
+                    facts={p.facts}
                 />
                 {!editable && (
                     <Evidence keys={pres.summary_fact_keys} facts={p.facts} />
@@ -541,7 +686,7 @@ function Profile({
                                 editable={editable}
                                 rows={2}
                                 keys={d.fact_keys}
-                                candidates={candidates}
+                                facts={p.facts}
                             />
                             {!editable && (
                                 <Evidence keys={d.fact_keys} facts={p.facts} />
@@ -595,7 +740,7 @@ function Profile({
                                             editable={editable}
                                             rows={2}
                                             keys={note.fact_keys}
-                                            candidates={candidates}
+                                            facts={p.facts}
                                         />
                                     </div>
                                 )}
@@ -809,12 +954,7 @@ export function ProfileSynthesis({
                             </ul>
                         </details>
                     )}
-                    <Profile
-                        p={s.profile}
-                        sid={s.id}
-                        editable={editable}
-                        candidates={s.candidates}
-                    />
+                    <Profile p={s.profile} sid={s.id} editable={editable} />
                     <ApprovalBar s={s} slug={slug} />
                 </>
             )}

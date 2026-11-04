@@ -31,7 +31,7 @@ final class ClaimFidelityChecker
     private const RESULT = '/\b(?:reduc\w*|cut(?:ting)?|sav(?:ed|ing|es)|increas\w*|improv\w*|grew|growth|boost\w*|accelerat\w*|lower\w*|eliminat\w*|deliver\w*|drove|driving|achiev\w*)\b/i';
 
     /** Authority verb groups: the text may use one only if the evidence uses a verb of the same group. */
-    private const AUTHORITY = [
+    public const AUTHORITY = [
         'design' => ['text' => '/\b(?:design(?:ed|ing)?|architect(?:ed|ing)?|engineer(?:ed|ing)|devis(?:ed|ing))\b/i', 'evidence' => '/\b(?:design\w*|architect\w*|engineer\w*|devis\w*|defin\w*|decid\w*|chose|choos\w*|shap\w*|decision\w*)\b/i'],
         'lead' => ['text' => '/\b(?:led|leading|spearhead\w*|pioneer\w*|direct(?:ed|ing)|drove|driving|champion\w*|oversaw|managed|managing)\b/i', 'evidence' => '/\b(?:led|leading|leadership|spearhead\w*|pioneer\w*|direct(?:ed|ing)|drove|driv\w*|champion\w*|oversaw|manag\w*)\b/i'],
         'own' => ['text' => '/\b(?:owned|owning|owns|founded)\b/i', 'evidence' => '/\b(?:own\w*|found(?:ed|er)|independent\w*|sole)\b/i'],
@@ -140,9 +140,13 @@ final class ClaimFidelityChecker
                 continue;
             }
 
-            // "by 85%" is a measure, not a cause.
+            // "by 85%" is a measure, not a cause. A cause can still follow it: "by 85% by adding caching".
             if (preg_match('/^\s*[\$\d]/', $object) === 1) {
-                continue;
+                if (preg_match('/^\s*[\$\d][\d,.]*%?\+?\s+(?:through|via|thanks to|resulting from|driven by|enabled by|due to|by)\s+(.+)$/iu', $object, $nested) !== 1) {
+                    continue;
+                }
+
+                $object = $nested[1];
             }
 
             $words = $this->significant($object);

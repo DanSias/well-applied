@@ -38,8 +38,6 @@ final class ProfileAssembly
 
     private const OUTCOME = '/\b(?:reduc\w+|saved|increas\w+|improv\w+|grew|growth|eliminat\w+)\b/i';
 
-    private const FIRST_PERSON = "/(?<![\\w'])(?:I|I've|I'm|my|me)(?![\\w])/";
-
     /** Weights of the six project signals; they sum to 1. */
     private const WEIGHTS = ['ownership' => 0.20, 'architecture' => 0.20, 'complexity' => 0.15, 'relevance' => 0.25, 'distinctiveness' => 0.10, 'outcomes' => 0.10];
 
@@ -59,16 +57,15 @@ final class ProfileAssembly
             },
         ])->orderBy('sort_order')->orderBy('id')->get();
 
+        // A fact written in the first person is approved evidence and may authorize a capability, but its wording is not
+        // resume-ready: it is kept as support-only (never shown to the model, never a bullet or a project's evidence).
         $excluded = [];
-        $usable = $facts->filter(function (CareerFact $fact) use (&$excluded) {
-            if (preg_match(self::FIRST_PERSON, $fact->statement) === 1) {
-                $excluded[] = ['fact_key' => $fact->key, 'reason' => 'First-person wording; it can support a capability but is not resume-ready.'];
+        $supportOnly = $facts->filter(fn (CareerFact $fact) => FirstPerson::in($fact->statement))->values();
+        $usable = $facts->reject(fn (CareerFact $fact) => FirstPerson::in($fact->statement))->values();
 
-                return false;
-            }
-
-            return true;
-        });
+        foreach ($supportOnly as $fact) {
+            $excluded[] = ['fact_key' => $fact->key, 'reason' => 'First-person wording: it can authorize a capability in your summary and notes, but its wording is never shown to the model or used on a resume.'];
+        }
 
         $coverage = $this->coverage->compute($career);
         $aggregate = $this->aggregate($profile);
@@ -84,6 +81,11 @@ final class ProfileAssembly
             $caps = array_values(array_intersect($this->coverage->capabilitiesIn($fact->statement), $directKeys));
             $index[$fact->key] = $this->factEntry($fact, [], $caps);
             $signals[$fact->key] = $this->factSignals($fact, $caps, $weight);
+        }
+
+        foreach ($supportOnly as $fact) {
+            $caps = array_values(array_intersect($this->coverage->capabilitiesIn($fact->statement), $directKeys));
+            $index[$fact->key] = [...$this->factEntry($fact, [], $caps), 'support_only' => true];
         }
 
         $projects = $this->projects($usable, $index, $signals, $weight);
@@ -467,7 +469,7 @@ final class ProfileAssembly
             $entry = ['id' => "capability:{$key}", 'key' => (string) $key, 'label' => $c['label'], 'category' => $c['category'], 'market_postings' => $market, 'market_share' => round($market / $total, 2), 'depth' => $c['depth']['level']];
 
             if ($c['status'] === CapabilityCoverage::DIRECT) {
-                $keys = array_keys(array_filter($index, fn (array $f) => in_array($key, $f['capabilities'], true)));
+                $keys = array_keys(array_filter($index, fn (array $f) => in_array($key, $f['capabilities'], true) && ! ($f['support_only'] ?? false)));
                 usort($keys, fn (string $a, string $b) => ($signals[$b]['ownership'] + $signals[$b]['outcome'] + $signals[$b]['architecture']) <=> ($signals[$a]['ownership'] + $signals[$a]['outcome'] + $signals[$a]['architecture']));
                 $out['direct'][] = [...$entry, 'fact_keys' => array_slice($keys, 0, 6)];
             } elseif ($c['status'] === CapabilityCoverage::TRANSFERABLE) {

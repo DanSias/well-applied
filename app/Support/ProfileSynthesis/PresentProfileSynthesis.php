@@ -59,8 +59,6 @@ final class PresentProfileSynthesis
             'prompt_version' => $s->prompt_version, 'created_at' => $s->created_at?->toIso8601String(), 'approved_at' => $s->approved_at?->toIso8601String(),
             'model_calls' => $s->usage['model_calls'] ?? null, 'duration_ms' => $s->usage['duration_ms'] ?? null,
             'notes' => (array) ($s->validation['notes'] ?? []), 'profile' => $effective,
-            // Every eligible fact the user may cite as supporting evidence (draft versions only).
-            'candidates' => $s->status === 'draft' ? $this->candidates($s->content['inventory']['facts']) : [],
         ];
     }
 
@@ -68,13 +66,13 @@ final class PresentProfileSynthesis
      * @param  array<string, array<string, mixed>>  $facts
      * @return array<int, array<string, mixed>>
      */
-    private function candidates(array $facts): array
+    public function candidates(array $facts): array
     {
         $rows = [];
 
         foreach ($facts as $key => $f) {
             $rows[] = [
-                'key' => $key, 'statement' => mb_strimwidth((string) $f['statement'], 0, 170, '…'), 'visibility' => $f['visibility'],
+                'key' => $key, 'statement' => mb_strimwidth((string) $f['statement'], 0, 170, '…'), 'visibility' => $f['visibility'], 'support_only' => (bool) ($f['support_only'] ?? false),
                 'place' => $f['project'] ?? $f['role'] ?? ($f['whole_career'] ? 'Whole career' : 'Career'),
                 'capabilities' => array_map(fn (string $c) => (string) config("resume_profiles.capabilities.{$c}.label", $c), $f['capabilities']),
             ];

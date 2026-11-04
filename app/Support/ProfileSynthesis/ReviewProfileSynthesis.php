@@ -22,7 +22,7 @@ final class ReviewProfileSynthesis
 
     private const ITEM_IDS = '/^(?:project:\d+|capability:[a-z0-9_]+|accomplishment:[a-z0-9._-]+|differentiator:\d+)$/';
 
-    public function __construct(private readonly ProfilePresentationValidator $validator, private readonly CapabilityCoverage $coverage, private readonly ProfileAssembly $assembly) {}
+    public function __construct(private readonly ProfilePresentationValidator $validator, private readonly CapabilityCoverage $coverage, private readonly ProfileAssembly $assembly, private readonly ResolveEvidence $resolver) {}
 
     /**
      * @param  array{include?: bool, pinned?: bool, order?: int|null, text?: string, fact_keys?: array<int, string>}  $fields  `fact_keys` replaces the facts a piece of language cites (summary, differentiators and project notes); it is judged with the wording in one step
@@ -41,6 +41,11 @@ final class ReviewProfileSynthesis
 
             $edits['text'][$id] = trim((string) preg_replace('/\s+/u', ' ', (string) $fields['text']));
             $touched = true;
+
+            // Wording alone: find the supporting facts automatically. Naming facts yourself (fact_keys) is the manual path.
+            if (! array_key_exists('fact_keys', $fields) && ($id === 'headline' || preg_match(self::KEY_IDS, $id) === 1)) {
+                $edits = $this->resolveText($synthesis, $edits, $id, $edits['text'][$id]);
+            }
         }
 
         if (array_key_exists('fact_keys', $fields)) {
@@ -70,6 +75,50 @@ final class ReviewProfileSynthesis
         $synthesis->update(['edits' => $edits]);
 
         return $synthesis->refresh();
+    }
+
+    /**
+     * @param  array<string, mixed>  $edits
+     * @return array<string, mixed>
+     */
+    private function resolveText(ResumeProfileSynthesis $synthesis, array $edits, string $id, string $text): array
+    {
+        $current = $this->currentKeys($synthesis, $edits, $id);
+        $result = $this->resolver->resolve($synthesis, $id, $text, $current);
+
+        if ($result['status'] !== 'supported') {
+            throw ValidationException::withMessages([
+                'text' => $result['message'],
+                'resolution' => json_encode(['status' => $result['status'], 'gaps' => $result['gaps'], 'alternative' => $result['alternative']], JSON_THROW_ON_ERROR),
+            ]);
+        }
+
+        if ($id !== 'headline') {
+            $edits['keys'][$id] = $result['keys'];
+        }
+
+        $edits['resolution'][$id] = ['mode' => 'auto', 'status' => 'supported', 'at' => now()->toIso8601String(), 'fact_count' => count($result['keys']), 'evidence_revision' => $synthesis->evidence_revision];
+
+        return $edits;
+    }
+
+    /**
+     * @param  array<string, mixed>  $edits
+     * @return array<int, string>
+     */
+    private function currentKeys(ResumeProfileSynthesis $synthesis, array $edits, string $id): array
+    {
+        $candidate = $synthesis->replicate();
+        $candidate->edits = $edits;
+        $candidate->setRelation('careerProfile', $synthesis->careerProfile);
+        $p = EffectiveProfile::resolve($candidate)['presentation'];
+
+        return match (true) {
+            $id === 'summary' => $p['summary_fact_keys'],
+            str_starts_with($id, 'differentiator:') => $this->row($p['differentiators'], $id)['fact_keys'] ?? [],
+            str_starts_with($id, 'note:') => $this->row($p['project_notes'], $id)['fact_keys'] ?? [],
+            default => [],
+        };
     }
 
     /**

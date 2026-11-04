@@ -3,6 +3,7 @@
 namespace App\Support\ResumeVariant;
 
 use App\Exceptions\InvalidResumeVariantResponseException;
+use App\Support\ProfileSynthesis\FirstPerson;
 use App\Support\ResumeDocument\ResumeText;
 use App\Support\ResumeProfile\CapabilityCoverage;
 use Illuminate\Support\Facades\Validator as ValidatorFacade;
@@ -417,6 +418,11 @@ final class ResumeWordingResponseValidator
         }
 
         if ($context->claimFidelity) {
+            // Support-only facts are written in the first person; that wording never reaches a resume.
+            if (FirstPerson::in($text)) {
+                $findings[] = ['kind' => 'first_person', 'severity' => 'block', 'detail' => '', 'message' => 'is written in the first person'];
+            }
+
             foreach ((new ClaimFidelityChecker)->findings($text, $citedKeys, $context->factTextByKey) as $f) {
                 $findings[] = ['kind' => (string) $f['kind'], 'severity' => (string) $f['severity'], 'detail' => (string) $f['detail'], 'message' => (string) $f['message'], ...(isset($f['repair']) ? ['repair' => (array) $f['repair']] : [])];
             }

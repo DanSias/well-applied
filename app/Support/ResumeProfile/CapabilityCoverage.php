@@ -205,6 +205,15 @@ final class CapabilityCoverage
     }
 
     /**
+     * Whether a text states a thing affirmatively: the pattern matches somewhere that is not a denial ("rather than
+     * high-traffic consumer systems" does not state high-traffic experience).
+     */
+    public function affirms(string $pattern, string $text): bool
+    {
+        return $this->anyMatch([$pattern], $text);
+    }
+
+    /**
      * A match counts only when the wording affirms it. "Docker rather than Terraform" is evidence for
      * Docker; naming Terraform to say it is not the strength must not read as Terraform experience.
      *

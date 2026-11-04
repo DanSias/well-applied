@@ -73,6 +73,7 @@ Route::post('/expansions/{expansion}/followups/{index}/ask', [EvidenceExpansionC
 // Profile synthesis: build, review, approve, then the reference resume (see docs/profile-synthesis.md).
 Route::post('/resume-profiles/{resumeProfile}/synthesis', [ProfileSynthesisController::class, 'store'])->name('profile-syntheses.store');
 Route::patch('/profile-syntheses/{synthesis}', [ProfileSynthesisController::class, 'update'])->name('profile-syntheses.update');
+Route::get('/profile-syntheses/{synthesis}/evidence-candidates', [ProfileSynthesisController::class, 'evidenceCandidates'])->name('profile-syntheses.evidence-candidates');
 Route::post('/profile-syntheses/{synthesis}/approve', [ProfileSynthesisController::class, 'approve'])->name('profile-syntheses.approve');
 Route::post('/profile-syntheses/{synthesis}/new-version', [ProfileSynthesisController::class, 'newVersion'])->name('profile-syntheses.new-version');
 Route::post('/profile-syntheses/{synthesis}/refresh-evidence', [ProfileSynthesisController::class, 'refreshEvidence'])->name('profile-syntheses.refresh-evidence');

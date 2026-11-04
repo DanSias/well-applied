@@ -25,9 +25,10 @@ use App\Support\Clarification\DeclaredScopes;
 use App\Support\GenerationAttempt\GenerationMetrics;
 use App\Support\JobMatch\JobPayloadBuilder;
 use App\Support\ProfileSynthesis\EffectiveProfile;
+use App\Support\ProfileSynthesis\FirstPerson;
 use App\Support\ProfileSynthesis\ReferenceSelection;
 use App\Support\ResumeDocument\ResumeText;
-use App\Support\ResumeVariant\Prompts\ReferenceWordingPromptV2;
+use App\Support\ResumeVariant\Prompts\ReferenceWordingPromptV3;
 use App\Support\ResumeVariant\Prompts\ResumeSelectionPromptV6;
 use App\Support\ResumeVariant\Prompts\ResumeWordingPromptV3;
 use Illuminate\Support\Collection;
@@ -111,7 +112,7 @@ final class GenerateResumeVariant
     {
         $metrics = app(GenerationMetrics::class);
         $onPhase ??= static fn (string $phase) => null;
-        $wordingPrompt = $synthesis === null ? $this->wordingPrompt : app(ReferenceWordingPromptV2::class);
+        $wordingPrompt = $synthesis === null ? $this->wordingPrompt : app(ReferenceWordingPromptV3::class);
         $effective = $synthesis === null ? null : EffectiveProfile::resolve($synthesis);
 
         // ---- Stage 0: deterministic payload construction ----
@@ -411,6 +412,12 @@ final class GenerateResumeVariant
 
         if ($effective !== null) {
             $wordingInput['reference_context'] = ReferenceSelection::wordingContext($effective);
+
+            // A first-person fact authorizes what the summary may claim; the model is told its wording is not to be used.
+            $wordingInput['summary_evidence'] = array_map(
+                fn (array $fact) => FirstPerson::in((string) ($fact['statement'] ?? '')) ? [...$fact, 'support_only' => true] : $fact,
+                $wordingInput['summary_evidence'],
+            );
         }
         $careerFactKeysByLocation = $this->buildCareerFactKeysByLocation($selectionDraft);
         $denylistTerms = $this->buildDenylistTerms($validTargetTerms, $selectionDraft);

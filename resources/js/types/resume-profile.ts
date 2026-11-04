@@ -320,6 +320,7 @@ export type SynthesisFact = {
     personal: boolean;
     whole_career: boolean;
     shared_with: string[];
+    support_only?: boolean;
 };
 
 type Decided = {
@@ -429,6 +430,7 @@ export type SynthesisCandidate = {
     key: string;
     statement: string;
     visibility: 'public' | 'restricted';
+    support_only?: boolean;
     place: string;
     capabilities: string[];
 };
@@ -475,7 +477,6 @@ export type SynthesisState = {
         duration_ms: number | null;
         notes: string[];
         profile: SynthesisProfile;
-        candidates: SynthesisCandidate[];
     } | null;
     reference: ReferenceState | null;
 };
