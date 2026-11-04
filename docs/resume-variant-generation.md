@@ -1197,3 +1197,12 @@ Editing the wording of a profile summary, headline, differentiator or project no
 - unsupported: nothing is saved; the unsupported claim is named and removing the sentence is offered.
 
 Summaries/headlines search the whole eligible record; a project note only its project and that role's evidence. First-person facts may authorize a capability but are support-only: never shown to a model or used as resume wording (a `first_person` finding blocks it). The full picker survives as the lazily loaded "Advanced evidence editor". Resolution never changes career facts, approved profiles or variants. Limits: sentence-level lexical matching, not semantic understanding; a paraphrase that shares no specific term with its fact resolves as uncertain.
+
+## Profile-assisted job tailoring
+
+"Generate Tailored Resume" on a job can start from an approved Resume Profile (a selector on the job page; the standard pathway stays available). Stages: job analysis (reused when current) -> resume composed from the profile -> PDF. There is no candidate-match stage and no clarification pause.
+
+- `App\Support\JobTailoring\JobRelevance` (deterministic, from the stored job analysis): weights findings, finds approved facts that state what each asks for (capabilities weighted by rarity, plus the job's rare vocabulary, plus a share of the strength of the same engagement's best evidence), and lists gaps (requirements the record does not support directly, including confirmed limitations such as Ruby on Rails).
+- `ProfileJobAdapter` re-ranks the profile's accomplishments, projects, capabilities and summary evidence for the job without overriding the user's exclusions or pins, then `ReferenceSelection` runs unchanged (plus a job-relevance factor, a requirement-coverage swap, and a two-bullet cap on non-developer roles).
+- `GenerateResumeVariant::generateForJob` makes one wording call (`resume-wording-profile-job-v1`, on top of the reference prompt) through the existing validation, claim-fidelity, retry and recovery path. The variant stores `job_analysis_id`, the profile version, and `selection_input_snapshot.tailoring` (requirements, gaps, evidence added beyond the reference resume, evidence dropped from it).
+- Attempts of a run carry `resume_profile_synthesis_id`; a stale or unapproved profile is refused. Review page: `jobs.profile-resumes.show`.
