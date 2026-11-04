@@ -56,7 +56,7 @@ return [
     | selected from approved evidence. `line_chars` is the width, label included, a line is packed to.
     */
     'skill_presentation' => [
-        'groups' => ['Languages', 'Frontend', 'Backend', 'Data & Cloud', 'AI & Integrations'],
+        'groups' => ['Languages', 'Frontend', 'Backend', 'Data & Cloud', 'Tools & Workflow', 'AI & Integrations'],
         'line_chars' => 88,
         'max_per_group' => 5,
         // The technologies a Full-Stack Developer resume should lead with; a skill gets this lift only if approved evidence carries it.
@@ -64,12 +64,14 @@ return [
         'skills' => [
             'TypeScript' => ['Languages', 'TypeScript'], 'JavaScript' => ['Languages', 'JavaScript'], 'PHP' => ['Languages', 'PHP'], 'SQL' => ['Languages', 'SQL'],
             'React' => ['Frontend', 'React'], 'Vue.js' => ['Frontend', 'Vue.js'], 'Next.js' => ['Frontend', 'Next.js'], 'Tailwind CSS' => ['Frontend', 'Tailwind CSS'],
-            'Node.js' => ['Backend', 'Node.js'], 'Express.js' => ['Backend', 'Express.js'], 'Laravel' => ['Backend', 'Laravel'], 'REST APIs' => ['Backend', 'REST APIs'],
+            'Node.js' => ['Backend', 'Node.js'], 'Express.js' => ['Backend', 'Express'], 'Laravel' => ['Backend', 'Laravel'], 'REST APIs' => ['Backend', 'REST APIs'],
             'PostgreSQL' => ['Data & Cloud', 'PostgreSQL'], 'MySQL' => ['Data & Cloud', 'MySQL'], 'SQLite' => ['Data & Cloud', 'SQLite'], 'BigQuery' => ['Data & Cloud', 'BigQuery'],
             'Google Cloud (general)' => ['Data & Cloud', 'Google Cloud'], 'Google Cloud Functions' => ['Data & Cloud', 'Cloud Functions'], 'AWS' => ['Data & Cloud', 'AWS'],
-            'Microsoft Azure' => ['Data & Cloud', 'Azure'], 'Docker' => ['Data & Cloud', 'Docker'],
-            'OpenAI' => ['AI & Integrations', 'OpenAI'], 'Anthropic' => ['AI & Integrations', 'Anthropic'], 'Jira' => ['AI & Integrations', 'Jira'],
-            'GitLab' => ['AI & Integrations', 'GitLab'], 'Salesforce' => ['AI & Integrations', 'Salesforce'], 'API integration & design' => ['AI & Integrations', 'API integration'],
+            'Microsoft Azure' => ['Data & Cloud', 'Azure'], 'Docker' => ['Tools & Workflow', 'Docker'], 'Git' => ['Tools & Workflow', 'Git'],
+            // A model provider is a detail; the evidence (deterministic retrieval with an LLM used for synthesis) is LLM integration.
+            'OpenAI' => ['AI & Integrations', 'LLM integration'], 'Anthropic' => ['AI & Integrations', 'LLM integration'],
+            'Jira' => ['Tools & Workflow', 'Jira'], 'GitLab' => ['Tools & Workflow', 'GitLab'],
+            'Salesforce' => ['AI & Integrations', 'Salesforce'], 'API integration & design' => ['Backend', 'API design & integration'],
         ],
     ],
 

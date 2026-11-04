@@ -24,6 +24,9 @@ use App\Support\ProfileSynthesis\ResolveEvidence;
 use App\Support\ProfileSynthesis\ReviewProfileSynthesis;
 use App\Support\ProfileSynthesis\SynthesizeProfile;
 use App\Support\ResumeDocument\GenerateResumeDocument;
+use App\Support\ResumeDocument\ResumeContact;
+use App\Support\ResumeDocument\ResumeDocument;
+use App\Support\ResumeDocument\ResumeExperienceRole;
 use App\Support\ResumeDocument\SkillPresentation;
 use App\Support\ResumeProfile\QuestionWriter;
 use App\Support\ResumeVariant\GenerateResumeVariant;
@@ -612,7 +615,9 @@ it('presents reference skills in recognizable categories with professional label
         ->and(SkillPresentation::for('Google Cloud (general)'))->toBe(['Data & Cloud', 'Google Cloud'])
         ->and(SkillPresentation::for('Node.js'))->toBe(['Backend', 'Node.js'])
         ->and(SkillPresentation::for('Deterministic AI boundaries'))->toBeNull()
-        ->and(SkillPresentation::groups())->toBe(['Languages', 'Frontend', 'Backend', 'Data & Cloud', 'AI & Integrations']);
+        ->and(SkillPresentation::groups())->toBe(['Languages', 'Frontend', 'Backend', 'Data & Cloud', 'Tools & Workflow', 'AI & Integrations'])
+        ->and(SkillPresentation::for('OpenAI')[1])->toBe('LLM integration')->and(SkillPresentation::for('Anthropic')[1])->toBe('LLM integration')
+        ->and(SkillPresentation::for('Jira'))->toBe(['Tools & Workflow', 'Jira'])->and(SkillPresentation::for('API integration & design')[1])->toBe('API design & integration');
 
     // Eight short skills in a narrow column: balanced lines, never one skill alone, deterministic.
     $items = ['TypeScript', 'JavaScript', 'PHP', 'SQL', 'Go', 'Rust', 'Kotlin', 'Swift'];
@@ -859,4 +864,37 @@ it('offers Refresh evidence for a draft whose inventory is out of date even when
 
     $this->post(route('profile-syntheses.refresh-evidence', $synthesis))->assertRedirect();
     $url()->assertInertia(fn ($page) => $page->where('resume_profile.synthesis.synthesis.outdated', false)->where('resume_profile.synthesis.synthesis.version', 2));
+});
+
+it('keeps breadth in the skills list: a core language with one supporting fact is not crowded out by a deep stack', function () {
+    $s = synthesisScenario();
+    $sql = Skill::factory()->create(['career_profile_id' => $s['career']->id, 'name' => 'SQL', 'slug' => 'sql']);
+    $s['facts']['nexus-built']->skills()->attach($sql->id);
+    foreach (['PostgreSQL', 'MySQL', 'AWS', 'Google Cloud (general)', 'Microsoft Azure'] as $n) {
+        $k = Skill::factory()->create(['career_profile_id' => $s['career']->id, 'name' => $n, 'slug' => strtolower(str_replace([' ', '(', ')'], '', $n))]);
+        $s['facts']['nexus-85']->skills()->attach($k->id);
+    }
+    config(['resume_profiles.reference.skills' => 8]);
+    $synthesis = synthesize($s);
+    $payload = app(ResumeCandidatePayloadBuilder::class)->buildForCareer($s['career'], [], []);
+    $names = Skill::query()->whereIn('id', array_column(app(ReferenceSelection::class)->build(EffectiveProfile::resolve($synthesis), $payload)['content']['skills'], 'skill_id'))->pluck('name')->all();
+
+    // A small cap would otherwise fill with data and cloud tags; each category gets its strongest first.
+    expect($names)->toContain('SQL', 'React')->and(count(array_filter($names, fn ($n) => in_array($n, ['PostgreSQL', 'MySQL', 'BigQuery', 'AWS', 'Google Cloud (general)', 'Microsoft Azure'], true))))->toBeLessThanOrEqual(4);
+});
+
+it('groups consecutive roles at one employer on a reference resume only', function () {
+    $role = fn (string $title, string $dates) => new ResumeExperienceRole('Pearson', $title, $dates, false, ['One bullet.']);
+    $other = new ResumeExperienceRole('RocketGate', 'Engineer', '2025', false, ['b']);
+    $contact = new ResumeContact('A B', null, null, null, null, null);
+    $make = fn (bool $group) => new ResumeDocument($contact, 's', [$other, $role('Lead', '2015–2024'), $role('SEO Analyst', '2013–2015')], [], [], [], $group);
+
+    $grouped = $make(true)->employerGroups();
+    $plain = $make(false)->employerGroups();
+
+    expect($grouped)->toHaveCount(2)->and($grouped[1]['shared'])->toBeTrue()->and(array_map(fn ($r) => $r->displayTitle, $grouped[1]['roles']))->toBe(['Lead', 'SEO Analyst'])
+        ->and($plain)->toHaveCount(3);
+
+    $html = view('resume.print', ['document' => $make(true)])->render();
+    expect(substr_count($html, 'class="group-employer"'))->toBe(1)->and(strpos($html, 'Lead'))->toBeLessThan(strpos($html, 'SEO Analyst'));
 });

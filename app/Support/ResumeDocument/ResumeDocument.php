@@ -41,6 +41,8 @@ final readonly class ResumeDocument
         public array $skills,
         public array $selectedProjects,
         public array $education,
+        /** Reference resumes show consecutive roles at one employer under a single employer line. */
+        public bool $groupEmployers = false,
     ) {}
 
     /**
@@ -89,6 +91,30 @@ final readonly class ResumeDocument
     }
 
     /**
+     * The experience as the renderer lays it out: each entry is the roles of one employer, in order. Roles are grouped
+     * only for reference resumes, and only when they follow one another; otherwise every role stands alone.
+     *
+     * @return array<int, array{employer: string, roles: array<int, ResumeExperienceRole>, shared: bool}>
+     */
+    public function employerGroups(): array
+    {
+        $groups = [];
+
+        foreach ($this->experience as $role) {
+            $last = array_key_last($groups);
+
+            if ($this->groupEmployers && $last !== null && $groups[$last]['employer'] === $role->employerName) {
+                $groups[$last]['roles'][] = $role;
+                $groups[$last]['shared'] = true;
+            } else {
+                $groups[] = ['employer' => $role->employerName, 'roles' => [$role], 'shared' => false];
+            }
+        }
+
+        return $groups;
+    }
+
+    /**
      * @param  array<int, ResumeExperienceRole>|null  $experience
      * @param  array<int, ResumeSelectedProject>|null  $selectedProjects
      */
@@ -101,6 +127,7 @@ final readonly class ResumeDocument
             skills: $this->skills,
             selectedProjects: $selectedProjects ?? $this->selectedProjects,
             education: $this->education,
+            groupEmployers: $this->groupEmployers,
         );
     }
 }

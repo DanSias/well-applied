@@ -275,6 +275,24 @@
                the whole Role as one atomic block" behavior is removed). */
         }
 
+        .group-employer {
+            margin: 0 0 0.04in;
+            font-size: 11.5pt;
+            font-weight: 700;
+            line-height: 1.25;
+            page-break-after: avoid;
+            break-after: avoid;
+        }
+
+        .sub-role + .sub-role {
+            margin-top: 0.1in;
+        }
+
+        .sub-role .role-title {
+            font-weight: 600;
+            font-size: 10.5pt;
+        }
+
         .role:last-child {
             margin-bottom: 0;
         }
@@ -574,20 +592,30 @@
 
         <section class="experience">
             <h2>Professional Experience</h2>
-            @foreach ($document->experience as $role)
-                <div class="role">
-                    <div class="role-header">
-                        <div class="role-header-row">
-                            <p class="role-title">{{ $role->displayTitle }}</p>
-                            <p class="role-employer">{{ $role->employerName }}</p>
-                            <p class="role-dates">{{ $role->dateRangeLabel }}</p>
+            @foreach ($document->employerGroups() as $group)
+                <div class="role{{ $group['shared'] ? ' role-group' : '' }}">
+                    @if ($group['shared'])
+                        {{-- Several roles at one employer: the employer once, then each title with its own dates and bullets. --}}
+                        <p class="group-employer">{{ $group['employer'] }}</p>
+                    @endif
+                    @foreach ($group['roles'] as $role)
+                        <div class="{{ $group['shared'] ? 'sub-role' : 'role-single' }}">
+                            <div class="role-header">
+                                <div class="role-header-row">
+                                    <p class="role-title">{{ $role->displayTitle }}</p>
+                                    @unless ($group['shared'])
+                                        <p class="role-employer">{{ $role->employerName }}</p>
+                                    @endunless
+                                    <p class="role-dates">{{ $role->dateRangeLabel }}</p>
+                                </div>
+                            </div>
+                            <ul class="bullets">
+                                @foreach ($role->bullets as $bullet)
+                                    <li>{{ \App\Support\ResumeDocument\ResumeText::html($bullet) }}</li>
+                                @endforeach
+                            </ul>
                         </div>
-                    </div>
-                    <ul class="bullets">
-                        @foreach ($role->bullets as $bullet)
-                            <li>{{ \App\Support\ResumeDocument\ResumeText::html($bullet) }}</li>
-                        @endforeach
-                    </ul>
+                    @endforeach
                 </div>
             @endforeach
         </section>

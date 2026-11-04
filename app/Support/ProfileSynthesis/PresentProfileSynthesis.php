@@ -103,7 +103,7 @@ final class PresentProfileSynthesis
         $variantId = $r['variant_id'] ?? null;
 
         return [
-            'synthesis_id' => $s->id, 'running' => Cache::has(GenerateReferenceResumeJob::lockKey($s->id)), 'state' => $r['state'] ?? null, 'phase' => $r['phase'] ?? null, 'error' => $r['error'] ?? null,
+            'synthesis_id' => $s->id, 'running' => Cache::has(GenerateReferenceResumeJob::lockKey($s->id)), 'state' => $r['state'] ?? null, 'phase' => $r['phase'] ?? null, 'started_at' => $r['started_at'] ?? null, 'finished_at' => $r['finished_at'] ?? null, 'error' => $r['error'] ?? null,
             'variant_id' => $variantId,
             'preview_url' => $variantId === null ? null : route('resume-variants.preview', $variantId),
             'download_url' => $variantId === null ? null : route('resume-variants.pdf', $variantId),

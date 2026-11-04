@@ -141,6 +141,7 @@ final class GenerateResumeDocument
                 ))
                 ->values()
                 ->all(),
+            groupEmployers: $variant->resume_profile_synthesis_id !== null,
         );
     }
 

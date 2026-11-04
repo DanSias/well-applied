@@ -448,6 +448,8 @@ export type ReferenceState = {
     running: boolean;
     state: 'running' | 'ready' | 'failed' | null;
     phase: string | null;
+    started_at: string | null;
+    finished_at: string | null;
     error: string | null;
     variant_id: number | null;
     preview_url: string | null;

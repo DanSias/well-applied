@@ -9,6 +9,7 @@ import {
     referenceResume,
     update,
 } from '@/routes/profile-syntheses';
+import { GenerationStatus } from '@/components/generation-status';
 import { store as buildSynthesis } from '@/routes/profile-syntheses';
 import type {
     ReferenceState,
@@ -518,6 +519,13 @@ function ReferencePanel({
 }) {
     const { busy, send, errors } = useSend();
     const active = reference.running || reference.state === 'running';
+    const stage = (phase: string | null) =>
+        ({
+            selection: 'selecting evidence',
+            wording: 'writing wording',
+            saving: 'saving variant',
+            pdf: 'rendering PDF',
+        })[phase ?? ''] ?? 'starting';
 
     useEffect(() => {
         if (!active) {
@@ -542,17 +550,37 @@ function ReferencePanel({
                 </p>
             )}
             {active && (
-                <p className="mt-1 text-xs">
-                    Generating ({reference.phase ?? 'starting'})…
-                </p>
+                <div className="mt-1">
+                    <GenerationStatus
+                        active
+                        label={`Generating reference resume · ${stage(reference.phase)}`}
+                        queued={reference.state !== 'running'}
+                        queuedLabel="Queued · waiting for the worker to start…"
+                        startedAt={
+                            reference.state === 'running'
+                                ? reference.started_at
+                                : null
+                        }
+                    />
+                    <p className="mt-1 text-xs text-neutral-500">
+                        Stages: selection → wording (local model) → saving →
+                        PDF.
+                    </p>
+                </div>
             )}
             {reference.state === 'failed' && (
                 <p role="alert" className="mt-1 text-xs text-red-700">
-                    Failed: {reference.error}
+                    Generation failed
+                    {reference.finished_at &&
+                        ` after ${Math.round((new Date(reference.finished_at).getTime() - new Date(reference.started_at ?? reference.finished_at).getTime()) / 1000)}s`}
+                    : {reference.error}
                 </p>
             )}
             {reference.state === 'ready' && reference.variant_id && (
                 <div className="mt-1 text-xs">
+                    <p className="font-medium text-green-700 dark:text-green-400">
+                        Reference resume ready
+                    </p>
                     <a
                         className="underline"
                         href={reference.preview_url ?? '#'}

@@ -757,29 +757,42 @@ final class ReferenceSelection
         usort($rows, fn (array $a, array $b) => [$b['score'], $a['name']] <=> [$a['score'], $b['name']]);
         $perCapability = [];
         $perGroup = [];
+        $shown = [];
         $out = [];
-
-        foreach ($rows as $r) {
-            [$group] = SkillPresentation::for($r['name']) ?? ['', ''];
-
-            // A category holds at most a handful, and cloud platforms at most two: a third cloud says less than two.
-            if (($perGroup[$group] ?? 0) >= (int) config('resume.skill_presentation.max_per_group', 5)) {
-                continue;
-            }
-
+        $limit = (int) ($cfg['skills'] ?? 14);
+        $perGroupMax = (int) config('resume.skill_presentation.max_per_group', 5);
+        $take = function (array $r) use (&$perCapability, &$perGroup, &$shown, &$out, $perGroupMax, $limit): bool {
+            [$group, $label] = SkillPresentation::for($r['name']) ?? ['', ''];
             $family = $this->coverage->capabilitiesIn($r['name'])[0] ?? 'skill:'.$r['id'];
 
-            if ($family === 'cloud_platforms' && ($perCapability[$family] ?? 0) >= 2) {
-                continue;
+            // A category holds a handful; cloud platforms at most two (a third says less than two); two skills that present
+            // under one label (OpenAI and Anthropic as "LLM integration") are one line item.
+            if (count($out) >= $limit || ($perGroup[$group] ?? 0) >= $perGroupMax || isset($shown[$label]) || ($family === 'cloud_platforms' && ($perCapability[$family] ?? 0) >= 2)) {
+                return false;
             }
 
+            $shown[$label] = true;
             $perCapability[$family] = ($perCapability[$family] ?? 0) + 1;
             $perGroup[$group] = ($perGroup[$group] ?? 0) + 1;
             $out[] = ['skill_id' => $r['id'], 'order' => count($out) + 1];
 
-            if (count($out) >= (int) ($cfg['skills'] ?? 14)) {
-                break;
+            return true;
+        };
+
+        // Breadth first: every category the evidence supports gets its strongest two, then the rest fill by score. Without
+        // this a deep stack (many database and cloud tags) crowds out a core language that has a single supporting fact.
+        foreach (SkillPresentation::groups() as $group) {
+            $taken = 0;
+
+            foreach ($rows as $r) {
+                if ($taken < 2 && (SkillPresentation::for($r['name'])[0] ?? '') === $group && $take($r)) {
+                    $taken++;
+                }
             }
+        }
+
+        foreach ($rows as $r) {
+            $take($r);
         }
 
         return $out;
