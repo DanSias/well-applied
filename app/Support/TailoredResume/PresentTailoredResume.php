@@ -7,6 +7,7 @@ use App\Enums\GenerationStatus;
 use App\Enums\GenerationType;
 use App\Models\GenerationAttempt;
 use App\Models\JobPosting;
+use App\Models\ResumeProfileSynthesis;
 use App\Models\ResumeSelectionCheckpoint;
 use App\Models\ResumeVariant;
 use App\Support\Clarification\ClarificationGate;
@@ -75,13 +76,19 @@ final class PresentTailoredResume
         $runId = $latest->pipeline_run_id;
         $regenerate = $this->pipeline->attemptsFor($posting)->where('pipeline_run_id', $runId)->where('regenerate', true)->exists();
         $attempts = $this->pipeline->attemptsFor($posting)->where('pipeline_run_id', $runId)->orderBy('id')->get();
-        $valid = $this->pipeline->inspect($posting, $regenerate ? $runId : null);
+        $synthesisId = $this->pipeline->runSynthesisId($posting, $runId);
+        $synthesis = $synthesisId === null ? null : ResumeProfileSynthesis::query()->find($synthesisId);
+        $valid = $synthesis === null
+            ? $this->pipeline->inspect($posting, $regenerate ? $runId : null)
+            : $this->pipeline->inspectProfile($posting, $synthesis, $regenerate ? $runId : null);
+        // A profile-assisted run has no candidate-match stage: the approved profile and the stored job analysis replace it.
+        $definitions = $synthesis === null ? self::STAGES : array_diff_key(self::STAGES, ['match' => true]);
 
         $stages = [];
         $current = null;
         $failure = null;
 
-        foreach (self::STAGES as $key => $definition) {
+        foreach ($definitions as $key => $definition) {
             $attempt = $attempts->where('generation_type', $definition['type'])->last();
             $satisfied = match ($key) {
                 'analysis' => $valid['analysis'] !== null,
@@ -126,7 +133,7 @@ final class PresentTailoredResume
             ];
         }
 
-        $allDone = ! in_array(false, [$valid['analysis'] !== null, $valid['match'] !== null, $valid['variant'] !== null, $valid['pdf_ready']], true);
+        $allDone = ! in_array(false, [$valid['analysis'] !== null, $synthesis !== null || $valid['match'] !== null, $valid['variant'] !== null, $valid['pdf_ready']], true);
 
         // Held for optional questions: nothing is running, the run waits.
         // This also covers questions the user asked for on a finished resume.
@@ -161,10 +168,34 @@ final class PresentTailoredResume
             'download_url' => $variant === null ? null : route('resume-variants.pdf', $variant),
             'layout' => $state === 'ready' ? $this->layout($attempts) : null,
             'review' => $variant === null ? null : $this->review($variant),
+            'profile_resume' => $synthesis === null ? null : ['profile_version' => $synthesis->version, 'profile_id' => $synthesis->id, 'review_url' => $variant === null ? null : route('jobs.profile-resumes.show', [$posting, $variant])],
             'waiting_for_worker' => $current !== null && collect($stages)->firstWhere('key', $current)['status'] === 'queued',
             'clarification' => $pending === null ? null : [...$this->clarification->present($pending), 'resume_ready' => $allDone],
             'evidence_changed' => $stale,
         ]);
+    }
+
+    /**
+     * The approved profiles this job can be tailored from, the most relevant first (a profile whose name shares words
+     * with the job title, then the newest). A stale profile is listed, flagged, and cannot be selected.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function profiles(JobPosting $posting): array
+    {
+        $words = fn (string $t) => array_filter(preg_split('/[^a-z0-9]+/', strtolower($t)) ?: [], fn (string $w) => strlen($w) >= 4);
+        $titleWords = $words($posting->title);
+
+        $rows = ResumeProfileSynthesis::query()->where('career_profile_id', $posting->career_profile_id)->where('status', 'approved')->with('resumeProfile')->get()
+            ->map(fn (ResumeProfileSynthesis $s) => [
+                'id' => $s->id, 'version' => $s->version, 'name' => (string) $s->resumeProfile->name, 'stale' => $s->isStale(),
+                'approved_at' => $s->approved_at?->toIso8601String(),
+                'overlap' => count(array_intersect($titleWords, $words((string) $s->resumeProfile->name))),
+            ])->all();
+
+        usort($rows, fn (array $a, array $b) => [$a['stale'], -$a['overlap'], $b['approved_at']] <=> [$b['stale'], -$b['overlap'], $a['approved_at']]);
+
+        return array_map(fn (array $r, int $i) => [...array_diff_key($r, ['overlap' => true]), 'recommended' => $i === 0 && ! $r['stale']], $rows, array_keys($rows));
     }
 
     /**
@@ -220,6 +251,7 @@ final class PresentTailoredResume
             'waiting_for_worker' => false,
             'clarification' => null,
             'evidence_changed' => false,
+            'profile_resume' => null,
             ...$extra,
         ];
     }

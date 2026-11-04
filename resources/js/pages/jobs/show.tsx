@@ -182,6 +182,7 @@ function GenerateAnalysisAction({
 export default function JobsShow({
     job,
     tailored_resume,
+    resume_profiles,
     approved_evidence,
 }: JobShowProps) {
     return (
@@ -262,6 +263,7 @@ export default function JobsShow({
                     <TailoredResumePanel
                         jobId={job.id}
                         initial={tailored_resume}
+                        profiles={resume_profiles}
                     />
                 </div>
 

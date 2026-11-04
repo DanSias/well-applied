@@ -23,6 +23,8 @@ export type ResumeBullet = {
     text: string;
     citations: ResumeCareerFactSummary[];
     target_term_usages: ResumeTargetTermUsage[];
+    /** Profile-assisted tailoring: the job requirements this bullet answers. */
+    answers?: string[];
 };
 
 export type ResumeRoleGroup = {
@@ -80,9 +82,30 @@ export type ResumeVariantMatchContext = {
     id: number;
 };
 
+export type ResumeTailoringReview = {
+    profile_version: number | null;
+    analysis_prompt_version: string | null;
+    requirements: {
+        id: number;
+        label: string;
+        category: string;
+        weight: number;
+        statement: string;
+    }[];
+    gaps: {
+        label: string;
+        status: string;
+        finding: string;
+        required: boolean;
+    }[];
+    added: { key: string; statement: string }[];
+    dropped: { key: string; statement: string }[];
+};
+
 export type ResumeVariantShowProps = {
     job: ResumeVariantJobContext;
     analysis: ResumeVariantAnalysisContext;
-    match: ResumeVariantMatchContext;
+    match: ResumeVariantMatchContext | null;
     resume: ResumeVariantDetail;
+    tailoring?: ResumeTailoringReview | null;
 };

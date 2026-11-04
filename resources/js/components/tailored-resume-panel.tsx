@@ -8,6 +8,7 @@ import { store as tailoredResumeStore } from '@/routes/jobs/tailored-resume';
 import type {
     TailoredResumeStage,
     TailoredResumeStatus,
+    TailoringProfile,
 } from '@/types/tailored-resume';
 
 const STAGE_MARK: Record<TailoredResumeStage['status'], string> = {
@@ -139,9 +140,11 @@ function StageList({ stages }: { stages: TailoredResumeStage[] }) {
 export function TailoredResumePanel({
     jobId,
     initial,
+    profiles = [],
 }: {
     jobId: number;
     initial: TailoredResumeStatus;
+    profiles?: TailoringProfile[];
 }) {
     const { status, refresh } = useTailoredResumeStatus(jobId, initial);
     const elapsed = useLiveElapsed(status);
@@ -149,6 +152,15 @@ export function TailoredResumePanel({
     const [confirming, setConfirming] = useState(false);
     const [askError, setAskError] = useState<string | null>(null);
     const running = status.state === 'running';
+    // Tailor from an approved profile by default (the most relevant fresh one); "standard" is the original pathway.
+    const [profileId, setProfileId] = useState<string>(
+        String(
+            status.profile_resume?.profile_id ??
+                profiles.find((p) => p.recommended)?.id ??
+                '',
+        ),
+    );
+    const selected = profiles.find((p) => String(p.id) === profileId) ?? null;
 
     const start = (options: {
         allowIncomplete?: boolean;
@@ -160,6 +172,9 @@ export function TailoredResumePanel({
             {
                 allow_incomplete_description: options.allowIncomplete ?? false,
                 regenerate: options.regenerate ?? false,
+                ...(selected && !selected.stale
+                    ? { resume_profile_synthesis_id: selected.id }
+                    : {}),
             },
             {
                 preserveScroll: true,
@@ -170,6 +185,10 @@ export function TailoredResumePanel({
                 onError: (errors) => {
                     if (errors.allow_incomplete_description) {
                         setConfirming(true);
+                    }
+
+                    if (errors.resume_profile_synthesis_id) {
+                        setAskError(errors.resume_profile_synthesis_id);
                     }
                 },
                 onFinish: () => setProcessing(false),
@@ -198,10 +217,38 @@ export function TailoredResumePanel({
                         Tailored Resume
                     </h2>
                     <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
-                        Analyzes this job, matches your career evidence,
-                        composes the resume, and opens the PDF preview. Existing
-                        valid results are reused.
+                        {selected && !selected.stale
+                            ? 'Uses your approved profile as the starting point, finds the evidence this job needs, writes the resume, and renders the PDF. The stored job analysis is reused.'
+                            : 'Analyzes this job, matches your career evidence, composes the resume, and opens the PDF preview. Existing valid results are reused.'}
                     </p>
+                    {profiles.length > 0 && status.state !== 'running' && (
+                        <label className="mt-2 flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-400">
+                            Profile
+                            <select
+                                value={profileId}
+                                onChange={(e) => setProfileId(e.target.value)}
+                                className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs dark:border-neutral-700 dark:bg-neutral-950"
+                            >
+                                {profiles.map((p) => (
+                                    <option
+                                        key={p.id}
+                                        value={p.id}
+                                        disabled={p.stale}
+                                    >
+                                        {p.name} (version {p.version}
+                                        {p.stale
+                                            ? ', evidence changed: refresh it first'
+                                            : ''}
+                                        )
+                                    </option>
+                                ))}
+                                <option value="">
+                                    Standard (no profile, matches evidence
+                                    first)
+                                </option>
+                            </select>
+                        </label>
+                    )}
                 </div>
 
                 {status.state !== 'ready' &&
@@ -335,28 +382,40 @@ export function TailoredResumePanel({
                             Download PDF
                         </a>
                     )}
-                    <button
-                        type="button"
-                        disabled={processing}
-                        onClick={() => {
-                            setAskError(null);
-                            router.post(
-                                startClarification.url({ jobPosting: jobId }),
-                                { mode: 'standard' },
-                                {
-                                    preserveScroll: true,
-                                    onError: (errors) =>
-                                        setAskError(
-                                            errors.clarification ??
-                                                'Could not open questions.',
-                                        ),
-                                },
-                            );
-                        }}
-                        className="text-sm font-medium text-neutral-600 underline underline-offset-2 hover:text-neutral-900 disabled:opacity-50 dark:text-neutral-400"
-                    >
-                        Add details to improve targeting
-                    </button>
+                    {status.profile_resume?.review_url && (
+                        <a
+                            href={status.profile_resume.review_url}
+                            className="inline-flex items-center rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300"
+                        >
+                            Why is each item here?
+                        </a>
+                    )}
+                    {!status.profile_resume && (
+                        <button
+                            type="button"
+                            disabled={processing}
+                            onClick={() => {
+                                setAskError(null);
+                                router.post(
+                                    startClarification.url({
+                                        jobPosting: jobId,
+                                    }),
+                                    { mode: 'standard' },
+                                    {
+                                        preserveScroll: true,
+                                        onError: (errors) =>
+                                            setAskError(
+                                                errors.clarification ??
+                                                    'Could not open questions.',
+                                            ),
+                                    },
+                                );
+                            }}
+                            className="text-sm font-medium text-neutral-600 underline underline-offset-2 hover:text-neutral-900 disabled:opacity-50 dark:text-neutral-400"
+                        >
+                            Add details to improve targeting
+                        </button>
+                    )}
                     <button
                         type="button"
                         disabled={processing}

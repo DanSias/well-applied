@@ -1,7 +1,11 @@
 import { Head, Link } from '@inertiajs/react';
 import AppShell from '@/layouts/app-shell';
+import { show as jobShow } from '@/routes/jobs';
 import { show as matchesShow } from '@/routes/jobs/analyses/matches';
-import { pdf as resumePdf, preview as resumePreview } from '@/routes/resume-variants';
+import {
+    pdf as resumePdf,
+    preview as resumePreview,
+} from '@/routes/resume-variants';
 import type {
     ResumeBullet,
     ResumeCareerFactSummary,
@@ -99,6 +103,12 @@ function BulletCard({ bullet }: { bullet: ResumeBullet }) {
                     Project: {bullet.project}
                 </p>
             )}
+            {bullet.answers && bullet.answers.length > 0 && (
+                <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+                    Answers job requirements:{' '}
+                    {bullet.answers.map((a) => formatLabel(a)).join(', ')}
+                </p>
+            )}
             <div className="mt-2">
                 <p className="text-[11px] font-medium tracking-wide text-neutral-400 uppercase dark:text-neutral-500">
                     Source CareerFacts
@@ -112,10 +122,7 @@ function BulletCard({ bullet }: { bullet: ResumeBullet }) {
             {bullet.target_term_usages.length > 0 && (
                 <div className="mt-2 space-y-1">
                     {bullet.target_term_usages.map((usage) => (
-                        <TargetTermUsageCard
-                            key={usage.term}
-                            usage={usage}
-                        />
+                        <TargetTermUsageCard key={usage.term} usage={usage} />
                     ))}
                 </div>
             )}
@@ -154,20 +161,25 @@ export default function ResumeVariantShow({
     analysis,
     match,
     resume,
+    tailoring = null,
 }: ResumeVariantShowProps) {
     return (
         <AppShell>
             <Head title={`Resume — ${job.title} at ${job.company}`} />
 
             <Link
-                href={matchesShow.url({
-                    jobPosting: job.id,
-                    jobAnalysis: analysis.id,
-                    jobMatch: match.id,
-                })}
+                href={
+                    match === null
+                        ? jobShow.url({ jobPosting: job.id })
+                        : matchesShow.url({
+                              jobPosting: job.id,
+                              jobAnalysis: analysis.id,
+                              jobMatch: match.id,
+                          })
+                }
                 className="text-sm font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
             >
-                ← Back to match
+                {match === null ? '← Back to job' : '← Back to match'}
             </Link>
 
             <div className="mt-4">
@@ -182,7 +194,9 @@ export default function ResumeVariantShow({
                     </div>
                     <div className="flex flex-wrap gap-2">
                         <a
-                            href={resumePreview.url({ resumeVariant: resume.id })}
+                            href={resumePreview.url({
+                                resumeVariant: resume.id,
+                            })}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center rounded-md border border-neutral-200 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
@@ -224,6 +238,70 @@ export default function ResumeVariantShow({
                     </div>
                 </dl>
             </div>
+
+            {tailoring && (
+                <details
+                    open
+                    className="mt-6 rounded-lg border border-neutral-200 p-4 text-sm dark:border-neutral-800"
+                >
+                    <summary className="cursor-pointer font-semibold text-neutral-900 dark:text-neutral-100">
+                        How this resume was tailored
+                    </summary>
+                    <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+                        Started from your approved profile (version{' '}
+                        {tailoring.profile_version}) and the stored job analysis
+                        ({tailoring.analysis_prompt_version}). Evidence was
+                        ranked by the job&apos;s requirements from your whole
+                        approved record, not only what the profile highlights.
+                    </p>
+                    {tailoring.gaps.length > 0 && (
+                        <div className="mt-3">
+                            <p className="font-medium text-neutral-800 dark:text-neutral-200">
+                                Asked for by the job, not supported directly
+                                (not claimed)
+                            </p>
+                            <ul className="mt-1 list-disc pl-5 text-xs text-neutral-600 dark:text-neutral-400">
+                                {tailoring.gaps.map((g) => (
+                                    <li key={g.label}>
+                                        {g.label}
+                                        {g.status === 'limitation'
+                                            ? ' (you confirmed no direct experience)'
+                                            : ' (no approved evidence)'}
+                                        {g.required
+                                            ? ', required'
+                                            : ', preferred'}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+                    {tailoring.added.length > 0 && (
+                        <div className="mt-3">
+                            <p className="font-medium text-neutral-800 dark:text-neutral-200">
+                                Brought in because the job needs it (not in the
+                                reference resume)
+                            </p>
+                            <ul className="mt-1 list-disc pl-5 text-xs text-neutral-600 dark:text-neutral-400">
+                                {tailoring.added.map((f) => (
+                                    <li key={f.key}>{f.statement}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+                    {tailoring.dropped.length > 0 && (
+                        <div className="mt-3">
+                            <p className="font-medium text-neutral-800 dark:text-neutral-200">
+                                In the reference resume, left out here
+                            </p>
+                            <ul className="mt-1 list-disc pl-5 text-xs text-neutral-600 dark:text-neutral-400">
+                                {tailoring.dropped.map((f) => (
+                                    <li key={f.key}>{f.statement}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+                </details>
+            )}
 
             <div className="mt-6">
                 <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">

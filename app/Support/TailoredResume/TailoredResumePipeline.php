@@ -11,6 +11,7 @@ use App\Models\GenerationAttempt;
 use App\Models\JobAnalysis;
 use App\Models\JobMatch;
 use App\Models\JobPosting;
+use App\Models\ResumeProfileSynthesis;
 use App\Models\ResumeVariant;
 use App\Support\Clarification\ClarificationGate;
 use App\Support\Clarification\EvidenceRevision;
@@ -20,6 +21,7 @@ use App\Support\JobAnalysis\Prompts\JobAnalysisPromptV4;
 use App\Support\JobMatch\Prompts\JobMatchPromptV3;
 use App\Support\ResumeDocument\GenerateResumeDocument;
 use App\Support\ResumeDocument\ResumePdfStore;
+use App\Support\ResumeVariant\Prompts\ProfileJobWordingPromptV1;
 use App\Support\ResumeVariant\Prompts\ResumeSelectionPromptV6;
 use App\Support\ResumeVariant\Prompts\ResumeWordingPromptV3;
 use Illuminate\Database\Eloquent\Builder;
@@ -78,8 +80,12 @@ final class TailoredResumePipeline
      *
      * @throws ValidationException when the description is not known to be complete and the user has not confirmed continuing.
      */
-    public function start(JobPosting $posting, bool $allowIncompleteDescription = false, bool $regenerate = false): string
+    public function start(JobPosting $posting, bool $allowIncompleteDescription = false, bool $regenerate = false, ?ResumeProfileSynthesis $synthesis = null): string
     {
+        if ($synthesis !== null) {
+            $this->assertUsable($posting, $synthesis);
+        }
+
         if ($posting->description_completeness !== DescriptionCompleteness::Complete && ! $allowIncompleteDescription) {
             throw ValidationException::withMessages([
                 'allow_incomplete_description' => 'The description may be incomplete. Missing requirements or responsibilities can affect analysis. Confirm to generate anyway.',
@@ -91,20 +97,48 @@ final class TailoredResumePipeline
             ? (string) $active->pipeline_run_id
             : ($this->pendingRunId($posting) ?? (string) Str::uuid());
 
-        $this->advance($posting, $runId, $regenerate);
+        $this->advance($posting, $runId, $regenerate, $synthesis?->id);
 
         return $runId;
+    }
+
+    /**
+     * Profile-assisted tailoring uses an approved profile whose evidence is current; anything else is a refusal the user
+     * can act on, never a silent fallback to the other pathway.
+     *
+     * @throws ValidationException
+     */
+    private function assertUsable(JobPosting $posting, ResumeProfileSynthesis $synthesis): void
+    {
+        $message = match (true) {
+            $synthesis->career_profile_id !== $posting->career_profile_id => 'That profile belongs to a different career.',
+            $synthesis->status !== 'approved' => 'Approve the profile before tailoring a resume from it.',
+            $synthesis->isStale() => 'Your approved evidence changed after this profile was approved. Refresh and approve it on the Resume Profile page, or use the standard tailoring.',
+            default => null,
+        };
+
+        if ($message !== null) {
+            throw ValidationException::withMessages(['resume_profile_synthesis_id' => $message]);
+        }
     }
 
     /**
      * Claims the first stage that is not yet satisfied, unless an
      * attempt is already in flight for the posting. Idempotent.
      */
-    public function advance(JobPosting $posting, string $runId, bool $regenerate = false): void
+    public function advance(JobPosting $posting, string $runId, bool $regenerate = false, ?int $synthesisId = null): void
     {
         $regenerate = $regenerate || $this->runIsRegenerating($posting, $runId);
 
         if ($this->activeAttempts($posting)->isNotEmpty()) {
+            return;
+        }
+
+        $synthesisId ??= $this->runSynthesisId($posting, $runId);
+
+        if ($synthesisId !== null) {
+            $this->advanceWithProfile($posting, $runId, $regenerate, $synthesisId);
+
             return;
         }
 
@@ -130,6 +164,76 @@ final class TailoredResumePipeline
         }
 
         $this->claims->claim($next[0], $next[1], $runId, chain: true, regenerate: $regenerate);
+    }
+
+    /**
+     * The profile-assisted stages: job analysis (reused when current) -> resume composed from the approved profile -> PDF.
+     * There is no candidate match and no clarification pause: the one user action runs to a reviewable PDF.
+     */
+    private function advanceWithProfile(JobPosting $posting, string $runId, bool $regenerate, int $synthesisId): void
+    {
+        $synthesis = ResumeProfileSynthesis::query()->findOrFail($synthesisId);
+        $state = $this->inspectProfile($posting, $synthesis, $regenerate ? $runId : null);
+
+        $next = match (true) {
+            $state['analysis'] === null => [GenerationType::JobAnalysis, $posting],
+            $state['variant'] === null => [GenerationType::ResumeVariant, $state['analysis']],
+            ! $state['pdf_ready'] => [GenerationType::ResumePdf, $state['variant']],
+            default => null,
+        };
+
+        if ($next !== null) {
+            $this->claims->claim($next[0], $next[1], $runId, chain: true, regenerate: $regenerate, synthesisId: $synthesisId);
+        }
+    }
+
+    /**
+     * What is already valid for a profile-assisted run, derived from persisted state like inspect().
+     *
+     * @return array{analysis: JobAnalysis|null, match: null, variant: ResumeVariant|null, pdf_ready: bool, evidence_stale: bool}
+     */
+    public function inspectProfile(JobPosting $posting, ResumeProfileSynthesis $synthesis, ?string $regenerateRunId = null): array
+    {
+        $analysis = $posting->jobAnalyses()
+            ->where('prompt_version', $this->analysisPrompt->version())
+            ->orderByDesc('generated_at')->orderByDesc('id')
+            ->first();
+
+        $variant = null;
+
+        if ($analysis !== null) {
+            $variants = ResumeVariant::query()
+                ->where('job_analysis_id', $analysis->id)
+                ->where('resume_profile_synthesis_id', $synthesis->id)
+                ->where('wording_prompt_version', app(ProfileJobWordingPromptV1::class)->version())
+                ->orderByDesc('generated_at')->orderByDesc('id');
+
+            if ($regenerateRunId !== null) {
+                $variants->whereIn('id', GenerationAttempt::query()
+                    ->where('pipeline_run_id', $regenerateRunId)
+                    ->where('generation_type', GenerationType::ResumeVariant)
+                    ->where('status', GenerationStatus::Succeeded)
+                    ->pluck('result_id'));
+            }
+
+            $variant = $variants->first();
+        }
+
+        return [
+            'analysis' => $analysis, 'match' => null, 'variant' => $variant,
+            'pdf_ready' => $variant !== null && $this->pdfStore->get($this->documents->generate($variant)) !== null,
+            'evidence_stale' => false,
+        ];
+    }
+
+    /**
+     * The approved profile a run was started with, if it is a profile-assisted run.
+     */
+    public function runSynthesisId(JobPosting $posting, string $runId): ?int
+    {
+        $id = $this->attemptsFor($posting)->where('pipeline_run_id', $runId)->whereNotNull('resume_profile_synthesis_id')->value('resume_profile_synthesis_id');
+
+        return $id === null ? null : (int) $id;
     }
 
     /**
@@ -219,7 +323,7 @@ final class TailoredResumePipeline
     {
         $analysisIds = $posting->jobAnalyses()->pluck('id');
         $matchIds = JobMatch::query()->whereIn('job_analysis_id', $analysisIds)->pluck('id');
-        $variantIds = ResumeVariant::query()->whereIn('job_match_id', $matchIds)->pluck('id');
+        $variantIds = ResumeVariant::query()->whereIn('job_match_id', $matchIds)->orWhereIn('job_analysis_id', $analysisIds)->pluck('id');
 
         return GenerationAttempt::query()->where(function ($query) use ($posting, $analysisIds, $matchIds, $variantIds) {
             $query->where(fn ($q) => $q->where('subject_type', 'job_posting')->where('subject_id', $posting->id))

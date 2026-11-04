@@ -152,6 +152,20 @@ export type TailoredResumeStatus = {
     waiting_for_worker: boolean;
     clarification: Clarification | null;
     evidence_changed: boolean;
+    profile_resume: {
+        profile_version: number;
+        profile_id: number;
+        review_url: string | null;
+    } | null;
+};
+
+export type TailoringProfile = {
+    id: number;
+    version: number;
+    name: string;
+    stale: boolean;
+    approved_at: string | null;
+    recommended: boolean;
 };
 
 export type ApprovedEvidenceRevision = {

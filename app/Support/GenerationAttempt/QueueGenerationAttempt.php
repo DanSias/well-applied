@@ -79,7 +79,7 @@ final class QueueGenerationAttempt
      *
      * @param  Model  $subject  A JobPosting for JobAnalysis, a JobAnalysis for JobMatch, a JobMatch for ResumeVariant, a ResumeVariant for ResumePdf.
      */
-    public function claim(GenerationType $type, Model $subject, ?string $pipelineRunId = null, bool $chain = false, bool $regenerate = false): ?GenerationAttempt
+    public function claim(GenerationType $type, Model $subject, ?string $pipelineRunId = null, bool $chain = false, bool $regenerate = false, ?int $synthesisId = null): ?GenerationAttempt
     {
         $this->ensureSupported($type);
 
@@ -110,6 +110,7 @@ final class QueueGenerationAttempt
                 'pipeline_run_id' => $pipelineRunId,
                 'chain' => $chain,
                 'regenerate' => $regenerate,
+                'resume_profile_synthesis_id' => $synthesisId,
             ]);
 
             try {

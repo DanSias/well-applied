@@ -87,6 +87,61 @@ class ResumeVariantController extends Controller
     }
 
     /**
+     * The review page of a resume composed from an approved profile for one job: the same snapshot view, plus why each
+     * experience is there (the job requirements it answers) and what the job needed that the record does not support.
+     */
+    public function showForJob(JobPosting $jobPosting, ResumeVariant $resumeVariant): Response
+    {
+        $resumeVariant->loadMissing('jobAnalysis');
+        abort_unless($resumeVariant->jobAnalysis !== null && $resumeVariant->jobAnalysis->job_posting_id === $jobPosting->id, 404);
+
+        $resumeVariant->load([
+            'experienceRoles.bullets.citations.careerFact',
+            'summaryEvidence.careerFact',
+            'skillSelections.skill',
+            'educationSelections.education',
+        ]);
+
+        $tailoring = (array) ($resumeVariant->selection_input_snapshot['tailoring'] ?? []);
+        $labels = collect((array) ($tailoring['findings'] ?? []))->pluck('label', 'id');
+        $statements = $resumeVariant->jobAnalysis->findings()->pluck('statement', 'id');
+        $factStatements = CareerFact::query()->whereIn('key', [...($tailoring['added_outside_reference'] ?? []), ...($tailoring['dropped_from_reference'] ?? [])])
+            ->where('visibility', '!=', 'private')->get()->keyBy('key');
+        $groups = [];
+
+        foreach ((array) ($resumeVariant->selection_raw_response['experience'] ?? []) as $role) {
+            foreach ($role['bullet_groups'] as $group) {
+                $groups[$role['role_id'].':'.$group['order']] = array_values(array_filter(array_map(fn (int $id) => $labels[$id] ?? null, $group['job_analysis_finding_ids'] ?? [])));
+            }
+        }
+
+        $resume = $this->transformResumeVariant($resumeVariant);
+        $resume['experience'] = array_map(function (array $role) use ($resumeVariant, $groups) {
+            $roleRow = $resumeVariant->experienceRoles->firstWhere('role_id', $role['role_id']);
+            $role['bullets'] = array_map(fn (array $b) => [...$b, 'answers' => $groups[$role['role_id'].':'.($roleRow?->bullets->firstWhere('id', $b['id'])?->display_order)] ?? []], $role['bullets']);
+
+            return $role;
+        }, $resume['experience']);
+
+        $describe = fn (string $key) => ['key' => $key, 'statement' => $factStatements[$key]->statement ?? $key];
+
+        return Inertia::render('jobs/resumes/show', [
+            'job' => ['id' => $jobPosting->id, 'company' => $jobPosting->company, 'title' => $jobPosting->title],
+            'analysis' => ['id' => $resumeVariant->job_analysis_id],
+            'match' => null,
+            'resume' => $resume,
+            'tailoring' => $tailoring === [] ? null : [
+                'profile_version' => $tailoring['profile_version'] ?? null,
+                'analysis_prompt_version' => $tailoring['analysis_prompt_version'] ?? null,
+                'requirements' => array_map(fn (array $f) => [...$f, 'statement' => $statements[$f['id']] ?? ''], array_slice((array) ($tailoring['findings'] ?? []), 0, 40)),
+                'gaps' => array_map(fn (array $g) => ['label' => $g['label'], 'status' => $g['status'], 'finding' => $g['finding'], 'required' => $g['required']], (array) ($tailoring['gaps'] ?? [])),
+                'added' => array_map($describe, (array) ($tailoring['added_outside_reference'] ?? [])),
+                'dropped' => array_map($describe, (array) ($tailoring['dropped_from_reference'] ?? [])),
+            ],
+        ]);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function transformResumeVariant(ResumeVariant $variant): array

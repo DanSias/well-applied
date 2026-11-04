@@ -12,6 +12,7 @@ use App\Exceptions\ResumeEmptyOutputException;
 use App\Models\CareerFact;
 use App\Models\CareerProfile;
 use App\Models\Education;
+use App\Models\JobAnalysis;
 use App\Models\JobMatch;
 use App\Models\Project;
 use App\Models\ResumeProfileSynthesis;
@@ -24,10 +25,13 @@ use App\Support\Clarification\ActivePresentationPreferences;
 use App\Support\Clarification\DeclaredScopes;
 use App\Support\GenerationAttempt\GenerationMetrics;
 use App\Support\JobMatch\JobPayloadBuilder;
+use App\Support\JobTailoring\JobRelevance;
+use App\Support\JobTailoring\ProfileJobAdapter;
 use App\Support\ProfileSynthesis\EffectiveProfile;
 use App\Support\ProfileSynthesis\FirstPerson;
 use App\Support\ProfileSynthesis\ReferenceSelection;
 use App\Support\ResumeDocument\ResumeText;
+use App\Support\ResumeVariant\Prompts\ProfileJobWordingPromptV1;
 use App\Support\ResumeVariant\Prompts\ReferenceWordingPromptV3;
 use App\Support\ResumeVariant\Prompts\ResumeSelectionPromptV6;
 use App\Support\ResumeVariant\Prompts\ResumeWordingPromptV3;
@@ -108,12 +112,38 @@ final class GenerateResumeVariant
         return $this->generate($synthesis->careerProfile, null, $synthesis, $onPhase, false);
     }
 
-    private function generate(CareerProfile $profile, ?JobMatch $jobMatch, ?ResumeProfileSynthesis $synthesis, ?\Closure $onPhase, bool $reuseCheckpoint): ResumeVariant
+    /**
+     * A resume for one job composed from an approved profile, with no candidate match: the profile is the starting
+     * candidate set and ranking prior, the job analysis (already stored) says what matters, and relevant approved
+     * evidence outside the profile's emphasis is ranked in by the same selection. Selection is deterministic; one
+     * wording call (with the usual validation and retries) writes the text. See App\Support\JobTailoring.
+     *
+     * @param  (\Closure(string): void)|null  $onPhase
+     */
+    public function generateForJob(JobAnalysis $analysis, ResumeProfileSynthesis $synthesis, ?\Closure $onPhase = null): ResumeVariant
+    {
+        return $this->generate($synthesis->careerProfile, null, $synthesis, $onPhase, false, $analysis);
+    }
+
+    private function generate(CareerProfile $profile, ?JobMatch $jobMatch, ?ResumeProfileSynthesis $synthesis, ?\Closure $onPhase, bool $reuseCheckpoint, ?JobAnalysis $analysis = null): ResumeVariant
     {
         $metrics = app(GenerationMetrics::class);
         $onPhase ??= static fn (string $phase) => null;
-        $wordingPrompt = $synthesis === null ? $this->wordingPrompt : app(ReferenceWordingPromptV3::class);
+        $jobMode = $synthesis !== null && $analysis !== null;
+        $wordingPrompt = match (true) {
+            $jobMode => app(ProfileJobWordingPromptV1::class),
+            $synthesis !== null => app(ReferenceWordingPromptV3::class),
+            default => $this->wordingPrompt,
+        };
         $effective = $synthesis === null ? null : EffectiveProfile::resolve($synthesis);
+        $relevance = null;
+        $baselineEffective = $effective;
+
+        if ($jobMode) {
+            // The profile is the prior; the job re-ranks it (never past the user's exclusions and pins).
+            $relevance = app(JobRelevance::class)->analyze($analysis, $synthesis->content['inventory']['facts'], $profile);
+            $effective = app(ProfileJobAdapter::class)->adapt($effective, $relevance);
+        }
 
         // ---- Stage 0: deterministic payload construction ----
         if ($jobMatch !== null) {
@@ -124,7 +154,7 @@ final class GenerateResumeVariant
             // No job: no findings and no target terms. The facts the approved profile placed are offered
             // first, so a claim shared by several places is presented where the profile ranks it highest.
             $candidatePayload = $this->candidateBuilder->buildForCareer($profile, [], array_column($effective['accomplishments'] ?? [], 'fact_key'));
-            $jobPayload = ['reference' => true, 'findings' => []];
+            $jobPayload = $jobMode ? $this->jobPayloadBuilder->build($analysis) : ['reference' => true, 'findings' => []];
             $targetTerminology = [];
         }
 
@@ -205,14 +235,44 @@ final class GenerateResumeVariant
         $validTitleChoiceKeys = $this->titleChoiceKeyEnum($titleChoicesByRole);
 
         // ---- Stage 1: Selection ----
-        $selectionPromptVersion = $synthesis === null ? $this->selectionPrompt->version() : ReferenceSelection::VERSION;
+        $selectionPromptVersion = match (true) {
+            $jobMode => ReferenceSelection::VERSION.'+job-relevance-v1',
+            $synthesis !== null => ReferenceSelection::VERSION,
+            default => $this->selectionPrompt->version(),
+        };
         $presentationPreferences = ActivePresentationPreferences::forProfile($profile);
         $selectionResponse = null;
         $validatedSelection = null;
+        $tailoring = null;
 
         if ($synthesis !== null) {
             $onPhase('selection');
             $reference = app(ReferenceSelection::class)->build($effective, $candidatePayload);
+
+            if ($jobMode) {
+                // Which requirement each bullet answers: provenance for the review, never a claim.
+                foreach ($reference['content']['experience'] as &$role) {
+                    foreach ($role['bullet_groups'] as &$group) {
+                        $ids = [];
+
+                        foreach ($group['career_fact_keys'] as $key) {
+                            $ids = [...$ids, ...($relevance['facts'][$key]['finding_ids'] ?? [])];
+                        }
+
+                        $group['job_analysis_finding_ids'] = array_slice(array_values(array_intersect(array_unique($ids), $validFindingIds)), 0, 3);
+                    }
+                    unset($group);
+                }
+                unset($role);
+
+                $baseline = app(ReferenceSelection::class)->build($baselineEffective, $candidatePayload);
+                $usedKeys = fn (array $content): array => array_values(array_unique(array_merge($content['summary_evidence'], ...array_merge(...array_map(fn (array $r) => array_column($r['bullet_groups'], 'career_fact_keys'), $content['experience'])))));
+                $chosen = $usedKeys($reference['content']);
+                $reference['tailoring'] = [
+                    'added_outside_reference' => array_values(array_diff($chosen, $usedKeys($baseline['content']))),
+                    'dropped_from_reference' => array_values(array_diff($usedKeys($baseline['content']), $chosen)),
+                ];
+            }
             $validatedSelection = $this->selectionValidator->validate(
                 $reference['content'],
                 $validRoleIds,
@@ -227,6 +287,12 @@ final class GenerateResumeVariant
                 $projectIdByFactKey,
             );
             $selectionResponse = new ResumeSelectionProviderResponse('deterministic', "profile-v{$synthesis->version}", $validatedSelection);
+            $tailoring = $jobMode ? [
+                'mode' => 'profile_job', 'job_posting_id' => $analysis->job_posting_id, 'job_analysis_id' => $analysis->id, 'analysis_prompt_version' => $analysis->prompt_version,
+                'profile_version' => $synthesis->version,
+                'findings' => array_values(array_map(fn (array $f) => ['id' => $f['id'], 'label' => $f['label'], 'category' => $f['category'], 'weight' => round($f['weight'], 2)], $relevance['findings'])),
+                'gaps' => $relevance['gaps'], ...$reference['tailoring'],
+            ] : null;
             $metrics->event(['stage' => 'selection', 'kind' => 'reference_selection', 'groups' => array_sum(array_map(fn (array $r) => count($r['bullet_groups']), $validatedSelection['experience'])), 'trace' => $reference['trace']]);
         } else {
             if ($jobMatch === null) {
@@ -413,6 +479,11 @@ final class GenerateResumeVariant
         if ($effective !== null) {
             $wordingInput['reference_context'] = ReferenceSelection::wordingContext($effective);
 
+            if ($jobMode) {
+                $wordingInput['reference_context']['kind'] = 'job_tailored_resume';
+                $wordingInput['job_context'] = $this->jobContext($analysis, $relevance, $factsByKey->all());
+            }
+
             // A first-person fact authorizes what the summary may claim; the model is told its wording is not to be used.
             $wordingInput['summary_evidence'] = array_map(
                 fn (array $fact) => FirstPerson::in((string) ($fact['statement'] ?? '')) ? [...$fact, 'support_only' => true] : $fact,
@@ -456,7 +527,7 @@ final class GenerateResumeVariant
             declaredScopesByKey: DeclaredScopes::forFacts($profile, $factsByKey->keys()->all()),
             // A reference resume is judged on its material claims, and its summary must keep what the approved profile's does.
             claimFidelity: $synthesis !== null,
-            retention: $effective === null ? [] : app(ReferenceSelection::class)->retention($effective, array_map(fn (string $key) => (string) ($factsByKey->get($key)['statement'] ?? ''), $selectionDraft->summaryEvidenceFactKeys)),
+            retention: $effective === null || $jobMode ? [] : app(ReferenceSelection::class)->retention($effective, array_map(fn (string $key) => (string) ($factsByKey->get($key)['statement'] ?? ''), $selectionDraft->summaryEvidenceFactKeys)),
         );
         $reviewItems = [];
         $rejection = null;
@@ -542,7 +613,7 @@ final class GenerateResumeVariant
         $onPhase('saving');
 
         return DB::transaction(function () use (
-            $profile, $jobMatch, $synthesis, $wordingPrompt, $selectionPromptVersion, $selectionDraft, $wordingDraft,
+            $profile, $jobMatch, $synthesis, $analysis, $tailoring, $wordingPrompt, $selectionPromptVersion, $selectionDraft, $wordingDraft,
             $candidatePayload, $jobPayload, $targetTerminology, $presentationPreferences,
             $selectionResponse, $wordingResponse,
             $validatedSelection, $validatedWording, $wordingInput,
@@ -591,6 +662,7 @@ final class GenerateResumeVariant
             $variant = ResumeVariant::create([
                 'career_profile_id' => $profile->id,
                 'job_match_id' => $jobMatch?->id,
+                'job_analysis_id' => $analysis?->id,
                 'resume_profile_synthesis_id' => $synthesis?->id,
                 'schema_version' => $this->selectionPrompt->schemaVersion(),
                 'selection_prompt_version' => $selectionPromptVersion,
@@ -603,6 +675,7 @@ final class GenerateResumeVariant
                     'job' => $jobPayload,
                     'target_terminology' => $targetTerminology,
                     'presentation_preferences' => $presentationPreferences,
+                    ...($tailoring === null ? [] : ['tailoring' => $tailoring]),
                 ],
                 'selection_raw_response' => $validatedSelection,
                 'wording_input_snapshot' => $wordingInput,
@@ -1323,6 +1396,35 @@ final class GenerateResumeVariant
         }
 
         return $byLocation;
+    }
+
+    /**
+     * What the wording stage is told about the job: its role and emphasis, what the candidate's approved evidence
+     * supports directly, and what it does not (never to be claimed or hinted at).
+     *
+     * @param  array<string, mixed>  $relevance  JobRelevance::analyze()
+     * @param  array<string, array<string, mixed>>  $factsByKey  the offered career facts
+     * @return array<string, mixed>
+     */
+    private function jobContext(JobAnalysis $analysis, array $relevance, array $factsByKey): array
+    {
+        $emphasis = array_slice(array_values(array_map(
+            fn (array $f) => ['requirement' => $f['statement'], 'kind' => $f['category']],
+            array_filter($relevance['findings'], fn (array $f) => in_array($f['category'], ['responsibility', 'required_qualification', 'technology', 'preferred_qualification'], true)),
+        )), 0, 12);
+        $gapLabels = array_column($relevance['gaps'], 'label');
+        $supported = [];
+
+        foreach ($relevance['capabilities'] as $cap => $weight) {
+            if (! in_array((string) config("resume_profiles.capabilities.{$cap}.label", $cap), $gapLabels, true)) {
+                $supported[] = (string) config("resume_profiles.capabilities.{$cap}.label", $cap);
+            }
+        }
+
+        return [
+            'role' => $analysis->jobPosting->title, 'company' => $analysis->jobPosting->company, 'summary' => $analysis->role_summary,
+            'emphasis' => $emphasis, 'supported' => $supported, 'not_supported' => $gapLabels,
+        ];
     }
 
     /**

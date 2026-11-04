@@ -78,6 +78,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $result_id
  * @property string|null $pipeline_run_id
  * @property bool $chain
+ * @property int|null $resume_profile_synthesis_id The approved profile a profile-assisted tailoring run is composed from; every attempt of the run carries it.
  * @property bool $regenerate
  * @property string|null $phase
  * @property int|null $queue_wait_ms
@@ -117,6 +118,7 @@ use Illuminate\Support\Carbon;
     'result_id',
     'pipeline_run_id',
     'chain',
+    'resume_profile_synthesis_id',
     'regenerate',
     'phase',
     'queue_wait_ms',

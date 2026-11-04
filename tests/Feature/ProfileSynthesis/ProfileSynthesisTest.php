@@ -2,19 +2,29 @@
 
 use App\Contracts\GeneratesResumeWording;
 use App\Enums\CareerFactType;
+use App\Enums\DescriptionCompleteness;
+use App\Enums\GenerationStatus;
+use App\Enums\GenerationType;
 use App\Enums\Verification;
 use App\Enums\Visibility;
 use App\Jobs\GenerateReferenceResumeJob;
+use App\Jobs\GenerateResumeVariantJob;
 use App\Jobs\SynthesizeProfileJob;
 use App\Models\CareerFact;
 use App\Models\CareerLimitation;
 use App\Models\Employer;
+use App\Models\GenerationAttempt;
+use App\Models\JobAnalysis;
+use App\Models\JobAnalysisFinding;
 use App\Models\JobMatch;
+use App\Models\JobPosting;
 use App\Models\Project;
 use App\Models\ResumeProfileSynthesis;
 use App\Models\Role;
 use App\Models\Skill;
 use App\Support\Clarification\EvidenceRevision;
+use App\Support\JobTailoring\JobRelevance;
+use App\Support\JobTailoring\ProfileJobAdapter;
 use App\Support\ProfileSynthesis\EffectiveProfile;
 use App\Support\ProfileSynthesis\GenerateReferenceResume;
 use App\Support\ProfileSynthesis\ProfileAssembly;
@@ -34,6 +44,8 @@ use App\Support\ResumeVariant\ResumeCandidatePayloadBuilder;
 use App\Support\ResumeVariant\ResumeWordingProviderResponse;
 use App\Support\ResumeVariant\ResumeWordingResponseValidator;
 use App\Support\ResumeVariant\WordingCheckContext;
+use App\Support\TailoredResume\PresentTailoredResume;
+use App\Support\TailoredResume\TailoredResumePipeline;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
 use Tests\Support\FakeSequenceWriter;
@@ -897,4 +909,146 @@ it('groups consecutive roles at one employer on a reference resume only', functi
 
     $html = view('resume.print', ['document' => $make(true)])->render();
     expect(substr_count($html, 'class="group-employer"'))->toBe(1)->and(strpos($html, 'Lead'))->toBeLessThan(strpos($html, 'SEO Analyst'));
+});
+
+/**
+ * A job (payments and webhooks, with a Rails preference the career confirms it lacks) and facts the reference resume does
+ * not emphasize: payment and webhook work at the flagship's employer and a merchant-onboarding fact.
+ */
+function tailoringScenario(): array
+{
+    $s = synthesisScenario();
+    $mk = fn (string $key, string $statement, string $type, int $id, Visibility $v = Visibility::Public) => CareerFact::factory()->create([
+        'career_profile_id' => $s['career']->id, 'key' => $key, 'statement' => $statement, 'visibility' => $v, 'verification' => Verification::Verified,
+        'fact_type' => CareerFactType::Bullet, 'attributable_type' => $type, 'attributable_id' => $id,
+    ]);
+    $mk('webhooks', 'Built webhook handlers for payment events with retry schedules and idempotent processing of duplicate deliveries.', 'role', $s['role']->id);
+    $mk('recurring', 'Set up recurring billing for merchants through the payment gateway API.', 'role', $s['role']->id);
+    $mk('private-card', 'Handled the SECRET-PROJECT-ZEBRA payment webhook outage.', 'role', $s['role']->id, Visibility::Private);
+
+    $posting = JobPosting::factory()->create(['career_profile_id' => $s['career']->id, 'title' => 'Full Stack Engineer', 'company' => 'Acme Finance']);
+    $analysis = JobAnalysis::factory()->create(['job_posting_id' => $posting->id, 'prompt_version' => 'job-analysis-v4', 'role_summary' => 'Own payment integrations and the signup funnel.']);
+    $finding = fn (string $category, string $label, string $statement) => JobAnalysisFinding::factory()->create([
+        'job_analysis_id' => $analysis->id, 'category' => $category, 'label' => $label, 'statement' => $statement,
+    ]);
+    $finding('required_qualification', 'webhook_integration', 'Strong experience building webhook-driven payment integrations with retries and idempotency.');
+    $finding('responsibility', 'payments', 'Own payment gateway and recurring billing integrations.');
+    $finding('preferred_qualification', 'rails', 'Ruby on Rails experience.');
+    $finding('required_qualification', 'frontend', 'Working proficiency with React and TypeScript.');
+
+    return [...$s, 'posting' => $posting, 'analysis' => $analysis->fresh()];
+}
+
+it('ranks approved evidence by the job, reports gaps, and never ranks a Private fact', function () {
+    $s = tailoringScenario();
+    $synthesis = synthesize($s);
+    $relevance = app(JobRelevance::class)->analyze($s['analysis'], $synthesis->content['inventory']['facts'], $s['career']);
+
+    // Webhook and recurring-billing facts are relevant even though the reference summary never cites them.
+    expect($relevance['facts'])->toHaveKeys(['webhooks', 'recurring'])->not->toHaveKey('private-card')->not->toHaveKey('private-secret')
+        ->and($relevance['facts']['webhooks']['score'])->toBeGreaterThan($relevance['facts']['wi-owned']['score'] ?? 0)
+        ->and(array_column($relevance['gaps'], 'capability'))->toContain('ruby_on_rails')
+        ->and(collect($relevance['gaps'])->firstWhere('capability', 'ruby_on_rails')['status'])->toBe('limitation');
+});
+
+it('adapts the profile to a job without overriding exclusions or pins', function () {
+    $s = tailoringScenario();
+    $synthesis = synthesize($s);
+    $review = app(ReviewProfileSynthesis::class);
+    $review->edit($synthesis, 'accomplishment:webhooks', ['include' => false]);
+    $effective = EffectiveProfile::resolve($synthesis->fresh());
+    $relevance = app(JobRelevance::class)->analyze($s['analysis'], $synthesis->content['inventory']['facts'], $s['career']);
+    $adapted = app(ProfileJobAdapter::class)->adapt($effective, $relevance);
+    $byKey = collect($adapted['accomplishments'])->keyBy('fact_key');
+
+    // An exclusion the user made holds; a relevant included fact outranks an irrelevant one.
+    expect($byKey['webhooks']['included'])->toBeFalse()
+        ->and($byKey['recurring']['score'])->toBeGreaterThan($byKey['trivia-1']['score'])
+        ->and($adapted['presentation']['summary_fact_keys'])->not->toContain('webhooks');
+});
+
+it('composes a job-tailored resume from the approved profile with one wording call, bringing in relevant evidence and never claiming a limitation', function () {
+    $s = tailoringScenario();
+    $synthesis = synthesize($s);
+    app(ReviewProfileSynthesis::class)->approve($synthesis);
+    $seen = new stdClass;
+    $seen->calls = 0;
+    app()->instance(GeneratesResumeWording::class, new class($seen) implements GeneratesResumeWording
+    {
+        public function __construct(private stdClass $seen) {}
+
+        public function generate(string $system, string $user, array $schema): ResumeWordingProviderResponse
+        {
+            $this->seen->calls++;
+            $this->seen->system = $system;
+            preg_match('/--- Approved selection[^\n]*\n(.*?)\n--- End of approved selection/s', $user, $m);
+            $in = json_decode($m[1], true);
+            $this->seen->input = $in;
+            $first = fn (array $facts) => implode(' ', array_map(fn ($f) => rtrim((string) preg_replace('/\s+/', ' ', $f['statement']), '.').'.', $facts));
+
+            return new ResumeWordingProviderResponse('fake', 'stub', [
+                'summary' => 'Full-Stack Developer who owns applications end to end and builds payment integrations.',
+                'experience' => array_map(fn ($r) => ['role_id' => $r['role_id'], 'bullets' => array_map(fn ($g) => ['bullet_group_index' => $g['bullet_group_index'], 'text' => $first($g['career_facts'])], $r['bullet_groups'])], $in['experience']),
+                'selected_projects' => [],
+            ]);
+        }
+    });
+
+    $variant = app(GenerateResumeVariant::class)->generateForJob($s['analysis'], $synthesis->fresh());
+    $variant->load('experienceRoles.bullets.citations.careerFact');
+    $cited = $variant->experienceRoles->flatMap(fn ($r) => $r->bullets->flatMap(fn ($b) => $b->citations->map(fn ($c) => $c->careerFact->key)))->all();
+    $tailoring = $variant->selection_input_snapshot['tailoring'];
+
+    expect($seen->calls)->toBe(1)
+        ->and($variant->job_match_id)->toBeNull()->and($variant->job_analysis_id)->toBe($s['analysis']->id)->and($variant->resume_profile_synthesis_id)->toBe($synthesis->id)
+        ->and($variant->wording_prompt_version)->toBe('resume-wording-profile-job-v1')
+        // The job's evidence reaches the resume even though the reference profile does not emphasize it.
+        ->and($cited)->toContain('webhooks')->not->toContain('private-card', 'private-secret', 'personal-docker', 'first-person')
+        ->and($tailoring['mode'])->toBe('profile_job')->and($tailoring['job_analysis_id'])->toBe($s['analysis']->id)->and($tailoring['profile_version'])->toBe($synthesis->version)
+        ->and($tailoring['added_outside_reference'])->not->toBeEmpty()->and($tailoring['dropped_from_reference'])->toBeArray()
+        ->and(array_column($tailoring['gaps'], 'capability'))->toContain('ruby_on_rails')
+        ->and($seen->input['job_context']['not_supported'])->toContain('Ruby on Rails')
+        ->and($seen->input['reference_context']['kind'])->toBe('job_tailored_resume')
+        ->and($variant->summary)->not->toContain('Rails')
+        ->and(json_encode($variant->wording_input_snapshot))->not->toContain('SECRET-PROJECT-ZEBRA');
+
+    // Provenance is on the review page: why an experience made it and the evidence behind it.
+    $this->get(route('jobs.profile-resumes.show', [$s['posting'], $variant]))->assertOk()->assertInertia(fn ($page) => $page
+        ->where('match', null)->where('tailoring.profile_version', $synthesis->version)
+        ->where('tailoring.added', fn ($added) => collect($added)->pluck('key')->all() === array_values($tailoring['added_outside_reference'])));
+});
+
+it('runs the profile-assisted pipeline as analysis, resume, PDF with no match stage, and refuses an unapproved or stale profile', function () {
+    Queue::fake();
+    $s = tailoringScenario();
+    $synthesis = synthesize($s);
+    $pipeline = app(TailoredResumePipeline::class);
+    $posting = $s['posting'];
+
+    // The description must be known complete for a one-action run.
+    $posting->update(['description_completeness' => DescriptionCompleteness::Complete]);
+
+    expect(fn () => $pipeline->start($posting, synthesis: $synthesis))->toThrow(ValidationException::class, 'Approve the profile');
+
+    app(ReviewProfileSynthesis::class)->approve($synthesis);
+    $runId = $pipeline->start($posting, synthesis: $synthesis->fresh());
+
+    // The stored analysis is reused, so the first claimed stage is the resume itself, carrying the approved profile.
+    $attempt = GenerationAttempt::query()->where('pipeline_run_id', $runId)->first();
+    expect($attempt->generation_type)->toBe(GenerationType::ResumeVariant)->and($attempt->subject_id)->toBe($s['analysis']->id)->and($attempt->resume_profile_synthesis_id)->toBe($synthesis->id);
+    Queue::assertPushed(GenerateResumeVariantJob::class);
+
+    // A second click joins the same run; nothing duplicates.
+    expect($pipeline->start($posting, synthesis: $synthesis->fresh()))->toBe($runId)->and(GenerationAttempt::query()->count())->toBe(1);
+
+    $status = app(PresentTailoredResume::class)->present($posting);
+    expect(array_column($status['stages'], 'key'))->toBe(['analysis', 'resume', 'pdf'])->and($status['state'])->toBe('running')->and($status['current_stage'])->toBe('resume');
+
+    $profiles = app(PresentTailoredResume::class)->profiles($posting);
+    expect($profiles[0])->toMatchArray(['id' => $synthesis->id, 'recommended' => true, 'stale' => false]);
+
+    // Evidence changed after approval: refused with an actionable message, never a silent fallback.
+    EvidenceRevision::bump($s['career']);
+    GenerationAttempt::query()->update(['status' => GenerationStatus::Failed]);
+    expect(fn () => $pipeline->start($posting, synthesis: $synthesis->fresh()))->toThrow(ValidationException::class, 'Refresh');
 });

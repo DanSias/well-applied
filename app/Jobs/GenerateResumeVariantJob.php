@@ -8,7 +8,9 @@ use App\Exceptions\ResumeEmptyOutputException;
 use App\Exceptions\ResumeGenerationProviderException;
 use App\Jobs\Concerns\RecordsAttemptMetrics;
 use App\Models\GenerationAttempt;
+use App\Models\JobAnalysis;
 use App\Models\JobMatch;
+use App\Models\ResumeProfileSynthesis;
 use App\Support\ResumeVariant\GenerateResumeVariant;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -77,27 +79,30 @@ final class GenerateResumeVariantJob implements ShouldQueue
         ]);
         $this->beginMetrics();
 
-        $jobMatch = $this->attempt->subject;
+        $subject = $this->attempt->subject;
+        $synthesis = $this->attempt->resume_profile_synthesis_id === null ? null : ResumeProfileSynthesis::query()->find($this->attempt->resume_profile_synthesis_id);
+        $jobMatch = $subject instanceof JobMatch ? $subject : null;
+        // Profile-assisted tailoring: the subject is the job's analysis and the approved profile is on the attempt.
+        $analysis = $subject instanceof JobAnalysis && $synthesis !== null ? $subject : null;
 
-        if (! $jobMatch instanceof JobMatch) {
-            $this->markFailed('unexpected_error', 'GenerationAttempt subject was not a JobMatch.');
+        if ($jobMatch === null && $analysis === null) {
+            $this->markFailed('unexpected_error', 'GenerationAttempt subject was not a JobMatch, or a JobAnalysis with its approved profile.');
 
             return;
         }
 
         try {
-            $variant = $generator->generateFull(
-                $jobMatch,
-                function (string $phase): void {
-                    $this->attempt->update(['phase' => $phase]);
-                },
-                reuseCheckpoint: ! $this->attempt->regenerate,
-            );
+            $onPhase = function (string $phase): void {
+                $this->attempt->update(['phase' => $phase]);
+            };
+            $variant = $jobMatch !== null
+                ? $generator->generateFull($jobMatch, $onPhase, reuseCheckpoint: ! $this->attempt->regenerate)
+                : $generator->generateForJob($analysis, $synthesis, $onPhase);
         } catch (ResumeEmptyOutputException $e) {
             $diagnostics = $e->diagnostics;
 
             Log::warning('ResumeVariant generation failed: empty model output.', [
-                'job_match_id' => $jobMatch->id,
+                'job_match_id' => $jobMatch?->id,
                 'generation_attempt_id' => $this->attempt->id,
                 'message' => $e->getMessage(),
                 'generation_stage' => $this->validationStage($e->getMessage()),
@@ -116,7 +121,7 @@ final class GenerateResumeVariantJob implements ShouldQueue
             $diagnostics = $e->diagnostics;
 
             Log::warning('ResumeVariant generation failed.', [
-                'job_match_id' => $jobMatch->id,
+                'job_match_id' => $jobMatch?->id,
                 'generation_attempt_id' => $this->attempt->id,
                 'exception' => $e::class,
                 'message' => $e->getMessage(),
@@ -138,7 +143,7 @@ final class GenerateResumeVariantJob implements ShouldQueue
             return;
         } catch (InvalidResumeVariantResponseException $e) {
             Log::warning('ResumeVariant generation failed.', [
-                'job_match_id' => $jobMatch->id,
+                'job_match_id' => $jobMatch?->id,
                 'generation_attempt_id' => $this->attempt->id,
                 'exception' => $e::class,
                 'message' => $e->getMessage(),
@@ -169,7 +174,7 @@ final class GenerateResumeVariantJob implements ShouldQueue
             ...$this->successMetrics(),
         ]);
 
-        $this->advancePipeline($jobMatch->jobAnalysis->jobPosting);
+        $this->advancePipeline(($jobMatch !== null ? $jobMatch->jobAnalysis : $analysis)->jobPosting);
     }
 
     /**

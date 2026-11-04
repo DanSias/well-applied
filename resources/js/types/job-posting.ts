@@ -2,6 +2,7 @@ import type { InspectionSummary } from '@/types/application-inspection';
 import type {
     ApprovedEvidence,
     TailoredResumeStatus,
+    TailoringProfile,
 } from '@/types/tailored-resume';
 import type { GenerationAttempt } from '@/types/generation-attempt';
 
@@ -132,6 +133,7 @@ export type JobsIndexProps = {
 export type JobShowProps = {
     job: JobPostingDetail;
     tailored_resume: TailoredResumeStatus;
+    resume_profiles: TailoringProfile[];
     approved_evidence: ApprovedEvidence;
 };
 

@@ -279,6 +279,8 @@ it('keeps GenerationAttempt\'s fillable list limited to lifecycle/version/diagno
         // candidate content.
         'pipeline_run_id',
         'chain',
+        // Profile-assisted tailoring: the approved profile version a run is composed from (an id, never content).
+        'resume_profile_synthesis_id',
         'regenerate',
         'phase',
         'queue_wait_ms',

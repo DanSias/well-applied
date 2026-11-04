@@ -111,6 +111,7 @@ final class ReferenceSelection
             $result = $this->pick($units, $allocation[$roleId] ?? 1, [
                 'per_project_max' => (int) $cfg['per_project_max'], 'weights' => $weights, 'priority' => $priority,
                 'overlap_limit' => (float) $cfg['overlap_limit'], 'extra' => min(1, $extraLeft), 'role_has_projects' => array_filter($units, fn (array $u) => $u['project_id'] !== null) !== [],
+                'job_priority' => $effective['job_priority_findings'] ?? [],
                 'technical_floor' => preg_match('/\b(?:developer|engineer)\b/i', (string) $titles[$roleId]) === 1, 'texts' => array_map(fn (array $f) => $f['statement'], $offered),
             ]);
             $extraLeft -= $result['extra_used'];
@@ -179,7 +180,9 @@ final class ReferenceSelection
         $relevance = [];
 
         foreach ($roleIds as $roleId) {
-            $relevance[$roleId] = array_sum(array_map(fn (array $a) => $a['score'], array_slice($candidates[$roleId] ?? [], 0, 6)));
+            // For a job, strong evidence counts more than a pile of middling evidence (a role with two exact matches
+            // outweighs one with six loose ones).
+            $relevance[$roleId] = array_sum(array_map(fn (array $a) => isset($a['job_relevance']) ? $a['score'] ** 2 : $a['score'], array_slice($candidates[$roleId] ?? [], 0, 6)));
         }
 
         $sum = array_sum($relevance) ?: 1.0;
@@ -188,7 +191,9 @@ final class ReferenceSelection
         foreach ($roleIds as $roleId) {
             // A role titled developer or engineer is the resume's identity, so it never shrinks below the floor.
             $floor = preg_match('/\b(?:developer|engineer)\b/i', (string) ($titles[$roleId] ?? '')) === 1 ? $developerFloor : 1;
-            $alloc[$roleId] = max($floor, min($perRoleMax, (int) round($total * $relevance[$roleId] / $sum)));
+            // A role that is not a developer or engineer role (an analyst role) never takes more than two bullets of a developer resume.
+            $cap = $floor === 1 && preg_match('/\b(?:developer|engineer)\b/i', (string) ($titles[$roleId] ?? '')) !== 1 ? min(2, $perRoleMax) : $perRoleMax;
+            $alloc[$roleId] = max($floor, min($cap, (int) round($total * $relevance[$roleId] / $sum)));
         }
 
         while (array_sum($alloc) > $total) {
@@ -274,7 +279,7 @@ final class ReferenceSelection
      * Fills one role's bullets by kind of evidence (see the class comment).
      *
      * @param  array<int, array<string, mixed>>  $units
-     * @param  array{per_project_max: int, weights: array<int, float>, priority: array<int, int>, overlap_limit: float, extra: int, role_has_projects: bool, technical_floor: bool, texts: array<string, string>}  $ctx
+     * @param  array{per_project_max: int, weights: array<int, float>, priority: array<int, int>, overlap_limit: float, extra: int, role_has_projects: bool, technical_floor: bool, texts: array<string, string>, job_priority: array<int, int>}  $ctx
      * @return array{chosen: array<int, array<string, mixed>>, left: array<int, array{0: array<string, mixed>, 1: string}>, extra_used: int, uncovered: array<int, int>}
      */
     private function pick(array $units, int $slots, array $ctx): array
@@ -290,13 +295,16 @@ final class ReferenceSelection
             $novelty = self::NOVELTY[in_array($u['facet'], self::DISTINCTIVE, true) ? 'distinctive' : 'generic'][min($state->facetCount[$u['facet']] ?? 0, 2)];
             $sameFacetInProject = $project !== null && isset($state->projectFacet[$project.'|'.$u['facet']]) ? 0.3 : 1.0;
             // A role-level statement is less specific than a project's (often a list of areas worked in), except a measured result, which stands alone.
-            $weight = $project === null ? ($u['facet'] === 'outcome' || ! $ctx['role_has_projects'] ? 1.0 : 0.9) : ($ctx['weights'][$project] ?? 0.9);
+            $weight = $project === null ? ($u['facet'] === 'outcome' || ! $ctx['role_has_projects'] || ($u['job'] ?? 0.0) >= 0.5 ? 1.0 : 0.9) : ($ctx['weights'][$project] ?? 0.9);
 
             // A claim shared by several projects and phrased in general terms ("owned the frontend", "built it in TypeScript")
             // is weaker as a bullet than concrete work specific to one.
             $shared = $u['shared'] && in_array($u['facet'], ['frontend', 'ownership', 'generic_dev'], true) ? 0.8 : 1.0;
 
-            return (0.8 + 0.2 * $u['score'] / $maxScore) * (self::FACET_WEIGHT[$u['facet']] ?? 1.0) * $novelty * $sameFacetInProject * $weight * $shared * $u['boost'] * ($u['pinned'] ? 1.4 : 1.0);
+            // What the job asks for weighs heavily; without a job (a reference resume) this factor is 1.
+            $job = ($u['job'] ?? null) === null ? 1.0 : 0.4 + 1.8 * $u['job'];
+
+            return $job * (0.8 + 0.2 * $u['score'] / $maxScore) * (self::FACET_WEIGHT[$u['facet']] ?? 1.0) * $novelty * $sameFacetInProject * $weight * $shared * $u['boost'] * ($u['pinned'] ? 1.4 : 1.0);
         };
 
         $eligible = function (array $u) use ($state, $ctx): bool {
@@ -458,6 +466,45 @@ final class ReferenceSelection
             $remaining = array_values(array_filter($remaining, fn (array $u) => $u !== $candidate[0]));
         }
 
+        // A job's strongest requirements each deserve a bullet, as its top projects do: swap in the best unit that answers a
+        // requirement nothing chosen answers, for the weakest bullet that is not the only answer to another.
+        foreach ($ctx['job_priority'] as $findingId) {
+            $answered = fn (array $us) => array_filter($us, fn (array $u) => in_array($findingId, $u['findings'] ?? [], true)) !== [];
+            $inRole = array_values(array_filter($remaining, fn (array $u) => in_array($findingId, $u['findings'] ?? [], true)));
+
+            if ($answered($state->chosen) || $inRole === [] || $state->chosen === []) {
+                continue;
+            }
+
+            $candidate = $best($inRole);
+
+            if ($candidate === null) {
+                continue;
+            }
+
+            usort($state->chosen, fn (array $a, array $b) => $a['selected_score'] <=> $b['selected_score']);
+            $victimIndex = null;
+
+            foreach ($state->chosen as $i => $c) {
+                $soleCover = array_filter($ctx['job_priority'], fn (int $f) => in_array($f, $c['findings'] ?? [], true) && count(array_filter($state->chosen, fn (array $o) => in_array($f, $o['findings'] ?? [], true))) === 1) !== [];
+                $soleProject = $c['project_id'] !== null && in_array($c['project_id'], $ctx['priority'], true)
+                    && count(array_filter($state->chosen, fn (array $o) => $o['project_id'] === $c['project_id'])) === 1;
+
+                if (! $c['pinned'] && ! $soleCover && ! $soleProject) {
+                    $victimIndex = $i;
+
+                    break;
+                }
+            }
+
+            if ($victimIndex !== null && $candidate[1] >= 0.6 * $state->chosen[$victimIndex]['selected_score']) {
+                $remaining[] = $state->chosen[$victimIndex];
+                array_splice($state->chosen, $victimIndex, 1);
+                $take($candidate[0], $candidate[1]);
+                $remaining = array_values(array_filter($remaining, fn (array $u) => $u !== $candidate[0]));
+            }
+        }
+
         // Pinned bullets first, then the strongest.
         usort($state->chosen, fn (array $a, array $b) => [$b['pinned'], $b['selected_score']] <=> [$a['pinned'], $a['selected_score']]);
 
@@ -570,11 +617,17 @@ final class ReferenceSelection
 
         // What the approved profile says about these facts: its cited ones weigh a little more; a claim shared by several places
         // is flagged; and whether the lead fact states something that was built.
-        $units = array_map(function (array $u) use ($meta, $offered) {
+        // For a job-tailored resume the accomplishments carry the job's relevance; a reference resume has none.
+        $jobByKey = array_column($candidates, 'job_relevance', 'fact_key');
+        $findingsByKey = array_column($candidates, 'job_findings', 'fact_key');
+        $units = array_map(function (array $u) use ($meta, $offered, $jobByKey, $findingsByKey) {
             $lead = (string) ($offered[$u['facts'][0]]['statement'] ?? '');
+            $jobScores = array_values(array_filter(array_map(fn (string $k) => $jobByKey[$k] ?? null, $u['facts']), fn ($v) => $v !== null));
 
             return [
                 ...$u,
+                'job' => $jobScores === [] ? null : max($jobScores),
+                'findings' => array_values(array_unique(array_merge([], ...array_map(fn (string $k) => $findingsByKey[$k] ?? [], $u['facts'])))),
                 'boost' => max([1.0, ...array_map(fn (string $k) => $meta['boost'][$k] ?? 1.0, $u['facts'])]),
                 'shared' => array_filter($u['facts'], fn (string $k) => isset($meta['shared'][$k])) !== [],
                 'technical' => in_array($u['facet'], ['architecture', 'security_reliability', 'backend_api', 'frontend'], true)

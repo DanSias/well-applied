@@ -114,6 +114,7 @@ class JobPostingController extends Controller
         return Inertia::render('jobs/show', [
             'job' => $this->transformDetail($jobPosting, $presenter, $summarizer),
             'tailored_resume' => $tailoredResume->present($jobPosting),
+            'resume_profiles' => $tailoredResume->profiles($jobPosting),
             'approved_evidence' => $approvedEvidence->present($jobPosting),
         ]);
     }

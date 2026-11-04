@@ -142,6 +142,7 @@ Route::get('/jobs/{jobPosting}/analyses/{jobAnalysis}/matches/{jobMatch}/resume/
 // Deterministic, non-Inertia print/preview surface — the single visual
 // source for both browser preview and PDF export. See
 // App\Http\Controllers\ResumeVariantPreviewController.
+Route::get('/jobs/{jobPosting}/profile-resumes/{resumeVariant}', [ResumeVariantController::class, 'showForJob'])->name('jobs.profile-resumes.show');
 Route::get('/resume-variants/{resumeVariant}/preview', [ResumeVariantPreviewController::class, 'show'])->name('resume-variants.preview');
 
 // PDF export of the same document — see

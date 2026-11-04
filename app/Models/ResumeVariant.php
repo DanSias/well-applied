@@ -39,6 +39,7 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $career_profile_id
  * @property int|null $job_match_id Null for a reference resume, which has no target job.
+ * @property int|null $job_analysis_id The job a profile-assisted tailored resume was composed for (no candidate match is involved).
  * @property int|null $resume_profile_synthesis_id The approved profile a reference resume was composed from.
  * @property string $schema_version
  * @property string $selection_prompt_version
@@ -58,6 +59,7 @@ use Illuminate\Support\Carbon;
 #[Fillable([
     'career_profile_id',
     'job_match_id',
+    'job_analysis_id',
     'resume_profile_synthesis_id',
     'schema_version',
     'selection_prompt_version',
@@ -95,6 +97,14 @@ class ResumeVariant extends Model
     public function careerProfile(): BelongsTo
     {
         return $this->belongsTo(CareerProfile::class);
+    }
+
+    /**
+     * @return BelongsTo<JobAnalysis, $this>
+     */
+    public function jobAnalysis(): BelongsTo
+    {
+        return $this->belongsTo(JobAnalysis::class);
     }
 
     /**

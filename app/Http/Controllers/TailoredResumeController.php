@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\JobPosting;
+use App\Models\ResumeProfileSynthesis;
+use App\Support\CurrentCareerProfile;
 use App\Support\TailoredResume\PresentTailoredResume;
 use App\Support\TailoredResume\TailoredResumePipeline;
 use Illuminate\Http\JsonResponse;
@@ -24,12 +26,19 @@ class TailoredResumeController extends Controller
         $request->validate([
             'allow_incomplete_description' => ['sometimes', 'boolean'],
             'regenerate' => ['sometimes', 'boolean'],
+            // Tailor from an approved profile (the standard pathway is used when this is absent).
+            'resume_profile_synthesis_id' => ['sometimes', 'nullable', 'integer', 'exists:resume_profile_syntheses,id'],
         ]);
+
+        $synthesis = $request->filled('resume_profile_synthesis_id')
+            ? ResumeProfileSynthesis::query()->where('career_profile_id', CurrentCareerProfile::resolve()->id)->findOrFail($request->integer('resume_profile_synthesis_id'))
+            : null;
 
         $pipeline->start(
             $jobPosting,
             $request->boolean('allow_incomplete_description'),
             $request->boolean('regenerate'),
+            $synthesis,
         );
 
         return redirect()->route('jobs.show', $jobPosting);
