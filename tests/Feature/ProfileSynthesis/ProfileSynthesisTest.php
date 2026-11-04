@@ -842,3 +842,21 @@ it('saves resolved wording automatically with an audit record, makes no model ca
     $review->edit($saved->fresh(), 'differentiator:1', ['text' => $text, 'fact_keys' => ['wi-deterministic']]);
     expect($saved->fresh()->edits['keys']['differentiator:1'])->toBe(['wi-deterministic']);
 });
+
+it('offers Refresh evidence for a draft whose inventory is out of date even when its evidence revision is current', function () {
+    $s = synthesisScenario();
+    $synthesis = synthesize($s);
+    $url = fn () => $this->get(route('resume-profiles.show', $s['profile']));
+
+    $url()->assertInertia(fn ($page) => $page->where('resume_profile.synthesis.synthesis.outdated', false)->where('resume_profile.synthesis.synthesis.stale', false));
+
+    // An inventory built before first-person facts became support-only: same evidence revision, different inventory.
+    $content = $synthesis->content;
+    unset($content['inventory']['facts']['first-person']);
+    $synthesis->update(['content' => $content]);
+
+    $url()->assertInertia(fn ($page) => $page->where('resume_profile.synthesis.synthesis.outdated', true)->where('resume_profile.synthesis.synthesis.stale', false));
+
+    $this->post(route('profile-syntheses.refresh-evidence', $synthesis))->assertRedirect();
+    $url()->assertInertia(fn ($page) => $page->where('resume_profile.synthesis.synthesis.outdated', false)->where('resume_profile.synthesis.synthesis.version', 2));
+});

@@ -928,6 +928,9 @@ export function ProfileSynthesis({
                     <span className="text-xs">
                         Version {s.version} · {s.status}
                         {s.stale && ' · evidence changed since (stale)'}
+                        {!s.stale &&
+                            s.outdated &&
+                            ' · evidence inventory out of date (refresh)'}
                         {s.pilot && ' · pilot market sample'}
                         {s.model_calls !== null &&
                             ` · ${s.model_calls} model call(s), ${Math.round((s.duration_ms ?? 0) / 1000)}s`}
@@ -993,7 +996,7 @@ function ApprovalBar({
                     >
                         Approve this profile
                     </button>
-                    {s.stale && (
+                    {(s.stale || s.outdated) && (
                         <button
                             type="button"
                             className={`${secondary} mt-2 ml-2`}
@@ -1018,7 +1021,7 @@ function ApprovalBar({
                     >
                         Edit as a new draft
                     </button>
-                    {s.stale && (
+                    {(s.stale || s.outdated) && (
                         <button
                             type="button"
                             className={`${secondary} mt-2 ml-2`}

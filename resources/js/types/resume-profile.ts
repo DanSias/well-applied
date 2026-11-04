@@ -470,6 +470,7 @@ export type SynthesisState = {
         version: number;
         status: 'draft' | 'approved' | 'superseded';
         stale: boolean;
+        outdated: boolean;
         pilot: boolean;
         generated_by: string | null;
         prompt_version: string | null;

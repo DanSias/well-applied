@@ -15,6 +15,8 @@ use Illuminate\Support\Facades\Cache;
  */
 final class PresentProfileSynthesis
 {
+    public function __construct(private readonly ProfileAssembly $assembly) {}
+
     /**
      * @return array<string, mixed>
      */
@@ -55,11 +57,20 @@ final class PresentProfileSynthesis
         $effective['accomplishments'] = array_slice($effective['accomplishments'], 0, 40);
 
         return [
-            'id' => $s->id, 'version' => $s->version, 'status' => $s->status, 'stale' => $s->isStale(), 'pilot' => $s->pilot, 'generated_by' => $s->generated_by,
+            'id' => $s->id, 'version' => $s->version, 'status' => $s->status, 'stale' => $s->isStale(), 'outdated' => $this->outdated($s), 'pilot' => $s->pilot, 'generated_by' => $s->generated_by,
             'prompt_version' => $s->prompt_version, 'created_at' => $s->created_at?->toIso8601String(), 'approved_at' => $s->approved_at?->toIso8601String(),
             'model_calls' => $s->usage['model_calls'] ?? null, 'duration_ms' => $s->usage['duration_ms'] ?? null,
             'notes' => (array) ($s->validation['notes'] ?? []), 'profile' => $effective,
         ];
+    }
+
+    /**
+     * Whether assembling the evidence today would give a different inventory than this version holds (assembly logic
+     * changed, as when first-person facts became support-only), even though the evidence revision is current.
+     */
+    private function outdated(ResumeProfileSynthesis $s): bool
+    {
+        return $s->status !== 'superseded' && json_encode($this->assembly->assemble($s->resumeProfile)) !== json_encode($s->content['inventory']);
     }
 
     /**
