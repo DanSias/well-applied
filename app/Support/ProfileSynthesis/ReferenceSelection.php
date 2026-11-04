@@ -87,7 +87,9 @@ final class ReferenceSelection
         $meta = $this->meta($effective, $offered);
         $allocation = $this->allocate($roleIds, $candidates, (int) $cfg['total_bullets'], (int) $cfg['per_role_max'], (int) $cfg['developer_role_floor'], $titles->all());
         $weights = $this->projectWeights($effective, (int) $cfg['priority_projects']);
-        $priority = array_keys(array_filter($weights, fn (float $w) => $w >= 1.1));
+        // The user's top few projects are guaranteed a bullet on a reference resume. For a job only the pinned ones are: the
+        // rest compete on what the job asks for.
+        $priority = array_keys(array_filter($weights, fn (float $w) => $w >= (isset($effective['job_priority_findings']) ? 1.35 : 1.1)));
         $extraLeft = (int) $cfg['coverage_extra_bullets'];
         $experience = [];
         $traceRoles = [];
@@ -302,9 +304,29 @@ final class ReferenceSelection
             $shared = $u['shared'] && in_array($u['facet'], ['frontend', 'ownership', 'generic_dev'], true) ? 0.8 : 1.0;
 
             // What the job asks for weighs heavily; without a job (a reference resume) this factor is 1.
-            $job = ($u['job'] ?? null) === null ? 1.0 : 0.4 + 1.8 * $u['job'];
+            $job = ($u['job'] ?? null) === null ? 1.0 : 0.25 + 2.2 * $u['job'] ** 1.5;
 
-            return $job * (0.8 + 0.2 * $u['score'] / $maxScore) * (self::FACET_WEIGHT[$u['facet']] ?? 1.0) * $novelty * $sameFacetInProject * $weight * $shared * $u['boost'] * ($u['pinned'] ? 1.4 : 1.0);
+            $facet = self::FACET_WEIGHT[$u['facet']] ?? 1.0;
+
+            // The profile's preferences (kinds of evidence, its priority projects) are a prior for a job, not the verdict:
+            // they count half as much, so evidence the job asks for can compete with the profile's favorites.
+            if (($u['job'] ?? null) !== null) {
+                // A second bullet of a generic kind is not redundant when the job asks for exactly that evidence.
+                $novelty = $novelty + (1.0 - $novelty) * $u['job'];
+
+                // Three bullets that answer the same requirement say less than three that answer three.
+                $answered = array_unique(array_merge([], ...array_map(fn (array $c) => $c['findings'] ?? [], $state->chosen)));
+                $own = (array) ($u['findings'] ?? []);
+
+                if ($own !== []) {
+                    $fresh = array_diff($own, $answered);
+                    $novelty *= $fresh === [] ? 0.7 : (count($fresh) < count($own) ? 0.9 : 1.0);
+                }
+                $facet = 1.0 + ($facet - 1.0) * 0.5;
+                $weight = 1.0 + ($weight - 1.0) * 0.5;
+            }
+
+            return $job * (0.8 + 0.2 * $u['score'] / $maxScore) * $facet * $novelty * $sameFacetInProject * $weight * $shared * $u['boost'] * ($u['pinned'] ? 1.4 : 1.0);
         };
 
         $eligible = function (array $u) use ($state, $ctx): bool {

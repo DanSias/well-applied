@@ -56,7 +56,12 @@ final class JobRelevance
 
         // A capability that few facts state says more about a fact than one that half the record states (conversion
         // funnels, for a career with years of marketing work), so each capability is weighted by how rare it is.
-        $pool = array_filter($facts, fn (array $f) => ! ($f['support_only'] ?? false));
+        // Capabilities are read from the statements now, not from the stored inventory: an approved profile keeps the
+        // capabilities it was built with, and matching should not depend on how old that inventory is.
+        $pool = array_map(
+            fn (array $f) => [...$f, 'capabilities' => array_values(array_unique([...(array) $f['capabilities'], ...$this->coverage->capabilitiesIn((string) $f['statement'])]))],
+            array_filter($facts, fn (array $f) => ! ($f['support_only'] ?? false)),
+        );
         $idf = [];
 
         foreach (array_unique(array_merge(...array_map(fn (array $f) => $f['capabilities'], $findings ?: [['capabilities' => []]]))) as $cap) {
@@ -91,22 +96,20 @@ final class JobRelevance
             }
         }
 
-        $score = [];
         $because = [];
+        $capEvidence = [];
+        $wordEvidence = [];
 
         foreach ($pool as $key => $fact) {
-            foreach (array_intersect(array_keys($capShare), (array) $fact['capabilities']) as $cap) {
-                $score[$key] = ($score[$key] ?? 0.0) + $idf[$cap] * $capShare[$cap];
-            }
+            // The strongest capability the fact states counts fully; further ones add less (a broad job names dozens).
+            $caps = array_map(fn (string $cap) => $idf[$cap] * $capShare[$cap], array_intersect(array_keys($capShare), (array) $fact['capabilities']));
 
-            $words = 0.0;
+            if ($caps !== []) {
+                $capEvidence[$key] = max($caps) + 0.35 * (array_sum($caps) - max($caps));
+            }
 
             foreach (array_intersect($factStems[$key], array_keys($vocab)) as $stem) {
-                $words += min(1.5, $vocab[$stem]) * log((count($pool) + 1) / (($df[$stem] ?? 0) + 1)) / 4;
-            }
-
-            if ($words > 0) {
-                $score[$key] = ($score[$key] ?? 0.0) + min(1.0, $words);
+                $wordEvidence[$key] = ($wordEvidence[$key] ?? 0.0) + min(1.5, $vocab[$stem]) * log((count($pool) + 1) / (($df[$stem] ?? 0) + 1)) / 4;
             }
 
             foreach ($findings as $f) {
@@ -114,14 +117,21 @@ final class JobRelevance
                 $overlap = count(array_intersect($this->stems($f['statement']), $factStems[$key]));
                 $value = ($shared > 0 ? $f['weight'] / sqrt(count($f['capabilities'])) : 0.0) + 0.1 * $overlap * $f['weight'];
 
-                if ($value > 0.15) {
+                // A fact answers a finding only when it speaks to it substantially, not on one shared word.
+                if ($value >= 0.4 * $f['weight']) {
                     $because[$key][$f['id']] = $value;
                 }
             }
+        }
 
-            if (($because[$key] ?? []) === [] && isset($score[$key])) {
-                $because[$key] = [];
-            }
+        // Capability evidence and vocabulary evidence each saturate (more of the same adds less) and combine, so one kind
+        // cannot swamp the other and a strong fact is not clamped to the same ceiling as a middling one.
+        $score = [];
+
+        foreach ($pool as $key => $fact) {
+            $c = ($capEvidence[$key] ?? 0.0) / (($capEvidence[$key] ?? 0.0) + 6.0);
+            $w = ($wordEvidence[$key] ?? 0.0) / (($wordEvidence[$key] ?? 0.0) + 4.0);
+            $score[$key] = 1.0 - (1.0 - $c) * (1.0 - $w);
         }
 
         $capabilityWeight = [];
@@ -130,10 +140,8 @@ final class JobRelevance
             $capabilityWeight[$cap] = $idf[$cap] * $share;
         }
 
-        $employment = array_filter($score, fn (float $v, string $k) => ! ($facts[$k]['personal'] ?? false), ARRAY_FILTER_USE_BOTH);
-        $max = $employment === [] ? 1.0 : max($employment);
         $relevant = [];
-        $normalized = array_map(fn (float $v) => min(1.0, $v / $max), $score);
+        $normalized = $score;
 
         // Evidence from the same engagement as strongly relevant evidence is relevant context (merchant onboarding next to
         // payment webhooks): a fact takes a share of the strength of its role's best facts. Context only lifts; it never
@@ -153,7 +161,7 @@ final class JobRelevance
         }, $byRole);
 
         foreach ($pool as $key => $fact) {
-            $context = isset($fact['role_id']) ? 0.3 * ($roleStrength[$fact['role_id']] ?? 0.0) : 0.0;
+            $context = isset($fact['role_id']) ? 0.1 * ($roleStrength[$fact['role_id']] ?? 0.0) : 0.0;
             $total = min(1.0, ($normalized[$key] ?? 0.0) + $context);
 
             if ($total <= 0.0) {

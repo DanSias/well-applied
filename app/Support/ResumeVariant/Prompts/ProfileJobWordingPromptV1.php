@@ -36,9 +36,10 @@ final readonly class ProfileJobWordingPromptV1
         candidate's approved evidence supports directly (`supported`), and requirements it does not (`not_supported`).
         The approved summary in `reference_context` is the candidate's positioning, not a text to preserve. Adapt it.
 
-        - Write the summary for this role. Open with the Full-Stack identity, then lead with the evidence that speaks
-          most directly to what the job emphasizes, using the cited `summary_evidence` only. Keep it three to four
-          sentences. You may drop a project or technology the approved summary names if it does not serve this job.
+        - Write the summary for this role. Open with the Full-Stack identity, then say plainly, in your own words, the
+          items in `job_context.lead_with` that the cited `summary_evidence` supports (for example the kind of
+          integration, billing or onboarding work, or the conversion work, that the facts state), before any general
+          technology list. Do not copy the approved summary's wording. Keep it three to four sentences. You may drop a project or technology the approved summary names if it does not serve this job.
         - Each bullet still words exactly its own bullet group. Put the part of the cited facts that matters to the
           job first (for example payment APIs, webhooks, onboarding, integrations, conversion work) and keep the rest
           brief. Never add what the facts do not say.

@@ -265,6 +265,7 @@ final class GenerateResumeVariant
                 }
                 unset($role);
 
+                $reference['content']['summary_evidence'] = $this->jobSummaryEvidence($reference['content'], $effective, $relevance, collect($candidatePayload['career_facts'])->keyBy('key')->all());
                 $baseline = app(ReferenceSelection::class)->build($baselineEffective, $candidatePayload);
                 $usedKeys = fn (array $content): array => array_values(array_unique(array_merge($content['summary_evidence'], ...array_merge(...array_map(fn (array $r) => array_column($r['bullet_groups'], 'career_fact_keys'), $content['experience'])))));
                 $chosen = $usedKeys($reference['content']);
@@ -1399,6 +1400,37 @@ final class GenerateResumeVariant
     }
 
     /**
+     * The facts a job-tailored summary may draw on: the two the approved summary leads with (the candidate's identity), the
+     * selected facts that speak most to the job, a support-only fact the job asks for, and the figure-bearing selected facts,
+     * so a metric the summary states is cited by the fact that actually contains it.
+     *
+     * @param  array<string, mixed>  $content  the deterministic selection
+     * @param  array<string, mixed>  $effective  the job-adapted profile
+     * @param  array<string, mixed>  $relevance  JobRelevance::analyze()
+     * @param  array<string, array<string, mixed>>  $offered  the offered career facts by key
+     * @return array<int, string>
+     */
+    private function jobSummaryEvidence(array $content, array $effective, array $relevance, array $offered): array
+    {
+        $selected = [];
+
+        foreach ($content['experience'] as $role) {
+            foreach ($role['bullet_groups'] as $group) {
+                $selected = [...$selected, ...$group['career_fact_keys']];
+            }
+        }
+
+        $selected = array_values(array_unique($selected));
+        $byRelevance = $selected;
+        usort($byRelevance, fn (string $a, string $b) => ($relevance['facts'][$b]['score'] ?? 0.0) <=> ($relevance['facts'][$a]['score'] ?? 0.0));
+        $figures = array_slice(array_values(array_filter($selected, fn (string $k) => ($offered[$k]['visibility'] ?? '') === 'public' && preg_match('/\d/', (string) ($offered[$k]['statement'] ?? '')) === 1)), 0, 2);
+        $supportOnly = array_values(array_filter($effective['presentation']['summary_fact_keys'], fn (string $k) => isset($offered[$k]) && ($effective['facts'][$k]['support_only'] ?? false)));
+        $identity = array_values(array_filter(array_slice($effective['presentation']['summary_fact_keys'], 0, 2), fn (string $k) => isset($offered[$k])));
+
+        return array_values(array_unique([...$identity, ...array_slice($byRelevance, 0, 5), ...$supportOnly, ...$figures]));
+    }
+
+    /**
      * What the wording stage is told about the job: its role and emphasis, what the candidate's approved evidence
      * supports directly, and what it does not (never to be claimed or hinted at).
      *
@@ -1414,8 +1446,10 @@ final class GenerateResumeVariant
         )), 0, 12);
         $gapLabels = array_column($relevance['gaps'], 'label');
         $supported = [];
+        $byWeight = $relevance['capabilities'];
+        arsort($byWeight);
 
-        foreach ($relevance['capabilities'] as $cap => $weight) {
+        foreach ($byWeight as $cap => $weight) {
             if (! in_array((string) config("resume_profiles.capabilities.{$cap}.label", $cap), $gapLabels, true)) {
                 $supported[] = (string) config("resume_profiles.capabilities.{$cap}.label", $cap);
             }
@@ -1423,7 +1457,7 @@ final class GenerateResumeVariant
 
         return [
             'role' => $analysis->jobPosting->title, 'company' => $analysis->jobPosting->company, 'summary' => $analysis->role_summary,
-            'emphasis' => $emphasis, 'supported' => $supported, 'not_supported' => $gapLabels,
+            'emphasis' => $emphasis, 'supported' => $supported, 'lead_with' => array_slice($supported, 0, 5), 'not_supported' => $gapLabels,
         ];
     }
 

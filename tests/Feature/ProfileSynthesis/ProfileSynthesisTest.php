@@ -1052,3 +1052,105 @@ it('runs the profile-assisted pipeline as analysis, resume, PDF with no match st
     GenerationAttempt::query()->update(['status' => GenerationStatus::Failed]);
     expect(fn () => $pipeline->start($posting, synthesis: $synthesis->fresh()))->toThrow(ValidationException::class, 'Refresh');
 });
+
+/** The wording stand-in for job runs: states every cited fact, and records what the model was shown. */
+function jobWordingStub(stdClass $seen): GeneratesResumeWording
+{
+    return new class($seen) implements GeneratesResumeWording
+    {
+        public function __construct(private stdClass $seen) {}
+
+        public function generate(string $system, string $user, array $schema): ResumeWordingProviderResponse
+        {
+            $this->seen->calls = ($this->seen->calls ?? 0) + 1;
+            preg_match('/--- Approved selection[^\n]*\n(.*?)\n--- End of approved selection/s', $user, $m);
+            $in = json_decode($m[1], true);
+            $this->seen->input = $in;
+            $all = fn (array $facts) => implode(' ', array_map(fn ($f) => rtrim((string) preg_replace('/\s+/', ' ', $f['statement']), '.').'.', $facts));
+
+            return new ResumeWordingProviderResponse('fake', 'stub', [
+                'summary' => ($this->seen->summary ?? 'Full-Stack Developer who owns applications end to end.'),
+                'experience' => array_map(fn ($r) => ['role_id' => $r['role_id'], 'bullets' => array_map(fn ($g) => ['bullet_group_index' => $g['bullet_group_index'], 'text' => $all($g['career_facts'])], $r['bullet_groups'])], $in['experience']),
+                'selected_projects' => [],
+            ]);
+        }
+    };
+}
+
+it('matches paraphrased job requirements to supported capabilities and prefers direct evidence to a loosely related fact', function () {
+    $s = tailoringScenario();
+    $mk = fn (string $key, string $statement) => CareerFact::factory()->create([
+        'career_profile_id' => $s['career']->id, 'key' => $key, 'statement' => $statement, 'visibility' => Visibility::Public, 'verification' => Verification::Verified,
+        'fact_type' => CareerFactType::Bullet, 'attributable_type' => 'role', 'attributable_id' => $s['pearson']->id,
+    ]);
+    // The job says "payment platforms" and "customer onboarding"; the facts say "payment flows" and "new-client onboarding effort".
+    $mk('paraphrase-direct', 'Tested payment flows and troubleshot integration issues for new clients during onboarding.');
+    $mk('paraphrase-loose', 'Maintained a weekly reporting spreadsheet for the finance team.');
+    $s['analysis']->findings()->create(['category' => 'responsibility', 'label' => 'platforms', 'statement' => 'Own integrations with payment platforms and customer onboarding.', 'basis' => 'explicit', 'emphasis' => 'high']);
+    $synthesis = synthesize($s);
+    $relevance = app(JobRelevance::class)->analyze($s['analysis']->fresh(), $synthesis->content['inventory']['facts'], $s['career']);
+
+    expect($relevance['facts']['paraphrase-direct']['score'])->toBeGreaterThan(($relevance['facts']['paraphrase-loose']['score'] ?? 0.0) + 0.2);
+});
+
+it('answers the job\'s strongest requirements, caps non-developer roles, and keeps pins and exclusions', function () {
+    $s = tailoringScenario();
+    $analyst = Role::factory()->create(['employer_id' => $s['pearson']->employer_id, 'title' => 'Marketing Analyst', 'start_year' => 2010, 'end_year' => 2014]);
+
+    foreach (range(1, 4) as $i) {
+        CareerFact::factory()->create([
+            'career_profile_id' => $s['career']->id, 'key' => "analyst-{$i}", 'visibility' => Visibility::Public, 'verification' => Verification::Verified, 'fact_type' => CareerFactType::Bullet,
+            'statement' => "Built webhook-driven payment reporting number {$i} for recurring billing and payment gateway reconciliation.", 'attributable_type' => 'role', 'attributable_id' => $analyst->id,
+        ]);
+    }
+
+    $synthesis = synthesize($s);
+    $review = app(ReviewProfileSynthesis::class);
+    $review->edit($synthesis, 'accomplishment:recurring', ['include' => false]);
+    $effective = EffectiveProfile::resolve($synthesis->fresh());
+    $relevance = app(JobRelevance::class)->analyze($s['analysis'], $synthesis->content['inventory']['facts'], $s['career']);
+    $adapted = app(ProfileJobAdapter::class)->adapt($effective, $relevance);
+    $payload = app(ResumeCandidatePayloadBuilder::class)->buildForCareer($s['career'], [], array_column($adapted['accomplishments'], 'fact_key'));
+    $selection = app(ReferenceSelection::class)->build($adapted, $payload);
+    $byRole = collect($selection['content']['experience'])->mapWithKeys(fn ($r) => [$r['role_id'] => collect($r['bullet_groups'])->flatMap(fn ($g) => $g['career_fact_keys'])->all()]);
+    $all = $byRole->flatten()->all();
+
+    // The analyst role has four highly relevant facts and still gets at most two bullets; the developer roles are unaffected.
+    expect(count($byRole[$analyst->id] ?? []))->toBeLessThanOrEqual(2)
+        // An exclusion the user made holds even though the job asks for it; the requirement is answered by another fact.
+        ->and($all)->not->toContain('recurring')->and($all)->toContain('webhooks')
+        // The job's top requirement has a bullet, and Private evidence is nowhere.
+        ->and($all)->not->toContain('private-card', 'private-secret')
+        ->and($adapted['job_priority_findings'])->not->toBeEmpty();
+});
+
+it('never publishes a Restricted-only figure through the summary, and cites the fact that holds a public metric', function () {
+    $s = tailoringScenario();
+    $synthesis = synthesize($s);
+    app(ReviewProfileSynthesis::class)->approve($synthesis);
+    $seen = new stdClass;
+    // The model reaches for the confidential figure of a Restricted fact in the summary.
+    $seen->summary = 'Full-Stack Developer who corrected 32,000 merchant records and cut reporting time by 85%.';
+    app()->instance(GeneratesResumeWording::class, jobWordingStub($seen));
+
+    $variant = app(GenerateResumeVariant::class)->generateForJob($s['analysis'], $synthesis->fresh());
+    $summaryKeys = array_column($seen->input['summary_evidence'], 'key');
+
+    // The summary cites the public fact that contains the 85% it states, no Private evidence is offered, and the
+    // Restricted-only figure never reaches the resume.
+    expect($summaryKeys)->toContain('nexus-85')->and(array_intersect($summaryKeys, ['private-secret', 'private-card']))->toBe([])
+        ->and($variant->summary)->not->toContain('32,000')
+        ->and($seen->input['job_context']['lead_with'])->not->toBeEmpty()->and($seen->input['job_context']['not_supported'])->toContain('Ruby on Rails')
+        ->and(json_encode($variant->review_report))->not->toContain('SECRET-PROJECT-ZEBRA');
+});
+
+it('reads capabilities from statements so an older approved inventory still matches the job', function () {
+    $s = tailoringScenario();
+    $synthesis = synthesize($s);
+    $content = $synthesis->content;
+    // An inventory built before capability patterns were extended carries no capabilities for this fact.
+    $content['inventory']['facts']['recurring']['capabilities'] = [];
+    $relevance = app(JobRelevance::class)->analyze($s['analysis'], $content['inventory']['facts'], $s['career']);
+
+    expect($relevance['facts']['recurring']['score'])->toBeGreaterThan(0.3);
+});
