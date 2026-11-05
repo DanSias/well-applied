@@ -1006,6 +1006,9 @@ it('composes a job-tailored resume from the approved profile with one wording ca
         ->and($cited)->toContain('webhooks')->not->toContain('private-card', 'private-secret', 'personal-docker', 'first-person')
         ->and($tailoring['mode'])->toBe('profile_job')->and($tailoring['job_analysis_id'])->toBe($s['analysis']->id)->and($tailoring['profile_version'])->toBe($synthesis->version)
         ->and($tailoring['added_outside_reference'])->not->toBeEmpty()->and($tailoring['dropped_from_reference'])->toBeArray()
+        // Composition findings are advice stored with the provenance, never a change to the selection.
+        ->and($tailoring['composition'])->toBeArray()
+        ->and(array_unique(array_column($tailoring['composition'], 'severity')))->each->toBeIn(['review', 'informational'])
         ->and(array_column($tailoring['gaps'], 'capability'))->toContain('ruby_on_rails')
         ->and($seen->input['job_context']['not_supported'])->toContain('Ruby on Rails')
         ->and($seen->input['reference_context']['kind'])->toBe('job_tailored_resume')

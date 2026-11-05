@@ -1206,3 +1206,22 @@ Summaries/headlines search the whole eligible record; a project note only its pr
 - `ProfileJobAdapter` re-ranks the profile's accomplishments, projects, capabilities and summary evidence for the job without overriding the user's exclusions or pins, then `ReferenceSelection` runs unchanged (plus a job-relevance factor, a requirement-coverage swap, and a two-bullet cap on non-developer roles).
 - `GenerateResumeVariant::generateForJob` makes one wording call (`resume-wording-profile-job-v1`, on top of the reference prompt) through the existing validation, claim-fidelity, retry and recovery path. The variant stores `job_analysis_id`, the profile version, and `selection_input_snapshot.tailoring` (requirements, gaps, evidence added beyond the reference resume, evidence dropped from it).
 - Attempts of a run carry `resume_profile_synthesis_id`; a stale or unapproved profile is refused. Review page: `jobs.profile-resumes.show`.
+
+### Composition checks
+
+After a profile-assisted selection, `CompositionChecks` reads the whole selection and records advice in
+`selection_input_snapshot.tailoring.composition`, shown on the job's profile-resume review page. Three checks, each
+using only relationships the record already has; where they do not support a conclusion, no finding is made:
+
+- **Engineering evidence** (engineering-targeted jobs): a concrete build is a fact tied to a project, whose statement
+  says the candidate designed or built something, and whose claim is stated in one place. A technology statement
+  repeated across projects (a claim group), an ownership statement and a role-level claim do not count. The bullets
+  and the summary's evidence are each checked.
+- **Result context**: a measured result selected without its project's work (same project, in the bullet or
+  elsewhere). A role-level result has no recorded producer, so it is only noted.
+- **Narrative consistency**: for each capability a leading requirement names, if every selected fact that states it
+  only supported or troubleshot it, the wording must not present it as built or owned.
+
+Findings are `review` or `informational`. `blocking` exists for an objectively unsupported claim, but selection draws
+only on eligible facts, so the wording-stage validators own that. A finding names the selected facts that caused it and
+the eligible facts available; nothing is swapped automatically.

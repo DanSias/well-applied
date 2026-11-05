@@ -105,7 +105,10 @@ class ResumeVariantController extends Controller
         $tailoring = (array) ($resumeVariant->selection_input_snapshot['tailoring'] ?? []);
         $labels = collect((array) ($tailoring['findings'] ?? []))->pluck('label', 'id');
         $statements = $resumeVariant->jobAnalysis->findings()->pluck('statement', 'id');
-        $factStatements = CareerFact::query()->whereIn('key', [...($tailoring['added_outside_reference'] ?? []), ...($tailoring['dropped_from_reference'] ?? [])])
+        $factStatements = CareerFact::query()->whereIn('key', [
+            ...($tailoring['added_outside_reference'] ?? []), ...($tailoring['dropped_from_reference'] ?? []),
+            ...collect((array) ($tailoring['composition'] ?? []))->flatMap(fn (array $f) => [...$f['selected'], ...$f['available']])->all(),
+        ])
             ->where('visibility', '!=', 'private')->get()->keyBy('key');
         $groups = [];
 
@@ -137,6 +140,12 @@ class ResumeVariantController extends Controller
                 'gaps' => array_map(fn (array $g) => ['label' => $g['label'], 'status' => $g['status'], 'finding' => $g['finding'], 'required' => $g['required']], (array) ($tailoring['gaps'] ?? [])),
                 'added' => array_map($describe, (array) ($tailoring['added_outside_reference'] ?? [])),
                 'dropped' => array_map($describe, (array) ($tailoring['dropped_from_reference'] ?? [])),
+                // Whole-resume composition findings. A fact that cannot be shown (Private) is named only by count.
+                'composition' => array_map(fn (array $f) => [
+                    'check' => $f['check'], 'severity' => $f['severity'], 'message' => $f['message'],
+                    'selected' => array_values(array_map($describe, array_filter($f['selected'], fn (string $k) => isset($factStatements[$k])))),
+                    'available' => array_values(array_map($describe, array_filter($f['available'], fn (string $k) => isset($factStatements[$k])))),
+                ], (array) ($tailoring['composition'] ?? [])),
             ],
         ]);
     }

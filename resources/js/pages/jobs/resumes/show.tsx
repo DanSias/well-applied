@@ -275,6 +275,51 @@ export default function ResumeVariantShow({
                             </ul>
                         </div>
                     )}
+                    {tailoring.composition.length > 0 && (
+                        <div className="mt-3">
+                            <p className="font-medium text-neutral-800 dark:text-neutral-200">
+                                Composition checks
+                            </p>
+                            <ul className="mt-1 space-y-2 text-xs text-neutral-600 dark:text-neutral-400">
+                                {tailoring.composition.map((f, i) => (
+                                    <li key={i}>
+                                        <span className="font-medium uppercase">
+                                            {f.severity}
+                                        </span>
+                                        : {f.message}
+                                        {f.selected.length > 0 && (
+                                            <details className="mt-1">
+                                                <summary className="cursor-pointer">
+                                                    Selected facts involved
+                                                </summary>
+                                                <ul className="list-disc pl-5">
+                                                    {f.selected.map((s) => (
+                                                        <li key={s.key}>
+                                                            {s.statement}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </details>
+                                        )}
+                                        {f.available.length > 0 && (
+                                            <details className="mt-1">
+                                                <summary className="cursor-pointer">
+                                                    Evidence available
+                                                </summary>
+                                                <ul className="list-disc pl-5">
+                                                    {f.available.map((s) => (
+                                                        <li key={s.key}>
+                                                            {s.statement}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </details>
+                                        )}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
                     {tailoring.added.length > 0 && (
                         <div className="mt-3">
                             <p className="font-medium text-neutral-800 dark:text-neutral-200">

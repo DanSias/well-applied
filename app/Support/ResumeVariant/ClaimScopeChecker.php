@@ -153,6 +153,16 @@ final class ClaimScopeChecker
     }
 
     /**
+     * The action classes a statement itself establishes (building, owning, integrating, troubleshooting, ...).
+     *
+     * @return array<int, string>
+     */
+    public function actionClasses(string $statement): array
+    {
+        return $this->factClasses('', $statement, []);
+    }
+
+    /**
      * The action classes one fact establishes: what the user declared when
      * they confirmed it, otherwise what its own statement says.
      *

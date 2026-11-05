@@ -266,6 +266,18 @@ final class GenerateResumeVariant
                 unset($role);
 
                 $reference['content']['summary_evidence'] = $this->jobSummaryEvidence($reference['content'], $effective, $relevance, collect($candidatePayload['career_facts'])->keyBy('key')->all());
+                $reference['composition'] = app(CompositionChecks::class)->run(
+                    $reference['content'],
+                    collect($candidatePayload['career_facts'])->keyBy('key')->all(),
+                    CareerFact::query()->where('career_profile_id', $profile->id)->whereNotNull('claim_group')->get(['key', 'claim_group'])
+                        ->groupBy('claim_group')->flatMap(fn ($group) => $group->mapWithKeys(fn (CareerFact $f) => [$f->key => $group->count()]))->all(),
+                    $effective['accomplishments'],
+                    [
+                        'engineering' => preg_match('/engineer|developer|architect/i', (string) $analysis->jobPosting->title) === 1,
+                        'findings' => $relevance['findings'],
+                        'priority' => $effective['job_priority_findings'] ?? [],
+                    ],
+                );
                 $baseline = app(ReferenceSelection::class)->build($baselineEffective, $candidatePayload);
                 $usedKeys = fn (array $content): array => array_values(array_unique(array_merge($content['summary_evidence'], ...array_merge(...array_map(fn (array $r) => array_column($r['bullet_groups'], 'career_fact_keys'), $content['experience'])))));
                 $chosen = $usedKeys($reference['content']);
@@ -292,7 +304,7 @@ final class GenerateResumeVariant
                 'mode' => 'profile_job', 'job_posting_id' => $analysis->job_posting_id, 'job_analysis_id' => $analysis->id, 'analysis_prompt_version' => $analysis->prompt_version,
                 'profile_version' => $synthesis->version,
                 'findings' => array_values(array_map(fn (array $f) => ['id' => $f['id'], 'label' => $f['label'], 'category' => $f['category'], 'weight' => round($f['weight'], 2)], $relevance['findings'])),
-                'gaps' => $relevance['gaps'], ...$reference['tailoring'],
+                'gaps' => $relevance['gaps'], 'composition' => $reference['composition'], ...$reference['tailoring'],
             ] : null;
             $metrics->event(['stage' => 'selection', 'kind' => 'reference_selection', 'groups' => array_sum(array_map(fn (array $r) => count($r['bullet_groups']), $validatedSelection['experience'])), 'trace' => $reference['trace']]);
         } else {

@@ -100,6 +100,16 @@ export type ResumeTailoringReview = {
     }[];
     added: { key: string; statement: string }[];
     dropped: { key: string; statement: string }[];
+    composition: ResumeCompositionFinding[];
+};
+
+/** A whole-resume quality finding: advice for a person, never an automatic change. */
+export type ResumeCompositionFinding = {
+    check: 'engineering_evidence' | 'result_context' | 'narrative_consistency';
+    severity: 'blocking' | 'review' | 'informational';
+    message: string;
+    selected: { key: string; statement: string }[];
+    available: { key: string; statement: string }[];
 };
 
 export type ResumeVariantShowProps = {
