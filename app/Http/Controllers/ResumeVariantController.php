@@ -18,6 +18,7 @@ use App\Models\ResumeVariantTargetTermUsage;
 use App\Models\Skill;
 use App\Support\GenerationAttempt\QueueGenerationAttempt;
 use App\Support\JobMatch\CareerFactAttribution;
+use App\Support\ReadinessReview\PresentReadiness;
 use App\Support\ResumeRevision\PresentResumeWorkspace;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
@@ -135,6 +136,7 @@ class ResumeVariantController extends Controller
             'match' => null,
             'resume' => $resume,
             'workspace' => app(PresentResumeWorkspace::class)->present($jobPosting, $resumeVariant),
+            'readiness' => app(PresentReadiness::class)->present($resumeVariant),
             'tailoring' => $tailoring === [] ? null : [
                 'profile_version' => $tailoring['profile_version'] ?? null,
                 'analysis_prompt_version' => $tailoring['analysis_prompt_version'] ?? null,

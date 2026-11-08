@@ -13,6 +13,7 @@ use App\Http\Controllers\JobBatchController;
 use App\Http\Controllers\JobMatchController;
 use App\Http\Controllers\JobPostingController;
 use App\Http\Controllers\ProfileSynthesisController;
+use App\Http\Controllers\ReadinessReviewController;
 use App\Http\Controllers\ResumeProfileController;
 use App\Http\Controllers\ResumeRevisionController;
 use App\Http\Controllers\ResumeVariantController;
@@ -148,6 +149,7 @@ Route::post('/jobs/{jobPosting}/profile-resumes/{resumeVariant}/revisions', [Res
 Route::get('/jobs/{jobPosting}/profile-resumes/{resumeVariant}/replacement-facts', [ResumeRevisionController::class, 'facts'])->name('jobs.profile-resumes.replacement-facts');
 Route::post('/jobs/{jobPosting}/profile-resumes/{resumeVariant}/current', [ResumeRevisionController::class, 'current'])->name('jobs.profile-resumes.current');
 Route::post('/jobs/{jobPosting}/profile-resumes/{resumeVariant}/preferred', [ResumeRevisionController::class, 'preferred'])->name('jobs.profile-resumes.preferred');
+Route::post('/jobs/{jobPosting}/profile-resumes/{resumeVariant}/readiness', [ReadinessReviewController::class, 'store'])->name('jobs.profile-resumes.readiness.store');
 Route::get('/resume-variants/{resumeVariant}/preview', [ResumeVariantPreviewController::class, 'show'])->name('resume-variants.preview');
 
 // PDF export of the same document — see

@@ -1245,3 +1245,25 @@ facts it cites (the summary: every fact on the resume). A blocking finding refus
 revision's review report. Review items and composition checks are recomputed, the revised document must render within
 the two-page limit, and the PDF is stored for the download and preview. Private facts are never offered, a replacement
 must be eligible for the role, not excluded by the approved profile, and not repeat a claim already on the resume.
+
+### Application Readiness Review
+
+A review of one exact saved variant against its job, run only when asked (Readiness tab; never on an edit or save). It
+reads the saved rows as citable passages (`summary`, `skills`, `b{bullet id}`, `edu{n}`) and the rendered PDF's text,
+and makes one bounded structured Ollama call (`resume-readiness-v1`, low reasoning effort, 8,000 output tokens) that
+lists the job's main requirements and judges each strong, partial or missing with cited passages, plus the overall
+hiring argument and edits to what the resume already says. It writes no wording and changes no fact or variant.
+
+The answer is held to the resume (`ValidateAssessment`): coverage without a cited passage is missing; a cited passage that
+shares neither vocabulary nor a capability with the requirement does not support it; "built" must be borne out by an
+implementation or ownership verb in the cited text; a requirement that asks to build or own is not strong on supporting
+work; a named technology the candidate has confirmed no experience with caps coverage at partial; recommendations that
+would claim such a technology are dropped. Each correction is recorded.
+
+Gaps are then classified from approved evidence, never by the model (`ClassifyGaps`): `omitted_available` (an eligible,
+role-placeable fact states what the requirement names and is not on the resume; the only status that suggests inserting
+anything), `already_shown` (everything the record says is on the resume), `transferable` (related experience only),
+`not_established`, or `unmapped`. Document checks (`DocumentChecks`) are deterministic defects or suggestions about the
+PDF text layer; there is no score. The review row stores the job-description, analysis and document fingerprints and the
+prompt version; if any no longer matches it is shown as out of date, not as current. Composition checks are recomputed for
+exactly this resume and shown as credibility risks.

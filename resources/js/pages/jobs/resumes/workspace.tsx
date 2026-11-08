@@ -1,5 +1,6 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
+import { ReadinessReview } from '@/components/readiness-review';
 import AppShell from '@/layouts/app-shell';
 import { show as jobShow } from '@/routes/jobs';
 import {
@@ -11,6 +12,7 @@ import {
 import { store as saveRevision } from '@/routes/jobs/profile-resumes/revisions';
 import { pdf as resumePdf } from '@/routes/resume-variants';
 import type {
+    ReadinessTarget,
     ReplacementFact,
     ResumeBullet,
     ResumeVariantShowProps,
@@ -236,6 +238,7 @@ export default function ResumeWorkspace({
     job,
     resume,
     workspace,
+    readiness,
     tailoring = null,
 }: ResumeVariantShowProps) {
     const errors = usePage<{ errors: Record<string, string> }>().props.errors;
@@ -264,7 +267,7 @@ export default function ResumeWorkspace({
         [resume.skills],
     );
 
-    const [tab, setTab] = useState<'edit' | 'preview'>('edit');
+    const [tab, setTab] = useState<'edit' | 'readiness' | 'preview'>('edit');
     const [summary, setSummary] = useState(resume.summary ?? '');
     const [roles, setRoles] = useState<DraftRole[]>(initialRoles);
     const [skills, setSkills] = useState<number[]>(initialSkills);
@@ -396,6 +399,34 @@ export default function ResumeWorkspace({
         data: Record<string, string | number | boolean | null> = {},
     ) => router.post(url, data, { preserveScroll: true });
 
+    // Take an improvement to the place in the editor it concerns.
+    const goTo = (target: ReadinessTarget) => {
+        if (target === null) {
+            return;
+        }
+
+        setTab('edit');
+
+        if (target.type === 'role_fact') {
+            setPicking(`${target.role_id}:new`);
+        }
+
+        setTimeout(() => {
+            const id =
+                target.type === 'summary'
+                    ? 'summary-field'
+                    : target.type === 'skills'
+                      ? 'skills-section'
+                      : target.type === 'bullet'
+                        ? `bullet-${target.bullet_id}`
+                        : `role-${target.role_id}`;
+            const element = document.getElementById(id);
+
+            element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            element?.focus?.();
+        }, 50);
+    };
+
     const pdfUrl = resumePdf.url({ resumeVariant: variant.id });
     const fieldErrors = Object.entries(errors).filter(
         ([k]) =>
@@ -501,7 +532,7 @@ export default function ResumeWorkspace({
                 role="tablist"
                 className="mt-6 flex gap-1 border-b border-neutral-200 dark:border-neutral-800"
             >
-                {(['edit', 'preview'] as const).map((t) => (
+                {(['edit', 'readiness', 'preview'] as const).map((t) => (
                     <button
                         key={t}
                         role="tab"
@@ -514,7 +545,11 @@ export default function ResumeWorkspace({
                                 : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400'
                         }`}
                     >
-                        {t === 'edit' ? 'Edit' : 'Preview PDF'}
+                        {t === 'edit'
+                            ? 'Edit'
+                            : t === 'readiness'
+                              ? 'Readiness'
+                              : 'Preview PDF'}
                     </button>
                 ))}
             </div>
@@ -535,6 +570,15 @@ export default function ResumeWorkspace({
                 </div>
             )}
 
+            {tab === 'readiness' && readiness && (
+                <ReadinessReview
+                    jobId={job.id}
+                    variantId={variant.id}
+                    readiness={readiness}
+                    onOpen={goTo}
+                />
+            )}
+
             {tab === 'edit' && (
                 <div className={`mt-4 ${dirty ? 'pb-24' : ''}`}>
                     <section>
@@ -545,6 +589,7 @@ export default function ResumeWorkspace({
                             value={summary}
                             onChange={(e) => setSummary(e.target.value)}
                             rows={5}
+                            id="summary-field"
                             aria-label="Summary"
                             className="mt-2 w-full rounded-md border border-neutral-300 bg-white p-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
                         />
@@ -568,7 +613,11 @@ export default function ResumeWorkspace({
                         }
 
                         return (
-                            <section key={role.role_id} className="mt-6">
+                            <section
+                                key={role.role_id}
+                                id={`role-${role.role_id}`}
+                                className="mt-6"
+                            >
                                 <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
                                     {role.employer}
                                     <span className="font-normal text-neutral-500 dark:text-neutral-400">
@@ -620,6 +669,11 @@ export default function ResumeWorkspace({
                                                         )
                                                     }
                                                     rows={3}
+                                                    id={
+                                                        b.id !== null
+                                                            ? `bullet-${b.id}`
+                                                            : undefined
+                                                    }
                                                     aria-label={`Bullet ${i + 1} under ${role.employer}`}
                                                     className="w-full rounded-md border border-neutral-300 bg-white p-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
                                                 />
@@ -791,7 +845,7 @@ export default function ResumeWorkspace({
                         );
                     })}
 
-                    <section className="mt-6">
+                    <section id="skills-section" tabIndex={-1} className="mt-6">
                         <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
                             Skills
                         </h2>

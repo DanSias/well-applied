@@ -1,5 +1,6 @@
 <?php
 
+use App\Contracts\GeneratesReadinessReview;
 use App\Contracts\GeneratesResumeWording;
 use App\Enums\CareerFactType;
 use App\Enums\DescriptionCompleteness;
@@ -7,9 +8,12 @@ use App\Enums\GenerationStatus;
 use App\Enums\GenerationType;
 use App\Enums\Verification;
 use App\Enums\Visibility;
+use App\Exceptions\ReadinessReviewException;
+use App\Exceptions\ResumeGenerationProviderException;
 use App\Exceptions\ResumeRevisionException;
 use App\Jobs\GenerateReferenceResumeJob;
 use App\Jobs\GenerateResumeVariantJob;
+use App\Jobs\RunReadinessReviewJob;
 use App\Jobs\SynthesizeProfileJob;
 use App\Models\CareerFact;
 use App\Models\CareerLimitation;
@@ -22,6 +26,7 @@ use App\Models\JobPosting;
 use App\Models\JobResumeSelection;
 use App\Models\Project;
 use App\Models\ResumeProfileSynthesis;
+use App\Models\ResumeReadinessReview;
 use App\Models\ResumeVariant;
 use App\Models\ResumeVariantExperienceBullet;
 use App\Models\Role;
@@ -37,6 +42,12 @@ use App\Support\ProfileSynthesis\ReferenceSelection;
 use App\Support\ProfileSynthesis\ResolveEvidence;
 use App\Support\ProfileSynthesis\ReviewProfileSynthesis;
 use App\Support\ProfileSynthesis\SynthesizeProfile;
+use App\Support\ReadinessReview\DocumentChecks;
+use App\Support\ReadinessReview\PresentReadiness;
+use App\Support\ReadinessReview\ReadinessPrompt;
+use App\Support\ReadinessReview\ResumeArtifact;
+use App\Support\ReadinessReview\RunReadinessReview;
+use App\Support\ReadinessReview\ValidateAssessment;
 use App\Support\ResumeDocument\GenerateResumeDocument;
 use App\Support\ResumeDocument\ResumeContact;
 use App\Support\ResumeDocument\ResumeDocument;
@@ -46,6 +57,7 @@ use App\Support\ResumeDocument\SkillPresentation;
 use App\Support\ResumeProfile\QuestionWriter;
 use App\Support\ResumeRevision\JobResumes;
 use App\Support\ResumeRevision\ReviseResumeVariant;
+use App\Support\ResumeVariant\CompositionChecks;
 use App\Support\ResumeVariant\GenerateResumeVariant;
 use App\Support\ResumeVariant\ResumeCandidatePayloadBuilder;
 use App\Support\ResumeVariant\ResumeWordingProviderResponse;
@@ -1364,4 +1376,267 @@ it('shows the revision, not the last generation, as the job\'s resume, and does 
 
     expect($state['variant']->id)->toBe($variant->id)
         ->and(app(JobResumes::class)->current($s['posting']->fresh())->id)->toBe($revision->id);
+});
+
+/**
+ * A readiness-review model that answers from the resume passages it is shown.
+ *
+ * @param  Closure(array<string, string>, array<string, mixed>): array<string, mixed>  $answer  passage id => text, schema => structured answer
+ */
+function readinessModel(Closure $answer, ?stdClass $seen = null): GeneratesReadinessReview
+{
+    $seen ??= new stdClass;
+
+    return new class($answer, $seen) implements GeneratesReadinessReview
+    {
+        public function __construct(private Closure $answer, private stdClass $seen) {}
+
+        public function generate(string $systemPrompt, string $userPrompt, array $schema): ResumeWordingProviderResponse
+        {
+            $this->seen->calls = ($this->seen->calls ?? 0) + 1;
+            $this->seen->system = $systemPrompt;
+            $this->seen->input = json_decode($userPrompt, true);
+            $this->seen->schema = $schema;
+            $passages = array_column($this->seen->input['resume_passages'], 'text', 'id');
+
+            return new ResumeWordingProviderResponse('fake', 'readiness-stub', ($this->answer)($passages, $schema), ['input_tokens' => 1200, 'output_tokens' => 300, 'reasoning_tokens' => 100]);
+        }
+    };
+}
+
+/** @param array<string, string> $passages */
+function passageWith(array $passages, string $needle): string
+{
+    return array_key_first(array_filter($passages, fn ($t) => stripos($t, $needle) !== false)) ?? throw new RuntimeException("no passage with {$needle}");
+}
+
+function requirement(string $id, string $text, string $priority, string $coverage, string $depth, array $passages = [], array $findings = []): array
+{
+    return ['id' => $id, 'text' => $text, 'priority' => $priority, 'finding_ids' => $findings, 'coverage' => $coverage, 'depth' => $depth, 'passage_ids' => $passages, 'note' => 'Because.'];
+}
+
+it('holds the model\'s coverage judgments to the resume, classifies gaps from approved evidence, and cites only real passages', function () {
+    [$s, , $variant] = writtenJobResume();
+    $seen = new stdClass;
+    app()->instance(GeneratesReadinessReview::class, readinessModel(function (array $p) {
+        $webhooks = passageWith($p, 'webhook handlers');
+        $recurring = passageWith($p, 'recurring billing');
+
+        return [
+            'requirements' => [
+                requirement('R1', 'Build webhook-driven payment integrations with retries', 'critical', 'strong', 'built', [$webhooks]),
+                requirement('R2', 'Own payment gateway and recurring billing integrations', 'critical', 'strong', 'built', [$recurring]),
+                requirement('R3', 'Ruby on Rails experience', 'nice', 'missing', 'none'),
+                requirement('R4', 'Working proficiency with React and TypeScript', 'important', 'strong', 'built', [$webhooks]),
+                requirement('R5', 'Financial account aggregation with Plaid', 'nice', 'strong', 'built', []),
+            ],
+            'hiring_argument' => ['rating' => 'adequate', 'summary' => 'Payments are clear; engineering is thin.'],
+            'emphasis' => ['over' => ['payments support'], 'under' => ['software built']],
+            'recommendations' => [
+                ['title' => 'Add Ruby on Rails to the skills', 'advice' => 'List Ruby on Rails so the keyword matches.', 'target' => 'skills', 'requirement_ids' => ['R3']],
+                ['title' => 'Say what you built', 'advice' => 'Lead the webhook bullet with what you designed.', 'target' => $webhooks, 'requirement_ids' => ['R1']],
+            ],
+        ];
+    }, $seen));
+
+    $review = app(RunReadinessReview::class)->request($variant);
+    app(RunReadinessReview::class)->run($review);
+    $review->refresh();
+    $result = $review->result;
+    $byId = collect($result['requirements'])->keyBy('id');
+
+    expect($review->status)->toBe('succeeded')->and($seen->calls)->toBe(1)
+        // The model saw the resume as submitted, the job description, and nothing from the wider record.
+        ->and(json_encode($seen->input))->toContain('Own payment integrations and the signup funnel')->not->toContain('SECRET-PROJECT-ZEBRA')->not->toContain('private-secret')
+        // Built and strongly covered stays; supporting work for a requirement that asks to own it is partial, not strong.
+        ->and($byId['R1']['coverage'])->toBe('strong')->and($byId['R1']['depth'])->toBe('built')
+        ->and($byId['R2']['coverage'])->toBe('partial')->and($byId['R2']['depth'])->not->toBe('built')
+        // A passage that does not state the requirement is not evidence for it; a claim with no citation is not a claim.
+        ->and($byId['R4']['coverage'])->toBe('partial')
+        ->and($byId['R5']['coverage'])->toBe('missing')->and($byId['R5']['passage_ids'])->toBe([])
+        ->and(implode(' ', $result['risks']['adjustments']))->toContain('R2')->toContain('R4')->toContain('R5')
+        ->and($result['counts'])->toBe(['strong' => 1, 'partial' => 2, 'missing' => 2])
+        // Rails is a confirmed limitation: a qualification gap, and no advice to claim it survives.
+        ->and($byId['R3']['gap']['status'])->toBe('not_established')->and($byId['R3']['gap']['qualification_gap'])->toBeTrue()->and($byId['R3']['gap']['candidates'])->toBe([])
+        ->and(json_encode($result['improvements']))->not->toContain('Ruby on Rails')
+        ->and(implode(' ', $result['risks']['adjustments']))->toContain('Ruby on Rails')
+        ->and(array_column($result['gaps'], 'requirement_id'))->toContain('R3', 'R5')
+        ->and($review->metrics)->toMatchArray(['model_calls' => 1, 'prompt_tokens' => 1200, 'completion_tokens' => 300])->and($review->metrics['duration_ms'])->toBeGreaterThanOrEqual(0);
+
+    // A gap is never filled with Private evidence, and what is suggested is real, eligible and placeable.
+    $suggested = collect($result['requirements'])->flatMap(fn ($r) => array_column($r['gap']['candidates'] ?? [], 'key'))->all();
+    expect($suggested)->not->toContain('private-secret', 'private-card', 'first-person');
+
+    // The saved resume is exactly as it was.
+    expect(ResumeVariant::find($variant->id)->only(['summary', 'review_report']))->toBe($variant->only(['summary', 'review_report']));
+});
+
+it('suggests inserting omitted evidence only when the record states it and it fits a role on the resume', function () {
+    [$s, , $variant] = writtenJobResume();
+    app()->instance(GeneratesReadinessReview::class, readinessModel(fn (array $p) => [
+        'requirements' => [
+            requirement('R1', 'Experience building with Laravel and Vue', 'critical', 'missing', 'none'),
+            requirement('R2', 'Payment webhook handling', 'important', 'strong', 'built', [passageWith($p, 'webhook handlers')]),
+            requirement('R3', 'Kubernetes operations', 'nice', 'missing', 'none'),
+        ],
+        'hiring_argument' => ['rating' => 'weak', 'summary' => 'No software is shown.'],
+        'emphasis' => ['over' => [], 'under' => []],
+        'recommendations' => [['title' => 'Show a build', 'advice' => 'Say what you built.', 'target' => 'summary', 'requirement_ids' => ['R1']]],
+    ]));
+    $review = app(RunReadinessReview::class)->request($variant);
+    app(RunReadinessReview::class)->run($review);
+    $result = $review->fresh()->result;
+    $byId = collect($result['requirements'])->keyBy('id');
+
+    expect($byId['R3']['gap']['status'])->toBe('not_established')->and($byId['R3']['gap']['candidates'])->toBe([])->and($byId['R2']['gap']['status'])->toBe('in_resume');
+
+    $laravel = $byId['R1']['gap'];
+    $improvement = collect($result['improvements'])->firstWhere('kind', 'add_evidence');
+
+    expect($laravel['status'])->toBe('omitted_available')->and($laravel['qualification_gap'])->toBeFalse()
+        ->and(array_column($laravel['candidates'], 'key'))->toContain('wi-built')->and($laravel['candidates'][0]['role_id'])->toBe($s['role']->id)
+        ->and($improvement['target'])->toMatchArray(['type' => 'role_fact', 'role_id' => $s['role']->id, 'fact_key' => 'wi-built'])
+        // The improvements put the evidence the record states ahead of generic editing advice.
+        ->and($result['improvements'][0]['kind'])->toBe('add_evidence');
+});
+
+it('checks the rendered document: structure, contact, dates, readable text, and states defects apart from suggestions', function () {
+    [$s, , $variant] = writtenJobResume();
+    $artifact = app(ResumeArtifact::class)->read($variant);
+    $checks = app(DocumentChecks::class);
+    $clean = $checks->run($variant, $artifact['passages'], $artifact['pdf_text'], $artifact['pages']);
+
+    expect($artifact['pages'])->toBeGreaterThan(0)->and($artifact['pdf_text'])->toContain('PROFESSIONAL EXPERIENCE')
+        ->and(array_column($clean, 'code'))->not->toContain('text_missing', 'heading_experience', 'pages', 'chronology', 'encoding');
+
+    // Broken documents are defects; a title running into its dates is a suggestion about the text layer.
+    $broken = $checks->run($variant, $artifact['passages'], "Nothing readable \u{FB01} \u{2014} here", 4);
+    $codes = array_column($broken, 'code');
+
+    expect($codes)->toContain('pages', 'text_layer', 'heading_experience', 'encoding', 'em_dash');
+    expect(collect($broken)->firstWhere('code', 'pages')['kind'])->toBe('defect');
+
+    $flow = $checks->run($variant, $artifact['passages'], str_repeat('Filler text for length. ', 30)."Developer Support EngineerAug 2025 – Oct 2026\nTools & Workflow:GitLab\nTechnical Skills Professional Experience Education", 2);
+    expect(collect($flow)->firstWhere('code', 'text_flow_dates')['kind'])->toBe('suggestion')->and(collect($flow)->firstWhere('code', 'text_flow_labels')['kind'])->toBe('suggestion');
+});
+
+it('queues a review only when asked, shows a finished one only while it still matches, and needs a new one after any change', function () {
+    [$s, , $variant] = writtenJobResume();
+    Queue::fake();
+    $url = route('jobs.profile-resumes.readiness.store', [$s['posting'], $variant]);
+    $present = fn ($v = null) => app(PresentReadiness::class)->present($v ?? $variant->fresh());
+
+    expect($present()['state'])->toBe('none');
+
+    // Saving or editing never starts one.
+    $draft = unchangedDraft($variant);
+    $revision = app(ReviseResumeVariant::class)->revise($s['posting'], $variant, [...$draft, 'summary' => 'Full-Stack Developer who owns applications end to end and ships payment integrations.']);
+    Queue::assertNothingPushed();
+
+    $this->post($url)->assertRedirect();
+    $this->post($url)->assertRedirect();
+    Queue::assertPushed(RunReadinessReviewJob::class, 1);
+    expect($present()['state'])->toBe('queued')->and(ResumeReadinessReview::count())->toBe(1);
+
+    app()->instance(GeneratesReadinessReview::class, readinessModel(fn (array $p) => [
+        'requirements' => [requirement('R1', 'Webhook handling', 'critical', 'strong', 'built', [passageWith($p, 'webhook handlers')])],
+        'hiring_argument' => ['rating' => 'adequate', 'summary' => 'Fine.'], 'emphasis' => ['over' => [], 'under' => []],
+        'recommendations' => [['title' => 'Tighten', 'advice' => 'Shorten.', 'target' => 'none', 'requirement_ids' => []]],
+    ]));
+    app(RunReadinessReview::class)->run(ResumeReadinessReview::first());
+
+    $ready = $present();
+    expect($ready['state'])->toBe('ready')->and($ready['result']['counts']['strong'])->toBe(1)->and($ready['fingerprints']['artifact'])->not->toBeEmpty()
+        ->and($ready['fingerprints']['prompt'])->toBe(ReadinessPrompt::VERSION)
+        // A different version of the resume has no review of its own.
+        ->and($present($revision)['state'])->toBe('none');
+
+    // The job description changes: the old review is not shown as current.
+    $s['posting']->update(['description' => 'A different description of the same job.']);
+    $stale = $present();
+    expect($stale['state'])->toBe('stale')->and($stale)->not->toHaveKey('result')->and($stale['stale_reasons'][0])->toContain('description');
+
+    // A failed model call is a failed review, with the reason, and nothing else changes.
+    app()->instance(GeneratesReadinessReview::class, new class implements GeneratesReadinessReview
+    {
+        public function generate(string $systemPrompt, string $userPrompt, array $schema): ResumeWordingProviderResponse
+        {
+            throw new ResumeGenerationProviderException('Ollama request failed: connection error.');
+        }
+    });
+    $again = app(RunReadinessReview::class)->request($variant->fresh());
+    expect(fn () => app(RunReadinessReview::class)->run($again))->toThrow(ResumeGenerationProviderException::class);
+    expect($again->fresh()->status)->toBe('failed')->and($present()['state'])->toBe('failed')->and($present()['message'])->toContain('connection error');
+});
+
+it('shows the readiness state on the workspace and refuses a review for another job\'s resume', function () {
+    [$s, , $variant] = writtenJobResume();
+    Queue::fake();
+
+    $this->get(route('jobs.profile-resumes.show', [$s['posting'], $variant]))->assertOk()->assertInertia(fn ($page) => $page->where('readiness.state', 'none'));
+
+    $other = JobPosting::factory()->create(['career_profile_id' => $s['career']->id]);
+    $this->post(route('jobs.profile-resumes.readiness.store', [$other, $variant]))->assertNotFound();
+
+    $this->post(route('jobs.profile-resumes.readiness.store', [$s['posting'], $variant]))->assertRedirect();
+    $this->get(route('jobs.profile-resumes.show', [$s['posting'], $variant]))->assertInertia(fn ($page) => $page->where('readiness.state', 'queued'));
+});
+
+it('does not let a comparable framework stand in for a technology the candidate has no experience with', function () {
+    $passages = [
+        'skills' => ['id' => 'skills', 'label' => 'Skills', 'text' => 'Laravel, Node.js, PostgreSQL, React'],
+        'b1' => ['id' => 'b1', 'label' => 'Role, bullet 1', 'text' => 'Built Workflow Intelligence, a Laravel and Vue platform backed by PostgreSQL.'],
+    ];
+    $output = [
+        'requirements' => [
+            requirement('R1', 'Server-side framework and relational database (Rails or comparable)', 'critical', 'strong', 'built', ['b1', 'skills']),
+            requirement('R2', 'Relational database experience with PostgreSQL', 'important', 'strong', 'built', ['b1']),
+        ],
+        'hiring_argument' => ['rating' => 'adequate', 'summary' => 'Fine.'], 'emphasis' => ['over' => [], 'under' => []],
+        'recommendations' => [['title' => 'Mention Rails', 'advice' => 'Add Rails to the skills.', 'target' => 'skills', 'requirement_ids' => ['R1']]],
+    ];
+
+    $checked = app(ValidateAssessment::class)->validate($output, $passages, [], ['Ruby on Rails', 'Rails']);
+    $byId = collect($checked['assessment']['requirements'])->keyBy('id');
+
+    expect($byId['R1']['coverage'])->toBe('partial')->and($byId['R1']['depth'])->toBe('adjacent')
+        ->and($byId['R2']['coverage'])->toBe('strong')
+        ->and($checked['assessment']['recommendations'])->toBe([])
+        ->and(implode(' ', $checked['adjustments']))->toContain('R1')->toContain('Rails');
+
+    // Nothing to assess is a failed review, not an empty one.
+    expect(fn () => app(ValidateAssessment::class)->validate(['requirements' => []], $passages, []))->toThrow(ReadinessReviewException::class);
+});
+
+it('reports a resume with no concrete build as an engineering risk and offers the build evidence the record has', function () {
+    [$s, , $variant] = writtenJobResume();
+    $facts = collect(app(ResumeCandidatePayloadBuilder::class)->buildForCareer($s['career'])['career_facts'])->keyBy('key')->all();
+    $sizes = app(CompositionChecks::class)->claimGroupSizes($s['career']);
+    $isBuild = fn (ResumeVariantExperienceBullet $b) => $b->citations->contains(fn ($c) => app(CompositionChecks::class)->isConcreteBuild($c->careerFact->key, $facts, $sizes));
+
+    // The same resume, minus every bullet that shows something built (each role keeps one bullet).
+    $variant->load('experienceRoles.bullets.citations.careerFact');
+    $draft = unchangedDraft($variant);
+
+    foreach ($draft['roles'] as $i => $role) {
+        $bullets = $variant->experienceRoles->firstWhere('role_id', $role['role_id'])->bullets->keyBy('id');
+        $kept = array_values(array_filter($role['bullets'], fn ($b) => ! $isBuild($bullets[$b['id']])));
+        // A role cannot be left empty: a role whose only bullet is a build gets a bullet that is not one.
+        $draft['roles'][$i]['bullets'] = $kept !== [] ? $kept : [['fact_key' => 'nexus-85', 'replaces' => $role['bullets'][0]['id'], 'text' => CareerFact::where('key', 'nexus-85')->value('statement')]];
+    }
+
+    $revision = app(ReviseResumeVariant::class)->revise($s['posting'], $variant, $draft);
+    app()->instance(GeneratesReadinessReview::class, readinessModel(fn (array $p) => [
+        'requirements' => [requirement('R1', 'Webhook handling', 'critical', 'strong', 'built', [passageWith($p, 'webhook')])],
+        'hiring_argument' => ['rating' => 'weak', 'summary' => 'No software is shown.'], 'emphasis' => ['over' => [], 'under' => ['software built']],
+        'recommendations' => [['title' => 'Tighten', 'advice' => 'Shorten.', 'target' => 'none', 'requirement_ids' => []]],
+    ]));
+    $review = app(RunReadinessReview::class)->request($revision);
+    app(RunReadinessReview::class)->run($review);
+    $result = $review->fresh()->result;
+    $engineering = collect($result['improvements'])->firstWhere('kind', 'engineering_evidence');
+
+    expect(array_column($result['risks']['composition'], 'check'))->toContain('engineering_evidence')
+        ->and($engineering)->not->toBeNull()->and($engineering['target']['type'])->toBe('role_fact')
+        ->and(array_column($engineering['facts'], 'key'))->not->toContain('private-secret', 'first-person', 'ts-wi');
 });

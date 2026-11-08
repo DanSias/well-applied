@@ -177,4 +177,123 @@ export type ResumeVariantShowProps = {
     resume: ResumeVariantDetail;
     tailoring?: ResumeTailoringReview | null;
     workspace?: ResumeWorkspace;
+    readiness?: ReadinessState;
+};
+
+export type ReadinessTarget =
+    | { type: 'summary' }
+    | { type: 'skills' }
+    | { type: 'bullet'; bullet_id: number }
+    | { type: 'role_fact'; role_id: number; fact_key: string }
+    | null;
+
+export type ReadinessFactRef = {
+    key: string;
+    statement: string;
+    visibility?: string;
+    role_id?: number;
+    role?: string | null;
+};
+
+export type ReadinessGap = {
+    status:
+        | 'in_resume'
+        | 'omitted_available'
+        | 'transferable'
+        | 'not_established';
+    qualification_gap: boolean;
+    capabilities: string[];
+    candidates: ReadinessFactRef[];
+    adjacent: ReadinessFactRef[];
+    reason: string;
+};
+
+export type ReadinessRequirement = {
+    id: string;
+    text: string;
+    priority: 'critical' | 'important' | 'nice';
+    coverage: 'strong' | 'partial' | 'missing';
+    depth: 'built' | 'supported' | 'adjacent' | 'none';
+    passage_ids: string[];
+    finding_ids: number[];
+    note: string;
+    gap: ReadinessGap | null;
+};
+
+export type ReadinessResult = {
+    prompt_version: string;
+    hiring_argument: {
+        rating: 'persuasive' | 'adequate' | 'weak';
+        summary: string;
+    };
+    emphasis: { over: string[]; under: string[] };
+    counts: { strong: number; partial: number; missing: number };
+    requirements: ReadinessRequirement[];
+    improvements: {
+        kind: 'add_evidence' | 'engineering_evidence' | 'edit';
+        title: string;
+        advice: string;
+        target: ReadinessTarget;
+        requirement_ids: string[];
+        facts: { key: string; statement: string }[];
+    }[];
+    gaps: {
+        requirement_id: string;
+        text: string;
+        priority: string;
+        status: string;
+        reason: string;
+        adjacent: ReadinessFactRef[];
+    }[];
+    terms: {
+        capability: string;
+        status: string;
+        candidates: ReadinessFactRef[];
+    }[];
+    document: {
+        pages: number;
+        text_chars: number;
+        findings: {
+            kind: 'defect' | 'suggestion';
+            code: string;
+            message: string;
+        }[];
+    };
+    risks: {
+        composition: { check: string; severity: string; message: string }[];
+        wording: { label: string; status: string; messages: string[] }[];
+        adjustments: string[];
+    };
+    passages: Record<string, { label: string; bullet_id: number | null }>;
+    artifact: { document_key: string; pdf_sha256: string };
+};
+
+export type ReadinessState = {
+    state: 'none' | 'queued' | 'running' | 'failed' | 'stale' | 'ready';
+    review_id?: number;
+    requested_at?: string;
+    started_at?: string | null;
+    phase?: string | null;
+    message?: string | null;
+    stale_reasons?: string[];
+    reviewed_at?: string | null;
+    model?: string | null;
+    metrics?: {
+        duration_ms?: number;
+        document_ms?: number;
+        model_ms?: number;
+        classification_ms?: number;
+        prompt_tokens?: number | null;
+        completion_tokens?: number | null;
+        reasoning_tokens?: number | null;
+        reasoning_effort?: string;
+        output_budget?: number;
+    } | null;
+    fingerprints?: {
+        description: string;
+        analysis: string | null;
+        artifact: string | null;
+        prompt: string;
+    };
+    result?: ReadinessResult;
 };
