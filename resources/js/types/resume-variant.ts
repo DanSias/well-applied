@@ -112,10 +112,69 @@ export type ResumeCompositionFinding = {
     available: { key: string; statement: string }[];
 };
 
+export type WorkspaceFact = {
+    key: string;
+    statement: string;
+    visibility: string;
+};
+
+export type WorkspaceAttention = {
+    source: 'wording' | 'composition';
+    severity: 'review' | 'informational' | 'blocking';
+    status: string;
+    title: string;
+    role_id: number | null;
+    bullet_order: number | null;
+    messages: string[];
+    claim: string | null;
+    facts: WorkspaceFact[];
+    available: WorkspaceFact[];
+};
+
+export type WorkspaceHistoryItem = {
+    id: number;
+    kind: 'generated' | 'revision';
+    label: string;
+    parent_id: number | null;
+    created_at: string;
+    summary: string;
+    current: boolean;
+    preferred: boolean;
+};
+
+export type ResumeWorkspace = {
+    variant: {
+        id: number;
+        kind: 'generated' | 'revision';
+        label: string;
+        parent_id: number | null;
+        generated_at: string;
+        current: boolean;
+        preferred: boolean;
+        pages: number | null;
+        profile: { name: string; version: number } | null;
+        editable: boolean;
+    };
+    history: WorkspaceHistoryItem[];
+    attention: WorkspaceAttention[];
+    edit_log: { label: string; note: string | null }[];
+};
+
+export type ReplacementFact = {
+    key: string;
+    statement: string;
+    visibility: string;
+    type: string;
+    project: string | null;
+    suggested: boolean;
+    reason: string | null;
+};
+
 export type ResumeVariantShowProps = {
     job: ResumeVariantJobContext;
     analysis: ResumeVariantAnalysisContext;
     match: ResumeVariantMatchContext | null;
     resume: ResumeVariantDetail;
     tailoring?: ResumeTailoringReview | null;
+    workspace?: ResumeWorkspace;
 };

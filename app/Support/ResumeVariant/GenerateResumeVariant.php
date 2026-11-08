@@ -20,9 +20,7 @@ use App\Models\ResumeSelectionCheckpoint;
 use App\Models\ResumeVariant;
 use App\Models\Role;
 use App\Models\Skill;
-use App\Support\Clarification\ActiveLimitations;
 use App\Support\Clarification\ActivePresentationPreferences;
-use App\Support\Clarification\DeclaredScopes;
 use App\Support\GenerationAttempt\GenerationMetrics;
 use App\Support\JobMatch\JobPayloadBuilder;
 use App\Support\JobTailoring\JobRelevance;
@@ -31,6 +29,7 @@ use App\Support\ProfileSynthesis\EffectiveProfile;
 use App\Support\ProfileSynthesis\FirstPerson;
 use App\Support\ProfileSynthesis\ReferenceSelection;
 use App\Support\ResumeDocument\ResumeText;
+use App\Support\ResumeRevision\JobResumes;
 use App\Support\ResumeVariant\Prompts\ProfileJobWordingPromptV1;
 use App\Support\ResumeVariant\Prompts\ReferenceWordingPromptV3;
 use App\Support\ResumeVariant\Prompts\ResumeSelectionPromptV6;
@@ -266,17 +265,8 @@ final class GenerateResumeVariant
                 unset($role);
 
                 $reference['content']['summary_evidence'] = $this->jobSummaryEvidence($reference['content'], $effective, $relevance, collect($candidatePayload['career_facts'])->keyBy('key')->all());
-                $reference['composition'] = app(CompositionChecks::class)->run(
-                    $reference['content'],
-                    collect($candidatePayload['career_facts'])->keyBy('key')->all(),
-                    CareerFact::query()->where('career_profile_id', $profile->id)->whereNotNull('claim_group')->get(['key', 'claim_group'])
-                        ->groupBy('claim_group')->flatMap(fn ($group) => $group->mapWithKeys(fn (CareerFact $f) => [$f->key => $group->count()]))->all(),
-                    $effective['accomplishments'],
-                    [
-                        'engineering' => preg_match('/engineer|developer|architect/i', (string) $analysis->jobPosting->title) === 1,
-                        'findings' => $relevance['findings'],
-                        'priority' => $effective['job_priority_findings'] ?? [],
-                    ],
+                $reference['composition'] = app(CompositionChecks::class)->forJob(
+                    $reference['content'], collect($candidatePayload['career_facts'])->keyBy('key')->all(), $profile, $effective, $relevance, $analysis,
                 );
                 $baseline = app(ReferenceSelection::class)->build($baselineEffective, $candidatePayload);
                 $usedKeys = fn (array $content): array => array_values(array_unique(array_merge($content['summary_evidence'], ...array_merge(...array_map(fn (array $r) => array_column($r['bullet_groups'], 'career_fact_keys'), $content['experience'])))));
@@ -414,50 +404,14 @@ final class GenerateResumeVariant
 
         // ---- Build Stage 2 input from exactly what Selection approved ----
         $factsByKey = collect($candidatePayload['career_facts'])->keyBy('key');
-        $guardrailByFactKey = $factsByKey->map(fn (array $fact) => $fact['metric']['guardrail'] ?? null)->all();
-
-        // Restricted-evidence enforcement inputs (RestrictedEvidenceGuard):
-        // which eligible facts are Restricted, and every fact's
-        // evidence-bearing text for the "figure appears only in
-        // restricted evidence" check.
-        $restrictedFactKeys = $factsByKey->filter(fn (array $fact) => $fact['visibility'] === 'restricted')->keys()->all();
-        $factTextByKey = $factsByKey->map(fn (array $fact) => trim($fact['statement'].' '.($fact['metric']['scope_note'] ?? '').' '.($fact['metric']['guardrail'] ?? '').' '.(isset($fact['metric']['value']) ? (string) $fact['metric']['value'] : '')))->all();
-
-        // For ResumeWordingResponseValidator::assertSkillProvenance() —
-        // see that method's own docblock. $skillIdsByFactKey reuses the
-        // same eligible-corpus facts already loaded above (no new
-        // query); $canonicalSkillsById is the recognition catalog
-        // (every Skill this profile's eligible corpus could ever
-        // legitimately mention), deliberately reusing
-        // $candidatePayload['eligible_skills'] rather than a fresh
-        // Skill::query() — it already respects the same
-        // ResumeEligibility boundary that governs what either provider
-        // can see at all, and Wording's own generation never has a
-        // legitimate reason to name a Skill outside that set.
-        $skillIdsByFactKey = $factsByKey->map(fn (array $fact) => array_column($fact['skills'], 'id'))->all();
-        $canonicalSkillsById = collect($candidatePayload['eligible_skills'])->pluck('name', 'id')->all();
-
-        // The additive fact-local evidence contract established by the
-        // Skill-provenance authority-model investigation — mirroring
-        // JobMatchPromptV3's own evidence boundary ("that fact's own
-        // statement, attached Skills, metric/guardrail/scope_note"): a
-        // canonical Skill name genuinely present in a fact's own
-        // evidence-bearing text is ALSO positive evidence for that
-        // fact, alongside (never instead of) its attached Skill
-        // relations. `metric.unit` is deliberately excluded — a short
-        // value-unit classifier (e.g. "percent_reduction"), not prose
-        // evidence; only `guardrail`/`scope_note` get explicit prompt
-        // treatment alongside the statement itself. Computed once per
-        // fact here (reusing ResumeWordingResponseValidator's own
-        // recognizedSkillIds() — no second recognition algorithm), then
-        // reused by every location that cites that fact — never
-        // re-scanned per generated location. See
-        // docs/resume-variant-generation.md "Skill provenance".
-        $textRecognizedSkillIdsByFactKey = $factsByKey->map(function (array $fact) use ($canonicalSkillsById) {
-            $evidenceText = trim($fact['statement'].' '.($fact['metric']['scope_note'] ?? '').' '.($fact['metric']['guardrail'] ?? ''));
-
-            return $this->wordingValidator->recognizedSkillIds($evidenceText, $canonicalSkillsById);
-        })->all();
+        // Restricted-evidence, skill-provenance and guardrail inputs: the same ones an edited resume is judged by.
+        $inputs = app(WordingContextInputs::class)->build($profile, $factsByKey->all(), $candidatePayload['eligible_skills']);
+        $guardrailByFactKey = $inputs['guardrailByFactKey'];
+        $restrictedFactKeys = $inputs['restrictedFactKeys'];
+        $factTextByKey = $inputs['factTextByKey'];
+        $skillIdsByFactKey = $inputs['skillIdsByFactKey'];
+        $canonicalSkillsById = $inputs['canonicalSkillsById'];
+        $textRecognizedSkillIdsByFactKey = $inputs['textRecognizedSkillIdsByFactKey'];
 
         // The target_term_usages -> Resume Wording handoff, designed as
         // location-scoped guidance rather than a global list or a
@@ -534,10 +488,10 @@ final class GenerateResumeVariant
             directTargetTermsByLocation: $directTargetTermsByLocation,
             restrictedFactKeys: $restrictedFactKeys,
             factTextByKey: $factTextByKey,
-            restrictedTerms: (array) config('resume.restricted_terms', []),
-            genericTerms: (array) config('resume.generic_terms', []),
-            limitationTerms: ActiveLimitations::terms($profile),
-            declaredScopesByKey: DeclaredScopes::forFacts($profile, $factsByKey->keys()->all()),
+            restrictedTerms: $inputs['restrictedTerms'],
+            genericTerms: $inputs['genericTerms'],
+            limitationTerms: $inputs['limitationTerms'],
+            declaredScopesByKey: $inputs['declaredScopesByKey'],
             // A reference resume is judged on its material claims, and its summary must keep what the approved profile's does.
             claimFidelity: $synthesis !== null,
             retention: $effective === null || $jobMode ? [] : app(ReferenceSelection::class)->retention($effective, array_map(fn (string $key) => (string) ($factsByKey->get($key)['statement'] ?? ''), $selectionDraft->summaryEvidenceFactKeys)),
@@ -890,6 +844,11 @@ final class GenerateResumeVariant
                 }
             }
 
+            // A newly written resume for a job is the one being worked on; a resume the user marked final stays so.
+            if ($analysis !== null && $synthesis !== null) {
+                app(JobResumes::class)->setCurrent($analysis->jobPosting, $variant);
+            }
+
             return $variant;
         });
     }
@@ -980,41 +939,7 @@ final class GenerateResumeVariant
      */
     private function eligibleFactKeysForRole(Collection $roles, CareerProfile $profile): array
     {
-        $eligibleFactKeysForRole = [];
-        $roleIdByProjectId = [];
-        $roleIdsByEmployerId = [];
-
-        foreach ($roles as $role) {
-            $eligibleFactKeysForRole[$role->id] = [];
-            $roleIdsByEmployerId[$role->employer_id][] = $role->id;
-
-            foreach ($role->projects as $project) {
-                $roleIdByProjectId[$project->id] = $role->id;
-            }
-        }
-
-        $facts = CareerFact::query()
-            ->where('career_profile_id', $profile->id)
-            ->get(['key', 'attributable_type', 'attributable_id']);
-
-        foreach ($facts as $fact) {
-            $roleIds = match ($fact->attributable_type) {
-                'role' => [$fact->attributable_id],
-                'project' => isset($roleIdByProjectId[$fact->attributable_id]) ? [$roleIdByProjectId[$fact->attributable_id]] : [],
-                'employer' => $roleIdsByEmployerId[$fact->attributable_id] ?? [],
-                // 'career_profile' (and any future attributable type)
-                // is never eligible for Experience-bullet evidence.
-                default => [],
-            };
-
-            foreach ($roleIds as $roleId) {
-                if (array_key_exists($roleId, $eligibleFactKeysForRole)) {
-                    $eligibleFactKeysForRole[$roleId][$fact->key] = true;
-                }
-            }
-        }
-
-        return $eligibleFactKeysForRole;
+        return app(RoleEligibleFacts::class)->forRoles($roles, $profile);
     }
 
     /**

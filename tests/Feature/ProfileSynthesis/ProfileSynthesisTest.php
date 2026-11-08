@@ -7,6 +7,7 @@ use App\Enums\GenerationStatus;
 use App\Enums\GenerationType;
 use App\Enums\Verification;
 use App\Enums\Visibility;
+use App\Exceptions\ResumeRevisionException;
 use App\Jobs\GenerateReferenceResumeJob;
 use App\Jobs\GenerateResumeVariantJob;
 use App\Jobs\SynthesizeProfileJob;
@@ -18,8 +19,11 @@ use App\Models\JobAnalysis;
 use App\Models\JobAnalysisFinding;
 use App\Models\JobMatch;
 use App\Models\JobPosting;
+use App\Models\JobResumeSelection;
 use App\Models\Project;
 use App\Models\ResumeProfileSynthesis;
+use App\Models\ResumeVariant;
+use App\Models\ResumeVariantExperienceBullet;
 use App\Models\Role;
 use App\Models\Skill;
 use App\Support\Clarification\EvidenceRevision;
@@ -37,8 +41,11 @@ use App\Support\ResumeDocument\GenerateResumeDocument;
 use App\Support\ResumeDocument\ResumeContact;
 use App\Support\ResumeDocument\ResumeDocument;
 use App\Support\ResumeDocument\ResumeExperienceRole;
+use App\Support\ResumeDocument\ResumePdfStore;
 use App\Support\ResumeDocument\SkillPresentation;
 use App\Support\ResumeProfile\QuestionWriter;
+use App\Support\ResumeRevision\JobResumes;
+use App\Support\ResumeRevision\ReviseResumeVariant;
 use App\Support\ResumeVariant\GenerateResumeVariant;
 use App\Support\ResumeVariant\ResumeCandidatePayloadBuilder;
 use App\Support\ResumeVariant\ResumeWordingProviderResponse;
@@ -1156,4 +1163,205 @@ it('reads capabilities from statements so an older approved inventory still matc
     $relevance = app(JobRelevance::class)->analyze($s['analysis'], $content['inventory']['facts'], $s['career']);
 
     expect($relevance['facts']['recurring']['score'])->toBeGreaterThan(0.3);
+});
+
+/**
+ * A profile-assisted resume for a job, written once with a stubbed model, plus a Workflow Intelligence build fact that
+ * the written resume does not use.
+ *
+ * @return array{0: array<string, mixed>, 1: ResumeProfileSynthesis, 2: ResumeVariant, 3: stdClass}
+ */
+function writtenJobResume(): array
+{
+    $s = tailoringScenario();
+    CareerFact::factory()->create([
+        'career_profile_id' => $s['career']->id, 'key' => 'wi-built', 'statement' => 'Built Workflow Intelligence, a Laravel and Vue platform that gives engineering teams visibility into work items and delivery progress.',
+        'visibility' => Visibility::Public, 'verification' => Verification::Verified, 'fact_type' => CareerFactType::Bullet, 'attributable_type' => 'project', 'attributable_id' => $s['projects']['flagship']->id,
+    ]);
+    $synthesis = synthesize($s);
+    app(ReviewProfileSynthesis::class)->approve($synthesis);
+    $seen = new stdClass;
+    app()->instance(GeneratesResumeWording::class, jobWordingStub($seen));
+    $variant = app(GenerateResumeVariant::class)->generateForJob($s['analysis'], $synthesis->fresh());
+
+    return [$s, $synthesis, $variant, $seen];
+}
+
+/**
+ * The draft the editor would send for a variant, unchanged, with an optional edit to each bullet.
+ *
+ * @return array<string, mixed>
+ */
+function unchangedDraft(ResumeVariant $variant): array
+{
+    $variant->load('experienceRoles.bullets', 'skillSelections');
+
+    return [
+        'summary' => (string) $variant->summary,
+        'roles' => $variant->experienceRoles->sortBy('display_order')->map(fn ($r) => ['role_id' => $r->role_id, 'bullets' => $r->bullets->sortBy('display_order')->map(fn ($b) => ['id' => $b->id, 'text' => $b->text])->values()->all()])->values()->all(),
+        'skills' => $variant->skillSelections->sortBy('display_order')->pluck('skill_id')->all(),
+    ];
+}
+
+it('saves an edited resume as a new current variant without a model call, leaving the original untouched', function () {
+    [$s, , $variant, $seen] = writtenJobResume();
+    $fingerprint = fn () => md5(json_encode([ResumeVariant::find($variant->id)->only(['summary', 'review_report', 'selection_raw_response']), ResumeVariantExperienceBullet::where('resume_variant_id', $variant->id)->orderBy('id')->get(['id', 'text', 'display_order'])->toArray()]));
+    $before = $fingerprint();
+    $calls = $seen->calls;
+    $draft = unchangedDraft($variant);
+    $roleIndex = collect($draft['roles'])->search(fn ($r) => $r['role_id'] === $s['role']->id);
+    $removed = $draft['roles'][$roleIndex]['bullets'][0];
+
+    // Replace the first bullet with a Workflow Intelligence build fact, edit the summary, and reorder what is left.
+    $draft['roles'][$roleIndex]['bullets'][0] = ['fact_key' => 'wi-built', 'replaces' => $removed['id'], 'text' => CareerFact::where('key', 'wi-built')->value('statement')];
+    $draft['summary'] = 'Full-Stack Developer who owns applications end to end, including Workflow Intelligence, and builds payment integrations.';
+
+    $revision = app(ReviseResumeVariant::class)->revise($s['posting'], $variant, $draft);
+    $revision->load('experienceRoles.bullets.citations.careerFact');
+    $texts = $revision->experienceRoles->flatMap(fn ($r) => $r->bullets->pluck('text'))->all();
+    $jobResumes = app(JobResumes::class);
+
+    expect($seen->calls)->toBe($calls)
+        ->and($revision->id)->not->toBe($variant->id)->and($revision->parent_variant_id)->toBe($variant->id)
+        ->and($revision->wording_generated_by)->toBe('manual-edit')
+        ->and($revision->summary)->toContain('including Workflow Intelligence')
+        ->and($texts)->toContain(CareerFact::where('key', 'wi-built')->value('statement'))->not->toContain($removed['text'])
+        ->and($revision->experienceRoles->flatMap(fn ($r) => $r->bullets->flatMap(fn ($b) => $b->citations->map(fn ($c) => $c->careerFact->key)))->all())->toContain('wi-built')
+        ->and(array_column($revision->edit_log['edits'], 'type'))->toContain('bullet_replaced', 'summary_edited')
+        // The untouched bullets keep their wording; the original is exactly as it was.
+        ->and(count($texts))->toBe($variant->experienceRoles()->withCount('bullets')->get()->sum('bullets_count'))
+        ->and($fingerprint())->toBe($before)
+        // The revision is the job's working resume; the earlier ones stay, newest first.
+        ->and($jobResumes->current($s['posting'])->id)->toBe($revision->id)
+        ->and(array_column($jobResumes->history($s['posting']), 'id'))->toBe([$revision->id, $variant->id])
+        ->and($revision->edit_log['layout']['pages'])->toBeGreaterThan(0)
+        // The page renders from the stored rows and is already stored.
+        ->and(app(ResumePdfStore::class)->get(app(GenerateResumeDocument::class)->generate($revision)))->not->toBeNull();
+
+    // Nothing in the revised resume still carries a finding that belonged to the bullet that was replaced.
+    expect(collect($revision->review_report['items'])->pluck('label')->all())->toHaveCount(count($texts) + 1);
+});
+
+it('judges edited text by the generation rules, refuses what is blocked, and saves nothing', function () {
+    [$s, , $variant] = writtenJobResume();
+    $roleIndex = fn (array $draft) => collect($draft['roles'])->search(fn ($r) => $r['role_id'] === $s['role']->id);
+    $count = ResumeVariant::count();
+
+    // A technology the user has confirmed no experience with.
+    $draft = unchangedDraft($variant);
+    $draft['roles'][$roleIndex($draft)]['bullets'][0]['text'] = 'Built payment integrations in Ruby on Rails.';
+    $blocked = null;
+
+    try {
+        app(ReviseResumeVariant::class)->revise($s['posting'], $variant, $draft);
+    } catch (ResumeRevisionException $e) {
+        $blocked = $e->errors;
+    }
+
+    expect($blocked)->toHaveKey("roles.{$s['role']->id}.bullets.0")->and($blocked["roles.{$s['role']->id}.bullets.0"])->toContain('Rails');
+
+    // A fact the profile cannot use here: Private evidence, an unknown key, and a role it does not belong to.
+    foreach (['private-secret', 'no-such-fact', 'nexus-built'] as $key) {
+        $draft = unchangedDraft($variant);
+        $draft['roles'][$roleIndex($draft)]['bullets'][] = ['fact_key' => $key, 'text' => 'Built something.'];
+        $error = null;
+
+        try {
+            app(ReviseResumeVariant::class)->revise($s['posting'], $variant, $draft);
+        } catch (ResumeRevisionException $e) {
+            $error = $e->errors;
+        }
+
+        expect($error)->not->toBeNull("{$key} should be refused");
+    }
+
+    // A role keeps at least one bullet; a claim already on the resume cannot be added twice.
+    $draft = unchangedDraft($variant);
+    $draft['roles'][$roleIndex($draft)]['bullets'] = [];
+    expect(fn () => app(ReviseResumeVariant::class)->revise($s['posting'], $variant, $draft))->toThrow(ResumeRevisionException::class);
+
+    $draft = unchangedDraft($variant);
+    $draft['roles'][$roleIndex($draft)]['bullets'][] = ['fact_key' => 'webhooks', 'text' => 'Built webhook handlers for payment events.'];
+    expect(fn () => app(ReviseResumeVariant::class)->revise($s['posting'], $variant, $draft))->toThrow(ResumeRevisionException::class);
+
+    expect(ResumeVariant::count())->toBe($count);
+});
+
+it('keeps a resume marked final through later generation and revision, and lets an earlier one become current', function () {
+    [$s, , $variant] = writtenJobResume();
+    $resumes = app(JobResumes::class);
+    $resumes->setPreferred($s['posting'], $variant);
+
+    $draft = unchangedDraft($variant);
+    $draft['skills'] = array_slice($draft['skills'], 1);
+    $revision = app(ReviseResumeVariant::class)->revise($s['posting'], $variant, $draft);
+    $posting = $s['posting']->fresh();
+
+    expect($resumes->current($posting)->id)->toBe($revision->id)->and($resumes->preferred($posting)->id)->toBe($variant->id)
+        ->and($revision->skillSelections()->count())->toBe($variant->skillSelections()->count() - 1)
+        ->and(array_column($revision->edit_log['edits'], 'type'))->toBe(['skill_removed']);
+
+    $resumes->setCurrent($posting, $variant);
+    $history = collect($resumes->history($posting->fresh()))->keyBy('id');
+
+    expect($resumes->current($posting->fresh())->id)->toBe($variant->id)->and($history[$variant->id]['preferred'])->toBeTrue()->and($history[$variant->id]['current'])->toBeTrue()
+        ->and($history[$revision->id]['kind'])->toBe('revision')->and($history[$revision->id]['summary'])->toBe('Removed 1 skill');
+});
+
+it('serves the workspace, suggestions and saving over HTTP, shows the revision on the job, and offers no Private fact', function () {
+    [$s, , $variant] = writtenJobResume();
+    $posting = $s['posting'];
+
+    $this->get(route('jobs.profile-resumes.show', [$posting, $variant]))->assertOk()->assertInertia(fn ($page) => $page
+        ->component('jobs/resumes/workspace')
+        ->where('workspace.variant.id', $variant->id)->where('workspace.variant.current', true)->where('workspace.variant.editable', true)
+        ->where('workspace.variant.kind', 'generated')->has('workspace.history', 1)->has('resume.experience'));
+
+    $facts = $this->getJson(route('jobs.profile-resumes.replacement-facts', [$posting, $variant, 'role_id' => $s['role']->id]))->assertOk()->json('facts');
+    $keys = array_column($facts, 'key');
+
+    expect($keys)->toContain('wi-built')->not->toContain('private-secret', 'private-card', 'first-person', 'webhooks', 'nexus-built');
+
+    $this->getJson(route('jobs.profile-resumes.replacement-facts', [$posting, $variant, 'role_id' => $s['role']->id, 'q' => 'Workflow']))->assertOk()
+        ->assertJsonPath('facts.0.key', 'wi-built');
+
+    $draft = unchangedDraft($variant);
+    $draft['summary'] = 'Full-Stack Developer who owns applications end to end and ships payment integrations.';
+    $response = $this->post(route('jobs.profile-resumes.revisions.store', [$posting, $variant]), $draft);
+    $revision = ResumeVariant::where('parent_variant_id', $variant->id)->firstOrFail();
+
+    $response->assertRedirect(route('jobs.profile-resumes.show', [$posting, $revision]));
+    $this->get(route('jobs.profile-resumes.show', [$posting, $revision]))->assertInertia(fn ($page) => $page
+        ->where('workspace.variant.kind', 'revision')->where('workspace.variant.parent_id', $variant->id)->has('workspace.history', 2));
+
+    // A blocked edit comes back as errors next to the text, not a new variant.
+    $draft['roles'][0]['bullets'][0]['text'] = 'Built payment integrations in Ruby on Rails.';
+    $this->post(route('jobs.profile-resumes.revisions.store', [$posting, $revision]), $draft)->assertSessionHasErrors();
+    expect(ResumeVariant::where('parent_variant_id', $revision->id)->count())->toBe(0);
+
+    // The job's status points at the revision, and designations are set per job.
+    $status = app(PresentTailoredResume::class)->present($posting->fresh());
+
+    $this->post(route('jobs.profile-resumes.preferred', [$posting, $variant]), ['preferred' => true])->assertRedirect();
+    expect(JobResumeSelection::where('job_posting_id', $posting->id)->value('preferred_resume_variant_id'))->toBe($variant->id);
+    $this->post(route('jobs.profile-resumes.current', [$posting, $variant]))->assertRedirect();
+    expect(JobResumeSelection::where('job_posting_id', $posting->id)->value('current_resume_variant_id'))->toBe($variant->id);
+    expect($status)->toBeArray();
+
+    // Another job's resume cannot be revised through this one.
+    $other = JobPosting::factory()->create(['career_profile_id' => $s['career']->id]);
+    $this->post(route('jobs.profile-resumes.revisions.store', [$other, $variant]), $draft)->assertNotFound();
+});
+
+it('shows the revision, not the last generation, as the job\'s resume, and does not let a revision pass as a generation result', function () {
+    [$s, $synthesis, $variant] = writtenJobResume();
+    $draft = unchangedDraft($variant);
+    $draft['summary'] = 'Full-Stack Developer who owns applications end to end and ships payment integrations.';
+    $revision = app(ReviseResumeVariant::class)->revise($s['posting'], $variant, $draft);
+
+    // The pipeline still sees the generated resume as its result: a revision is the user's edit of it.
+    $state = app(TailoredResumePipeline::class)->inspectProfile($s['posting'], $synthesis);
+
+    expect($state['variant']->id)->toBe($variant->id)
+        ->and(app(JobResumes::class)->current($s['posting']->fresh())->id)->toBe($revision->id);
 });

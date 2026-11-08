@@ -1,8 +1,16 @@
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import AppShell from '@/layouts/app-shell';
 
 type ResumeVariantPreviewProps = {
     resumeVariant: { id: number };
+    context: {
+        title: string;
+        workspace_url: string | null;
+        job_url: string | null;
+        back_label: string;
+        back_url: string | null;
+    };
+    downloadUrl: string;
     pdfUrl: string;
 };
 
@@ -12,17 +20,50 @@ type ResumeVariantPreviewProps = {
  * rendering — see App\Http\Controllers\ResumeVariantPreviewController's
  * own docblock for why. Page boundaries shown here are therefore always
  * byte-identical to "Download PDF", since `pdfUrl` points at the exact
- * same generator/route, only with an inline disposition.
+ * same generator/route, only with an inline disposition. The resume
+ * workspace embeds the same PDF inline; this page stays for direct links.
  */
 export default function ResumeVariantPreview({
     resumeVariant,
+    context,
+    downloadUrl,
     pdfUrl,
 }: ResumeVariantPreviewProps) {
     return (
         <AppShell>
-            <Head title={`Resume Preview #${resumeVariant.id}`} />
+            <Head title={`Resume preview: ${context.title}`} />
 
-            <div className="rounded-lg bg-neutral-200 p-4 dark:bg-neutral-800">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-4 text-sm font-medium text-neutral-500 dark:text-neutral-400">
+                    {context.back_url && (
+                        <Link
+                            href={context.back_url}
+                            className="hover:text-neutral-700 dark:hover:text-neutral-200"
+                        >
+                            ← {context.back_label}
+                        </Link>
+                    )}
+                    {context.job_url && (
+                        <Link
+                            href={context.job_url}
+                            className="hover:text-neutral-700 dark:hover:text-neutral-200"
+                        >
+                            Job
+                        </Link>
+                    )}
+                </div>
+                <a
+                    href={downloadUrl}
+                    className="inline-flex items-center rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
+                >
+                    Download PDF
+                </a>
+            </div>
+
+            <div
+                className="rounded-lg bg-neutral-200 p-4 dark:bg-neutral-800"
+                data-resume-variant={resumeVariant.id}
+            >
                 <iframe
                     src={pdfUrl}
                     title="Resume PDF preview"

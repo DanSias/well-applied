@@ -160,7 +160,11 @@ export function TailoredResumePanel({
                 '',
         ),
     );
-    const selected = profiles.find((p) => String(p.id) === profileId) ?? null;
+    // The approved profile is the way to generate; the original matching pathway stays available under Advanced.
+    const [legacy, setLegacy] = useState(profiles.length === 0);
+    const selected = legacy
+        ? null
+        : (profiles.find((p) => String(p.id) === profileId) ?? null);
 
     const start = (options: {
         allowIncomplete?: boolean;
@@ -221,33 +225,51 @@ export function TailoredResumePanel({
                             ? 'Uses your approved profile as the starting point, finds the evidence this job needs, writes the resume, and renders the PDF. The stored job analysis is reused.'
                             : 'Analyzes this job, matches your career evidence, composes the resume, and opens the PDF preview. Existing valid results are reused.'}
                     </p>
+                    {profiles.length > 0 &&
+                        !legacy &&
+                        status.state !== 'running' && (
+                            <label className="mt-2 flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-400">
+                                Profile
+                                <select
+                                    value={profileId}
+                                    onChange={(e) =>
+                                        setProfileId(e.target.value)
+                                    }
+                                    className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs dark:border-neutral-700 dark:bg-neutral-950"
+                                >
+                                    {profiles.map((p) => (
+                                        <option
+                                            key={p.id}
+                                            value={p.id}
+                                            disabled={p.stale}
+                                        >
+                                            {p.name} (version {p.version}
+                                            {p.stale
+                                                ? ', evidence changed: refresh it first'
+                                                : ''}
+                                            )
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+                        )}
                     {profiles.length > 0 && status.state !== 'running' && (
-                        <label className="mt-2 flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-400">
-                            Profile
-                            <select
-                                value={profileId}
-                                onChange={(e) => setProfileId(e.target.value)}
-                                className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs dark:border-neutral-700 dark:bg-neutral-950"
-                            >
-                                {profiles.map((p) => (
-                                    <option
-                                        key={p.id}
-                                        value={p.id}
-                                        disabled={p.stale}
-                                    >
-                                        {p.name} (version {p.version}
-                                        {p.stale
-                                            ? ', evidence changed: refresh it first'
-                                            : ''}
-                                        )
-                                    </option>
-                                ))}
-                                <option value="">
-                                    Standard (no profile, matches evidence
-                                    first)
-                                </option>
-                            </select>
-                        </label>
+                        <details className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+                            <summary className="cursor-pointer">
+                                Advanced
+                            </summary>
+                            <label className="mt-1 flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    checked={legacy}
+                                    onChange={(e) =>
+                                        setLegacy(e.target.checked)
+                                    }
+                                />
+                                Use the original matching pathway instead of an
+                                approved profile
+                            </label>
+                        </details>
                     )}
                 </div>
 
@@ -351,9 +373,11 @@ export function TailoredResumePanel({
                 </p>
             )}
 
-            {status.state === 'ready' && status.review && (
-                <ReviewReport review={status.review} />
-            )}
+            {status.state === 'ready' &&
+                status.review &&
+                !status.profile_resume && (
+                    <ReviewReport review={status.review} />
+                )}
 
             {askError && (
                 <p
@@ -364,7 +388,78 @@ export function TailoredResumePanel({
                 </p>
             )}
 
-            {status.state === 'ready' && (
+            {status.state === 'ready' && status.profile_resume?.review_url && (
+                <div className="mt-3">
+                    <div className="rounded-md border border-neutral-200 p-3 dark:border-neutral-800">
+                        <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                            {status.profile_resume.label ?? 'Tailored resume'}
+                            {status.profile_resume.kind === 'revision' && (
+                                <span className="ml-2 font-normal text-neutral-500 dark:text-neutral-400">
+                                    {status.profile_resume.summary}
+                                </span>
+                            )}
+                        </p>
+                        <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+                            {status.profile_resume.profile_name}, version{' '}
+                            {status.profile_resume.profile_version}
+                            {status.layout?.pages &&
+                                ` · ${status.layout.pages} ${status.layout.pages === 1 ? 'page' : 'pages'}`}
+                            {status.review &&
+                                status.review.items.length > 0 &&
+                                ` · ${status.review.items.length} to check`}
+                            {status.profile_resume.revisions > 1 &&
+                                ` · ${status.profile_resume.revisions} versions`}
+                        </p>
+                        {status.profile_resume.preferred &&
+                            !status.profile_resume.preferred.is_current && (
+                                <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+                                    You marked another version final.{' '}
+                                    <a
+                                        href={
+                                            status.profile_resume.preferred.url
+                                        }
+                                        className="font-medium underline underline-offset-2"
+                                    >
+                                        Open it
+                                    </a>
+                                </p>
+                            )}
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
+                        <a
+                            href={status.profile_resume.review_url}
+                            className="inline-flex items-center rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
+                        >
+                            Open resume
+                        </a>
+                        {status.download_url && (
+                            <a
+                                href={status.download_url}
+                                className="inline-flex items-center rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300"
+                            >
+                                Download PDF
+                            </a>
+                        )}
+                        <details className="text-sm text-neutral-600 dark:text-neutral-400">
+                            <summary className="cursor-pointer">More</summary>
+                            <button
+                                type="button"
+                                disabled={processing}
+                                onClick={() => click(true)}
+                                className="mt-1 font-medium underline underline-offset-2 hover:text-neutral-900 disabled:opacity-50 dark:hover:text-neutral-200"
+                            >
+                                Write a new resume from the profile
+                            </button>
+                            <p className="mt-0.5 max-w-xs text-xs">
+                                Starts over with a new model call. Your current
+                                versions are kept.
+                            </p>
+                        </details>
+                    </div>
+                </div>
+            )}
+
+            {status.state === 'ready' && !status.profile_resume && (
                 <div className="mt-3 flex flex-wrap items-center gap-3">
                     {status.preview_url && (
                         <a
@@ -382,14 +477,7 @@ export function TailoredResumePanel({
                             Download PDF
                         </a>
                     )}
-                    {status.profile_resume?.review_url && (
-                        <a
-                            href={status.profile_resume.review_url}
-                            className="inline-flex items-center rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300"
-                        >
-                            Why is each item here?
-                        </a>
-                    )}
+
                     {!status.profile_resume && (
                         <button
                             type="button"

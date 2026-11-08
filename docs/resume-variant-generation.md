@@ -1225,3 +1225,23 @@ using only relationships the record already has; where they do not support a con
 Findings are `review` or `informational`. `blocking` exists for an objectively unsupported claim, but selection draws
 only on eligible facts, so the wording-stage validators own that. A finding names the selected facts that caused it and
 the eligible facts available; nothing is swapped automatically.
+
+### Resume workspace and revisions
+
+A tailored resume is reviewed, edited and downloaded in one place: `jobs/{job}/profile-resumes/{variant}`. It shows the
+resume's identity (generated or revision, current, final, profile and version, pages), one "Needs attention" list that
+merges the wording review with the composition checks, an Edit tab and an inline PDF Preview tab, a compact history, and
+the generation details collapsed.
+
+Editing never changes a variant. Saving (`ReviseResumeVariant`) creates a new variant with `parent_variant_id` and an
+`edit_log`, copying everything not touched, and makes it the job's current resume (`job_resume_selections`, a small per-job table, because a variant cannot hold it).
+A resume the user marks final (`job_resume_selections.preferred_resume_variant_id`) stays final until they change it; generating or revising
+never moves it. The pipeline's own "latest result" ignores revisions.
+
+Supported edits: summary text, bullet text, replacing a bullet with another eligible fact (its statement is the default
+text), removing, moving within a role, and removing a skill. No model is called. Edited text is judged by
+`ResumeWordingResponseValidator::textFindings()` through the same `WordingContextInputs` generation uses, against the
+facts it cites (the summary: every fact on the resume). A blocking finding refuses the save; other findings stay on the
+revision's review report. Review items and composition checks are recomputed, the revised document must render within
+the two-page limit, and the PDF is stored for the download and preview. Private facts are never offered, a replacement
+must be eligible for the role, not excluded by the approved profile, and not repeat a claim already on the resume.

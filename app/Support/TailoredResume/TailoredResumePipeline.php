@@ -205,6 +205,8 @@ final class TailoredResumePipeline
             $variants = ResumeVariant::query()
                 ->where('job_analysis_id', $analysis->id)
                 ->where('resume_profile_synthesis_id', $synthesis->id)
+                // A saved revision is the user's edit of a generated resume, not a generation result to reuse or replace.
+                ->whereNull('parent_variant_id')
                 ->where('wording_prompt_version', app(ProfileJobWordingPromptV1::class)->version())
                 ->orderByDesc('generated_at')->orderByDesc('id');
 

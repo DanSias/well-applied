@@ -18,6 +18,7 @@ use App\Models\ResumeVariantTargetTermUsage;
 use App\Models\Skill;
 use App\Support\GenerationAttempt\QueueGenerationAttempt;
 use App\Support\JobMatch\CareerFactAttribution;
+use App\Support\ResumeRevision\PresentResumeWorkspace;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -128,11 +129,12 @@ class ResumeVariantController extends Controller
 
         $describe = fn (string $key) => ['key' => $key, 'statement' => $factStatements[$key]->statement ?? $key];
 
-        return Inertia::render('jobs/resumes/show', [
+        return Inertia::render('jobs/resumes/workspace', [
             'job' => ['id' => $jobPosting->id, 'company' => $jobPosting->company, 'title' => $jobPosting->title],
             'analysis' => ['id' => $resumeVariant->job_analysis_id],
             'match' => null,
             'resume' => $resume,
+            'workspace' => app(PresentResumeWorkspace::class)->present($jobPosting, $resumeVariant),
             'tailoring' => $tailoring === [] ? null : [
                 'profile_version' => $tailoring['profile_version'] ?? null,
                 'analysis_prompt_version' => $tailoring['analysis_prompt_version'] ?? null,

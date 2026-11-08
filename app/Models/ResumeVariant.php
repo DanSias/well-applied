@@ -53,6 +53,8 @@ use Illuminate\Support\Carbon;
  * @property array<string, mixed>|null $wording_raw_response
  * @property string|null $summary
  * @property array<string, mixed>|null $review_report
+ * @property int|null $parent_variant_id The variant this one was revised from (copy on write); null for a generated variant.
+ * @property array<string, mixed>|null $edit_log What changed relative to the parent, and the layout of the revised PDF.
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -73,6 +75,8 @@ use Illuminate\Support\Carbon;
     'wording_raw_response',
     'summary',
     'review_report',
+    'parent_variant_id',
+    'edit_log',
 ])]
 class ResumeVariant extends Model
 {
@@ -88,6 +92,7 @@ class ResumeVariant extends Model
             'wording_input_snapshot' => 'array',
             'wording_raw_response' => 'array',
             'review_report' => 'array',
+            'edit_log' => 'array',
         ];
     }
 

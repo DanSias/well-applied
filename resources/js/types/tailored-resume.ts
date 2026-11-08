@@ -155,7 +155,14 @@ export type TailoredResumeStatus = {
     profile_resume: {
         profile_version: number;
         profile_id: number;
+        profile_name: string;
         review_url: string | null;
+        kind: 'generated' | 'revision' | null;
+        label: string | null;
+        summary: string | null;
+        generated_at: string | null;
+        revisions: number;
+        preferred: { id: number; is_current: boolean; url: string } | null;
     } | null;
 };
 

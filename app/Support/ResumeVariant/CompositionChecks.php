@@ -2,6 +2,9 @@
 
 namespace App\Support\ResumeVariant;
 
+use App\Models\CareerFact;
+use App\Models\CareerProfile;
+use App\Models\JobAnalysis;
 use App\Support\ResumeProfile\CapabilityCoverage;
 
 /**
@@ -67,6 +70,35 @@ final class CompositionChecks
         array_push($findings, ...$this->narrativeConsistency($selected, $facts, $job));
 
         return $findings;
+    }
+
+    /**
+     * Run the checks for a profile-assisted resume, deriving the job and profile inputs the same way generation does.
+     *
+     * @param  array<string, mixed>  $content
+     * @param  array<string, array<string, mixed>>  $facts
+     * @param  array<string, mixed>  $effective  the profile as adapted to the job (accomplishments, job_priority_findings)
+     * @param  array<string, mixed>  $relevance  JobRelevance::analyze()
+     * @return array<int, array{check: string, severity: string, message: string, selected: array<int, string>, available: array<int, string>}>
+     */
+    public function forJob(array $content, array $facts, CareerProfile $profile, array $effective, array $relevance, JobAnalysis $analysis): array
+    {
+        return $this->run($content, $facts, $this->claimGroupSizes($profile), $effective['accomplishments'], [
+            'engineering' => preg_match('/engineer|developer|architect/i', (string) $analysis->jobPosting->title) === 1,
+            'findings' => $relevance['findings'],
+            'priority' => $effective['job_priority_findings'] ?? [],
+        ]);
+    }
+
+    /**
+     * How many places state each claim: a claim spread over several projects is a general statement, not one project's work.
+     *
+     * @return array<string, int>
+     */
+    public function claimGroupSizes(CareerProfile $profile): array
+    {
+        return CareerFact::query()->where('career_profile_id', $profile->id)->whereNotNull('claim_group')->get(['key', 'claim_group'])
+            ->groupBy('claim_group')->flatMap(fn ($group) => $group->mapWithKeys(fn (CareerFact $f) => [$f->key => $group->count()]))->all();
     }
 
     /**

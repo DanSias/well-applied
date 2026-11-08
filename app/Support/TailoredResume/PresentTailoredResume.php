@@ -12,6 +12,7 @@ use App\Models\ResumeSelectionCheckpoint;
 use App\Models\ResumeVariant;
 use App\Support\Clarification\ClarificationGate;
 use App\Support\Clarification\PresentClarification;
+use App\Support\ResumeRevision\JobResumes;
 use Illuminate\Support\Collection;
 
 /**
@@ -36,6 +37,7 @@ final class PresentTailoredResume
         private readonly TailoredResumePipeline $pipeline,
         private readonly ClarificationGate $gate,
         private readonly PresentClarification $clarification,
+        private readonly JobResumes $jobResumes,
     ) {}
 
     /**
@@ -158,6 +160,11 @@ final class PresentTailoredResume
 
         $variant = $allDone ? $valid['variant'] : null;
 
+        // The resume being worked on is the newest generated or revised one for this job, not only the last generation result.
+        if ($variant !== null && $synthesis !== null) {
+            $variant = $this->jobResumes->current($posting) ?? $variant;
+        }
+
         return $this->payload($state, $label, $stages, $runId, $needsConfirmation, [
             'current_stage' => $current,
             // While waiting for the user there is no run in progress to time.
@@ -166,9 +173,9 @@ final class PresentTailoredResume
             'resume_variant_id' => $variant?->id,
             'preview_url' => $variant === null ? null : route('resume-variants.preview', $variant),
             'download_url' => $variant === null ? null : route('resume-variants.pdf', $variant),
-            'layout' => $state === 'ready' ? $this->layout($attempts) : null,
+            'layout' => $state === 'ready' ? ($variant?->edit_log['layout'] ?? $this->layout($attempts)) : null,
             'review' => $variant === null ? null : $this->review($variant),
-            'profile_resume' => $synthesis === null ? null : ['profile_version' => $synthesis->version, 'profile_id' => $synthesis->id, 'review_url' => $variant === null ? null : route('jobs.profile-resumes.show', [$posting, $variant])],
+            'profile_resume' => $synthesis === null ? null : $this->profileResume($posting, $synthesis, $variant),
             'waiting_for_worker' => $current !== null && collect($stages)->firstWhere('key', $current)['status'] === 'queued',
             'clarification' => $pending === null ? null : [...$this->clarification->present($pending), 'resume_ready' => $allDone],
             'evidence_changed' => $stale,
@@ -253,6 +260,30 @@ final class PresentTailoredResume
             'evidence_changed' => false,
             'profile_resume' => null,
             ...$extra,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function profileResume(JobPosting $posting, ResumeProfileSynthesis $synthesis, ?ResumeVariant $variant): array
+    {
+        $history = $variant === null ? [] : $this->jobResumes->history($posting);
+        $self = $variant === null ? null : collect($history)->firstWhere('id', $variant->id);
+        $preferred = $variant === null ? null : $this->jobResumes->preferred($posting);
+
+        return [
+            'profile_version' => $synthesis->version,
+            'profile_id' => $synthesis->id,
+            'profile_name' => (string) $synthesis->resumeProfile->name,
+            'review_url' => $variant === null ? null : route('jobs.profile-resumes.show', [$posting, $variant]),
+            'kind' => $self['kind'] ?? null,
+            'label' => $self['label'] ?? null,
+            'summary' => $self['summary'] ?? null,
+            'generated_at' => $variant?->generated_at->toIso8601String(),
+            'revisions' => count($history),
+            // A resume marked final stays so even when the working copy moves on.
+            'preferred' => $preferred === null ? null : ['id' => $preferred->id, 'is_current' => $preferred->id === $variant->id, 'url' => route('jobs.profile-resumes.show', [$posting, $preferred])],
         ];
     }
 
