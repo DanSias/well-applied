@@ -13,21 +13,17 @@ export function WorkerStatusBadge({ status }: { status: WorkerStatus }) {
             <span
                 className={
                     status.online
-                        ? 'inline-block h-1.5 w-1.5 rounded-full bg-emerald-500'
-                        : 'inline-block h-1.5 w-1.5 rounded-full bg-neutral-400 dark:bg-neutral-600'
+                        ? 'bg-ok inline-block h-1.5 w-1.5 rounded-full'
+                        : 'bg-fg-subtle inline-block h-1.5 w-1.5 rounded-full'
                 }
                 aria-hidden="true"
             />
             <span
-                className={
-                    status.online
-                        ? 'text-neutral-600 dark:text-neutral-300'
-                        : 'text-neutral-400 dark:text-neutral-500'
-                }
+                className={status.online ? 'text-fg-muted' : 'text-fg-subtle'}
             >
                 Browser Inspector {status.online ? 'online' : 'offline'}
                 {status.last_seen_at && (
-                    <span className="text-neutral-400 dark:text-neutral-500">
+                    <span className="text-fg-subtle">
                         {' '}
                         · last seen {relativeTimeFromNow(status.last_seen_at)}
                     </span>
@@ -49,7 +45,7 @@ export function WaitingForWorkerNotice({ status }: { status: WorkerStatus }) {
     }
 
     return (
-        <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+        <p className="text-warn mt-2 text-xs">
             Browser worker offline. Inspection will remain queued until it
             reconnects.
         </p>

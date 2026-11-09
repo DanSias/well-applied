@@ -1,6 +1,12 @@
 import { router } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import { GenerationStatus } from '@/components/generation-status';
+import { Alert } from '@/components/ui/alert';
+import type { Tone } from '@/components/ui/badge';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, Disclosure, SectionTitle } from '@/components/ui/surface';
+import { cn } from '@/lib/utils';
 import { store as startReview } from '@/routes/jobs/profile-resumes/readiness';
 import type {
     ReadinessRequirement,
@@ -8,11 +14,6 @@ import type {
     ReadinessState,
     ReadinessTarget,
 } from '@/types/resume-variant';
-
-const BUTTON =
-    'rounded-md border border-neutral-300 px-2 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-40 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800';
-const PRIMARY =
-    'inline-flex items-center rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300';
 
 const PHASE: Record<string, string> = {
     document: 'Reading the PDF',
@@ -36,27 +37,38 @@ const DEPTH_LABEL: Record<string, string> = {
     none: '',
 };
 
-function Chip({
-    children,
-    tone = 'neutral',
-}: {
-    children: React.ReactNode;
-    tone?: 'neutral' | 'green' | 'amber' | 'red';
-}) {
-    const tones = {
-        neutral:
-            'border-neutral-300 bg-neutral-100 text-neutral-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300',
-        green: 'border-green-200 bg-green-50 text-green-700 dark:border-green-900 dark:bg-green-950 dark:text-green-300',
-        amber: 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300',
-        red: 'border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300',
-    };
+const COVERAGE_TONE: Record<ReadinessRequirement['coverage'], Tone> = {
+    strong: 'ok',
+    partial: 'warn',
+    missing: 'bad',
+};
 
+const DOT: Record<Tone, string> = {
+    neutral: 'bg-fg-subtle',
+    accent: 'bg-accent',
+    ok: 'bg-ok',
+    warn: 'bg-warn',
+    bad: 'bg-bad',
+};
+
+function Dot({ tone }: { tone: Tone }) {
     return (
         <span
-            className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${tones[tone]}`}
-        >
+            aria-hidden="true"
+            className={cn(
+                'mt-[0.45rem] inline-block h-2 w-2 shrink-0 rounded-full',
+                DOT[tone],
+            )}
+        />
+    );
+}
+
+/** A suggested piece of the user's own approved evidence. */
+function EvidenceQuote({ children }: { children: React.ReactNode }) {
+    return (
+        <p className="rounded-control border-ok bg-sunken text-fg-muted border-l-2 px-3 py-2 text-sm leading-relaxed break-words">
             {children}
-        </span>
+        </p>
     );
 }
 
@@ -72,122 +84,171 @@ function Requirement({
     const gap = r.gap;
 
     return (
-        <li className="rounded-md border border-neutral-200 p-3 text-sm dark:border-neutral-800">
-            <div className="flex flex-wrap items-center gap-2">
-                <span className="font-medium text-neutral-900 dark:text-neutral-100">
-                    {r.text}
-                </span>
-                <Chip tone={r.priority === 'critical' ? 'amber' : 'neutral'}>
-                    {r.priority}
-                </Chip>
-                {DEPTH_LABEL[r.depth] && <Chip>{DEPTH_LABEL[r.depth]}</Chip>}
-                {gap && gap.status !== 'in_resume' && (
-                    <Chip
-                        tone={
-                            gap.status === 'omitted_available'
-                                ? 'green'
-                                : 'amber'
-                        }
-                    >
-                        {GAP_LABEL[gap.status]}
-                    </Chip>
-                )}
-            </div>
-            {r.note && (
-                <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
-                    {r.note}
-                </p>
-            )}
-            {r.passage_ids.length > 0 && (
-                <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                    Shown in:{' '}
-                    {r.passage_ids.map((p, i) => {
-                        const passage = result.passages[p];
-
-                        return (
-                            <span key={p}>
-                                {i > 0 && '; '}
-                                {passage?.bullet_id ? (
-                                    <button
-                                        type="button"
-                                        className="underline underline-offset-2"
-                                        onClick={() =>
-                                            onOpen({
-                                                type: 'bullet',
-                                                bullet_id:
-                                                    passage.bullet_id as number,
-                                            })
-                                        }
-                                    >
-                                        {passage.label}
-                                    </button>
-                                ) : (
-                                    (passage?.label ?? p)
-                                )}
-                            </span>
-                        );
-                    })}
-                </p>
-            )}
-            {gap && gap.status !== 'in_resume' && (
-                <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                    {gap.reason}
-                </p>
-            )}
-            {gap?.candidates.map((c) => (
-                <div
-                    key={c.key}
-                    className="mt-2 flex items-start justify-between gap-3 rounded-md bg-green-50 p-2 text-xs text-green-900 dark:bg-green-950 dark:text-green-200"
-                >
-                    <span>{c.statement}</span>
-                    {c.role_id !== undefined && (
-                        <button
-                            type="button"
-                            className={BUTTON}
-                            onClick={() =>
-                                onOpen({
-                                    type: 'role_fact',
-                                    role_id: c.role_id as number,
-                                    fact_key: c.key,
-                                })
+        <li className="px-3 py-2.5">
+            <Disclosure
+                summary={
+                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span className="text-fg text-sm font-medium break-words">
+                            {r.text}
+                        </span>
+                        <Badge
+                            tone={
+                                r.priority === 'critical' ? 'warn' : 'neutral'
                             }
                         >
-                            Use in the editor
-                        </button>
+                            {r.priority}
+                        </Badge>
+                    </span>
+                }
+            >
+                <div className="space-y-2 text-sm">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                        {DEPTH_LABEL[r.depth] && (
+                            <Badge>{DEPTH_LABEL[r.depth]}</Badge>
+                        )}
+                        {gap && gap.status !== 'in_resume' && (
+                            <Badge
+                                tone={
+                                    gap.status === 'omitted_available'
+                                        ? 'ok'
+                                        : 'warn'
+                                }
+                            >
+                                {GAP_LABEL[gap.status]}
+                            </Badge>
+                        )}
+                    </div>
+                    {r.note && (
+                        <p className="text-fg-muted leading-relaxed break-words">
+                            {r.note}
+                        </p>
+                    )}
+                    {r.passage_ids.length > 0 && (
+                        <p className="text-fg-subtle text-xs leading-relaxed">
+                            Shown in:{' '}
+                            {r.passage_ids.map((p, i) => {
+                                const passage = result.passages[p];
+
+                                return (
+                                    <span key={p}>
+                                        {i > 0 && '; '}
+                                        {passage?.bullet_id ? (
+                                            <button
+                                                type="button"
+                                                className="text-accent-text hover:text-fg rounded-sm underline underline-offset-2"
+                                                onClick={() =>
+                                                    onOpen({
+                                                        type: 'bullet',
+                                                        bullet_id:
+                                                            passage.bullet_id as number,
+                                                    })
+                                                }
+                                            >
+                                                {passage.label}
+                                            </button>
+                                        ) : (
+                                            (passage?.label ?? p)
+                                        )}
+                                    </span>
+                                );
+                            })}
+                        </p>
+                    )}
+                    {gap && gap.status !== 'in_resume' && (
+                        <p className="text-fg-subtle text-xs leading-relaxed break-words">
+                            {gap.reason}
+                        </p>
+                    )}
+                    {gap?.candidates.map((c) => (
+                        <div
+                            key={c.key}
+                            className="rounded-control border-ok bg-sunken flex flex-wrap items-start justify-between gap-3 border-l-2 px-3 py-2"
+                        >
+                            <span className="text-fg-muted min-w-0 flex-1 text-sm leading-relaxed break-words">
+                                {c.statement}
+                            </span>
+                            {c.role_id !== undefined && (
+                                <Button
+                                    size="sm"
+                                    onClick={() =>
+                                        onOpen({
+                                            type: 'role_fact',
+                                            role_id: c.role_id as number,
+                                            fact_key: c.key,
+                                        })
+                                    }
+                                >
+                                    Use in the editor
+                                </Button>
+                            )}
+                        </div>
+                    ))}
+                    {gap && gap.adjacent.length > 0 && (
+                        <Disclosure
+                            quiet
+                            summary="Related evidence (not the same thing; do not present it as this)"
+                        >
+                            <ul className="text-fg-subtle list-disc space-y-1 pl-4 text-xs leading-relaxed break-words">
+                                {gap.adjacent.map((a) => (
+                                    <li key={a.key}>{a.statement}</li>
+                                ))}
+                            </ul>
+                        </Disclosure>
                     )}
                 </div>
-            ))}
-            {gap && gap.adjacent.length > 0 && (
-                <details className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
-                    <summary className="cursor-pointer">
-                        Related evidence (not the same thing; do not present it
-                        as this)
-                    </summary>
-                    <ul className="list-disc pl-5">
-                        {gap.adjacent.map((a) => (
-                            <li key={a.key}>{a.statement}</li>
-                        ))}
-                    </ul>
-                </details>
-            )}
+            </Disclosure>
         </li>
     );
 }
 
-function Section({
-    title,
-    children,
+function CoverageBar({
+    counts,
 }: {
-    title: string;
-    children: React.ReactNode;
+    counts: { strong: number; partial: number; missing: number };
 }) {
+    const total = counts.strong + counts.partial + counts.missing;
+    const items: { key: string; tone: Tone; n: number; label: string }[] = [
+        { key: 'strong', tone: 'ok', n: counts.strong, label: 'strong' },
+        { key: 'partial', tone: 'warn', n: counts.partial, label: 'partial' },
+        { key: 'missing', tone: 'bad', n: counts.missing, label: 'missing' },
+    ];
+
     return (
-        <section className="mt-6">
-            <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                {title}
-            </h3>
-            {children}
-        </section>
+        <div>
+            <div
+                role="img"
+                aria-label={`${counts.strong} strong, ${counts.partial} partial, ${counts.missing} missing of ${total} requirements`}
+                className="bg-sunken flex h-2 gap-0.5 overflow-hidden rounded-full"
+            >
+                {items.map(
+                    (i) =>
+                        i.n > 0 && (
+                            <span
+                                key={i.key}
+                                className={DOT[i.tone]}
+                                style={{ flexGrow: i.n }}
+                            />
+                        ),
+                )}
+            </div>
+            <ul className="text-fg-muted mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm">
+                {items.map((i) => (
+                    <li key={i.key} className="flex items-center gap-2">
+                        <span
+                            aria-hidden="true"
+                            className={cn(
+                                'inline-block h-2 w-2 rounded-full',
+                                DOT[i.tone],
+                            )}
+                        />
+                        <span className="text-fg font-semibold tabular-nums">
+                            {i.n}
+                        </span>
+                        {i.label}
+                    </li>
+                ))}
+            </ul>
+        </div>
     );
 }
 
@@ -235,8 +296,8 @@ export function ReadinessReview({
 
     if (active) {
         return (
-            <div className="mt-4">
-                <p className="text-sm text-neutral-700 dark:text-neutral-300">
+            <Card className="p-5">
+                <p className="text-fg-muted text-sm leading-relaxed">
                     Reviewing this version against the job. This uses one local
                     model call and can take a minute or two.
                 </p>
@@ -247,142 +308,177 @@ export function ReadinessReview({
                     queuedLabel="Waiting for the worker…"
                     startedAt={readiness.started_at ?? null}
                 />
-            </div>
+            </Card>
         );
     }
 
     if (readiness.state === 'none') {
         return (
-            <div className="mt-4 rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
-                <p className="text-sm text-neutral-700 dark:text-neutral-300">
-                    Check this exact version against the job before you submit
-                    it: which requirements the resume clearly shows, what it
+            <Card className="p-5">
+                <h2 className="text-fg text-base font-semibold tracking-tight">
+                    Check this version against the job
+                </h2>
+                <p className="text-fg-muted mt-1.5 max-w-prose text-sm leading-relaxed">
+                    See which requirements the resume clearly shows, what it
                     leaves out, what your record can and cannot support, and
                     whether the PDF reads cleanly. It never rewrites anything.
                 </p>
-                <button
-                    type="button"
-                    className={`${PRIMARY} mt-3`}
+                <Button
+                    variant="primary"
+                    className="mt-4"
                     onClick={start}
                     disabled={starting}
                 >
                     Run readiness review
-                </button>
-            </div>
+                </Button>
+            </Card>
         );
     }
 
     if (readiness.state === 'failed') {
         return (
-            <div className="mt-4">
-                <p
-                    role="alert"
-                    className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-200"
-                >
+            <div className="space-y-3">
+                <Alert tone="bad" role="alert">
                     The review did not finish:{' '}
                     {readiness.message ?? 'unknown error'}
-                </p>
-                <button
-                    type="button"
-                    className={`${PRIMARY} mt-3`}
-                    onClick={start}
-                    disabled={starting}
-                >
+                </Alert>
+                <Button variant="primary" onClick={start} disabled={starting}>
                     Try again
-                </button>
+                </Button>
             </div>
         );
     }
 
     if (readiness.state === 'stale') {
         return (
-            <div className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
+            <Alert tone="warn">
                 <p className="font-medium">The last review is out of date.</p>
-                <ul className="mt-1 list-disc pl-5">
+                <ul className="text-fg-muted mt-1 list-disc space-y-0.5 pl-5">
                     {(readiness.stale_reasons ?? []).map((reason) => (
                         <li key={reason}>{reason}</li>
                     ))}
                 </ul>
-                <button
-                    type="button"
-                    className={`${PRIMARY} mt-3`}
+                <Button
+                    variant="primary"
+                    className="mt-3"
                     onClick={start}
                     disabled={starting}
                 >
                     Run a new review
-                </button>
-            </div>
+                </Button>
+            </Alert>
         );
     }
 
     const result = readiness.result!;
-    const groups: [string, ReadinessRequirement[]][] = [
-        ['Strong', result.requirements.filter((r) => r.coverage === 'strong')],
+    const groups: [
+        string,
+        ReadinessRequirement['coverage'],
+        ReadinessRequirement[],
+    ][] = [
+        [
+            'Missing',
+            'missing',
+            result.requirements.filter((r) => r.coverage === 'missing'),
+        ],
         [
             'Partial',
+            'partial',
             result.requirements.filter((r) => r.coverage === 'partial'),
         ],
         [
-            'Missing',
-            result.requirements.filter((r) => r.coverage === 'missing'),
+            'Strong',
+            'strong',
+            result.requirements.filter((r) => r.coverage === 'strong'),
         ],
     ];
     const defects = result.document.findings.filter((f) => f.kind === 'defect');
     const suggestions = result.document.findings.filter(
         (f) => f.kind === 'suggestion',
     );
+    const unusedTerms = result.terms.filter(
+        (t) => t.status === 'supported_not_in_resume',
+    );
     const rating = result.hiring_argument.rating;
+    const ratingTone: Tone =
+        rating === 'persuasive' ? 'ok' : rating === 'weak' ? 'bad' : 'warn';
     const metrics = readiness.metrics ?? {};
 
-    return (
-        <div className="mt-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                    Review of this exact version, finished{' '}
-                    {readiness.reviewed_at
-                        ? new Date(readiness.reviewed_at).toLocaleString()
-                        : ''}
-                    . Edits you make later need a new review.
-                </p>
-                <button
-                    type="button"
-                    className={BUTTON}
-                    onClick={start}
-                    disabled={starting}
-                >
-                    Run again
-                </button>
-            </div>
+    // One consolidated list of everything worth a second look.
+    const allNotes: { key: string; tone: Tone; text: string }[] = [
+        ...defects.map((f) => ({
+            key: `d-${f.code}`,
+            tone: 'bad' as Tone,
+            text: f.message,
+        })),
+        ...result.risks.composition.map((c, i) => ({
+            key: `c${i}`,
+            tone: 'warn' as Tone,
+            text: c.message,
+        })),
+        ...result.risks.wording.map((w) => ({
+            key: `w-${w.label}`,
+            tone: 'warn' as Tone,
+            text: `${w.label}: ${w.messages.join(' ') || w.status}`,
+        })),
+        ...result.gaps.map((g) => ({
+            key: `g-${g.requirement_id}`,
+            tone: 'neutral' as Tone,
+            text: `${g.text} (${GAP_LABEL[g.status] ?? g.status}). Your record does not establish this, so it is not wording to add.`,
+        })),
+    ];
+    // The same message can arrive from more than one check; show it once.
+    const seen = new Set<string>();
+    const notes = allNotes.filter((n) => {
+        if (seen.has(n.text)) {
+            return false;
+        }
 
-            <div className="mt-3 rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
-                <div className="flex flex-wrap items-center gap-2">
-                    <Chip
-                        tone={
-                            rating === 'persuasive'
-                                ? 'green'
+        seen.add(n.text);
+
+        return true;
+    });
+
+    return (
+        <div className="space-y-8">
+            <Card className="p-5">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Badge tone={ratingTone}>
+                            {rating === 'persuasive'
+                                ? 'Persuasive case'
                                 : rating === 'weak'
-                                  ? 'red'
-                                  : 'amber'
-                        }
+                                  ? 'Weak case'
+                                  : 'Adequate case'}
+                        </Badge>
+                        <span className="text-fg-subtle text-xs">
+                            Reviewed{' '}
+                            {readiness.reviewed_at
+                                ? new Date(
+                                      readiness.reviewed_at,
+                                  ).toLocaleString()
+                                : ''}
+                            . Edits need a new review.
+                        </span>
+                    </div>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={start}
+                        disabled={starting}
                     >
-                        {rating === 'persuasive'
-                            ? 'Persuasive'
-                            : rating === 'weak'
-                              ? 'Weak case'
-                              : 'Adequate case'}
-                    </Chip>
-                    <Chip tone="green">{result.counts.strong} strong</Chip>
-                    <Chip tone="amber">{result.counts.partial} partial</Chip>
-                    <Chip tone={result.counts.missing > 0 ? 'red' : 'neutral'}>
-                        {result.counts.missing} missing
-                    </Chip>
+                        Run again
+                    </Button>
                 </div>
-                <p className="mt-2 text-sm text-neutral-800 dark:text-neutral-200">
+                <p className="text-fg mt-3 max-w-prose text-sm leading-relaxed break-words">
                     {result.hiring_argument.summary}
                 </p>
+                <div className="mt-4">
+                    <CoverageBar counts={result.counts} />
+                </div>
                 {(result.emphasis.over.length > 0 ||
                     result.emphasis.under.length > 0) && (
-                    <p className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">
+                    <p className="text-fg-subtle mt-3 text-xs leading-relaxed">
                         {result.emphasis.over.length > 0 && (
                             <>
                                 Too much room: {result.emphasis.over.join('; ')}
@@ -394,149 +490,171 @@ export function ReadinessReview({
                         )}
                     </p>
                 )}
-            </div>
+            </Card>
 
-            <Section title="Best improvements">
-                <ol className="mt-2 space-y-3">
-                    {result.improvements.map((imp, i) => (
-                        <li
-                            key={i}
-                            className="rounded-md border border-neutral-200 p-3 text-sm dark:border-neutral-800"
-                        >
-                            <p className="font-medium text-neutral-900 dark:text-neutral-100">
-                                {i + 1}. {imp.title}
-                            </p>
-                            <p className="text-neutral-700 dark:text-neutral-300">
-                                {imp.advice}
-                            </p>
-                            {imp.facts.map((f) => (
-                                <p
-                                    key={f.key}
-                                    className="mt-1 rounded bg-green-50 p-2 text-xs text-green-900 dark:bg-green-950 dark:text-green-200"
+            {result.improvements.length > 0 && (
+                <section aria-label="Best improvements">
+                    <SectionTitle aside="In order of impact">
+                        Best improvements
+                    </SectionTitle>
+                    <ol className="mt-3 space-y-3">
+                        {result.improvements.map((imp, i) => (
+                            <li key={i}>
+                                <Card className="flex gap-4 p-4">
+                                    <span
+                                        aria-hidden="true"
+                                        className="bg-accent-soft text-accent-text flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+                                    >
+                                        {i + 1}
+                                    </span>
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-fg text-sm font-medium break-words">
+                                            {imp.title}
+                                        </p>
+                                        <p className="text-fg-muted mt-1 text-sm leading-relaxed break-words">
+                                            {imp.advice}
+                                        </p>
+                                        {imp.facts.length > 0 && (
+                                            <div className="mt-3 space-y-2">
+                                                {imp.facts.map((f) => (
+                                                    <EvidenceQuote key={f.key}>
+                                                        {f.statement}
+                                                    </EvidenceQuote>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {imp.target && (
+                                            <Button
+                                                size="sm"
+                                                className="mt-3"
+                                                onClick={() =>
+                                                    onOpen(imp.target)
+                                                }
+                                            >
+                                                {imp.target.type === 'role_fact'
+                                                    ? 'Use in the editor'
+                                                    : 'Open in the editor'}
+                                            </Button>
+                                        )}
+                                    </div>
+                                </Card>
+                            </li>
+                        ))}
+                    </ol>
+                </section>
+            )}
+
+            <section aria-label="Review notes">
+                <SectionTitle
+                    aside={
+                        notes.length > 0
+                            ? `${notes.length} to look at`
+                            : undefined
+                    }
+                >
+                    Review notes
+                </SectionTitle>
+                <Card className="mt-3 p-4">
+                    {notes.length === 0 ? (
+                        <p className="text-fg flex items-center gap-2 text-sm">
+                            <Dot tone="ok" />
+                            No document defects or claim risks found in the{' '}
+                            {result.document.pages}-page PDF.
+                        </p>
+                    ) : (
+                        <ul className="space-y-2.5">
+                            {notes.map((n) => (
+                                <li
+                                    key={n.key}
+                                    className="text-fg flex gap-3 text-sm leading-relaxed break-words"
                                 >
-                                    {f.statement}
-                                </p>
+                                    <Dot tone={n.tone} />
+                                    <span className="min-w-0">{n.text}</span>
+                                </li>
                             ))}
-                            {imp.target && (
-                                <button
-                                    type="button"
-                                    className={`${BUTTON} mt-2`}
-                                    onClick={() => onOpen(imp.target)}
-                                >
-                                    {imp.target.type === 'role_fact'
-                                        ? 'Use in the editor'
-                                        : 'Open in the editor'}
-                                </button>
-                            )}
-                        </li>
-                    ))}
-                </ol>
-            </Section>
-
-            <Section title="Requirements">
-                {groups.map(
-                    ([name, list]) =>
-                        list.length > 0 && (
-                            <div key={name} className="mt-3">
-                                <p className="text-xs font-semibold tracking-wide text-neutral-500 uppercase dark:text-neutral-400">
-                                    {name}
-                                </p>
-                                <ul className="mt-1 space-y-2">
-                                    {list.map((r) => (
-                                        <Requirement
-                                            key={r.id}
-                                            r={r}
-                                            result={result}
-                                            onOpen={onOpen}
-                                        />
+                        </ul>
+                    )}
+                    {(suggestions.length > 0 || unusedTerms.length > 0) && (
+                        <Disclosure
+                            quiet
+                            className="border-line mt-4 border-t pt-3"
+                            summary="Optional document suggestions"
+                        >
+                            {suggestions.length > 0 && (
+                                <ul className="text-fg-muted list-disc space-y-1 pl-4 text-sm leading-relaxed">
+                                    {suggestions.map((f) => (
+                                        <li key={f.code}>{f.message}</li>
                                     ))}
                                 </ul>
-                            </div>
-                        ),
-                )}
-            </Section>
+                            )}
+                            {unusedTerms.length > 0 && (
+                                <p className="text-fg-muted mt-2 text-sm leading-relaxed break-words">
+                                    Job terms your record supports that the
+                                    resume never uses:{' '}
+                                    {unusedTerms
+                                        .map((t) => t.capability)
+                                        .join(', ')}
+                                    .
+                                </p>
+                            )}
+                            <p className="text-fg-subtle mt-2 text-xs">
+                                These describe the document, not how any
+                                applicant tracking system will score it.
+                            </p>
+                        </Disclosure>
+                    )}
+                </Card>
+            </section>
 
-            {result.gaps.length > 0 && (
-                <Section title="Qualification gaps">
-                    <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                        The job asks for these and your approved record does not
-                        establish them. They are not wording to add.
-                    </p>
-                    <ul className="mt-2 list-disc pl-5 text-sm text-neutral-800 dark:text-neutral-200">
-                        {result.gaps.map((g) => (
-                            <li key={g.requirement_id}>
-                                {g.text}{' '}
-                                <span className="text-xs text-neutral-500">
-                                    ({GAP_LABEL[g.status]})
-                                </span>
-                            </li>
-                        ))}
-                    </ul>
-                </Section>
-            )}
+            <section aria-label="Requirements">
+                <SectionTitle aside={`${result.requirements.length} total`}>
+                    Requirement coverage
+                </SectionTitle>
+                <div className="mt-3 space-y-3">
+                    {groups.map(
+                        ([name, coverage, list]) =>
+                            list.length > 0 && (
+                                <Card key={name} className="overflow-hidden">
+                                    <Disclosure
+                                        className="[&>div]:mt-0 [&>div]:pl-0 [&>summary]:px-4 [&>summary]:py-3"
+                                        defaultOpen={coverage !== 'strong'}
+                                        summary={
+                                            <span className="flex items-center gap-2">
+                                                <Badge
+                                                    tone={
+                                                        COVERAGE_TONE[coverage]
+                                                    }
+                                                >
+                                                    {name}
+                                                </Badge>
+                                                <span className="text-fg-subtle text-xs">
+                                                    {list.length}{' '}
+                                                    {list.length === 1
+                                                        ? 'requirement'
+                                                        : 'requirements'}
+                                                </span>
+                                            </span>
+                                        }
+                                    >
+                                        <ul className="divide-line border-line divide-y border-t">
+                                            {list.map((r) => (
+                                                <Requirement
+                                                    key={r.id}
+                                                    r={r}
+                                                    result={result}
+                                                    onOpen={onOpen}
+                                                />
+                                            ))}
+                                        </ul>
+                                    </Disclosure>
+                                </Card>
+                            ),
+                    )}
+                </div>
+            </section>
 
-            <Section title="Document and ATS checks">
-                {defects.length === 0 ? (
-                    <p className="mt-2 text-sm text-green-800 dark:text-green-300">
-                        No document defects found in the {result.document.pages}
-                        -page PDF.
-                    </p>
-                ) : (
-                    <ul className="mt-2 space-y-1 text-sm text-red-700 dark:text-red-300">
-                        {defects.map((f) => (
-                            <li key={f.code}>Defect: {f.message}</li>
-                        ))}
-                    </ul>
-                )}
-                {suggestions.length > 0 && (
-                    <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-neutral-700 dark:text-neutral-300">
-                        {suggestions.map((f) => (
-                            <li key={f.code}>{f.message}</li>
-                        ))}
-                    </ul>
-                )}
-                {result.terms.filter(
-                    (t) => t.status === 'supported_not_in_resume',
-                ).length > 0 && (
-                    <p className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">
-                        Job terms your record supports that the resume never
-                        uses:{' '}
-                        {result.terms
-                            .filter(
-                                (t) => t.status === 'supported_not_in_resume',
-                            )
-                            .map((t) => t.capability)
-                            .join(', ')}
-                        .
-                    </p>
-                )}
-                <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
-                    These describe the document, not how any applicant tracking
-                    system will score it.
-                </p>
-            </Section>
-
-            {(result.risks.composition.length > 0 ||
-                result.risks.wording.length > 0) && (
-                <Section title="Claim and credibility risks">
-                    <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-neutral-800 dark:text-neutral-200">
-                        {result.risks.composition.map((c, i) => (
-                            <li key={`c${i}`}>{c.message}</li>
-                        ))}
-                        {result.risks.wording.map((w) => (
-                            <li key={w.label}>
-                                {w.label}: {w.messages.join(' ') || w.status}
-                            </li>
-                        ))}
-                    </ul>
-                </Section>
-            )}
-
-            <details className="mt-6 rounded-lg border border-neutral-200 p-4 text-sm dark:border-neutral-800">
-                <summary className="cursor-pointer font-semibold text-neutral-900 dark:text-neutral-100">
-                    Review details
-                </summary>
-                <dl className="mt-3 grid gap-x-6 gap-y-1 text-xs text-neutral-500 sm:grid-cols-2 dark:text-neutral-400">
+            <Disclosure quiet summary="Review details">
+                <dl className="text-fg-subtle grid gap-x-6 gap-y-1 text-xs sm:grid-cols-2">
                     <div>Model: {readiness.model}</div>
                     <div>Method: {result.prompt_version}</div>
                     <div>
@@ -558,17 +676,17 @@ export function ReadinessReview({
                 </dl>
                 {result.risks.adjustments.length > 0 && (
                     <div className="mt-3">
-                        <p className="font-medium text-neutral-800 dark:text-neutral-200">
+                        <p className="text-fg-muted text-xs font-medium">
                             Where the review was corrected against the resume
                         </p>
-                        <ul className="mt-1 list-disc pl-5 text-xs text-neutral-600 dark:text-neutral-400">
+                        <ul className="text-fg-subtle mt-1 list-disc space-y-0.5 pl-4 text-xs">
                             {result.risks.adjustments.map((a) => (
                                 <li key={a}>{a}</li>
                             ))}
                         </ul>
                     </div>
                 )}
-            </details>
+            </Disclosure>
         </div>
     );
 }

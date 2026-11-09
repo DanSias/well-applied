@@ -18,24 +18,30 @@ const NAV_ITEMS = [
 ];
 
 /**
- * Modest internal-tool shell: a fixed header with the product name and a
- * minimal nav, and a single content column. Reused by every screen so
- * future internal-tool sections have somewhere consistent to land
- * without redesigning the shell.
+ * App shell: a sticky header with the product name, primary navigation and
+ * worker status, over a single content column. Every screen renders inside
+ * it, so global chrome changes happen here once.
  */
 export default function AppShell({ children }: { children: ReactNode }) {
     const { url } = usePage();
     const workerStatus = useWorkerStatusPolling();
 
     return (
-        <div className="min-h-screen bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
-            <header className="border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
-                <div className="mx-auto flex max-w-6xl items-center justify-between gap-6 px-4 py-3 sm:px-6">
-                    <div className="flex items-center gap-6">
-                        <span className="text-sm font-semibold tracking-tight">
+        <div className="bg-canvas text-fg min-h-screen">
+            <header className="border-line bg-canvas/90 sticky top-0 z-20 border-b backdrop-blur-sm">
+                <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-2.5 sm:px-6">
+                    <div className="flex min-w-0 items-center gap-5">
+                        <span className="text-fg flex items-center gap-2 text-sm font-semibold tracking-tight">
+                            <span
+                                aria-hidden="true"
+                                className="bg-accent h-2.5 w-2.5 rounded-[3px]"
+                            />
                             Career Toolkit
                         </span>
-                        <nav className="flex items-center gap-4 text-sm">
+                        <nav
+                            aria-label="Primary"
+                            className="flex items-center gap-1 text-sm"
+                        >
                             {NAV_ITEMS.map((item) => {
                                 const isActive =
                                     item.match === '/'
@@ -46,11 +52,14 @@ export default function AppShell({ children }: { children: ReactNode }) {
                                     <Link
                                         key={item.href}
                                         href={item.href}
+                                        aria-current={
+                                            isActive ? 'page' : undefined
+                                        }
                                         className={cn(
-                                            'font-medium',
+                                            'rounded-control px-2.5 py-1.5 font-medium transition-colors',
                                             isActive
-                                                ? 'text-neutral-900 dark:text-neutral-100'
-                                                : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200',
+                                                ? 'bg-raised text-fg'
+                                                : 'text-fg-muted hover:bg-raised/60 hover:text-fg',
                                         )}
                                     >
                                         {item.label}
@@ -62,7 +71,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
                     <WorkerStatusBadge status={workerStatus} />
                 </div>
             </header>
-            <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+            <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
                 {children}
             </main>
         </div>

@@ -3,17 +3,118 @@
 @source '../views';
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 
+/* The product is dark-only. `dark:` variants follow the `dark` class that
+   app.blade.php always sets, not the OS preference. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Design tokens.
+ *
+ * Use the semantic names (canvas, surface, fg, accent, ok/warn/bad...) in
+ * components. Do not introduce raw palette colors in pages. Changing the
+ * look of the product means editing this block.
+ *
+ * Elevation, lowest to highest:
+ *   sunken  inset wells and inputs
+ *   canvas  page background
+ *   surface cards and work areas
+ *   raised  popovers, hovered rows, sticky bars
+ */
 @theme {
     --font-sans:
         'Instrument Sans', ui-sans-serif, system-ui, sans-serif,
         'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
         'Noto Color Emoji';
 
+    --color-sunken: #0f1115;
+    --color-canvas: #14161b;
+    --color-surface: #1b1e25;
+    --color-raised: #232730;
+    --color-hover: #292d37;
+
+    --color-line: #2a2e38;
+    --color-line-strong: #3a3f4b;
+
+    --color-fg: #e8eaee;
+    --color-fg-muted: #a6acb8;
+    --color-fg-subtle: #9097a4;
+
+    --color-accent: #5661cc;
+    --color-accent-hover: #4b56c0;
+    --color-accent-soft: #232846;
+    --color-accent-fg: #ffffff;
+    --color-accent-text: #a5acf0;
+    --color-focus: #8f98f2;
+
+    --color-ok: #5fcf95;
+    --color-ok-soft: #14271f;
+    --color-ok-line: #25503b;
+    --color-warn: #e6b45a;
+    --color-warn-soft: #2a2316;
+    --color-warn-line: #55431f;
+    --color-bad: #f08585;
+    --color-bad-soft: #2d1a1d;
+    --color-bad-line: #5a2c31;
+
+    --radius-control: 0.5rem;
+    --radius-card: 0.75rem;
+
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.25);
+    --shadow-float: 0 8px 24px rgb(0 0 0 / 0.4);
+
+    /* Screens that predate the tokens still use the neutral palette
+       (text-neutral-500, border-neutral-800, ...). Remapping the scale to
+       the charcoal tokens above keeps them visually consistent with the
+       redesigned screens without editing every page. New code should use
+       the semantic tokens instead. */
+    --color-neutral-50: #f4f5f7;
+    --color-neutral-100: #e8eaee;
+    --color-neutral-200: #d3d7de;
+    --color-neutral-300: #bcc1cb;
+    --color-neutral-400: #a6acb8;
+    --color-neutral-500: #8d94a1;
+    --color-neutral-600: #6b7280;
+    --color-neutral-700: #3a3f4b;
+    --color-neutral-800: #2a2e38;
+    --color-neutral-900: #1b1e25;
+    --color-neutral-950: #14161b;
+
     /* Indeterminate activity bar for a long-running synchronous
        generation request — loops continuously and never reaches a
        fixed end state, unlike a determinate progress bar. */
     --animate-generation-indeterminate: generation-indeterminate 1.1s
         ease-in-out infinite;
+}
+
+@layer base {
+    :root {
+        color-scheme: dark;
+    }
+
+    body {
+        background-color: var(--color-canvas);
+        color: var(--color-fg);
+        line-height: 1.55;
+    }
+
+    /* One consistent, high-contrast keyboard focus ring everywhere. */
+    :where(
+        a,
+        button,
+        input,
+        textarea,
+        select,
+        summary,
+        [tabindex]
+    ):focus-visible {
+        outline: 2px solid var(--color-focus);
+        outline-offset: 2px;
+    }
+
+    ::selection {
+        background-color: var(--color-accent);
+        color: var(--color-accent-fg);
+    }
 }
 
 @keyframes generation-indeterminate {

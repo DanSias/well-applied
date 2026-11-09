@@ -43,10 +43,10 @@ export function GenerationStatus({
 
     return (
         <div className="mt-2 w-48" role="status" aria-live="polite">
-            <div className="h-1 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
-                <div className="animate-generation-indeterminate h-full w-1/3 rounded-full bg-neutral-900 dark:bg-neutral-100" />
+            <div className="bg-raised h-1 overflow-hidden rounded-full">
+                <div className="animate-generation-indeterminate bg-accent h-full w-1/3 rounded-full" />
             </div>
-            <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+            <p className="text-fg-subtle mt-1 text-xs">
                 {queued
                     ? (queuedLabel ?? `${label}…`)
                     : `${label}… ${formatElapsedTime(elapsedSeconds)} elapsed`}

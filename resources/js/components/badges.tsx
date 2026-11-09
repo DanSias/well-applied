@@ -1,4 +1,5 @@
 import type { InspectionSummary } from '@/types/application-inspection';
+import { TONE_STYLES } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type {
     SkillCategory,
@@ -15,12 +16,9 @@ const badgeClass =
     'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset whitespace-nowrap';
 
 const VERIFICATION_STYLES: Record<Verification, string> = {
-    verified:
-        'bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-400/20',
-    strongly_supported:
-        'bg-sky-50 text-sky-700 ring-sky-600/20 dark:bg-sky-500/10 dark:text-sky-300 dark:ring-sky-400/20',
-    needs_confirmation:
-        'bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-400/20',
+    verified: TONE_STYLES.ok,
+    strongly_supported: TONE_STYLES.accent,
+    needs_confirmation: TONE_STYLES.warn,
 };
 
 const VERIFICATION_LABELS: Record<Verification, string> = {
@@ -39,11 +37,9 @@ export function VerificationBadge({ value }: { value: Verification }) {
 }
 
 const VISIBILITY_STYLES: Record<Visibility, string> = {
-    public: 'bg-neutral-100 text-neutral-700 ring-neutral-500/20 dark:bg-neutral-800 dark:text-neutral-300 dark:ring-neutral-400/10',
-    restricted:
-        'bg-orange-50 text-orange-700 ring-orange-600/20 dark:bg-orange-500/10 dark:text-orange-300 dark:ring-orange-400/20',
-    private:
-        'bg-rose-50 text-rose-700 ring-rose-600/20 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-400/20',
+    public: TONE_STYLES.neutral,
+    restricted: TONE_STYLES.warn,
+    private: TONE_STYLES.bad,
 };
 
 const VISIBILITY_LABELS: Record<Visibility, string> = {
@@ -74,42 +70,30 @@ export function skillCategoryLabel(value: SkillCategory): string {
 
 export function SkillCategoryBadge({ value }: { value: SkillCategory }) {
     return (
-        <span
-            className={cn(
-                badgeClass,
-                'bg-violet-50 text-violet-700 ring-violet-600/20 dark:bg-violet-500/10 dark:text-violet-300 dark:ring-violet-400/20',
-            )}
-        >
+        <span className={cn(badgeClass, TONE_STYLES.accent)}>
             {CATEGORY_LABELS[value]}
         </span>
     );
 }
 
 const INSPECTION_STATE_STYLES: Record<InspectionSummary['state'], string> = {
-    not_inspected:
-        'bg-neutral-100 text-neutral-500 ring-neutral-500/20 dark:bg-neutral-800 dark:text-neutral-400 dark:ring-neutral-400/10',
-    queued: 'bg-sky-50 text-sky-700 ring-sky-600/20 dark:bg-sky-500/10 dark:text-sky-300 dark:ring-sky-400/20',
-    running:
-        'bg-sky-50 text-sky-700 ring-sky-600/20 dark:bg-sky-500/10 dark:text-sky-300 dark:ring-sky-400/20',
-    inspected:
-        'bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-400/20',
-    failed: 'bg-rose-50 text-rose-700 ring-rose-600/20 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-400/20',
-    unsupported:
-        'bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-400/20',
+    not_inspected: TONE_STYLES.neutral,
+    queued: TONE_STYLES.accent,
+    running: TONE_STYLES.accent,
+    inspected: TONE_STYLES.ok,
+    failed: TONE_STYLES.bad,
+    unsupported: TONE_STYLES.warn,
 };
 
 const DESCRIPTION_COMPLETENESS_STYLES: Record<DescriptionCompleteness, string> =
     {
-        complete:
-            'bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-400/20',
+        complete: TONE_STYLES.ok,
         // Noticeable (it affects downstream analysis quality) but
         // deliberately not the rose/error styling used elsewhere on this
         // page — a preview isn't a failure.
-        preview:
-            'bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-400/20',
+        preview: TONE_STYLES.warn,
         // Calm/neutral on purpose — unknown is not an error state.
-        unknown:
-            'bg-neutral-100 text-neutral-500 ring-neutral-500/20 dark:bg-neutral-800 dark:text-neutral-400 dark:ring-neutral-400/10',
+        unknown: TONE_STYLES.neutral,
     };
 
 const DESCRIPTION_COMPLETENESS_LABELS: Record<DescriptionCompleteness, string> =
@@ -168,9 +152,7 @@ export function InspectionStateBadge({
                 {label}
             </span>
             {summary.latest_attempt_failed && (
-                <span className="text-xs text-rose-600 dark:text-rose-400">
-                    Latest attempt failed
-                </span>
+                <span className="text-bad text-xs">Latest attempt failed</span>
             )}
         </span>
     );
@@ -187,26 +169,20 @@ export function InspectionStateBadge({
  */
 const TRIAGE_STAGE_STYLES: Record<OpportunityTriageStage, string> = {
     // Not started — calm/neutral on purpose, not an error.
-    raw: 'bg-neutral-100 text-neutral-500 ring-neutral-500/20 dark:bg-neutral-800 dark:text-neutral-400 dark:ring-neutral-400/10',
+    raw: TONE_STYLES.neutral,
     // In flight — the repo's established in-progress treatment.
-    analyzing:
-        'bg-sky-50 text-sky-700 ring-sky-600/20 dark:bg-sky-500/10 dark:text-sky-300 dark:ring-sky-400/20',
+    analyzing: TONE_STYLES.accent,
     // Analysis complete and produced a snapshot — same "completed step"
     // emerald as `inspected`, signaling a finished step, not quality.
-    analyzed:
-        'bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-400/20',
+    analyzed: TONE_STYLES.ok,
     // In flight — the repo's established in-progress treatment.
-    matching:
-        'bg-sky-50 text-sky-700 ring-sky-600/20 dark:bg-sky-500/10 dark:text-sky-300 dark:ring-sky-400/20',
+    matching: TONE_STYLES.accent,
     // Pipeline completed successfully — emerald "workflow done", never "good
     // match" or "recommended opportunity".
-    matched:
-        'bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-400/20',
+    matched: TONE_STYLES.ok,
     // A step failed — the repo's established failure treatment.
-    'analysis-failed':
-        'bg-rose-50 text-rose-700 ring-rose-600/20 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-400/20',
-    'match-failed':
-        'bg-rose-50 text-rose-700 ring-rose-600/20 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-400/20',
+    'analysis-failed': TONE_STYLES.bad,
+    'match-failed': TONE_STYLES.bad,
 };
 
 const TRIAGE_STAGE_LABELS: Record<OpportunityTriageStage, string> = {
@@ -249,14 +225,14 @@ export function TriageCoverageGroup({
     coverage: OpportunityTriageCoverage;
 }) {
     return (
-        <span className="inline-flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+        <span className="text-fg-subtle inline-flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs">
             {COVERAGE_ITEMS.map((item) => (
                 <span
                     key={item.key}
                     className="inline-flex items-baseline gap-1 whitespace-nowrap"
                 >
                     {item.label}
-                    <span className="font-medium text-neutral-700 tabular-nums dark:text-neutral-300">
+                    <span className="text-fg-muted font-medium tabular-nums">
                         {coverage[item.key]}
                     </span>
                 </span>
