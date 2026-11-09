@@ -29,6 +29,8 @@ class ResumeRevisionController extends Controller
             'roles.*.bullets' => ['required', 'array'],
             'roles.*.bullets.*.id' => ['nullable', 'integer'],
             'roles.*.bullets.*.fact_key' => ['nullable', 'string'],
+            'roles.*.bullets.*.fact_keys' => ['nullable', 'array', 'max:4'],
+            'roles.*.bullets.*.fact_keys.*' => ['string'],
             'roles.*.bullets.*.replaces' => ['nullable', 'integer'],
             'roles.*.bullets.*.text' => ['required', 'string', 'max:2000'],
             'skills' => ['nullable', 'array'],

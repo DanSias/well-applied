@@ -311,7 +311,7 @@ final class ResumeWordingResponseValidator
      * @param  array<int, string>  $keys
      * @return array<int, string>
      */
-    private function unstatedFacts(string $text, array $keys, WordingCheckContext $context): array
+    public function unstatedFacts(string $text, array $keys, WordingCheckContext $context): array
     {
         if (count($keys) < 2) {
             return [];

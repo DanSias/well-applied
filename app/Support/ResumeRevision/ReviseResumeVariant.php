@@ -39,12 +39,14 @@ use Illuminate\Support\Facades\DB;
  *
  * The draft is the desired end state:
  *   summary: string
- *   roles: [{role_id, bullets: [{id?: existing bullet id, fact_key?: replacement fact, replaces?: bullet id, text: string}]}]
+ *   roles: [{role_id, bullets: [{id?: existing bullet id, fact_key?: replacement fact (or fact_keys?: several facts of one project), replaces?: bullet id, text: string}]}]
  *   skills: [skill ids to keep, in order]
  */
 final class ReviseResumeVariant
 {
     private const MAX_BULLETS = 20;
+
+    private const MAX_FACTS_PER_BULLET = 4;
 
     public function __construct(
         private readonly ResumeCandidatePayloadBuilder $candidates,
@@ -145,22 +147,47 @@ final class ReviseResumeVariant
                     $keptIds[] = $id;
                     $item = ['source' => $source, 'project_id' => $source->project_id, 'keys' => $keys, 'text' => $text, 'changed' => $changed, 'new' => false];
                 } else {
-                    $key = (string) ($entry['fact_key'] ?? '');
-                    $fact = $facts[$key] ?? null;
+                    // One fact (`fact_key`) or several (`fact_keys`): each is held to the same rules, and the text is judged against all of them.
+                    $keys = array_values(array_unique(array_map('strval', array_filter((array) ($entry['fact_keys'] ?? [$entry['fact_key'] ?? '']), fn ($k) => $k !== null && $k !== ''))));
+                    $projects = [];
+                    $refused = null;
 
-                    if ($fact === null || ! isset($eligibleByRole[$role->role_id][$key]) || in_array($fact['fact_type'], ['capability'], true)) {
-                        $errors[$field] = 'That fact cannot be used under this role.';
+                    if ($keys === [] || count($keys) > self::MAX_FACTS_PER_BULLET) {
+                        $refused = 'Choose between 1 and '.self::MAX_FACTS_PER_BULLET.' facts for a bullet.';
+                    }
+
+                    foreach ($keys as $key) {
+                        $fact = $facts[$key] ?? null;
+
+                        if ($fact === null || ! isset($eligibleByRole[$role->role_id][$key]) || in_array($fact['fact_type'], ['capability'], true)) {
+                            $refused = 'That fact cannot be used under this role.';
+
+                            break;
+                        }
+
+                        if (in_array($key, $excluded, true)) {
+                            $refused = 'Your approved profile excludes that fact.';
+
+                            break;
+                        }
+
+                        if (($fact['attribution']['project_id'] ?? null) !== null) {
+                            $projects[$fact['attribution']['project_id']] = true;
+                        }
+                    }
+
+                    // A bullet describes one piece of work; facts from different projects would blend two.
+                    if ($refused === null && count($projects) > 1) {
+                        $refused = 'A bullet can combine facts from one project only.';
+                    }
+
+                    if ($refused !== null) {
+                        $errors[$field] = $refused;
 
                         continue;
                     }
 
-                    if (in_array($key, $excluded, true)) {
-                        $errors[$field] = 'Your approved profile excludes that fact.';
-
-                        continue;
-                    }
-
-                    $item = ['source' => null, 'project_id' => $fact['attribution']['project_id'] ?? null, 'keys' => [$key], 'text' => $text, 'changed' => true, 'new' => true, 'replaces' => isset($entry['replaces']) ? (int) $entry['replaces'] : null];
+                    $item = ['source' => null, 'project_id' => array_key_first($projects), 'keys' => $keys, 'text' => $text, 'changed' => true, 'new' => true, 'replaces' => isset($entry['replaces']) ? (int) $entry['replaces'] : null];
                 }
 
                 if ($text === '' || mb_strlen($text) > 700) {
@@ -279,6 +306,13 @@ final class ReviseResumeVariant
             foreach ($entry['items'] as $i => $it) {
                 if ($it['changed']) {
                     $findingsByLocation["{$roleId}:{$i}"] = $this->validator->textFindings($it['field'], $it['text'], "{$roleId}:{$i}", $context, targetTerms: false, wordCount: true);
+
+                    // A new bullet that cites several facts must state each of them, so a citation is never padding for a claim.
+                    if ($it['new']) {
+                        foreach ($this->validator->unstatedFacts($it['text'], $it['keys'], $context) as $unstated) {
+                            $findingsByLocation["{$roleId}:{$i}"][] = ['kind' => 'unstated_fact', 'severity' => 'block', 'detail' => $unstated, 'message' => "cites [{$unstated}] but does not state what it says"];
+                        }
+                    }
                 }
             }
         }
@@ -353,7 +387,7 @@ final class ReviseResumeVariant
                     }
 
                     $ids = $it['new']
-                        ? array_slice(array_values(array_intersect(array_unique($relevance['facts'][$it['keys'][0]]['finding_ids'] ?? []), $validFindingIds)), 0, 3)
+                        ? array_slice(array_values(array_intersect(array_unique(array_merge([], ...array_map(fn (string $k) => $relevance['facts'][$k]['finding_ids'] ?? [], $it['keys']))), $validFindingIds)), 0, 3)
                         : ($baseGroups[$roleRow->role_id.':'.$it['source']->display_order]['job_analysis_finding_ids'] ?? []);
                     $groups[] = ['order' => $order, 'career_fact_keys' => $it['keys'], 'job_analysis_finding_ids' => $ids];
                     $reportItems[] = $this->reportItem($roleRow, $i, $it, $findingsByLocation["{$roleRow->role_id}:{$i}"] ?? [], $baseItems, $facts);

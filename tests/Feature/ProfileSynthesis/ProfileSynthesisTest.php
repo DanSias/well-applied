@@ -1318,6 +1318,49 @@ it('judges edited text by the generation rules, refuses what is blocked, and sav
     expect(ResumeVariant::count())->toBe($count);
 });
 
+it('lets an added bullet cite several facts of one project, and refuses one that blends projects or cites a fact it does not state', function () {
+    [$s, , $variant] = writtenJobResume();
+    $roleId = $s['role']->id;
+    $mk = fn (string $key, string $statement, Project $project) => CareerFact::factory()->create([
+        'career_profile_id' => $s['career']->id, 'key' => $key, 'statement' => $statement, 'visibility' => Visibility::Public, 'verification' => Verification::Verified,
+        'fact_type' => CareerFactType::Bullet, 'attributable_type' => 'project', 'attributable_id' => $project->id,
+    ]);
+    $mk('wi-delivered', 'Delivered the workflow dashboard to the Product Management team.', $s['projects']['flagship']);
+    $mk('wi-normalized', 'Normalized tickets and requests into one unified model.', $s['projects']['flagship']);
+    $other = Project::factory()->create(['career_profile_id' => $s['career']->id, 'role_id' => $roleId, 'name' => 'Side tool']);
+    $mk('side-tool', 'Built a scheduling utility for the on-call rota.', $other);
+
+    $revise = function (array $entry) use ($s, $variant, $roleId) {
+        $draft = unchangedDraft($variant);
+        $index = collect($draft['roles'])->search(fn ($r) => $r['role_id'] === $roleId);
+        $draft['roles'][$index]['bullets'][] = $entry;
+
+        try {
+            return app(ReviseResumeVariant::class)->revise($s['posting'], $variant, $draft);
+        } catch (ResumeRevisionException $e) {
+            return $e->errors;
+        }
+    };
+    $text = 'Delivered the workflow dashboard to the Product Management team, with tickets and requests normalized into one unified model.';
+
+    // A fact that is not stated by the text is padding, so it is refused.
+    $padded = $revise(['fact_keys' => ['wi-delivered', 'wi-normalized'], 'text' => 'Delivered the workflow dashboard to the Product Management team.']);
+    expect($padded)->toBeArray()->and(implode(' ', $padded))->toContain('wi-normalized');
+
+    // Facts from two projects would blend two pieces of work.
+    $blended = $revise(['fact_keys' => ['wi-delivered', 'side-tool'], 'text' => 'Delivered the workflow dashboard and a scheduling utility for the on-call rota.']);
+    expect($blended)->toBeArray()->and(implode(' ', $blended))->toContain('one project only');
+
+    // Several eligible facts of one project, each stated: saved, citing each.
+    $saved = $revise(['fact_keys' => ['wi-delivered', 'wi-normalized'], 'text' => $text]);
+    expect($saved)->toBeInstanceOf(ResumeVariant::class);
+
+    $bullet = $saved->experienceRoles->firstWhere('role_id', $roleId)->bullets->firstWhere('text', $text);
+    expect($bullet->project_id)->toBe($s['projects']['flagship']->id)
+        ->and($bullet->citations->map(fn ($c) => $c->careerFact->key)->sort()->values()->all())->toBe(['wi-delivered', 'wi-normalized'])
+        ->and($variant->fresh()->experienceRoles->flatMap->bullets->pluck('text'))->not->toContain($text);
+});
+
 it('keeps a resume marked final through later generation and revision, and lets an earlier one become current', function () {
     [$s, , $variant] = writtenJobResume();
     $resumes = app(JobResumes::class);
