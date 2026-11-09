@@ -26,12 +26,20 @@ export type FactSummary = {
     has_metric: boolean;
 };
 
+export type Highlight = {
+    key: string;
+    statement: string;
+    visibility: Visibility;
+    confirmed: boolean;
+};
+
 export type ProjectSummary = {
     slug: string;
     name: string;
     description: string | null;
     visibility: Visibility | null;
     fact_count: number;
+    highlights: Highlight[];
     skills: SkillRef[];
 };
 
@@ -41,6 +49,7 @@ export type RoleSummary = {
     date_label: string;
     is_current: boolean;
     fact_count: number;
+    highlights: Highlight[];
     projects: ProjectSummary[];
 };
 
@@ -62,12 +71,68 @@ export type EducationSummary = {
     end_year: number | null;
 };
 
+export type SkillProject = {
+    slug: string;
+    name: string;
+    employer: string | null;
+    fact_count: number;
+};
+
 export type SkillSummary = {
     slug: string;
     name: string;
     category: SkillCategory;
     career_fact_count: number;
+    /** Derived from approved project facts that carry the skill. */
     project_count: number;
+    projects: SkillProject[];
+};
+
+export type EvidenceSourceKey =
+    | 'resume'
+    | 'portfolio'
+    | 'repository'
+    | 'user_confirmed';
+
+export type Provenance = {
+    sources: EvidenceSourceKey[];
+    confirmed: boolean;
+    confirmed_at: string | null;
+    via_interview: boolean;
+    project_slug: string | null;
+};
+
+export type FactRow = FactSummary &
+    Provenance & {
+        notes: string | null;
+        place: string[];
+        skills: SkillRef[];
+    };
+
+export type CareerDataView = 'experience' | 'facts' | 'skills';
+
+export type FactFilters = {
+    q: string;
+    employer: number | null;
+    project: string | null;
+    visibility: Visibility | null;
+    provenance:
+        | 'confirmed'
+        | 'interview'
+        | 'resume'
+        | 'portfolio_repository'
+        | null;
+    skill: string | null;
+};
+
+export type CareerDataPagination = {
+    page: number;
+    per_page: number;
+    total: number;
+    last_page: number;
+    from: number;
+    to: number;
+    per_page_options: number[];
 };
 
 export type CareerDataIndexProps = {
@@ -78,6 +143,20 @@ export type CareerDataIndexProps = {
     employers: EmployerSummary[];
     education: EducationSummary[];
     skills: SkillSummary[];
+    view: CareerDataView;
+    counts: {
+        facts: number;
+        confirmed: number;
+        employers: number;
+        skills: number;
+    };
+    facts: FactRow[] | null;
+    filters: FactFilters;
+    pagination: CareerDataPagination | null;
+    filter_options: {
+        employers: { id: number; name: string }[];
+        projects: { slug: string; name: string; employer_id: number | null }[];
+    };
 };
 
 export type MetricDetail = {
@@ -123,7 +202,7 @@ export type FactDetail = {
     metric: MetricDetail | null;
     skills: SkillRef[];
     evidence: EvidenceDetail[];
-};
+} & Provenance;
 
 export type CareerDataFactProps = {
     fact: FactDetail;

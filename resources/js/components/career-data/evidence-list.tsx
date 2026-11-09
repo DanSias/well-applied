@@ -1,52 +1,39 @@
+import { Badge } from '@/components/ui/badge';
 import type { EvidenceDetail } from '@/types/career-data';
-
-const SOURCE_LABELS: Record<string, string> = {
-    resume: 'Resume',
-    portfolio: 'Portfolio',
-    repository: 'Repository',
-    user_confirmed: 'User confirmed',
-};
+import { SOURCE_LABEL, formatDate } from './provenance';
 
 function EvidenceRow({ evidence }: { evidence: EvidenceDetail }) {
-    const locatorParts = [
-        evidence.document,
-        evidence.section,
-        evidence.locator,
-    ].filter(Boolean);
+    const label =
+        SOURCE_LABEL[evidence.source as keyof typeof SOURCE_LABEL] ??
+        evidence.source;
 
     return (
-        <li className="rounded-md border border-neutral-200 p-3 text-sm dark:border-neutral-800">
+        <li className="rounded-control border-line bg-canvas/50 border p-4 text-sm">
             <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="inline-flex items-center rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
-                    {SOURCE_LABELS[evidence.source] ?? evidence.source}
-                </span>
+                <Badge
+                    tone={
+                        evidence.source === 'user_confirmed'
+                            ? 'accent'
+                            : 'neutral'
+                    }
+                >
+                    {label}
+                </Badge>
                 {evidence.confirmed_at && (
-                    <span className="text-xs text-neutral-400 dark:text-neutral-500">
-                        Confirmed {evidence.confirmed_at}
+                    <span className="text-fg-subtle text-xs">
+                        {formatDate(evidence.confirmed_at)}
                     </span>
                 )}
             </div>
 
-            {locatorParts.length > 0 && (
-                <p className="mt-1.5 text-xs text-neutral-500 dark:text-neutral-400">
-                    {locatorParts.join(' · ')}
-                </p>
-            )}
-
-            {evidence.path && (
-                <p className="mt-1 font-mono text-xs break-all text-neutral-500 dark:text-neutral-400">
-                    {evidence.path}
-                </p>
-            )}
-
             {evidence.quoted_text && (
-                <blockquote className="mt-2 border-l-2 border-neutral-300 pl-3 text-sm text-neutral-700 italic dark:border-neutral-700 dark:text-neutral-300">
-                    “{evidence.quoted_text}”
+                <blockquote className="border-line-strong text-fg-muted mt-3 border-l-2 pl-3 leading-relaxed italic">
+                    &ldquo;{evidence.quoted_text}&rdquo;
                 </blockquote>
             )}
 
             {evidence.note && (
-                <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+                <p className="text-fg-muted mt-2 leading-relaxed">
                     {evidence.note}
                 </p>
             )}
@@ -61,14 +48,14 @@ export default function EvidenceList({
 }) {
     if (evidence.length === 0) {
         return (
-            <p className="text-sm text-neutral-400 italic dark:text-neutral-600">
-                No evidence recorded for this fact.
+            <p className="text-fg-subtle text-sm">
+                No supporting evidence is recorded for this fact.
             </p>
         );
     }
 
     return (
-        <ul className="space-y-2">
+        <ul className="space-y-3">
             {evidence.map((item, index) => (
                 // Evidence has no stable id of its own in the domain model
                 // (see docs/domain-model.md) — position is stable for a

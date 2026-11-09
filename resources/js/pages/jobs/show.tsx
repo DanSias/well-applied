@@ -1,4 +1,5 @@
 import { Head, Link, useForm } from '@inertiajs/react';
+import { index as careerDataIndex } from '@/routes/career-data';
 import { useState } from 'react';
 import {
     DescriptionCompletenessBadge,
@@ -269,6 +270,18 @@ export default function JobsShow({
                 </div>
 
                 <ApprovedEvidencePanel evidence={approved_evidence} />
+                <p className="text-fg-subtle mt-3 text-xs">
+                    Everything you have confirmed, across all jobs, is in{' '}
+                    <Link
+                        href={careerDataIndex.url({
+                            query: { view: 'facts', provenance: 'confirmed' },
+                        })}
+                        className="text-accent-text hover:text-fg rounded-sm underline underline-offset-2"
+                    >
+                        Career Data
+                    </Link>
+                    .
+                </p>
 
                 <div className="mt-4">
                     <InspectApplicationAction

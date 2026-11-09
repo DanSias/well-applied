@@ -6,7 +6,7 @@ import { fieldClass } from './field';
 export function Select({ className, children, ...props }: ComponentProps<'select'>) {
     return (
         <select
-            className={cn(fieldClass, 'w-auto cursor-pointer py-1.5 pr-8', className)}
+            className={cn(fieldClass, 'w-auto max-w-full cursor-pointer py-1.5 pr-8', className)}
             {...props}
         >
             {children}

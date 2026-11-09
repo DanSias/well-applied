@@ -6,6 +6,8 @@ import type {
     ResumeProfilePage,
 } from '@/types/resume-profile';
 import { Badge } from '@/components/ui/badge';
+import { ButtonLink } from '@/components/ui/button';
+import { index as careerDataIndex } from '@/routes/career-data';
 import { Card, Disclosure } from '@/components/ui/surface';
 
 export function AnswerReview({
@@ -293,9 +295,34 @@ export function HistoryTab({ page }: { page: ResumeProfilePage }) {
             </Card>
 
             {page.contributed.facts.length > 0 && (
-                <Card className="px-5 py-4">
+                <Card className="p-5">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="max-w-prose">
+                            <h3 className="text-fg text-sm font-semibold">
+                                Evidence you confirmed
+                            </h3>
+                            <p className="text-fg-muted mt-1 text-sm leading-relaxed">
+                                {page.contributed.facts.length} facts from this
+                                profile&rsquo;s interview are now part of your
+                                career data. Browse, search and see where each
+                                came from in Career Data.
+                            </p>
+                        </div>
+                        <ButtonLink
+                            href={careerDataIndex.url({
+                                query: {
+                                    view: 'facts',
+                                    provenance: 'interview',
+                                },
+                            })}
+                        >
+                            Browse in Career Data
+                        </ButtonLink>
+                    </div>
                     <Disclosure
-                        summary={`Evidence you confirmed (${page.contributed.facts.length})`}
+                        quiet
+                        className="border-line mt-4 border-t pt-3"
+                        summary="Revise confirmed evidence"
                     >
                         <ApprovedEvidencePanel evidence={page.contributed} />
                     </Disclosure>

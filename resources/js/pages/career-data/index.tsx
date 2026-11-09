@@ -1,80 +1,150 @@
-import { Head } from '@inertiajs/react';
-import EducationPanel from '@/components/career-data/education-panel';
-import EmployerSection from '@/components/career-data/employer-section';
-import FactSummaryRow from '@/components/career-data/fact-summary-row';
-import SkillsPanel from '@/components/career-data/skills-panel';
+import { Head, Link, router } from '@inertiajs/react';
+import { ExperienceView } from '@/components/career-data/experience-view';
+import { FactsView } from '@/components/career-data/facts-view';
+import { SkillsView } from '@/components/career-data/skills-view';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/surface';
+import { Tabs, type TabItem } from '@/components/ui/tabs';
 import AppShell from '@/layouts/app-shell';
-import type { CareerDataIndexProps } from '@/types/career-data';
+import { index as careerDataIndex } from '@/routes/career-data';
+import type { CareerDataIndexProps, CareerDataView } from '@/types/career-data';
 
 export default function CareerDataIndex({
     profile,
     employers,
     education,
     skills,
+    view,
+    counts,
+    facts,
+    filters,
+    pagination,
+    filter_options,
 }: CareerDataIndexProps) {
+    const openView = (next: CareerDataView) =>
+        router.get(
+            careerDataIndex.url(),
+            next === 'experience' ? {} : { view: next },
+            { preserveScroll: false },
+        );
+
+    const items: TabItem<CareerDataView>[] = [
+        { id: 'experience', label: 'Experience' },
+        {
+            id: 'facts',
+            label: 'Career Facts',
+            badge: <Badge>{counts.facts}</Badge>,
+        },
+        {
+            id: 'skills',
+            label: 'Skills',
+            badge: <Badge>{counts.skills}</Badge>,
+        },
+    ];
+
     return (
         <AppShell>
             <Head title="Career Data" />
 
             {profile === null ? (
-                <div className="rounded-lg border border-dashed border-neutral-300 p-8 text-center dark:border-neutral-700">
-                    <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                        No career profile found. Run{' '}
-                        <code className="font-mono">
+                <Alert tone="warn" role="status">
+                    <p className="font-medium">No career profile found</p>
+                    <p className="text-fg-muted mt-1">
+                        Run{' '}
+                        <code className="bg-sunken rounded px-1 py-0.5 text-xs">
                             php artisan career:import
                         </code>{' '}
                         to populate the canonical dataset.
                     </p>
-                </div>
+                </Alert>
             ) : (
-                <div className="space-y-6">
-                    <div>
-                        <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
-                            {profile.name}
+                <>
+                    <header>
+                        <h1 className="text-fg text-2xl font-semibold tracking-tight">
+                            Career Data
                         </h1>
-                        <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                            Canonical career data
+                        <p className="text-fg-muted mt-1 text-sm">
+                            {profile.name} · what your approved record says and
+                            where it came from.
                         </p>
+                        <p className="text-fg-muted mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                            <span>{counts.facts} facts</span>
+                            <Link
+                                href={careerDataIndex.url({
+                                    query: {
+                                        view: 'facts',
+                                        provenance: 'confirmed',
+                                    },
+                                })}
+                                className="text-accent-text hover:text-fg rounded-sm underline underline-offset-2"
+                            >
+                                {counts.confirmed} confirmed by you
+                            </Link>
+                            <span>{counts.employers} employers</span>
+                            <span>{counts.skills} skills</span>
+                        </p>
+                    </header>
+
+                    <div className="mt-6">
+                        <Tabs<CareerDataView>
+                            label="Career Data views"
+                            idPrefix="career-data"
+                            value={view}
+                            onChange={openView}
+                            items={items}
+                        />
                     </div>
 
-                    {profile.facts.length > 0 && (
-                        <section>
-                            <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                                Career-wide facts
-                            </h2>
-                            <div className="mt-2 space-y-2">
-                                {profile.facts.map((fact) => (
-                                    <FactSummaryRow
-                                        key={fact.key}
-                                        fact={fact}
-                                    />
-                                ))}
-                            </div>
-                        </section>
-                    )}
-
-                    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-                        <div className="space-y-6">
-                            {employers.length === 0 ? (
-                                <p className="text-sm text-neutral-400 italic dark:text-neutral-600">
-                                    No employers recorded.
-                                </p>
-                            ) : (
-                                employers.map((employer) => (
-                                    <EmployerSection
-                                        key={employer.id}
-                                        employer={employer}
-                                    />
-                                ))
+                    <div
+                        role="tabpanel"
+                        id="career-data-panel"
+                        aria-labelledby={`career-data-${view}`}
+                        className="mt-6 max-w-5xl"
+                    >
+                        {view === 'experience' && (
+                            <>
+                                {profile.facts.length > 0 && (
+                                    <Card className="mb-6 p-5">
+                                        <h2 className="text-fg text-sm font-semibold">
+                                            Across your whole career
+                                        </h2>
+                                        <ul className="text-fg-muted mt-3 space-y-2 text-sm leading-relaxed">
+                                            {profile.facts
+                                                .slice(0, 3)
+                                                .map((f) => (
+                                                    <li key={f.key}>
+                                                        {f.statement}
+                                                    </li>
+                                                ))}
+                                        </ul>
+                                        {profile.facts.length > 3 && (
+                                            <p className="text-fg-subtle mt-3 text-xs">
+                                                and {profile.facts.length - 3}{' '}
+                                                more in Career Facts.
+                                            </p>
+                                        )}
+                                    </Card>
+                                )}
+                                <ExperienceView
+                                    employers={employers}
+                                    education={education}
+                                />
+                            </>
+                        )}
+                        {view === 'facts' &&
+                            facts !== null &&
+                            pagination !== null && (
+                                <FactsView
+                                    facts={facts}
+                                    filters={filters}
+                                    pagination={pagination}
+                                    options={filter_options}
+                                />
                             )}
-                        </div>
-
-                        <div className="space-y-6">
-                            <EducationPanel education={education} />
-                            <SkillsPanel skills={skills} />
-                        </div>
+                        {view === 'skills' && <SkillsView skills={skills} />}
                     </div>
-                </div>
+                </>
             )}
         </AppShell>
     );

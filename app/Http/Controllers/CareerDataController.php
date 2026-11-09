@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\EvidenceSource;
 use App\Models\CareerFact;
 use App\Models\CareerProfile;
 use App\Models\Education;
@@ -11,10 +12,12 @@ use App\Models\Metric;
 use App\Models\Project;
 use App\Models\Role;
 use App\Models\Skill;
+use App\Support\CareerData\CareerDataBrowser;
 use App\Support\CareerData\MetricFormatter;
 use App\Support\CareerData\RoleDateFormatter;
 use App\Support\CurrentCareerProfile;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -42,7 +45,7 @@ class CareerDataController extends Controller
         END
         SQL;
 
-    public function index(): Response
+    public function index(Request $request, CareerDataBrowser $browser): Response
     {
         // Not resolve(): this page has a deliberate, tested empty state
         // for "no profile yet" (a freshly migrated, not-yet-imported
@@ -55,6 +58,12 @@ class CareerDataController extends Controller
                 'employers' => [],
                 'education' => [],
                 'skills' => [],
+                'view' => 'experience',
+                'counts' => ['facts' => 0, 'confirmed' => 0, 'employers' => 0, 'skills' => 0],
+                'facts' => null,
+                'filters' => $this->emptyFilters(),
+                'pagination' => null,
+                'filter_options' => ['employers' => [], 'projects' => []],
             ]);
         }
 
@@ -73,23 +82,119 @@ class CareerDataController extends Controller
 
         $skills = Skill::query()
             ->where('career_profile_id', $profile->id)
-            ->withCount(['careerFacts', 'projects'])
+            ->withCount('careerFacts')
             ->orderByRaw(self::SKILL_CATEGORY_ORDER_SQL)
             ->orderBy('name')
             ->get();
+        $skillProjects = $browser->skillProjects($profile);
+        $highlights = $this->highlights($profile);
+
+        $view = in_array($request->query('view'), ['experience', 'facts', 'skills'], true) ? $request->query('view') : 'experience';
+        $filters = $this->filters($request);
+        $perPage = in_array((int) $request->query('per_page'), CareerDataBrowser::PER_PAGE_OPTIONS, true) ? (int) $request->query('per_page') : CareerDataBrowser::PER_PAGE_OPTIONS[0];
+        $facts = null;
+        $pagination = null;
+
+        if ($view === 'facts') {
+            $query = $browser->query($profile, $filters);
+            $total = (clone $query)->count();
+            $last = max(1, (int) ceil($total / $perPage));
+            $page = min($last, max(1, (int) $request->query('page', 1)));
+            $interview = $browser->interviewFactIds($profile)->flip();
+            $facts = $browser->placeFacts($browser->withDetails($query)->forPage($page, $perPage)->get())
+                ->map(fn (CareerFact $fact) => $this->transformFactRow($fact, $interview))->values()->all();
+            $pagination = [
+                'page' => $page, 'per_page' => $perPage, 'total' => $total, 'last_page' => $last,
+                'from' => $total === 0 ? 0 : (($page - 1) * $perPage) + 1, 'to' => min($total, $page * $perPage),
+                'per_page_options' => CareerDataBrowser::PER_PAGE_OPTIONS,
+            ];
+        }
+
+        $employers = $profile->employers
+            ->sortByDesc(fn (Employer $e) => $e->roles->map(fn (Role $r) => ($r->start_year ?? 0) * 100 + ($r->start_month ?? 0))->max() ?? 0)
+            ->values();
 
         return Inertia::render('career-data/index', [
             'profile' => [
                 'name' => $profile->name,
                 'facts' => $this->transformFactSummaries($profile->directCareerFacts),
             ],
-            'employers' => $profile->employers->map($this->transformEmployer(...))->all(),
+            'employers' => $employers->map(fn (Employer $e) => $this->transformEmployer($e, $highlights))->all(),
             'education' => $profile->educations->map($this->transformEducation(...))->all(),
-            'skills' => $skills->map($this->transformSkill(...))->all(),
+            'skills' => $skills->map(fn (Skill $s) => $this->transformSkill($s, $skillProjects[$s->id] ?? []))->all(),
+            'view' => $view,
+            'counts' => [
+                'facts' => CareerFact::query()->where('career_profile_id', $profile->id)->count(),
+                'confirmed' => $browser->query($profile, [...$this->emptyFilters(), 'provenance' => 'confirmed'])->count(),
+                'employers' => $profile->employers->count(),
+                'skills' => $skills->count(),
+            ],
+            'facts' => $facts,
+            'filters' => $filters,
+            'pagination' => $pagination,
+            'filter_options' => $view === 'facts' ? $browser->filterOptions($profile) : ['employers' => [], 'projects' => []],
         ]);
     }
 
-    public function showFact(CareerFact $careerFact): Response
+    /**
+     * @return array{q: string, employer: ?int, project: ?string, visibility: ?string, provenance: ?string, skill: ?string}
+     */
+    private function filters(Request $request): array
+    {
+        $text = fn (string $key) => ($v = trim((string) $request->query($key, ''))) === '' ? null : $v;
+        $visibility = $text('visibility');
+        $provenance = $text('provenance');
+
+        return [
+            'q' => trim((string) $request->query('q', '')),
+            'employer' => $text('employer') !== null && ctype_digit($text('employer')) ? (int) $text('employer') : null,
+            'project' => $text('project'),
+            'visibility' => in_array($visibility, ['public', 'restricted', 'private'], true) ? $visibility : null,
+            'provenance' => in_array($provenance, CareerDataBrowser::PROVENANCE, true) ? $provenance : null,
+            'skill' => $text('skill'),
+        ];
+    }
+
+    /**
+     * @return array{q: string, employer: null, project: null, visibility: null, provenance: null, skill: null}
+     */
+    private function emptyFilters(): array
+    {
+        return ['q' => '', 'employer' => null, 'project' => null, 'visibility' => null, 'provenance' => null, 'skill' => null];
+    }
+
+    /**
+     * Up to three headline facts per role and project: metric facts first, then the rest in their recorded order.
+     *
+     * @return array<string, array<int, array<int, array<string, mixed>>>>
+     */
+    private function highlights(CareerProfile $profile): array
+    {
+        $facts = CareerFact::query()
+            ->where('career_profile_id', $profile->id)
+            ->whereIn('attributable_type', [(new Role)->getMorphClass(), (new Project)->getMorphClass()])
+            ->withExists(['evidence as confirmed' => fn ($q) => $q->where('source', 'user_confirmed')])
+            ->orderBy('sort_order')->orderBy('id')
+            ->get();
+        $out = ['role' => [], 'project' => []];
+
+        foreach ($facts->sortBy(fn (CareerFact $f) => $f->fact_type->value === 'metric' ? 0 : 1)->groupBy('attributable_type') as $type => $group) {
+            $bucket = $type === (new Role)->getMorphClass() ? 'role' : 'project';
+
+            foreach ($group->groupBy('attributable_id') as $id => $list) {
+                $out[$bucket][(int) $id] = $list->take(3)->map(fn (CareerFact $f) => [
+                    'key' => $f->key,
+                    'statement' => $f->statement,
+                    'visibility' => $f->visibility->value,
+                    'confirmed' => (bool) $f->getAttribute('confirmed'),
+                ])->values()->all();
+            }
+        }
+
+        return $out;
+    }
+
+    public function showFact(CareerFact $careerFact, CareerDataBrowser $browser): Response
     {
         $careerFact->load([
             'attributable' => fn (MorphTo $morphTo) => $morphTo->morphWith([
@@ -101,15 +206,18 @@ class CareerDataController extends Controller
             'skills',
         ]);
 
+        $interview = $browser->interviewFactIds($careerFact->careerProfile)->flip();
+
         return Inertia::render('career-data/fact', [
-            'fact' => $this->transformFactDetail($careerFact),
+            'fact' => $this->transformFactDetail($careerFact, $interview),
         ]);
     }
 
     /**
+     * @param  array<string, array<int, array<int, array<string, mixed>>>>  $highlights
      * @return array<string, mixed>
      */
-    private function transformEmployer(Employer $employer): array
+    private function transformEmployer(Employer $employer, array $highlights): array
     {
         return [
             'id' => $employer->id,
@@ -117,14 +225,15 @@ class CareerDataController extends Controller
             'short_name' => $employer->short_name,
             'description' => $employer->description,
             'fact_count' => $employer->career_facts_count,
-            'roles' => $employer->roles->map($this->transformRole(...))->all(),
+            'roles' => $employer->roles->sortByDesc(fn (Role $r) => ($r->start_year ?? 0) * 100 + ($r->start_month ?? 0))->values()->map(fn (Role $r) => $this->transformRole($r, $highlights))->all(),
         ];
     }
 
     /**
+     * @param  array<string, array<int, array<int, array<string, mixed>>>>  $highlights
      * @return array<string, mixed>
      */
-    private function transformRole(Role $role): array
+    private function transformRole(Role $role, array $highlights): array
     {
         $dates = RoleDateFormatter::format($role);
 
@@ -134,14 +243,16 @@ class CareerDataController extends Controller
             'date_label' => $dates['label'],
             'is_current' => $dates['is_current'],
             'fact_count' => $role->career_facts_count,
-            'projects' => $role->projects->map($this->transformProject(...))->all(),
+            'highlights' => $highlights['role'][$role->id] ?? [],
+            'projects' => $role->projects->map(fn (Project $p) => $this->transformProject($p, $highlights))->all(),
         ];
     }
 
     /**
+     * @param  array<string, array<int, array<int, array<string, mixed>>>>  $highlights
      * @return array<string, mixed>
      */
-    private function transformProject(Project $project): array
+    private function transformProject(Project $project, array $highlights): array
     {
         return [
             'slug' => $project->slug,
@@ -149,6 +260,7 @@ class CareerDataController extends Controller
             'description' => $project->description,
             'visibility' => $project->default_visibility?->value,
             'fact_count' => $project->career_facts_count,
+            'highlights' => $highlights['project'][$project->id] ?? [],
             'skills' => $project->derivedSkills()->map($this->transformSkillRef(...))->all(),
         ];
     }
@@ -169,16 +281,19 @@ class CareerDataController extends Controller
     }
 
     /**
+     * @param  list<array<string, mixed>>  $projects
      * @return array<string, mixed>
      */
-    private function transformSkill(Skill $skill): array
+    private function transformSkill(Skill $skill, array $projects): array
     {
         return [
             'slug' => $skill->slug,
             'name' => $skill->name,
             'category' => $skill->category->value,
             'career_fact_count' => $skill->career_facts_count,
-            'project_count' => $skill->projects_count,
+            // Derived from approved project facts that carry the skill, never from the unused project_skill pivot.
+            'project_count' => count($projects),
+            'projects' => $projects,
         ];
     }
 
@@ -219,9 +334,10 @@ class CareerDataController extends Controller
     }
 
     /**
+     * @param  Collection<int, int>  $interviewIds
      * @return array<string, mixed>
      */
-    private function transformFactDetail(CareerFact $fact): array
+    private function transformFactDetail(CareerFact $fact, Collection $interviewIds): array
     {
         return [
             'key' => $fact->key,
@@ -234,6 +350,45 @@ class CareerDataController extends Controller
             'metric' => $fact->metric ? $this->transformMetric($fact->metric) : null,
             'skills' => $fact->skills->map($this->transformSkillRef(...))->all(),
             'evidence' => $fact->evidence->map($this->transformEvidence(...))->all(),
+            ...$this->provenance($fact, $interviewIds),
+        ];
+    }
+
+    /**
+     * Where a fact came from, in the terms the UI shows: the evidence sources it has, whether and when you confirmed it
+     * yourself, and whether it was added by approving an interview answer.
+     *
+     * @param  Collection<int, int>  $interviewIds  keyed by fact id
+     * @return array<string, mixed>
+     */
+    private function provenance(CareerFact $fact, Collection $interviewIds): array
+    {
+        $confirmed = $fact->evidence->filter(fn (Evidence $e) => $e->source === EvidenceSource::UserConfirmed);
+
+        return [
+            'sources' => $fact->evidence->map(fn (Evidence $e) => $e->source->value)->unique()->values()->all(),
+            'confirmed' => $confirmed->isNotEmpty(),
+            'confirmed_at' => $confirmed->map(fn (Evidence $e) => $e->confirmed_at)->filter()->max()?->toDateString(),
+            'via_interview' => $interviewIds->has($fact->id),
+            'project_slug' => $fact->attributable instanceof Project ? $fact->attributable->slug : null,
+        ];
+    }
+
+    /**
+     * One row of the Career Facts list.
+     *
+     * @param  Collection<int, int>  $interviewIds  keyed by fact id
+     * @return array<string, mixed>
+     */
+    private function transformFactRow(CareerFact $fact, Collection $interviewIds): array
+    {
+        return [
+            ...$this->transformFactSummary($fact),
+            'has_metric' => (bool) $fact->getAttribute('metric_exists'),
+            'notes' => $fact->notes,
+            'place' => $this->transformAttribution($fact)['path'],
+            'skills' => $fact->skills->map($this->transformSkillRef(...))->all(),
+            ...$this->provenance($fact, $interviewIds),
         ];
     }
 
