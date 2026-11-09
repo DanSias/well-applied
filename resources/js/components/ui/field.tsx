@@ -1,15 +1,16 @@
 import type { ComponentProps, ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
-const field =
+/** The single input look; pages that cannot use the components below should reuse this string, never restate it. */
+export const fieldClass =
     'block w-full rounded-control border border-line-strong bg-sunken px-3 py-2 text-sm leading-relaxed text-fg placeholder:text-fg-subtle transition-colors hover:border-fg-subtle focus:border-focus focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:outline-none aria-[invalid=true]:border-bad';
 
 export function TextArea({ className, ...props }: ComponentProps<'textarea'>) {
-    return <textarea className={cn(field, 'resize-y', className)} {...props} />;
+    return <textarea className={cn(fieldClass, 'resize-y', className)} {...props} />;
 }
 
 export function TextInput({ className, ...props }: ComponentProps<'input'>) {
-    return <input className={cn(field, className)} {...props} />;
+    return <input className={cn(fieldClass, className)} {...props} />;
 }
 
 export function FieldError({ children }: { children?: ReactNode }) {

@@ -14,15 +14,15 @@ import type {
     ClarificationAttributionOption,
     ClarificationScope,
 } from '@/types/tailored-resume';
+import { buttonClass } from '@/components/ui/button';
+import { fieldClass } from '@/components/ui/field';
+import { cn } from '@/lib/utils';
 
 type Errors = Record<string, string>;
 
-const field =
-    'mt-1 w-full rounded-md border border-neutral-300 bg-white px-2 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-950';
-const primary =
-    'rounded-md bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-700 disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900';
-const secondary =
-    'rounded-md border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-300';
+const field = cn(fieldClass, 'mt-1 w-full text-sm');
+const primary = buttonClass('primary', 'sm');
+const secondary = buttonClass('secondary', 'sm');
 
 const CONFIDENCE: Record<string, string> = {
     high: 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200',
@@ -338,7 +338,7 @@ function ClaimCard({
                 {others.length > 0 && (
                     <span className="flex items-center gap-1">
                         <select
-                            className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs dark:border-neutral-700 dark:bg-neutral-950"
+                            className={cn(fieldClass, 'text-xs')}
                             value={mergeInto}
                             onChange={(e) => setMergeInto(e.target.value)}
                         >

@@ -10,6 +10,7 @@ import type {
     ApplicationQuestionView,
     ApplicationShowProps,
 } from '@/types/application-inspection';
+import { buttonClass } from '@/components/ui/button';
 
 const OPTIONS_COLLAPSE_THRESHOLD = 6;
 
@@ -193,7 +194,7 @@ function InspectApplicationAction({
                             },
                         )
                     }
-                    className="inline-flex items-center rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
+                    className={buttonClass('primary', 'md')}
                 >
                     {isActive
                         ? 'Inspecting…'

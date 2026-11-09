@@ -10,6 +10,9 @@ import type {
     TailoredResumeStatus,
     TailoringProfile,
 } from '@/types/tailored-resume';
+import { buttonClass } from '@/components/ui/button';
+import { fieldClass } from '@/components/ui/field';
+import { cn } from '@/lib/utils';
 
 const STAGE_MARK: Record<TailoredResumeStage['status'], string> = {
     pending: '○',
@@ -235,7 +238,7 @@ export function TailoredResumePanel({
                                     onChange={(e) =>
                                         setProfileId(e.target.value)
                                     }
-                                    className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-xs dark:border-neutral-700 dark:bg-neutral-950"
+                                    className={cn(fieldClass, 'text-xs')}
                                 >
                                     {profiles.map((p) => (
                                         <option
@@ -279,7 +282,7 @@ export function TailoredResumePanel({
                             type="button"
                             disabled={processing || running}
                             onClick={() => click()}
-                            className="inline-flex items-center rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
+                            className={buttonClass('primary', 'md')}
                         >
                             {running
                                 ? 'Generating…'
@@ -428,14 +431,14 @@ export function TailoredResumePanel({
                     <div className="mt-3 flex flex-wrap items-center gap-3">
                         <a
                             href={status.profile_resume.review_url}
-                            className="inline-flex items-center rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
+                            className={buttonClass('primary', 'md')}
                         >
                             Open resume
                         </a>
                         {status.download_url && (
                             <a
                                 href={status.download_url}
-                                className="inline-flex items-center rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300"
+                                className={buttonClass('secondary', 'md')}
                             >
                                 Download PDF
                             </a>
@@ -464,7 +467,7 @@ export function TailoredResumePanel({
                     {status.preview_url && (
                         <a
                             href={status.preview_url}
-                            className="inline-flex items-center rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900"
+                            className={buttonClass('primary', 'md')}
                         >
                             Open Preview
                         </a>
@@ -472,7 +475,7 @@ export function TailoredResumePanel({
                     {status.download_url && (
                         <a
                             href={status.download_url}
-                            className="inline-flex items-center rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300"
+                            className={buttonClass('secondary', 'md')}
                         >
                             Download PDF
                         </a>

@@ -13,7 +13,25 @@ import {
     TriageCoverageGroup,
     TriageStageBadge,
 } from '@/components/badges';
+import { Alert } from '@/components/ui/alert';
+import { Button, ButtonLink } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { TextInput } from '@/components/ui/field';
+import { Pagination } from '@/components/ui/pagination';
+import { SegmentedControl } from '@/components/ui/segmented';
+import { Select } from '@/components/ui/select';
+import { Card } from '@/components/ui/surface';
+import AppShell from '@/layouts/app-shell';
+import {
+    BATCH_MAX_ITEMS,
+    buildListParams,
+    nextListState,
+    pruneSelection,
+    toggleAllSelection,
+    toggleSelection,
+} from '@/lib/opportunities-list';
 import { cn } from '@/lib/utils';
+import { show as applicationsShow } from '@/routes/applications';
 import {
     index as jobsIndex,
     create as createJob,
@@ -24,8 +42,6 @@ import {
     analyze as batchAnalyze,
     match as batchMatch,
 } from '@/routes/jobs/batch';
-import { show as applicationsShow } from '@/routes/applications';
-import AppShell from '@/layouts/app-shell';
 import type {
     BatchOperation,
     BatchResult,
@@ -90,9 +106,6 @@ const TRIAGE_STAGES: {
 /** Pause between the last keystroke and the search hitting the server. */
 const SEARCH_DEBOUNCE_MS = 300;
 
-/** Hard cap on how many opportunities one batch may process. */
-const BATCH_MAX_ITEMS = 50;
-
 /**
  * Readable labels for the backend's fixed set of batch reason literals.
  * Anything not listed here is rendered with underscores replaced by
@@ -155,37 +168,133 @@ function InspectAction({ job }: { job: JobPostingSummary }) {
 
     if (job.inspection.application_id !== null) {
         return (
-            <Link
+            <ButtonLink
+                variant="ghost"
+                size="sm"
                 href={applicationsShow.url({
                     application: job.inspection.application_id,
                 })}
-                onClick={(e) => e.stopPropagation()}
-                className="inline-flex items-center rounded-md border border-neutral-300 px-2.5 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
             >
                 View results
-            </Link>
+            </ButtonLink>
         );
     }
 
+    // Not inspected is the common case, so this stays quiet until the row
+    // is hovered or focused (always visible on small and touch screens).
     return (
-        <button
-            type="button"
+        <Button
+            variant="ghost"
+            size="sm"
             disabled={form.processing}
-            onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
+            className="sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100 pointer-coarse:opacity-100"
+            onClick={() =>
                 form.post(inspectStore.url({ jobPosting: job.id }), {
                     showProgress: false,
-                });
-            }}
-            className="inline-flex items-center rounded-md border border-neutral-300 px-2.5 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                })
+            }
         >
             Inspect Application
-        </button>
+        </Button>
     );
 }
 
-export default function JobsIndex({ jobs, filters }: JobsIndexProps) {
+/**
+ * One opportunity. The whole row shares one hover/selected surface; the
+ * title link is stretched over the row (so any click opens the job) and
+ * the checkbox and actions sit above it, independent of that link.
+ */
+function OpportunityRow({
+    job,
+    selected,
+    checkboxDisabled,
+    onToggle,
+}: {
+    job: JobPostingSummary;
+    selected: boolean;
+    checkboxDisabled: boolean;
+    onToggle: (checked: boolean) => void;
+}) {
+    const meta = [
+        job.location,
+        job.discovery.source === 'manual'
+            ? `Captured ${job.captured_at}`
+            : `Discovered via ${discoverySourceLabel(job.discovery.source)}`,
+        job.discovery.remote_status,
+        formatCompensation(job.discovery),
+    ].filter(Boolean);
+    const inspection = job.inspection;
+    const showInspection =
+        inspection.state !== 'not_inspected' ||
+        inspection.latest_attempt_failed;
+
+    return (
+        <li
+            data-selected={selected || undefined}
+            className={cn(
+                'group relative grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-2 px-4 py-3 transition-colors sm:grid-cols-[auto_minmax(0,1fr)_auto]',
+                'has-[a.row-link:focus-visible]:ring-focus has-[a.row-link:focus-visible]:ring-2 has-[a.row-link:focus-visible]:ring-inset',
+                selected
+                    ? 'bg-accent-soft/60 hover:bg-accent-soft'
+                    : 'hover:bg-raised/70',
+            )}
+        >
+            {selected && (
+                <span
+                    aria-hidden="true"
+                    className="bg-accent absolute inset-y-0 left-0 w-0.5"
+                />
+            )}
+            <label className="relative z-10 -m-2 flex cursor-pointer p-2">
+                <Checkbox
+                    checked={selected}
+                    disabled={checkboxDisabled}
+                    onChange={(e) => onToggle(e.target.checked)}
+                    aria-label={`Select ${job.title} at ${job.company}`}
+                />
+            </label>
+
+            <div className="min-w-0">
+                <p className="text-sm leading-snug break-words">
+                    <Link
+                        href={showJob.url(job.id)}
+                        className="row-link text-fg font-medium after:absolute after:inset-0 focus-visible:outline-none"
+                    >
+                        {job.title}
+                    </Link>
+                    <span className="text-fg-muted"> · {job.company}</span>
+                </p>
+                <p className="text-fg-subtle mt-0.5 text-xs leading-relaxed break-words">
+                    {meta.join(' · ')}
+                </p>
+                {job.triage.coverage !== null && (
+                    <p className="text-fg-subtle mt-1 text-xs">
+                        <TriageCoverageGroup coverage={job.triage.coverage} />
+                    </p>
+                )}
+            </div>
+
+            <div className="relative z-10 col-start-2 flex flex-wrap items-center gap-x-2 gap-y-1.5 sm:col-start-3 sm:row-start-1 sm:justify-end">
+                <TriageStageBadge value={job.triage.stage} />
+                {job.discovery.description_completeness === 'preview' && (
+                    <DescriptionCompletenessBadge
+                        value={job.discovery.description_completeness}
+                    />
+                )}
+                {showInspection && (
+                    <InspectionStateBadge summary={inspection} />
+                )}
+                <InspectAction job={job} />
+            </div>
+        </li>
+    );
+}
+
+export default function JobsIndex({
+    jobs,
+    filters,
+    pagination,
+}: JobsIndexProps) {
     const [q, setQ] = useState(filters.q);
     const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -211,15 +320,46 @@ export default function JobsIndex({ jobs, filters }: JobsIndexProps) {
         }
     }, []);
 
-    const applyFilters = (next: Partial<typeof filters>) => {
+    /**
+     * Every list-changing navigation goes through here so the URL always
+     * carries search, filters, page and page size (defaults omitted).
+     * Anything except a page change resets to page 1.
+     */
+    const navigate = (
+        next: Partial<{
+            q: string;
+            status: string;
+            triage: string;
+            page: number;
+            per_page: number;
+        }>,
+        options: { replace?: boolean; preserveScroll?: boolean } = {},
+    ) => {
         cancelPendingSearch();
         sentQ.current = next.q ?? q;
-        router.get(
-            jobsIndex.url(),
-            { q, status: filters.status, triage: filters.triage, ...next },
-            { preserveState: true, replace: true },
+        const state = nextListState(
+            {
+                q,
+                status: filters.status,
+                triage: filters.triage,
+                per_page: pagination.per_page,
+                page: pagination.page,
+            },
+            next,
         );
+        const params = buildListParams(state);
+        router.get(jobsIndex.url(), params, {
+            preserveState: true,
+            replace: options.replace ?? true,
+            preserveScroll: options.preserveScroll ?? true,
+        });
     };
+
+    const applyFilters = (next: {
+        q?: string;
+        status?: string;
+        triage?: string;
+    }) => navigate(next);
 
     const scheduleSearch = (value: string) => {
         cancelPendingSearch();
@@ -236,6 +376,9 @@ export default function JobsIndex({ jobs, filters }: JobsIndexProps) {
         applyFilters({ q: '' });
     };
 
+    const goToPage = (page: number) =>
+        navigate({ page }, { replace: false, preserveScroll: false });
+
     // Drop any pending search if the page unmounts mid-debounce.
     useEffect(() => cancelPendingSearch, [cancelPendingSearch]);
 
@@ -250,10 +393,10 @@ export default function JobsIndex({ jobs, filters }: JobsIndexProps) {
         }
     }, [cancelPendingSearch, filters.q]);
 
-    // E4 batch selection — ephemeral, local state. `selectedIds` holds
-    // the checked job ids regardless of their presence in the current
-    // list; an effect below prunes ids that no longer resolve to a
-    // visible row so filtered-out rows can never be (re-)submitted.
+    // Batch selection — ephemeral, local state, scoped to the rows on the
+    // current page. An effect below prunes ids that no longer resolve to a
+    // visible row, so changing page, search or filters always clears the
+    // selection and a row that is not on screen can never be submitted.
     const [selectedIds, setSelectedIds] = useState<Set<number>>(
         () => new Set(),
     );
@@ -289,10 +432,10 @@ export default function JobsIndex({ jobs, filters }: JobsIndexProps) {
     }, [flashBatchResult]);
 
     // E5 lightweight polling: while any *visible* opportunity is actively
-    // analyzing or matching, refresh only `jobs` every few seconds so rows
-    // settle (analyzing → analyzed / analysis-failed, matching → matched /
-    // match-failed) without a manual refresh. Derived purely from the
-    // current visible jobs — hidden rows, batch-form state and history
+    // analyzing or matching, refresh only the list every few seconds so
+    // rows settle (analyzing → analyzed / analysis-failed, matching →
+    // matched / match-failed) without a manual refresh. Derived purely from
+    // the current visible jobs — hidden rows, batch-form state and history
     // never drive the polling.
     const hasInFlight = jobs.some(
         (job) =>
@@ -304,17 +447,20 @@ export default function JobsIndex({ jobs, filters }: JobsIndexProps) {
     // window.location.href and could apply stale rows on top of it. Inertia
     // fires exactly one `finish` per `start` — success, network error and
     // cancellation all funnel through it — so a plain start/finish pair
-    // cannot leave this flag stuck.
+    // cannot leave this flag stuck. The same pair drives the loading state.
     const userVisitInFlight = useRef(false);
+    const [loading, setLoading] = useState(false);
     useEffect(() => {
         const onStart = router.on('start', (event) => {
             if (event.detail.visit.async === false) {
                 userVisitInFlight.current = true;
+                setLoading(true);
             }
         });
         const onFinish = router.on('finish', (event) => {
             if (event.detail.visit.async === false) {
                 userVisitInFlight.current = false;
+                setLoading(false);
             }
         });
         return () => {
@@ -326,11 +472,11 @@ export default function JobsIndex({ jobs, filters }: JobsIndexProps) {
     // `cancel` mode prevents overlapping poll requests and stale poll
     // responses; `autoStart: false` because starts/stops below are the sole
     // gate. `router.reload` already implies preserveState/preserveScroll, so
-    // rows keep their scroll position and E4 selection.
+    // rows keep their scroll position and selection.
     const { start: startPolling, stop: stopPolling } = usePoll(
         4000,
         () => ({
-            only: ['jobs'],
+            only: ['jobs', 'pagination'],
             showProgress: false,
             onBefore: () => !userVisitInFlight.current,
         }),
@@ -362,7 +508,7 @@ export default function JobsIndex({ jobs, filters }: JobsIndexProps) {
             // take over. A new visit supersedes any in-flight poll request,
             // so nothing overlaps.
             router.reload({
-                only: ['jobs'],
+                only: ['jobs', 'pagination'],
                 showProgress: false,
                 onBefore: () => !userVisitInFlight.current,
             });
@@ -386,29 +532,21 @@ export default function JobsIndex({ jobs, filters }: JobsIndexProps) {
     );
 
     // Anti-resurrection: drop checked ids that are no longer visible
-    // (e.g. after a search/filter navigation removed their rows).
+    // (a new page, or a search/filter navigation that removed their rows).
     useEffect(() => {
-        setSelectedIds((prev) => {
-            if (prev.size === 0) {
-                return prev;
-            }
-            const visible = new Set(jobs.map((job) => job.id));
-            let pruned = false;
-            const next = new Set<number>();
-            for (const id of prev) {
-                if (visible.has(id)) {
-                    next.add(id);
-                } else {
-                    pruned = true;
-                }
-            }
-            return pruned ? next : prev;
-        });
+        setSelectedIds(
+            (prev) =>
+                pruneSelection(
+                    prev,
+                    jobs.map((job) => job.id),
+                ) as Set<number>,
+        );
     }, [jobs]);
 
     const selectAllRef = useRef<HTMLInputElement>(null);
     const allSelected = jobs.length > 0 && selectedVisible.size === jobs.length;
     const anySelected = selectedVisible.size > 0;
+    const tooManyToSelectAll = jobs.length > BATCH_MAX_ITEMS;
 
     // "Some but not all visible rows checked" is DOM-only state — expose
     // it straight on the input's indeterminate property.
@@ -425,22 +563,11 @@ export default function JobsIndex({ jobs, filters }: JobsIndexProps) {
         // A re-selection invalidates any error from the prior attempt; drop it
         // so a message about the old selection can't linger after it changes.
         batchForm.clearErrors();
-        setSelectedIds((prev) => {
-            const next = new Set(prev);
-            if (checked) {
-                if (next.has(jobId) || next.size >= BATCH_MAX_ITEMS) {
-                    return prev; // cap: no silent truncation
-                }
-                next.add(jobId);
-            } else {
-                next.delete(jobId);
-            }
-            return next;
-        });
+        setSelectedIds((prev) => toggleSelection(prev, jobId, checked));
     };
 
     const toggleAll = () => {
-        if (pendingOp !== null || jobs.length > BATCH_MAX_ITEMS) {
+        if (pendingOp !== null || tooManyToSelectAll) {
             return;
         }
         // Selection changed — a stale error about the prior selection is no
@@ -449,13 +576,18 @@ export default function JobsIndex({ jobs, filters }: JobsIndexProps) {
         if (selectAllRef.current !== null) {
             selectAllRef.current.indeterminate = false;
         }
-        // Toggle-all: everything visible already checked → clear,
-        // otherwise check everything visible (guarded above to ≤ 50).
-        setSelectedIds(
-            allSelected
-                ? new Set<number>()
-                : new Set(jobs.map((job) => job.id)),
+        setSelectedIds((prev) =>
+            toggleAllSelection(
+                prev,
+                jobs.map((job) => job.id),
+            ),
         );
+    };
+
+    const clearSelection = () => {
+        setSelectedIds(new Set<number>());
+        // Selection changed — clear a stale error from the prior attempt.
+        batchForm.clearErrors();
     };
 
     const submitBatch = (operation: BatchOperation) => {
@@ -498,26 +630,39 @@ export default function JobsIndex({ jobs, filters }: JobsIndexProps) {
             : undefined);
     const reasonLines =
         batchResult === undefined ? [] : batchReasonLines(batchResult);
+    const filtersActive =
+        filters.q !== '' ||
+        filters.status !== 'all' ||
+        filters.triage !== 'all';
 
     return (
         <AppShell>
             <Head title="Opportunities" />
 
             <div className="flex flex-wrap items-center justify-between gap-3">
-                <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
-                    Opportunities
-                </h1>
-                <Link
-                    href={createJob.url()}
-                    className="inline-flex items-center rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
-                >
+                <div>
+                    <h1 className="text-fg text-2xl font-semibold tracking-tight">
+                        Opportunities
+                    </h1>
+                    <p
+                        aria-live="polite"
+                        className="text-fg-muted mt-1 text-sm"
+                    >
+                        {pagination.total === 0
+                            ? filtersActive
+                                ? 'No matches'
+                                : 'Nothing captured yet'
+                            : `Showing ${pagination.from}–${pagination.to} of ${pagination.total}${filtersActive ? ' matching' : ''}`}
+                    </p>
+                </div>
+                <ButtonLink variant="primary" href={createJob.url()}>
                     Add Job
-                </Link>
+                </ButtonLink>
             </div>
 
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                <div className="relative">
-                    <input
+            <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-3">
+                <div className="relative w-full sm:w-72">
+                    <TextInput
                         ref={searchInputRef}
                         type="text"
                         value={q}
@@ -529,287 +674,226 @@ export default function JobsIndex({ jobs, filters }: JobsIndexProps) {
                         }}
                         placeholder="Search title or company…"
                         aria-label="Search opportunities"
-                        className="w-64 rounded-md border border-neutral-300 bg-white py-1.5 pr-8 pl-3 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+                        className="pr-8"
                     />
                     {q !== '' && (
                         <button
                             type="button"
                             onClick={clearSearch}
                             aria-label="Clear search"
-                            className="absolute inset-y-0 right-0 flex w-7 items-center justify-center text-sm text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-300"
+                            className="rounded-control text-fg-subtle hover:text-fg absolute inset-y-0 right-0 flex w-8 items-center justify-center"
                         >
                             ×
                         </button>
                     )}
                 </div>
 
-                <div className="flex items-center gap-1 text-sm">
-                    {STATUS_TABS.map((tab) => (
-                        <button
-                            key={tab.value}
-                            type="button"
-                            onClick={() => applyFilters({ status: tab.value })}
-                            className={cn(
-                                'rounded-md px-2.5 py-1 font-medium',
-                                filters.status === tab.value
-                                    ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900'
-                                    : 'text-neutral-500 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800',
-                            )}
-                        >
-                            {tab.label}
-                        </button>
-                    ))}
-                </div>
-
-                <div className="h-4 w-px bg-neutral-200 dark:bg-neutral-800" />
-
-                <div className="flex items-center gap-1 text-sm">
-                    {TRIAGE_STAGES.map((stage) => (
-                        <button
-                            key={stage.value}
-                            type="button"
-                            onClick={() =>
-                                applyFilters({ triage: stage.value })
-                            }
-                            className={cn(
-                                'rounded-md px-2.5 py-1 font-medium',
-                                filters.triage === stage.value
-                                    ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900'
-                                    : 'text-neutral-500 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800',
-                            )}
-                        >
-                            {stage.label}
-                        </button>
-                    ))}
-                </div>
+                <SegmentedControl
+                    label="Inspection status"
+                    items={STATUS_TABS}
+                    value={filters.status}
+                    onChange={(status) => applyFilters({ status })}
+                />
+                <SegmentedControl
+                    label="Triage stage"
+                    items={TRIAGE_STAGES}
+                    value={filters.triage}
+                    onChange={(triage) => applyFilters({ triage })}
+                />
             </div>
 
             {batchResult !== undefined && !batchResultDismissed && (
-                <div
+                <Alert
+                    tone="neutral"
                     role="status"
-                    aria-live="polite"
-                    className="mt-4 rounded-lg border border-neutral-300 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-900"
+                    className="mt-4 flex items-start justify-between gap-3"
                 >
-                    <div className="flex items-start justify-between gap-3">
-                        <div>
-                            <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                                {batchResult.operation === 'analyze'
-                                    ? 'Analyze'
-                                    : 'Match'}{' '}
-                                batch — {batchSummaryText(batchResult)}
-                            </p>
-                            {reasonLines.length > 0 && (
-                                <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                                    {reasonLines.join(' · ')}
-                                </p>
-                            )}
-                        </div>
-                        <button
-                            type="button"
-                            onClick={() => setBatchResultDismissed(true)}
-                            aria-label="Dismiss batch result"
-                            className="rounded-md px-1.5 text-base leading-none text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 dark:hover:bg-neutral-800 dark:hover:text-neutral-300"
-                        >
-                            ×
-                        </button>
-                    </div>
-                </div>
-            )}
-
-            {jobs.length > 0 && (
-                <div className="mt-4 rounded-lg border border-neutral-200 bg-white px-4 py-3 dark:border-neutral-800 dark:bg-neutral-900">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                        <label
-                            className={
-                                jobs.length > BATCH_MAX_ITEMS
-                                    ? 'flex cursor-not-allowed items-center gap-2 opacity-50'
-                                    : 'flex cursor-pointer items-center gap-2'
-                            }
-                        >
-                            <input
-                                ref={selectAllRef}
-                                type="checkbox"
-                                checked={allSelected}
-                                disabled={
-                                    pendingOp !== null ||
-                                    jobs.length > BATCH_MAX_ITEMS
-                                }
-                                onChange={toggleAll}
-                                aria-label="Select all visible opportunities"
-                                className="h-4 w-4 accent-neutral-900 dark:accent-neutral-100"
-                            />
-                            <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                                Select all visible opportunities
-                            </span>
-                        </label>
-                        {jobs.length > BATCH_MAX_ITEMS && (
-                            <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                                Only 50 can be selected per batch. Narrow the
-                                list with search or filters
+                    <div>
+                        <p className="text-fg font-medium">
+                            {batchResult.operation === 'analyze'
+                                ? 'Analyze'
+                                : 'Match'}{' '}
+                            batch — {batchSummaryText(batchResult)}
+                        </p>
+                        {reasonLines.length > 0 && (
+                            <p className="text-fg-subtle mt-1 text-xs">
+                                {reasonLines.join(' · ')}
                             </p>
                         )}
                     </div>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label="Dismiss batch result"
+                        onClick={() => setBatchResultDismissed(true)}
+                    >
+                        ×
+                    </Button>
+                </Alert>
+            )}
 
-                    <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-neutral-200 pt-3 dark:border-neutral-800">
-                        <p
-                            aria-live="polite"
-                            className="text-sm text-neutral-500 dark:text-neutral-400"
+            {jobs.length === 0 ? (
+                <Card className="mt-5 border-dashed p-10 text-center">
+                    <p className="text-fg-muted text-sm">
+                        {filtersActive
+                            ? 'No opportunities match this search/filter.'
+                            : 'No jobs captured yet.'}
+                    </p>
+                    {filtersActive ? (
+                        <Button
+                            className="mt-4"
+                            onClick={() => {
+                                qRef.current = '';
+                                setQ('');
+                                navigate({
+                                    q: '',
+                                    status: 'all',
+                                    triage: 'all',
+                                });
+                            }}
                         >
-                            {selectedVisible.size} of {BATCH_MAX_ITEMS} selected
-                        </p>
-                        <div className="flex items-center gap-2">
-                            <button
-                                type="button"
-                                disabled={pendingOp !== null || !anySelected}
-                                onClick={() => submitBatch('analyze')}
-                                className="inline-flex items-center rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
-                            >
-                                {pendingOp === 'analyze'
-                                    ? 'Analyzing…'
-                                    : 'Analyze selected'}
-                            </button>
-                            <button
-                                type="button"
-                                disabled={pendingOp !== null || !anySelected}
-                                onClick={() => submitBatch('match')}
-                                className="inline-flex items-center rounded-md border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
-                            >
-                                {pendingOp === 'match'
-                                    ? 'Matching…'
-                                    : 'Match selected'}
-                            </button>
-                            <button
-                                type="button"
-                                disabled={pendingOp !== null || !anySelected}
-                                onClick={() => {
-                                    setSelectedIds(new Set<number>());
-                                    // Selection changed — clear a stale error
-                                    // from the prior attempt.
-                                    batchForm.clearErrors();
-                                }}
-                                className="inline-flex items-center rounded-md px-3 py-1.5 text-sm font-medium text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-50 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-300"
-                            >
-                                Clear
-                            </button>
-                        </div>
+                            Clear search and filters
+                        </Button>
+                    ) : (
+                        <ButtonLink
+                            variant="primary"
+                            className="mt-4"
+                            href={createJob.url()}
+                        >
+                            Add your first job
+                        </ButtonLink>
+                    )}
+                </Card>
+            ) : (
+                <Card
+                    aria-busy={loading}
+                    className={cn(
+                        'mt-5 overflow-hidden transition-opacity',
+                        loading && 'opacity-60',
+                    )}
+                >
+                    <div className="border-line bg-sunken/40 flex min-h-14 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b px-4 py-2">
+                        <label
+                            className={cn(
+                                'flex items-center gap-3 text-sm',
+                                tooManyToSelectAll
+                                    ? 'text-fg-subtle cursor-not-allowed'
+                                    : 'text-fg-muted cursor-pointer',
+                            )}
+                        >
+                            <Checkbox
+                                ref={selectAllRef}
+                                checked={allSelected}
+                                disabled={
+                                    pendingOp !== null || tooManyToSelectAll
+                                }
+                                onChange={toggleAll}
+                                aria-label="Select all visible opportunities"
+                            />
+                            <span aria-live="polite">
+                                {anySelected
+                                    ? `${selectedVisible.size} selected on this page`
+                                    : 'Select all on this page'}
+                            </span>
+                        </label>
+
+                        {anySelected ? (
+                            <div className="flex flex-wrap items-center gap-2">
+                                <Button
+                                    variant="primary"
+                                    size="sm"
+                                    disabled={pendingOp !== null}
+                                    onClick={() => submitBatch('analyze')}
+                                >
+                                    {pendingOp === 'analyze'
+                                        ? 'Analyzing…'
+                                        : 'Analyze selected'}
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    disabled={pendingOp !== null}
+                                    onClick={() => submitBatch('match')}
+                                >
+                                    {pendingOp === 'match'
+                                        ? 'Matching…'
+                                        : 'Match selected'}
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    disabled={pendingOp !== null}
+                                    onClick={clearSelection}
+                                >
+                                    Clear
+                                </Button>
+                            </div>
+                        ) : tooManyToSelectAll ? (
+                            <p className="text-fg-subtle text-xs">
+                                Select all is limited to {BATCH_MAX_ITEMS} rows.
+                                Pick rows individually, or show 25 or 50 per
+                                page.
+                            </p>
+                        ) : (
+                            <p className="text-fg-subtle text-xs">
+                                Select rows to analyze or match them in a batch
+                                (up to {BATCH_MAX_ITEMS}).
+                            </p>
+                        )}
                     </div>
 
                     {batchError !== undefined && (
                         <p
                             role="alert"
-                            className="mt-3 text-sm text-red-600 dark:text-red-400"
+                            className="border-line text-bad border-b px-4 py-2 text-sm"
                         >
                             {batchError}
                         </p>
                     )}
-                </div>
+
+                    <ul className="divide-line divide-y">
+                        {jobs.map((job) => (
+                            <OpportunityRow
+                                key={job.id}
+                                job={job}
+                                selected={selectedVisible.has(job.id)}
+                                checkboxDisabled={
+                                    pendingOp !== null ||
+                                    (!selectedVisible.has(job.id) &&
+                                        selectedVisible.size >= BATCH_MAX_ITEMS)
+                                }
+                                onToggle={(checked) =>
+                                    toggleJob(job.id, checked)
+                                }
+                            />
+                        ))}
+                    </ul>
+                </Card>
             )}
 
-            {jobs.length === 0 ? (
-                <div className="mt-6 rounded-lg border border-dashed border-neutral-300 p-8 text-center dark:border-neutral-700">
-                    <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                        {filters.q ||
-                        filters.status !== 'all' ||
-                        filters.triage !== 'all'
-                            ? 'No opportunities match this search/filter.'
-                            : 'No jobs captured yet.'}
-                    </p>
-                    {!filters.q &&
-                        filters.status === 'all' &&
-                        filters.triage === 'all' && (
-                            <Link
-                                href={createJob.url()}
-                                className="mt-3 inline-flex items-center text-sm font-medium text-neutral-900 underline underline-offset-2 dark:text-neutral-100"
-                            >
-                                Add your first job
-                            </Link>
-                        )}
+            {pagination.total > 0 && (
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+                    <label className="text-fg-muted flex items-center gap-2 text-sm">
+                        Rows per page
+                        <Select
+                            value={pagination.per_page}
+                            onChange={(e) =>
+                                navigate({ per_page: Number(e.target.value) })
+                            }
+                            aria-label="Rows per page"
+                        >
+                            {pagination.per_page_options.map((n) => (
+                                <option key={n} value={n}>
+                                    {n}
+                                </option>
+                            ))}
+                        </Select>
+                    </label>
+                    <Pagination
+                        page={pagination.page}
+                        lastPage={pagination.last_page}
+                        onPage={goToPage}
+                    />
                 </div>
-            ) : (
-                <ul className="mt-6 divide-y divide-neutral-200 rounded-lg border border-neutral-200 bg-white dark:divide-neutral-800 dark:border-neutral-800 dark:bg-neutral-900">
-                    {jobs.map((job) => (
-                        <li key={job.id} className="flex items-stretch">
-                            <div className="flex items-start pt-4 pl-4">
-                                <input
-                                    type="checkbox"
-                                    checked={selectedVisible.has(job.id)}
-                                    disabled={
-                                        pendingOp !== null ||
-                                        (!selectedVisible.has(job.id) &&
-                                            selectedVisible.size >=
-                                                BATCH_MAX_ITEMS)
-                                    }
-                                    onChange={(e) =>
-                                        toggleJob(job.id, e.target.checked)
-                                    }
-                                    aria-label={`Select ${job.title} at ${job.company}`}
-                                    className="mt-0.5 h-4 w-4 shrink-0 accent-neutral-900 dark:accent-neutral-100"
-                                />
-                            </div>
-                            <Link
-                                href={showJob.url(job.id)}
-                                className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3 p-4 hover:bg-neutral-50 dark:hover:bg-neutral-800/50"
-                            >
-                                <div>
-                                    <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
-                                        {job.title}{' '}
-                                        <span className="font-normal text-neutral-500 dark:text-neutral-400">
-                                            at {job.company}
-                                        </span>
-                                    </p>
-                                    <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
-                                        {job.location && (
-                                            <span>{job.location} · </span>
-                                        )}
-                                        {job.discovery.source === 'manual'
-                                            ? `Captured ${job.captured_at}`
-                                            : `Discovered via ${discoverySourceLabel(job.discovery.source)}`}
-                                        {job.discovery.remote_status && (
-                                            <span>
-                                                {' '}
-                                                · {job.discovery.remote_status}
-                                            </span>
-                                        )}
-                                        {formatCompensation(job.discovery) && (
-                                            <span>
-                                                {' '}
-                                                ·{' '}
-                                                {formatCompensation(
-                                                    job.discovery,
-                                                )}
-                                            </span>
-                                        )}
-                                    </p>
-                                    {job.triage.coverage !== null && (
-                                        <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                                            <span className="text-neutral-400 dark:text-neutral-500">
-                                                Coverage:
-                                            </span>{' '}
-                                            <TriageCoverageGroup
-                                                coverage={job.triage.coverage}
-                                            />
-                                        </p>
-                                    )}
-                                </div>
-                                <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1.5">
-                                    <TriageStageBadge
-                                        value={job.triage.stage}
-                                    />
-                                    <DescriptionCompletenessBadge
-                                        value={
-                                            job.discovery
-                                                .description_completeness
-                                        }
-                                    />
-                                    <InspectionStateBadge
-                                        summary={job.inspection}
-                                    />
-                                    <InspectAction job={job} />
-                                </div>
-                            </Link>
-                        </li>
-                    ))}
-                </ul>
             )}
         </AppShell>
     );

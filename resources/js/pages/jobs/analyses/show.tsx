@@ -12,6 +12,7 @@ import type {
     JobAnalysisFinding,
     JobAnalysisShowProps,
 } from '@/types/job-analysis';
+import { buttonClass } from '@/components/ui/button';
 
 function GenerateMatchAction({
     jobId,
@@ -43,7 +44,7 @@ function GenerateMatchAction({
                         { showProgress: false },
                     )
                 }
-                className="inline-flex items-center rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
+                className={buttonClass('primary', 'md')}
             >
                 {disabled ? 'Matching…' : 'Match Against My Profile'}
             </button>
@@ -77,13 +78,7 @@ function formatLabel(value: string | null): string | null {
         .join(' ');
 }
 
-function Badge({
-    label,
-    value,
-}: {
-    label: string;
-    value: string | null;
-}) {
+function Badge({ label, value }: { label: string; value: string | null }) {
     if (!value) {
         return null;
     }
@@ -123,7 +118,7 @@ function FindingCard({ finding }: { finding: JobAnalysisFinding }) {
                     {finding.statement}
                 </p>
                 {finding.label && (
-                    <span className="shrink-0 rounded bg-neutral-100 px-1.5 py-0.5 text-[11px] font-mono text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
+                    <span className="shrink-0 rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-[11px] text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
                         {finding.label}
                     </span>
                 )}
@@ -138,10 +133,7 @@ function FindingCard({ finding }: { finding: JobAnalysisFinding }) {
                 <Badge label="Emphasis" value={finding.emphasis} />
                 <Badge label="Maturity" value={finding.maturity} />
                 <ExperienceRange finding={finding} />
-                <Badge
-                    label="Recency"
-                    value={finding.recency_requirement}
-                />
+                <Badge label="Recency" value={finding.recency_requirement} />
                 <Badge label="Time horizon" value={finding.time_horizon} />
             </div>
 
@@ -157,7 +149,9 @@ function FindingCard({ finding }: { finding: JobAnalysisFinding }) {
                         key={index}
                         className="border-l-2 border-neutral-200 pl-3 text-xs text-neutral-600 dark:border-neutral-700 dark:text-neutral-400"
                     >
-                        <p className="italic">&ldquo;{evidence.excerpt}&rdquo;</p>
+                        <p className="italic">
+                            &ldquo;{evidence.excerpt}&rdquo;
+                        </p>
                         {(evidence.source_section ||
                             evidence.source_locator) && (
                             <p className="mt-0.5 text-[11px] text-neutral-400 dark:text-neutral-500">
@@ -277,8 +271,7 @@ export default function JobAnalysesShow({
                                         {match.generated_at ?? '—'}
                                     </span>
                                     <span className="text-xs text-neutral-400 dark:text-neutral-500">
-                                        {match.findings_count ?? 0}{' '}
-                                        finding
+                                        {match.findings_count ?? 0} finding
                                         {match.findings_count === 1
                                             ? ''
                                             : 's'}{' '}

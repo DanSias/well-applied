@@ -16,6 +16,7 @@ import type {
     JobMatchFindingDetail,
     JobMatchShowProps,
 } from '@/types/job-match';
+import { buttonClass } from '@/components/ui/button';
 
 function GenerateResumeAction({
     jobId,
@@ -50,7 +51,7 @@ function GenerateResumeAction({
                         { showProgress: false },
                     )
                 }
-                className="inline-flex items-center rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
+                className={buttonClass('primary', 'md')}
             >
                 {disabled ? 'Generating…' : 'Generate Resume'}
             </button>
@@ -98,8 +99,8 @@ function DiscoveryPreflightList({
                 ))}
             </ul>
             <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
-                Purely informational — generating now uses your
-                documented evidence as-is.
+                Purely informational — generating now uses your documented
+                evidence as-is.
             </p>
         </div>
     );
@@ -116,13 +117,7 @@ function formatLabel(value: string | null): string | null {
         .join(' ');
 }
 
-function Badge({
-    label,
-    value,
-}: {
-    label: string;
-    value: string | null;
-}) {
+function Badge({ label, value }: { label: string; value: string | null }) {
     if (!value) {
         return null;
     }
@@ -169,7 +164,9 @@ function CoverageBadge({ coverage }: { coverage: string }) {
     );
 }
 
-function formatRoleDates(dates: CareerFactMatchDetail['role_dates']): string | null {
+function formatRoleDates(
+    dates: CareerFactMatchDetail['role_dates'],
+): string | null {
     if (!dates) {
         return null;
     }
@@ -295,10 +292,7 @@ function FindingResultCard({ finding }: { finding: JobMatchFindingDetail }) {
                 <Badge label="Maturity" value={finding.maturity} />
                 <Badge label="Basis" value={finding.basis} />
                 <ExperienceRequirement finding={finding} />
-                <Badge
-                    label="Recency"
-                    value={finding.recency_requirement}
-                />
+                <Badge label="Recency" value={finding.recency_requirement} />
                 <Badge label="Time horizon" value={finding.time_horizon} />
             </div>
 

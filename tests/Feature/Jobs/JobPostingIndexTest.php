@@ -18,6 +18,7 @@ use App\Models\JobMatchFinding;
 use App\Models\JobPosting;
 use App\Models\WorkflowRun;
 use App\Models\WorkflowStep;
+use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
 
 /**
@@ -608,4 +609,119 @@ it('returns each active triage filter value in the filters props', function () {
                 ->where('filters.q', '')
                 ->where('filters.status', 'all'));
     }
+});
+
+/**
+ * Server-side pagination. Names are `indexPage`-prefixed: Pest loads every
+ * Feature file into one global namespace.
+ */
+function indexPageSeed(CareerProfile $profile, int $count, array $attributes = []): void
+{
+    foreach (range(1, $count) as $i) {
+        JobPosting::factory()->for($profile)->create($attributes + [
+            'title' => sprintf('Role %03d', $i),
+            'created_at' => now()->subMinutes($count - $i),
+        ]);
+    }
+}
+
+it('paginates at 25 rows by default and reports the range', function () {
+    indexPageSeed($profile = CareerProfile::factory()->create(), 60);
+
+    $this->get(route('jobs.index'))->assertInertia(fn (Assert $page) => $page
+        ->has('jobs', 25)
+        ->where('jobs.0.title', 'Role 060')
+        ->where('pagination.page', 1)
+        ->where('pagination.per_page', 25)
+        ->where('pagination.total', 60)
+        ->where('pagination.last_page', 3)
+        ->where('pagination.from', 1)
+        ->where('pagination.to', 25)
+        ->where('pagination.per_page_options', [25, 50, 100]));
+});
+
+it('serves later pages without repeating or skipping rows', function () {
+    indexPageSeed(CareerProfile::factory()->create(), 60);
+
+    $titles = collect([1, 2, 3])->flatMap(function (int $page) {
+        $props = $this->get(route('jobs.index', ['page' => $page]))->inertiaProps();
+
+        return collect($props['jobs'])->pluck('title');
+    });
+
+    expect($titles)->toHaveCount(60)->and($titles->unique())->toHaveCount(60)
+        ->and($titles->first())->toBe('Role 060')->and($titles->last())->toBe('Role 001');
+});
+
+it('reports the last partial page range', function () {
+    indexPageSeed(CareerProfile::factory()->create(), 60);
+
+    $this->get(route('jobs.index', ['page' => 3]))->assertInertia(fn (Assert $page) => $page
+        ->has('jobs', 10)
+        ->where('pagination.from', 51)
+        ->where('pagination.to', 60));
+});
+
+it('supports 50 and 100 rows per page and degrades an unsupported size to 25', function () {
+    indexPageSeed(CareerProfile::factory()->create(), 120);
+
+    $this->get(route('jobs.index', ['per_page' => 50]))->assertInertia(fn (Assert $page) => $page->has('jobs', 50)->where('pagination.last_page', 3));
+    $this->get(route('jobs.index', ['per_page' => 100]))->assertInertia(fn (Assert $page) => $page->has('jobs', 100)->where('pagination.last_page', 2));
+    $this->get(route('jobs.index', ['per_page' => 7]))->assertInertia(fn (Assert $page) => $page->has('jobs', 25)->where('pagination.per_page', 25));
+});
+
+it('clamps an out-of-range or invalid page into range', function () {
+    indexPageSeed(CareerProfile::factory()->create(), 30);
+
+    $this->get(route('jobs.index', ['page' => 99]))->assertInertia(fn (Assert $page) => $page->where('pagination.page', 2)->has('jobs', 5));
+    $this->get(route('jobs.index', ['page' => -4]))->assertInertia(fn (Assert $page) => $page->where('pagination.page', 1));
+    $this->get(route('jobs.index', ['page' => 'abc']))->assertInertia(fn (Assert $page) => $page->where('pagination.page', 1));
+});
+
+it('paginates the filtered result set, not the whole table, and counts only matches', function () {
+    $profile = CareerProfile::factory()->create();
+    indexPageSeed($profile, 40, ['company' => 'Acme']);
+    indexPageSeed($profile, 10, ['company' => 'Other']);
+
+    $this->get(route('jobs.index', ['q' => 'Acme', 'per_page' => 25, 'page' => 2]))->assertInertia(fn (Assert $page) => $page
+        ->where('filters.q', 'Acme')
+        ->where('pagination.total', 40)
+        ->where('pagination.from', 26)
+        ->where('pagination.to', 40)
+        ->has('jobs', 15));
+});
+
+it('paginates a derived-state filter such as the triage stage', function () {
+    $profile = CareerProfile::factory()->create();
+    indexPageSeed($profile, 30);
+    $analyzed = JobPosting::factory()->for($profile)->create(['title' => 'Analyzed One']);
+    indexTriageAnalysis($analyzed, '2026-09-01 08:00:00');
+
+    $this->get(route('jobs.index', ['triage' => 'raw']))->assertInertia(fn (Assert $page) => $page
+        ->where('pagination.total', 30)
+        ->has('jobs', 25));
+    $this->get(route('jobs.index', ['triage' => 'analyzed']))->assertInertia(fn (Assert $page) => $page
+        ->where('pagination.total', 1)
+        ->where('jobs.0.title', 'Analyzed One'));
+});
+
+it('reports an empty range when nothing matches', function () {
+    CareerProfile::factory()->create();
+
+    $this->get(route('jobs.index', ['q' => 'nothing']))->assertInertia(fn (Assert $page) => $page
+        ->where('pagination.total', 0)->where('pagination.from', 0)->where('pagination.to', 0)->where('pagination.last_page', 1));
+});
+
+it('only summarizes the rows on the page when no derived-state filter is active', function () {
+    indexPageSeed(CareerProfile::factory()->create(), 60);
+
+    $queries = [];
+    DB::listen(function ($query) use (&$queries) {
+        $queries[] = $query->sql;
+    });
+
+    $this->get(route('jobs.index'))->assertOk();
+
+    // A fixed number of bulk queries, never one per posting.
+    expect(count($queries))->toBeLessThan(40);
 });

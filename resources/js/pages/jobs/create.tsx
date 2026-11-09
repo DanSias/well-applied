@@ -2,9 +2,11 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import type { FormEventHandler } from 'react';
 import AppShell from '@/layouts/app-shell';
 import { index as jobsIndex, store } from '@/routes/jobs';
+import { buttonClass } from '@/components/ui/button';
+import { fieldClass } from '@/components/ui/field';
+import { cn } from '@/lib/utils';
 
-const inputClass =
-    'mt-1 block w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 shadow-sm placeholder:text-neutral-400 focus:border-neutral-500 focus:ring-1 focus:ring-neutral-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100';
+const inputClass = cn(fieldClass, 'mt-1 block w-full text-sm');
 
 function FieldError({ id, message }: { id: string; message?: string }) {
     if (!message) {
@@ -218,7 +220,7 @@ export default function JobsCreate() {
                     <button
                         type="submit"
                         disabled={form.processing}
-                        className="inline-flex items-center rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
+                        className={buttonClass('primary', 'md')}
                     >
                         Save Job
                     </button>

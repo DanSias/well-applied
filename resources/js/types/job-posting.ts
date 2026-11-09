@@ -125,9 +125,20 @@ export type JobsIndexFilters = {
     triage: OpportunityTriageFilter;
 };
 
+export type JobsIndexPagination = {
+    page: number;
+    per_page: number;
+    total: number;
+    last_page: number;
+    from: number;
+    to: number;
+    per_page_options: number[];
+};
+
 export type JobsIndexProps = {
     jobs: JobPostingSummary[];
     filters: JobsIndexFilters;
+    pagination: JobsIndexPagination;
 };
 
 export type JobShowProps = {

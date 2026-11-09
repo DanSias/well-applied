@@ -37,8 +37,9 @@ class JobPostingController extends Controller
         $status = (string) $request->query('status', 'all');
         $triage = (string) $request->query('triage', 'all');
         $triageStages = $this->triageStagesForFilter($triage);
+        $perPage = $this->perPage($request);
 
-        $query = CurrentCareerProfile::resolve()->jobPostings()->latest();
+        $query = CurrentCareerProfile::resolve()->jobPostings()->latest()->orderByDesc('id');
 
         if ($search !== '') {
             $query->where(function ($q) use ($search) {
@@ -47,20 +48,35 @@ class JobPostingController extends Controller
             });
         }
 
-        $jobs = $query->get();
-        $inspectionStates = $summarizer->forJobPostings($jobs->pluck('id'));
-        $triageStates = $triageSummarizer->forJobPostings($jobs->pluck('id'));
+        // Inspection and triage state are derived from other tables, so
+        // filtering on them needs every matching posting's state. Without
+        // those filters the page can be cut in SQL and only its rows summarized.
+        if ($status === 'all' && $triageStages === null) {
+            $total = (clone $query)->count();
+            $page = $this->page($request, $total, $perPage);
+            $jobs = $query->forPage($page, $perPage)->get();
+            $inspectionStates = $summarizer->forJobPostings($jobs->pluck('id'));
+            $triageStates = $triageSummarizer->forJobPostings($jobs->pluck('id'));
+        } else {
+            $jobs = $query->get();
+            $inspectionStates = $summarizer->forJobPostings($jobs->pluck('id'));
+            $triageStates = $triageSummarizer->forJobPostings($jobs->pluck('id'));
 
-        if ($status === 'not_inspected') {
-            $jobs = $jobs->filter(fn (JobPosting $job) => $inspectionStates[$job->id]['state'] === 'not_inspected');
-        } elseif ($status === 'inspected') {
-            $jobs = $jobs->filter(fn (JobPosting $job) => in_array($inspectionStates[$job->id]['state'], ['inspected', 'unsupported'], true));
-        }
+            if ($status === 'not_inspected') {
+                $jobs = $jobs->filter(fn (JobPosting $job) => $inspectionStates[$job->id]['state'] === 'not_inspected');
+            } elseif ($status === 'inspected') {
+                $jobs = $jobs->filter(fn (JobPosting $job) => in_array($inspectionStates[$job->id]['state'], ['inspected', 'unsupported'], true));
+            }
 
-        if ($triageStages !== null) {
-            $jobs = $jobs->filter(
-                fn (JobPosting $job) => in_array($triageStates[$job->id]['stage'], $triageStages, true),
-            );
+            if ($triageStages !== null) {
+                $jobs = $jobs->filter(
+                    fn (JobPosting $job) => in_array($triageStates[$job->id]['stage'], $triageStages, true),
+                );
+            }
+
+            $total = $jobs->count();
+            $page = $this->page($request, $total, $perPage);
+            $jobs = $jobs->forPage($page, $perPage);
         }
 
         return Inertia::render('jobs/index', [
@@ -69,7 +85,36 @@ class JobPostingController extends Controller
             // what was actually applied — an invalid value degrades to
             // `all` in both behavior and props.
             'filters' => ['q' => $search, 'status' => $status, 'triage' => $triageStages === null ? 'all' : $triage],
+            // Normalized the same way: an out-of-range page or an
+            // unsupported page size degrades to a valid one and is echoed.
+            'pagination' => [
+                'page' => $page,
+                'per_page' => $perPage,
+                'total' => $total,
+                'last_page' => max(1, (int) ceil($total / $perPage)),
+                'from' => $total === 0 ? 0 : (($page - 1) * $perPage) + 1,
+                'to' => min($total, $page * $perPage),
+                'per_page_options' => self::PER_PAGE_OPTIONS,
+            ],
         ]);
+    }
+
+    /** Page sizes the list offers; anything else degrades to the default. */
+    private const PER_PAGE_OPTIONS = [25, 50, 100];
+
+    private function perPage(Request $request): int
+    {
+        $requested = (int) $request->query('per_page', self::PER_PAGE_OPTIONS[0]);
+
+        return in_array($requested, self::PER_PAGE_OPTIONS, true) ? $requested : self::PER_PAGE_OPTIONS[0];
+    }
+
+    /** The requested page, clamped into 1..last so a stale link still shows rows. */
+    private function page(Request $request, int $total, int $perPage): int
+    {
+        $last = max(1, (int) ceil($total / $perPage));
+
+        return min($last, max(1, (int) $request->query('page', 1)));
     }
 
     /**

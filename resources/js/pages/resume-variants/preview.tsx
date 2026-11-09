@@ -1,5 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 import AppShell from '@/layouts/app-shell';
+import { buttonClass } from '@/components/ui/button';
 
 type ResumeVariantPreviewProps = {
     resumeVariant: { id: number };
@@ -52,10 +53,7 @@ export default function ResumeVariantPreview({
                         </Link>
                     )}
                 </div>
-                <a
-                    href={downloadUrl}
-                    className="inline-flex items-center rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
-                >
+                <a href={downloadUrl} className={buttonClass('primary', 'md')}>
                     Download PDF
                 </a>
             </div>
