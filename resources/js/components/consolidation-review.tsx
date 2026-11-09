@@ -442,10 +442,8 @@ export function ConsolidationReview({ queue }: { queue: ConsolidationQueue }) {
     const themes = [...new Set(queue.items.map((i) => i.theme))];
 
     return (
-        <section className="mt-8" id="evidence-consolidation">
-            <h2 className="text-base font-semibold">
-                Evidence consolidation review
-            </h2>
+        <section id="evidence-consolidation">
+            <h2 className="sr-only">Evidence consolidation review</h2>
             <p className="mt-1 text-xs text-neutral-500">
                 {queue.counts.proposed} waiting, {queue.counts.approved}{' '}
                 approved, {queue.counts.rejected} declined. Corrections to

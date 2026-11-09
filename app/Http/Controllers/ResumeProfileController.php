@@ -9,6 +9,7 @@ use App\Models\MarketSamplePosting;
 use App\Models\ResumeProfile;
 use App\Support\Clarification\SubmitClarificationAnswer;
 use App\Support\CurrentCareerProfile;
+use App\Support\ProfileSynthesis\PresentProfileSynthesis;
 use App\Support\ResumeProfile\PresentResumeProfile;
 use App\Support\ResumeProfile\ProfileDefinitions;
 use App\Support\ResumeProfile\ProfileInterview;
@@ -29,15 +30,40 @@ use Inertia\Response;
  */
 class ResumeProfileController extends Controller
 {
-    public function index(): Response
+    public function index(PresentProfileSynthesis $synthesis, ProfileInterview $interview): Response
     {
         $career = CurrentCareerProfile::resolve();
 
         return Inertia::render('resume-profiles/index', [
-            'profiles' => collect(ProfileDefinitions::slugs())->map(function (string $slug) use ($career) {
+            'profiles' => collect(ProfileDefinitions::slugs())->map(function (string $slug) use ($career, $synthesis, $interview) {
                 $profile = ProfileDefinitions::ensure($career, $slug);
+                $state = $synthesis->present($profile);
+                $shown = $state['synthesis'];
+                $approved = null;
+                foreach ((array) $state['versions'] as $version) {
+                    if ($version['status'] === 'approved') {
+                        $approved = $version;
 
-                return ['slug' => $slug, 'name' => $profile->name, 'purpose' => $profile->purpose, 'status_label' => $profile->status->label()];
+                        break;
+                    }
+                }
+                $progress = $interview->progress($profile);
+
+                return [
+                    'slug' => $slug, 'name' => $profile->name, 'purpose' => $profile->purpose, 'status_label' => $profile->status->label(),
+                    // Read-only summary of the same state the detail page shows; nothing is refreshed, synced or built here.
+                    'has_sample' => $profile->currentSample !== null,
+                    'headline' => $shown['profile']['presentation']['headline'] ?? null,
+                    'synthesis' => [
+                        'building' => $state['building'],
+                        'approved_version' => $state['approved_version'],
+                        'approved_stale' => (bool) ($approved['stale'] ?? false),
+                        'outdated' => ($shown['status'] ?? null) === 'approved' ? (bool) $shown['outdated'] : false,
+                        'draft_version' => ($shown['status'] ?? null) === 'draft' ? $shown['version'] : null,
+                        'draft_stale' => ($shown['status'] ?? null) === 'draft' ? (bool) $shown['stale'] : false,
+                    ],
+                    'interview' => ['total' => $progress['total'], 'open' => $progress['open']],
+                ];
             })->values()->all(),
         ]);
     }

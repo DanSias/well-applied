@@ -67,6 +67,7 @@ use App\Support\TailoredResume\PresentTailoredResume;
 use App\Support\TailoredResume\TailoredResumePipeline;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\Support\FakeSequenceWriter;
 use Tests\Support\ResumeProfileFixtures as F;
 
@@ -1639,4 +1640,55 @@ it('reports a resume with no concrete build as an engineering risk and offers th
     expect(array_column($result['risks']['composition'], 'check'))->toContain('engineering_evidence')
         ->and($engineering)->not->toBeNull()->and($engineering['target']['type'])->toBe('role_fact')
         ->and(array_column($engineering['facts'], 'key'))->not->toContain('private-secret', 'first-person', 'ts-wi');
+});
+
+/** The Resume Profiles list summarizes each profile from the same state the detail page shows, read-only. */
+it('summarizes a profile with no version as not started', function () {
+    $s = synthesisScenario();
+
+    $this->get(route('resume-profiles.index'))->assertInertia(fn (Assert $page) => $page
+        ->where('profiles.0.slug', $s['profile']->slug)
+        ->where('profiles.0.synthesis.approved_version', null)
+        ->where('profiles.0.synthesis.draft_version', null)
+        ->where('profiles.0.headline', null));
+});
+
+it('reports a draft and then an approved current version', function () {
+    $s = synthesisScenario();
+    $synthesis = synthesize($s);
+
+    $this->get(route('resume-profiles.index'))->assertInertia(fn (Assert $page) => $page
+        ->where('profiles.0.synthesis.draft_version', 1)
+        ->where('profiles.0.synthesis.approved_version', null)
+        ->where('profiles.0.headline', fn ($h) => is_string($h) && $h !== ''));
+
+    $this->post(route('profile-syntheses.approve', $synthesis))->assertRedirect();
+
+    $this->get(route('resume-profiles.index'))->assertInertia(fn (Assert $page) => $page
+        ->where('profiles.0.synthesis.approved_version', 1)
+        ->where('profiles.0.synthesis.approved_stale', false)
+        ->where('profiles.0.synthesis.draft_version', null));
+});
+
+it('reports the approved version as stale only when approved evidence has changed', function () {
+    $s = synthesisScenario();
+    $synthesis = synthesize($s);
+    $this->post(route('profile-syntheses.approve', $synthesis))->assertRedirect();
+
+    EvidenceRevision::bump($s['career']);
+
+    $this->get(route('resume-profiles.index'))->assertInertia(fn (Assert $page) => $page
+        ->where('profiles.0.synthesis.approved_version', 1)
+        ->where('profiles.0.synthesis.approved_stale', true));
+});
+
+it('does not change any data while rendering the list', function () {
+    $s = synthesisScenario();
+    $synthesis = synthesize($s);
+    $this->post(route('profile-syntheses.approve', $synthesis))->assertRedirect();
+    $before = [ResumeProfileSynthesis::count(), $synthesis->fresh()->updated_at, EvidenceRevision::current($s['career'])];
+
+    $this->get(route('resume-profiles.index'))->assertOk();
+
+    expect([ResumeProfileSynthesis::count(), $synthesis->fresh()->updated_at, EvidenceRevision::current($s['career'])])->toEqual($before);
 });

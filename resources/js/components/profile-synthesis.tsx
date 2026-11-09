@@ -20,6 +20,9 @@ import type {
 } from '@/types/resume-profile';
 import { buttonClass } from '@/components/ui/button';
 import { fieldClass } from '@/components/ui/field';
+import { Alert } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Disclosure } from '@/components/ui/surface';
 import { cn } from '@/lib/utils';
 
 type Errors = Record<string, string>;
@@ -28,7 +31,7 @@ const field = cn(fieldClass, 'mt-1 w-full text-sm');
 const primary = buttonClass('primary', 'sm');
 const secondary = buttonClass('secondary', 'sm');
 
-function useSend() {
+export function useSend() {
     const [errors, setErrors] = useState<Errors>({});
     const [busy, setBusy] = useState(false);
     const send = (
@@ -146,12 +149,17 @@ function Row({
 
     return (
         <li
-            className={`rounded-md border p-2 text-sm ${included ? 'border-neutral-200 dark:border-neutral-800' : 'border-dashed border-neutral-300 opacity-60 dark:border-neutral-700'}`}
+            className={cn(
+                'rounded-control border p-3 text-sm',
+                included
+                    ? 'border-line bg-canvas/50'
+                    : 'border-line-strong border-dashed opacity-60',
+            )}
         >
-            <div className="flex gap-2">
-                <div className="min-w-0 flex-1">{children}</div>
+            <div className="flex flex-wrap gap-x-3 gap-y-2">
+                <div className="min-w-0 flex-1 basis-64">{children}</div>
                 {editable && (
-                    <div className="flex shrink-0 flex-col gap-1">
+                    <div className="flex shrink-0 flex-wrap items-start gap-1">
                         <button
                             type="button"
                             className={secondary}
@@ -541,7 +549,7 @@ function ReferencePanel({
     }, [active]);
 
     return (
-        <section className="mt-4 rounded-md border border-neutral-300 p-3 dark:border-neutral-700">
+        <section className="rounded-card border-line bg-surface border p-5">
             <h4 className="text-sm font-semibold">Reference resume</h4>
             {reference.stale && (
                 <p className="mt-1 text-xs text-amber-700">
@@ -633,32 +641,34 @@ function Profile({
     const sample = p.provenance.sample;
 
     return (
-        <div className="mt-3 space-y-5">
-            <section className="rounded-md bg-neutral-50 p-3 text-xs text-neutral-600 dark:bg-neutral-900 dark:text-neutral-400">
-                {sample ? (
+        <div className="[&>section]:rounded-card [&>section]:border-line [&>section]:bg-surface space-y-5 [&>section]:border [&>section]:p-5">
+            <Disclosure quiet summary="Where this profile came from">
+                <div className="text-fg-subtle space-y-1 text-xs leading-relaxed">
+                    {sample ? (
+                        <p>
+                            Market basis:{' '}
+                            <strong>
+                                {sample.pilot ? 'pilot sample' : 'sample'} of{' '}
+                                {sample.postings} postings
+                            </strong>{' '}
+                            ({sample.companies} companies,{' '}
+                            {sample.providers.join(', ')}, {sample.oldest} to{' '}
+                            {sample.newest}).{' '}
+                            {sample.pilot &&
+                                'This is a small pilot, not a full market study; priorities below are indicative.'}
+                        </p>
+                    ) : (
+                        <p>No market sample: ranking uses the evidence only.</p>
+                    )}
                     <p>
-                        Market basis:{' '}
-                        <strong>
-                            {sample.pilot ? 'pilot sample' : 'sample'} of{' '}
-                            {sample.postings} postings
-                        </strong>{' '}
-                        ({sample.companies} companies,{' '}
-                        {sample.providers.join(', ')}, {sample.oldest} to{' '}
-                        {sample.newest}).{' '}
-                        {sample.pilot &&
-                            'This is a small pilot, not a full market study; priorities below are indicative.'}
+                        Built from approved evidence revision{' '}
+                        {p.provenance.evidence_revision}. {p.private_omitted}{' '}
+                        Private fact(s) were left out entirely.
+                        {p.excluded.length > 0 &&
+                            ` ${p.excluded.length} fact(s) were not used as written: ${p.excluded.map((e) => e.fact_key).join(', ')} (first-person wording).`}
                     </p>
-                ) : (
-                    <p>No market sample: ranking uses the evidence only.</p>
-                )}
-                <p>
-                    Built from approved evidence revision{' '}
-                    {p.provenance.evidence_revision}. {p.private_omitted}{' '}
-                    Private fact(s) were left out entirely.
-                    {p.excluded.length > 0 &&
-                        ` ${p.excluded.length} fact(s) were not used as written: ${p.excluded.map((e) => e.fact_key).join(', ')} (first-person wording).`}
-                </p>
-            </section>
+                </div>
+            </Disclosure>
 
             <section>
                 <h4 className="text-sm font-semibold">Positioning</h4>
@@ -725,16 +735,14 @@ function Profile({
             </section>
 
             <section>
-                <h4 className="text-sm font-semibold">
-                    Ranked projects (employment)
-                </h4>
+                <h4 className="text-sm font-semibold">Projects (employment)</h4>
                 <p className="text-xs text-neutral-500">
-                    Ranked on ownership, architecture, technical complexity,
-                    market relevance, distinctiveness and outcomes, not on how
-                    many facts a project has.
+                    In the order your profile uses them: your own order first,
+                    then pinned and suggested placement. Each project also shows
+                    the rank the system suggested, for comparison.
                 </p>
                 <ul className="mt-2 space-y-2">
-                    {projects.map((x) => {
+                    {projects.map((x, i) => {
                         const note = pres.project_notes.find(
                             (n) => n.project_id === x.project_id,
                         );
@@ -750,14 +758,22 @@ function Profile({
                                 sid={sid}
                             >
                                 <p className="font-medium">
-                                    {x.rank}. {x.name}{' '}
+                                    {i + 1}. {x.name}{' '}
                                     <span className="text-xs font-normal text-neutral-500">
-                                        {x.employer} · score{' '}
-                                        {x.score.toFixed(2)}
+                                        {x.employer} · Suggested rank {x.rank}
                                     </span>
                                 </p>
                                 <p className="text-xs">{x.reason}</p>
-                                <Signals signals={x.signals} />
+                                <Disclosure
+                                    quiet
+                                    className="mt-1"
+                                    summary="Scoring details"
+                                >
+                                    <p className="text-fg-subtle text-xs">
+                                        Score {x.score.toFixed(2)}
+                                    </p>
+                                    <Signals signals={x.signals} />
+                                </Disclosure>
                                 {note && (
                                     <div className="mt-1">
                                         <EditableText
@@ -797,12 +813,7 @@ function Profile({
                                     ids={personal.map((y) => y.id)}
                                     sid={sid}
                                 >
-                                    <p className="font-medium">
-                                        {x.name}{' '}
-                                        <span className="text-xs font-normal text-neutral-500">
-                                            score {x.score.toFixed(2)}
-                                        </span>
-                                    </p>
+                                    <p className="font-medium">{x.name}</p>
                                     <p className="text-xs">{x.reason}</p>
                                     <Evidence
                                         keys={x.fact_keys}
@@ -816,83 +827,87 @@ function Profile({
             </section>
 
             <section>
-                <h4 className="text-sm font-semibold">
-                    Capabilities: direct experience
-                </h4>
-                <ul className="mt-2 space-y-2">
-                    {p.capabilities.direct.map((c) => (
-                        <Row
-                            key={c.id}
-                            id={c.id}
-                            included={c.included}
-                            pinned={c.pinned}
-                            editable={editable}
-                            ids={p.capabilities.direct.map((y) => y.id)}
-                            sid={sid}
-                        >
-                            <p>
-                                <span className="font-medium">{c.label}</span>{' '}
-                                <span className="text-xs text-neutral-500">
-                                    {c.depth ?? '-'} depth · asked for in{' '}
-                                    {c.market_postings} posting(s)
-                                </span>
-                            </p>
-                            <Evidence keys={c.fact_keys} facts={p.facts} />
-                        </Row>
-                    ))}
-                </ul>
-                <h4 className="mt-4 text-sm font-semibold">
-                    Related, not claimed as experience
-                </h4>
-                <p className="text-xs text-neutral-500">
-                    {p.capabilities.transferable
-                        .map((c) => c.label)
-                        .join(', ') || 'None'}
-                    . Only a related capability is documented for these.
-                </p>
-                {p.limitations.length > 0 && (
-                    <p className="mt-1 text-xs text-neutral-500">
-                        Confirmed no direct experience (never claimed):{' '}
-                        {p.limitations.join(', ')}.
+                <Disclosure
+                    summary={`Capabilities: direct experience (${p.capabilities.direct.length})`}
+                >
+                    <ul className="mt-2 space-y-2">
+                        {p.capabilities.direct.map((c) => (
+                            <Row
+                                key={c.id}
+                                id={c.id}
+                                included={c.included}
+                                pinned={c.pinned}
+                                editable={editable}
+                                ids={p.capabilities.direct.map((y) => y.id)}
+                                sid={sid}
+                            >
+                                <p>
+                                    <span className="font-medium">
+                                        {c.label}
+                                    </span>{' '}
+                                    <span className="text-xs text-neutral-500">
+                                        {c.depth ?? '-'} depth · asked for in{' '}
+                                        {c.market_postings} posting(s)
+                                    </span>
+                                </p>
+                                <Evidence keys={c.fact_keys} facts={p.facts} />
+                            </Row>
+                        ))}
+                    </ul>
+                    <h4 className="mt-4 text-sm font-semibold">
+                        Related, not claimed as experience
+                    </h4>
+                    <p className="text-xs text-neutral-500">
+                        {p.capabilities.transferable
+                            .map((c) => c.label)
+                            .join(', ') || 'None'}
+                        . Only a related capability is documented for these.
                     </p>
-                )}
+                    {p.limitations.length > 0 && (
+                        <p className="mt-1 text-xs text-neutral-500">
+                            Confirmed no direct experience (never claimed):{' '}
+                            {p.limitations.join(', ')}.
+                        </p>
+                    )}
+                </Disclosure>
             </section>
 
             <section>
-                <h4 className="text-sm font-semibold">
-                    Accomplishments the resume can draw on
-                </h4>
-                <ul className="mt-2 space-y-2">
-                    {p.accomplishments.map((a) => (
-                        <Row
-                            key={a.id}
-                            id={a.id}
-                            included={a.included}
-                            pinned={a.pinned}
-                            editable={editable}
-                            ids={p.accomplishments.map((y) => y.id)}
-                            sid={sid}
-                        >
-                            <p className="text-sm">
-                                {p.facts[a.fact_key]?.statement}
-                            </p>
-                            <p className="text-xs text-neutral-500">
-                                {a.rank}. {a.kind} · {a.visibility} · score{' '}
-                                {a.score.toFixed(2)} ·{' '}
-                                {p.facts[a.fact_key]?.project ??
-                                    p.facts[a.fact_key]?.role}
-                                {a.shared_with.length > 0 &&
-                                    ` · also: ${a.shared_with.join(', ')}`}
-                            </p>
-                        </Row>
-                    ))}
-                </ul>
+                <Disclosure
+                    summary={`Accomplishments the resume can draw on (${p.accomplishments.length})`}
+                >
+                    <ul className="mt-2 space-y-2">
+                        {p.accomplishments.map((a, i) => (
+                            <Row
+                                key={a.id}
+                                id={a.id}
+                                included={a.included}
+                                pinned={a.pinned}
+                                editable={editable}
+                                ids={p.accomplishments.map((y) => y.id)}
+                                sid={sid}
+                            >
+                                <p className="text-sm">
+                                    {p.facts[a.fact_key]?.statement}
+                                </p>
+                                <p className="text-xs text-neutral-500">
+                                    {i + 1}. {a.kind} · {a.visibility} ·
+                                    Suggested rank {a.rank} ·{' '}
+                                    {p.facts[a.fact_key]?.project ??
+                                        p.facts[a.fact_key]?.role}
+                                    {a.shared_with.length > 0 &&
+                                        ` · also: ${a.shared_with.join(', ')}`}
+                                </p>
+                            </Row>
+                        ))}
+                    </ul>
+                </Disclosure>
             </section>
         </div>
     );
 }
 
-export function ProfileSynthesis({
+export function ProfileTab({
     state,
     slug,
 }: {
@@ -918,20 +933,34 @@ export function ProfileSynthesis({
     }, [building]);
 
     return (
-        <section className="mt-8" id="profile-synthesis">
-            <h2 className="text-base font-semibold">Full-Stack profile</h2>
-            <p className="mt-1 text-xs text-neutral-500">
-                A persistent profile built from your approved evidence and the
-                market sample. Building it is deliberate and infrequent: one
-                local-model call writes the positioning, everything else is
-                computed from your evidence. Nothing is approved until you
-                approve it, and a reference resume is generated only from an
-                approved profile.
-            </p>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
+        <div className="space-y-5" id="profile-synthesis">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                    {s ? (
+                        <>
+                            <Badge
+                                tone={s.status === 'approved' ? 'ok' : 'accent'}
+                            >
+                                {s.status === 'approved' ? 'Approved' : 'Draft'}{' '}
+                                · version {s.version}
+                            </Badge>
+                            {s.stale && (
+                                <Badge tone="warn">Evidence changed</Badge>
+                            )}
+                            {!s.stale && s.outdated && (
+                                <Badge>Refresh available</Badge>
+                            )}
+                            {s.pilot && <Badge>Pilot market sample</Badge>}
+                        </>
+                    ) : (
+                        <span className="text-fg-muted text-sm">
+                            No profile has been built yet.
+                        </span>
+                    )}
+                </div>
                 <button
                     type="button"
-                    className={primary}
+                    className={s === null ? primary : secondary}
                     disabled={busy || building}
                     onClick={() => {
                         if (
@@ -952,38 +981,33 @@ export function ProfileSynthesis({
                           ? 'Build the profile'
                           : 'Build a new version'}
                 </button>
-                {s && (
-                    <span className="text-xs">
-                        Version {s.version} · {s.status}
-                        {s.stale && ' · evidence changed since (stale)'}
-                        {!s.stale &&
-                            s.outdated &&
-                            ' · evidence inventory out of date (refresh)'}
-                        {s.pilot && ' · pilot market sample'}
-                        {s.model_calls !== null &&
-                            ` · ${s.model_calls} model call(s), ${Math.round((s.duration_ms ?? 0) / 1000)}s`}
-                    </span>
-                )}
             </div>
+            <p className="text-fg-subtle max-w-prose text-xs leading-relaxed">
+                Built from your approved evidence and the market study. Nothing
+                is approved until you approve it, and the reference resume is
+                generated only from an approved profile.
+            </p>
             {state.error && (
-                <p role="alert" className="mt-2 text-xs text-red-700">
+                <Alert tone="bad" role="alert">
                     {state.error}
-                </p>
+                </Alert>
             )}
             <Errors errors={errors} />
             {s && (
                 <>
                     {s.notes.length > 0 && (
-                        <details className="mt-2 text-xs">
-                            <summary className="cursor-pointer">
-                                {s.notes.length} validation note(s) to read
-                            </summary>
-                            <ul className="mt-1 list-disc pl-5">
-                                {s.notes.map((n) => (
-                                    <li key={n}>{n}</li>
-                                ))}
-                            </ul>
-                        </details>
+                        <Alert tone="warn">
+                            <Disclosure
+                                quiet
+                                summary={`${s.notes.length} validation note(s) to read`}
+                            >
+                                <ul className="list-disc space-y-1 pl-4 text-xs">
+                                    {s.notes.map((n) => (
+                                        <li key={n}>{n}</li>
+                                    ))}
+                                </ul>
+                            </Disclosure>
+                        </Alert>
                     )}
                     <Profile p={s.profile} sid={s.id} editable={editable} />
                     <ApprovalBar s={s} slug={slug} />
@@ -995,7 +1019,7 @@ export function ProfileSynthesis({
                     sid={state.reference.synthesis_id}
                 />
             )}
-        </section>
+        </div>
     );
 }
 
@@ -1008,7 +1032,7 @@ function ApprovalBar({
     const { busy, send, errors } = useSend();
 
     return (
-        <div className="mt-5 rounded-md border border-neutral-300 p-3 dark:border-neutral-700">
+        <div className="rounded-card border-line bg-surface border p-5">
             {s.status === 'draft' ? (
                 <>
                     <p className="text-xs">

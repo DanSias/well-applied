@@ -58,7 +58,7 @@ export function Disclosure({
     quiet?: boolean;
 }) {
     return (
-        <details open={defaultOpen} className={cn('group', className)}>
+        <details open={defaultOpen} className={cn('group/disclosure', className)}>
             <summary
                 className={cn(
                     'flex cursor-pointer list-none items-center gap-1.5 rounded-control text-fg-muted select-none hover:text-fg [&::-webkit-details-marker]:hidden',
@@ -68,7 +68,7 @@ export function Disclosure({
                 <svg
                     aria-hidden="true"
                     viewBox="0 0 16 16"
-                    className="h-3.5 w-3.5 shrink-0 text-fg-subtle transition-transform group-open:rotate-90"
+                    className="h-3.5 w-3.5 shrink-0 text-fg-subtle transition-transform group-open/disclosure:rotate-90"
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="1.8"
