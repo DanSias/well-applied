@@ -663,6 +663,24 @@ it('presents reference skills in recognizable categories with professional label
         ->and(SkillPresentation::pack('Languages', ['TypeScript', 'SQL']))->toBe(['TypeScript · SQL']);
 });
 
+it('regroups skills for a tailored resume through a layout, without adding or renaming any skill', function () {
+    $names = ['TypeScript', 'React', 'Laravel', 'REST APIs', 'Jira', 'GitLab', 'Salesforce', 'OpenAI', 'BigQuery', 'PostgreSQL', 'AWS', 'Google Cloud (general)', 'Deterministic AI boundaries'];
+    $groups = SkillPresentation::groups('tailored');
+    $placed = collect($names)->mapWithKeys(fn ($n) => [$n => SkillPresentation::for($n, 'tailored')]);
+
+    expect($groups)->toBe(['Languages & Frameworks', 'Architecture & Integration', 'AI & Data', 'Cloud & Delivery'])
+        ->and($placed['React'])->toBe(['Languages & Frameworks', 'React'])
+        ->and($placed['Jira'])->toBe(['Architecture & Integration', 'Jira'])
+        ->and($placed['OpenAI'])->toBe(['AI & Data', 'LLM integration'])
+        ->and($placed['GitLab'])->toBe(['Cloud & Delivery', 'GitLab'])
+        ->and($placed['Deterministic AI boundaries'])->toBeNull()
+        // Every skill a layout places is one the shared map already allows, and lands in a group the layout declares.
+        ->and(collect((array) config('resume.skill_presentation.layouts.tailored.categories'))->keys()->every(fn ($n) => SkillPresentation::for($n) !== null))->toBeTrue()
+        ->and(collect((array) config('resume.skill_presentation.layouts.tailored.categories'))->values()->every(fn ($g) => in_array($g, $groups, true)))->toBeTrue()
+        // The reference grouping is unchanged.
+        ->and(SkillPresentation::for('Jira'))->toBe(['Tools & Workflow', 'Jira'])->and(SkillPresentation::groups())->toHaveCount(6);
+});
+
 it('keeps the original skills presentation for job-linked variants and uses the new one for reference resumes', function () {
     $s = synthesisScenario();
     $synthesis = synthesize($s);

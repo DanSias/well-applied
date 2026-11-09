@@ -398,7 +398,7 @@
 
         .skill-group-packed .skill-group-label {
             flex: none;
-            width: 1.45in;
+            width: var(--skill-label-width, 1.45in);
         }
 
         .skill-line {
@@ -572,7 +572,12 @@
         @endif
 
         @if (count($document->skills) > 0)
-        <section class="skills">
+        {{-- The label column is 1.45in, enough for the short reference labels. A grouping with longer labels widens it to
+             the longest one (in ch, so it follows the type) instead of wrapping a label onto a second line. --}}
+        @php
+            $widestLabel = collect($document->skills)->max(fn ($g) => mb_strlen($g->label) + 1);
+        @endphp
+        <section class="skills" @if ($widestLabel > 18) style="--skill-label-width: {{ $widestLabel + 1 }}ch" @endif>
             <h2>Technical Skills</h2>
             @foreach ($document->skills as $group)
                 @if ($group->lines !== [])

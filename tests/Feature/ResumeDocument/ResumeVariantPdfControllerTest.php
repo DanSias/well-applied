@@ -2,6 +2,7 @@
 
 use App\Models\ResumeVariant;
 use App\Support\ResumeDocument\GenerateResumeDocument;
+use App\Support\ResumeDocument\ResumePdfFilename;
 use Illuminate\Support\Facades\Http;
 use Smalot\PdfParser\Parser as PdfParser;
 use Tests\Support\ResumeVariantFixtures;
@@ -96,6 +97,28 @@ it('returns a Content-Disposition attachment with the deterministic filename', f
     $disposition = $response->headers->get('Content-Disposition');
     expect($disposition)->toContain('attachment')
         ->and($disposition)->toContain(str_replace(' ', '-', $candidate['profile']->name));
+});
+
+it('names a resume for the job it targets, and a reference resume for its profile', function () {
+    [$candidate, $variant] = pdfCandidateVariant();
+    $posting = $variant->jobMatch->jobAnalysis->jobPosting;
+    $posting->update(['company' => 'Lockheed Martin', 'title' => 'AI Portfolio Solution Architect (Sr Stf)']);
+
+    expect(ResumePdfFilename::build($variant->fresh()))->toBe('Jordan-Rivera-Resume-Lockheed-Martin-AI-Portfolio-Solution-Architect.pdf');
+
+    // Punctuation, accents and slashes collapse to single hyphens; a very long title is cut at a word boundary.
+    $posting->update(['company' => 'Société Générale, Inc.', 'title' => 'Staff Engineer / Platform & Data '.str_repeat('Infrastructure ', 12)]);
+    $name = ResumePdfFilename::build($variant->fresh());
+
+    expect($name)->toStartWith('Jordan-Rivera-Resume-Societe-Generale-Inc-Staff-Engineer-Platform-Data-')
+        ->and($name)->toMatch('/^[A-Za-z0-9-]+\.pdf$/')->and($name)->not->toContain('--')
+        ->and(strlen($name))->toBeLessThanOrEqual(strlen('Jordan-Rivera-Resume-') + 70 + 4);
+
+    // No job: the reference name, kept distinct.
+    $variant->job_match_id = null;
+    $variant->setRelation('jobMatch', null)->setRelation('jobAnalysis', null);
+
+    expect(ResumePdfFilename::build($variant))->toBe('Jordan-Rivera-Resume-Reference.pdf');
 });
 
 it('produces a structurally valid PDF containing the frozen ResumeVariant content', function () {

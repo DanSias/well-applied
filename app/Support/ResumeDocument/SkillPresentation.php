@@ -10,22 +10,35 @@ namespace App\Support\ResumeDocument;
 final class SkillPresentation
 {
     /**
+     * @param  string|null  $layout  A named regrouping from config (e.g. "tailored"); null is the reference grouping. A
+     *                               layout changes only the category: the label still comes from the shared map, and a
+     *                               skill the layout does not place is not shown.
      * @return array{0: string, 1: string}|null [category, display label]
      */
-    public static function for(string $canonicalName): ?array
+    public static function for(string $canonicalName, ?string $layout = null): ?array
     {
         // Not config()'s dot notation: names such as "Node.js" contain dots.
         $entry = ((array) config('resume.skill_presentation.skills'))[$canonicalName] ?? null;
 
-        return is_array($entry) ? [(string) $entry[0], (string) $entry[1]] : null;
+        if (! is_array($entry)) {
+            return null;
+        }
+
+        if ($layout === null) {
+            return [(string) $entry[0], (string) $entry[1]];
+        }
+
+        $category = ((array) config("resume.skill_presentation.layouts.{$layout}.categories"))[$canonicalName] ?? null;
+
+        return is_string($category) ? [$category, (string) $entry[1]] : null;
     }
 
     /**
      * @return array<int, string>
      */
-    public static function groups(): array
+    public static function groups(?string $layout = null): array
     {
-        return array_values((array) config('resume.skill_presentation.groups'));
+        return array_values((array) ($layout === null ? config('resume.skill_presentation.groups') : config("resume.skill_presentation.layouts.{$layout}.groups")));
     }
 
     /**

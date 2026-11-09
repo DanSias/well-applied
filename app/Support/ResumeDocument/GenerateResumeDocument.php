@@ -155,7 +155,8 @@ final class GenerateResumeDocument
         // A reference resume presents skills in recognizable categories with professional labels and fixed line breaks.
         // Variants generated for a job keep the original presentation, so their PDFs do not change.
         if ($variant->resume_profile_synthesis_id !== null) {
-            return $this->buildReferenceSkillGroups($selections);
+            // A resume written for a job uses the compact, architecture-oriented grouping; a reference resume keeps its own.
+            return $this->buildReferenceSkillGroups($selections, $variant->job_analysis_id !== null ? 'tailored' : null);
         }
 
         // The one deliberate, narrow exception to this class's own
@@ -199,14 +200,18 @@ final class GenerateResumeDocument
 
     /**
      * @param  Collection<int, ResumeVariantSkillSelection>  $selections
+     * @param  string|null  $layout  A named regrouping in config/resume.php; null is the reference grouping.
      * @return ResumeSkillGroup[]
      */
-    private function buildReferenceSkillGroups($selections): array
+    private function buildReferenceSkillGroups($selections, ?string $layout = null): array
     {
         $byGroup = [];
+        // A layout reads in its own declared order (languages before frameworks, and so on); the reference grouping keeps selection order.
+        $position = $layout === null ? [] : array_flip(array_keys((array) config("resume.skill_presentation.layouts.{$layout}.categories")));
+        $ordered = $layout === null ? $selections : $selections->sortBy(fn (ResumeVariantSkillSelection $s) => $position[$s->name] ?? PHP_INT_MAX)->values();
 
-        foreach ($selections as $selection) {
-            $entry = SkillPresentation::for($selection->name);
+        foreach ($ordered as $selection) {
+            $entry = SkillPresentation::for($selection->name, $layout);
 
             if ($entry !== null) {
                 $byGroup[$entry[0]][] = ResumeText::clean($entry[1]);
@@ -215,7 +220,7 @@ final class GenerateResumeDocument
 
         $groups = [];
 
-        foreach (SkillPresentation::groups() as $label) {
+        foreach (SkillPresentation::groups($layout) as $label) {
             if (! empty($byGroup[$label])) {
                 $skills = array_values(array_unique($byGroup[$label]));
                 $groups[] = new ResumeSkillGroup($label, $skills, SkillPresentation::pack($label, $skills));

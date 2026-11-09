@@ -73,6 +73,27 @@ return [
             'Jira' => ['Tools & Workflow', 'Jira'], 'GitLab' => ['Tools & Workflow', 'GitLab'],
             'Salesforce' => ['AI & Integrations', 'Salesforce'], 'API integration & design' => ['Backend', 'API design & integration'],
         ],
+        /*
+        | Alternative groupings, chosen per kind of resume rather than per job (see GenerateResumeDocument). A layout only
+        | regroups: the skill still has to be in 'skills' above (which supplies its display label) and still has to be
+        | selected from approved evidence, and a skill the layout does not place is not shown. Canonical skill categories
+        | are never touched. 'tailored' is the compact, architecture-oriented grouping used for resumes written for a job.
+        */
+        'layouts' => [
+            'tailored' => [
+                'groups' => ['Languages & Frameworks', 'Architecture & Integration', 'AI & Data', 'Cloud & Delivery'],
+                'categories' => [
+                    'TypeScript' => 'Languages & Frameworks', 'JavaScript' => 'Languages & Frameworks', 'PHP' => 'Languages & Frameworks', 'SQL' => 'Languages & Frameworks',
+                    'React' => 'Languages & Frameworks', 'Vue.js' => 'Languages & Frameworks', 'Next.js' => 'Languages & Frameworks', 'Tailwind CSS' => 'Languages & Frameworks',
+                    'Node.js' => 'Languages & Frameworks', 'Express.js' => 'Languages & Frameworks', 'Laravel' => 'Languages & Frameworks',
+                    'API integration & design' => 'Architecture & Integration', 'REST APIs' => 'Architecture & Integration',
+                    'Jira' => 'Architecture & Integration', 'Salesforce' => 'Architecture & Integration',
+                    'OpenAI' => 'AI & Data', 'Anthropic' => 'AI & Data', 'PostgreSQL' => 'AI & Data', 'MySQL' => 'AI & Data', 'SQLite' => 'AI & Data', 'BigQuery' => 'AI & Data',
+                    'AWS' => 'Cloud & Delivery', 'Google Cloud (general)' => 'Cloud & Delivery', 'Google Cloud Functions' => 'Cloud & Delivery', 'Microsoft Azure' => 'Cloud & Delivery',
+                    'Docker' => 'Cloud & Delivery', 'Git' => 'Cloud & Delivery', 'GitLab' => 'Cloud & Delivery',
+                ],
+            ],
+        ],
     ],
 
 ];
