@@ -340,7 +340,8 @@ it('does not alter the ACTIVE V1 search criteria', function () {
 
     expect($criteria->keywords)->toContain('software engineer')->toContain('backend')
         ->and($criteria->excludedKeywords)->toContain('intern')->toContain('junior')
-        ->and($criteria->excludedTitleKeywords)->toBe(['site reliability', 'sre', 'devops'])
+        // 'firmware' and 'compiler' were added deliberately (Eightfold false positives); profiles still change nothing.
+        ->and($criteria->excludedTitleKeywords)->toBe(['site reliability', 'sre', 'devops', 'firmware', 'compiler'])
         ->and($criteria->remotePreference)->toBe('remote_us')
         ->and($criteria->allowedLocations)->toBe(['United States', 'US', 'USA', 'Remote'])
         ->and($criteria->employmentType)->toBeNull();

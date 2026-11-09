@@ -47,6 +47,11 @@ return [
         */
         'excluded_title_keywords' => [
             'site reliability', 'sre', 'devops',
+            // Different disciplines, not product engineering: kept to words
+            // that never named a legitimate full-stack/backend role in a
+            // 238-title corpus. Deliberately NOT 'embedded' (embedded
+            // payments/finance) or 'gpu' (GPU developer-tools roles).
+            'firmware', 'compiler',
         ],
 
         // 'remote_us' or 'any' — see FilterDiscoveredCandidates.
@@ -183,6 +188,13 @@ return [
         'enabled' => (bool) env('EIGHTFOLD_DISCOVERY_ENABLED', true),
         'scheduled' => (bool) env('EIGHTFOLD_DISCOVERY_SCHEDULED', false),
 
+        // Sent as the search `location` when the profile wants remote_us. On
+        // verified tenants "Remote" makes the API itself return only remote
+        // roles, instead of spending result slots on on-site roles the
+        // prefilter would discard. A tenant may override it (null = no hint),
+        // e.g. one where it has not been verified.
+        'remote_location_hint' => 'Remote',
+
         'budget' => [
             // Minimum gap between requests to one tenant.
             'pause_ms' => 1500,
@@ -229,6 +241,7 @@ return [
                 'host' => 'apply.careers.microsoft.com',
                 'domain' => 'microsoft.com',
                 'enabled' => (bool) env('EIGHTFOLD_MICROSOFT_ENABLED', false),
+                'remote_location_hint' => null, // not verified on this tenant
                 // Observed 429s: if enabled, pace it more slowly.
                 'budget' => ['pause_ms' => 4000, 'max_search_requests' => 6, 'max_detail_requests' => 10],
             ],

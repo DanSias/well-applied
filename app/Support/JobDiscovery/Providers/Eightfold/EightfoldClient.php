@@ -32,14 +32,15 @@ final class EightfoldClient
      *
      * @throws EightfoldRequestException
      */
-    public function search(string $query, int $start): array
+    public function search(string $query, int $start, ?string $location = null): array
     {
-        $data = $this->get('/api/pcsx/search', [
+        $data = $this->get('/api/pcsx/search', array_filter([
             'domain' => $this->tenant->domain,
             'query' => $query,
             'start' => $start,
             'sort_by' => 'relevance',
-        ]);
+            'location' => $location,
+        ], fn ($v) => $v !== null));
 
         $positions = $data['positions'] ?? null;
         if (! is_array($positions) || ! array_is_list($positions)) {

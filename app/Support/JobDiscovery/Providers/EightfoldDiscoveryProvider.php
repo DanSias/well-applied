@@ -3,6 +3,7 @@
 namespace App\Support\JobDiscovery\Providers;
 
 use App\Support\JobDiscovery\DiscoveredJobCandidate;
+use App\Support\JobDiscovery\DiscoverySearchCriteria;
 use App\Support\JobDiscovery\LoadSearchProfiles;
 use App\Support\JobDiscovery\Providers\Eightfold\EightfoldClient;
 use App\Support\JobDiscovery\Providers\Eightfold\EightfoldPositionMapper;
@@ -41,6 +42,9 @@ final class EightfoldDiscoveryProvider implements DiscoveryProviderContract, Rep
     /** @var array<string, TenantRunReport> */
     private array $reports = [];
 
+    /** @var string[] */
+    private array $excludedTitleKeywords = [];
+
     public function __construct(private readonly EightfoldPositionMapper $mapper = new EightfoldPositionMapper) {}
 
     /**
@@ -64,6 +68,7 @@ final class EightfoldDiscoveryProvider implements DiscoveryProviderContract, Rep
         }
 
         $profile = $context->profile ?? LoadSearchProfiles::byId(self::DEFAULT_PROFILE);
+        $this->excludedTitleKeywords = DiscoverySearchCriteria::fromConfig()->excludedTitleKeywords;
         $perTenantCap = $context?->maxResults === null ? null : max(1, (int) ceil($context->maxResults / count($tenants)));
 
         $candidates = [];
@@ -131,31 +136,46 @@ final class EightfoldDiscoveryProvider implements DiscoveryProviderContract, Rep
     }
 
     /**
-     * Run the profile's include terms in order within the search budget.
+     * Run the profile's include terms within the search budget.
+     *
+     * Spelling variants that Eightfold treats identically ("full-stack" /
+     * "full stack") share one query, and the budget is spent breadth-first:
+     * first page of every distinct term, then later pages of terms that still
+     * have results. When the profile wants remote_us the tenant's remote
+     * location hint narrows the API's own results to remote roles.
      *
      * @return array<string, array<string, mixed>> Plausible rows keyed by position id.
      */
     private function search(EightfoldTenant $tenant, EightfoldClient $client, SearchProfile $profile, TenantRunReport $report): array
     {
         $budget = $tenant->budget;
+        $terms = $this->queryTerms($profile);
+        $hint = $profile->remotePreference === 'remote_us' ? $tenant->remoteLocationHint : null;
+        $report->locationHint = $hint;
+        $next = array_fill(0, count($terms), 0);
+        $open = array_fill(0, count($terms), true);
         $seen = [];
         $plausible = [];
 
-        foreach ($profile->includeTerms as $index => $term) {
-            if ($report->searchRequests >= $budget['max_search_requests']) {
-                $report->queriesSkippedByBudget = count($profile->includeTerms) - $index;
-                break;
-            }
-            $report->queriesRun++;
-
-            for ($page = 0; $page < $budget['max_pages_per_query']; $page++) {
+        for ($pass = 0; $pass < $budget['max_pages_per_query']; $pass++) {
+            foreach ($terms as $i => $term) {
+                if (! $open[$i]) {
+                    continue;
+                }
                 if ($report->searchRequests >= $budget['max_search_requests']) {
-                    break;
+                    break 2;
                 }
                 $report->searchRequests++;
-                $result = $client->search($term, $page * 10);
+                if ($pass === 0) {
+                    $report->queriesRun++;
+                }
+
+                $result = $client->search($term, $next[$i], $hint);
                 $rows = $result['positions'];
                 $report->searchRows += count($rows);
+                $next[$i] += 10;
+                $total = $result['count'];
+                $open[$i] = count($rows) >= 10 && ($total === null || $next[$i] < $total);
 
                 foreach ($rows as $row) {
                     $id = is_scalar($row['id'] ?? null) ? (string) $row['id'] : null;
@@ -170,7 +190,7 @@ final class EightfoldDiscoveryProvider implements DiscoveryProviderContract, Rep
                     $seen[$id] = true;
                     $report->uniquePositions++;
 
-                    $reason = $this->mapper->dropReason($row, $profile);
+                    $reason = $this->mapper->dropReason($row, $profile, $this->excludedTitleKeywords);
                     if ($reason !== null) {
                         $report->dropped[$reason] = ($report->dropped[$reason] ?? 0) + 1;
 
@@ -178,15 +198,31 @@ final class EightfoldDiscoveryProvider implements DiscoveryProviderContract, Rep
                     }
                     $plausible[$id] = $row;
                 }
-
-                $total = $result['count'];
-                if (count($rows) < 10 || ($total !== null && ($page + 1) * 10 >= $total)) {
-                    break;
-                }
             }
         }
 
+        $report->queriesSkippedByBudget = count($terms) - $report->queriesRun;
+
         return $plausible;
+    }
+
+    /**
+     * Distinct query strings: terms that differ only by hyphen/space/case
+     * return identical results, so only the first spelling is sent.
+     *
+     * @return list<string>
+     */
+    private function queryTerms(SearchProfile $profile): array
+    {
+        $terms = [];
+        foreach ($profile->includeTerms as $term) {
+            $key = trim((string) preg_replace('/[\s\-]+/u', ' ', mb_strtolower($term)));
+            if ($key !== '' && ! isset($terms[$key])) {
+                $terms[$key] = trim($term);
+            }
+        }
+
+        return array_values($terms);
     }
 
     /**

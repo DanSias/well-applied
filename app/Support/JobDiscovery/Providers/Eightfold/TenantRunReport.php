@@ -43,6 +43,8 @@ final class TenantRunReport
 
     public int $detailsSkippedByBudget = 0;
 
+    public ?string $locationHint = null;
+
     public int $queriesRun = 0;
 
     public int $queriesSkippedByBudget = 0;
@@ -87,6 +89,7 @@ final class TenantRunReport
             'failure_message' => $this->failureMessage,
             'requests' => $this->requests,
             'search_requests' => $this->searchRequests,
+            'location_hint' => $this->locationHint,
             'queries_run' => $this->queriesRun,
             'queries_skipped_by_budget' => $this->queriesSkippedByBudget,
             'search_rows' => $this->searchRows,

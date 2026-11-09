@@ -875,6 +875,132 @@ it('refuses a tenant with a missing domain', function () {
 });
 
 // ---------------------------------------------------------------------------
+// Search quality: query allocation, remote location hint, title exclusions
+// ---------------------------------------------------------------------------
+
+/** The (query, start, location) of every search request, in order. */
+function efSearchCalls(string $host): array
+{
+    return array_map(fn (Request $r) => [$r->data()['query'], $r->data()['start'], $r->data()['location'] ?? null], efRequests($host, '/search'));
+}
+
+/** A tenant whose every search page is full (10 rows), so pagination always continues. */
+function efEndlessTenant(): Closure
+{
+    $template = fx('nvidia_search')['data']['positions'][2];
+
+    return function (Request $r, array $q, string $path) use ($template) {
+        return str_ends_with($path, '/search')
+            ? efSearch(array_map(fn ($i) => efRow($template, 9000 + (int) $q['start'] + $i, ['name' => 'Chef '.$q['query'].' '.$i]), range(0, 9)), 5000)
+            : 404;
+    };
+}
+
+it('sends one query for spelling variants Eightfold treats identically', function () {
+    efOnly('nvidia');
+    efFake([NVIDIA_HOST => efEndlessTenant()]);
+    config(['job_discovery.eightfold.tenants.nvidia.budget' => ['max_search_requests' => 20, 'max_pages_per_query' => 1]]);
+
+    $provider = new EightfoldDiscoveryProvider;
+    $provider->retrieve(efContext(['includeTerms' => ['full stack', 'full-stack', 'Full  Stack', 'back end', 'back-end', 'backend', 'fullstack']]));
+
+    expect(array_column(efSearchCalls(NVIDIA_HOST), 0))->toBe(['full stack', 'back end', 'backend', 'fullstack'])
+        ->and($provider->diagnostics()['nvidia']['queries_run'])->toBe(4)
+        ->and($provider->diagnostics()['nvidia']['queries_skipped_by_budget'])->toBe(0);
+});
+
+it('spends the search budget breadth-first: page one of every term before any second page', function () {
+    efOnly('nvidia');
+    efFake([NVIDIA_HOST => efEndlessTenant()]);
+    config(['job_discovery.eightfold.tenants.nvidia.budget' => ['max_search_requests' => 7, 'max_pages_per_query' => 2]]);
+
+    $provider = new EightfoldDiscoveryProvider;
+    $provider->retrieve(efContext(['includeTerms' => ['alpha engineer', 'beta engineer', 'gamma engineer']]));
+
+    expect(array_map(fn ($c) => [$c[0], $c[1]], efSearchCalls(NVIDIA_HOST)))->toBe([
+        ['alpha engineer', 0], ['beta engineer', 0], ['gamma engineer', 0],
+        ['alpha engineer', 10], ['beta engineer', 10], ['gamma engineer', 10],
+    ]);
+});
+
+it('reaches every distinct term when the budget is smaller than the term list', function () {
+    efOnly('nvidia');
+    efFake([NVIDIA_HOST => efEndlessTenant()]);
+    config(['job_discovery.eightfold.tenants.nvidia.budget' => ['max_search_requests' => 3, 'max_pages_per_query' => 2]]);
+
+    $provider = new EightfoldDiscoveryProvider;
+    $provider->retrieve(efContext(['includeTerms' => ['a engineer', 'b engineer', 'c engineer', 'd engineer', 'e engineer']]));
+
+    // Old behaviour: terms a and b only (two pages each, then stop). Now: a, b, c — one page each.
+    expect(array_column(efSearchCalls(NVIDIA_HOST), 0))->toBe(['a engineer', 'b engineer', 'c engineer'])
+        ->and($provider->diagnostics()['nvidia']['queries_skipped_by_budget'])->toBe(2);
+});
+
+it('asks the API for remote roles only when the profile wants remote_us', function () {
+    efOnly('lockheed');
+    efFake([LOCKHEED_HOST => efTenant([])]);
+    $provider = new EightfoldDiscoveryProvider;
+
+    $provider->retrieve(efContext(['remotePreference' => 'remote_us']));
+    $provider->retrieve(efContext(['remotePreference' => 'any']));
+
+    expect(array_column(efSearchCalls(LOCKHEED_HOST), 2))->toBe(['Remote', null]);
+});
+
+it('lets a tenant opt out of the location hint, and ships Microsoft without one', function () {
+    efOnly('lockheed');
+    efFake([LOCKHEED_HOST => efTenant([])]);
+    config(['job_discovery.eightfold.tenants.lockheed.remote_location_hint' => null]);
+
+    (new EightfoldDiscoveryProvider)->retrieve(efContext(['remotePreference' => 'remote_us']));
+    expect(array_column(efSearchCalls(LOCKHEED_HOST), 2))->toBe([null]);
+
+    $microsoft = collect(EightfoldTenant::configured())->firstWhere('slug', 'microsoft');
+    $nvidia = collect(EightfoldTenant::configured())->firstWhere('slug', 'nvidia');
+    expect($microsoft->remoteLocationHint)->toBeNull()
+        ->and($nvidia->remoteLocationHint)->toBe('Remote');
+});
+
+it('rejects a blank location hint in configuration', function () {
+    config(['job_discovery.eightfold.tenants.lockheed.remote_location_hint' => '  ']);
+
+    expect(fn () => EightfoldTenant::configured())->toThrow(DiscoveryProviderException::class, 'remote_location_hint');
+});
+
+it('applies the discovery criteria title-only role exclusions before fetching details', function (string $title, bool $kept) {
+    efOnly('nvidia');
+    $row = efRow(fx('nvidia_search')['data']['positions'][2], 31, ['name' => $title]);
+    efFake([NVIDIA_HOST => efTenant([$row], [31 => efDetail(fx('nvidia_detail_us'), 31, ['name' => $title])])]);
+
+    $provider = new EightfoldDiscoveryProvider;
+    $candidates = $provider->retrieve(efContext(['includeTerms' => ['software engineer', 'backend']]));
+
+    expect($candidates)->toHaveCount($kept ? 1 : 0)
+        ->and(efRequests(NVIDIA_HOST, '/position_details'))->toHaveCount($kept ? 1 : 0);
+    if (! $kept) {
+        expect($provider->diagnostics()['nvidia']['dropped_before_details'])->toBe(['excluded_title_role' => 1]);
+    }
+})->with([
+    // Clear discipline mismatches seen in the first live run:
+    'compiler role matched only through "backend"' => ['Senior Compiler Engineer - Backend GPU', false],
+    'firmware role' => ['Principal Software Engineer, GPU Firmware and GPU System Software', false],
+    // Existing SRE/DevOps identity rules now apply before the description fetch too:
+    'devops (existing rule)' => ['Senior Software Engineer, DevOps', false],
+    // Legitimate roles that incidental keywords must NOT remove:
+    'GPU developer tools' => ['System Software Engineer, GPU Development Tools', true],
+    'embedded payments' => ['Software Engineer, Embedded Payments', true],
+    'backend platform' => ['Senior Backend Software Engineer', true],
+    'compilers only as a substring' => ['Software Engineer, Decompilers Cloud', true],
+]);
+
+it('configures only the narrow discipline words, not incidental ones', function () {
+    $excluded = config('job_discovery.search.excluded_title_keywords');
+
+    expect($excluded)->toContain('site reliability', 'sre', 'devops', 'firmware', 'compiler')
+        ->and($excluded)->not->toContain('embedded')->not->toContain('gpu')->not->toContain('hardware');
+});
+
+// ---------------------------------------------------------------------------
 // Integration with the existing discovery pipeline
 // ---------------------------------------------------------------------------
 

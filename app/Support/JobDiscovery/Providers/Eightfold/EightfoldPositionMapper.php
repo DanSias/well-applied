@@ -36,8 +36,9 @@ final class EightfoldPositionMapper
      * Never rejects on missing information.
      *
      * @param  array<string, mixed>  $row
+     * @param  string[]  $excludedTitleKeywords  The discovery criteria's title-only role exclusions.
      */
-    public function dropReason(array $row, SearchProfile $profile): ?string
+    public function dropReason(array $row, SearchProfile $profile, array $excludedTitleKeywords = []): ?string
     {
         $title = is_string($row['name'] ?? null) ? $row['name'] : '';
 
@@ -51,6 +52,10 @@ final class EightfoldPositionMapper
 
         if ($this->matchesAny($title, $profile->excludeTerms)) {
             return 'excluded_term';
+        }
+
+        if ($this->matchesAny($title, $excludedTitleKeywords)) {
+            return 'excluded_title_role';
         }
 
         $geo = $this->geography($row);

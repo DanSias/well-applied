@@ -25,8 +25,15 @@ after a handful of requests); enable it with `EIGHTFOLD_MICROSOFT_ENABLED=true`.
 ## Behaviour
 
 - Queries are the search profile's include terms (default profile: `software_engineering`), within the budget.
-- Rows are dropped before any description fetch when the title does not match, an exclude term matches,
-  every listed location is outside the US, or (for `remote_us`) the position is on-site/hybrid.
+  Spellings that differ only by hyphen/space/case ("full stack" / "full-stack") return identical results, so
+  only the first is sent, and the budget is spent breadth-first: page one of every distinct term, then later pages.
+- For `remote_us` profiles the search also sends `location=Remote` (config `remote_location_hint`, overridable
+  or disabled per tenant). On Lockheed and NVIDIA this makes the API return only remote roles (100% of sampled
+  rows, vs. roughly a third without it), so result slots are not spent on on-site roles that would be discarded.
+  Starbucks returns nothing with it, because it has no remote software roles. Unverified tenants (Microsoft) have no hint.
+- Rows are dropped before any description fetch when the title does not match, an exclude term matches, a
+  title-only role exclusion from the discovery criteria matches (`search.excluded_title_keywords`: SRE/DevOps,
+  firmware, compiler), every listed location is outside the US, or (for `remote_us`) the position is on-site/hybrid.
 - Source IDs are `{tenant}:{positionId}`, so the same number at two employers never collides.
 - `workLocationOption: remote_local` is **not** "remote anywhere": a position is mapped to Remote only when
   a US location is listed. Listed states and whether Florida is among them are kept in metadata; no region

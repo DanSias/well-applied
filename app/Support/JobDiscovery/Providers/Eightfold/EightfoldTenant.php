@@ -23,6 +23,7 @@ final readonly class EightfoldTenant
         public bool $enabled,
         public array $budget,
         public ?array $salary = null,
+        public ?string $remoteLocationHint = null,
     ) {}
 
     /**
@@ -121,6 +122,13 @@ final readonly class EightfoldTenant
             $salary = ['field' => $s['field'], 'currency' => $s['currency'], 'interval' => $s['interval']];
         }
 
+        $hint = array_key_exists('remote_location_hint', $entry)
+            ? $entry['remote_location_hint']
+            : config('job_discovery.eightfold.remote_location_hint');
+        if ($hint !== null && (! is_string($hint) || trim($hint) === '')) {
+            throw new DiscoveryProviderException("Eightfold tenant \"{$slug}\" has an invalid remote_location_hint.");
+        }
+
         return new self(
             slug: $slug,
             company: trim($entry['company']),
@@ -129,6 +137,7 @@ final readonly class EightfoldTenant
             enabled: ($entry['enabled'] ?? false) === true,
             budget: $budget,
             salary: $salary,
+            remoteLocationHint: $hint === null ? null : trim($hint),
         );
     }
 }
