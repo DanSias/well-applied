@@ -83,6 +83,14 @@ final class PresentTailoredResume
         $valid = $synthesis === null
             ? $this->pipeline->inspect($posting, $regenerate ? $runId : null)
             : $this->pipeline->inspectProfile($posting, $synthesis, $regenerate ? $runId : null);
+
+        // The PDF cache is keyed by the document's content and the print template, so a template or skills-layout change
+        // leaves a finished run's PDF uncached without anything having gone wrong. A render this run already validated
+        // stays done: the PDF is rebuilt on demand when it is opened, and showing the run as unfinished would leave it
+        // "Preparing job" forever, since nothing is queued to finish it.
+        $rendered = $attempts->where('generation_type', GenerationType::ResumePdf)->last()?->status === GenerationStatus::Succeeded;
+        $valid['pdf_ready'] = $valid['pdf_ready'] || ($valid['variant'] !== null && $rendered);
+
         // A profile-assisted run has no candidate-match stage: the approved profile and the stored job analysis replace it.
         $definitions = $synthesis === null ? self::STAGES : array_diff_key(self::STAGES, ['match' => true]);
 

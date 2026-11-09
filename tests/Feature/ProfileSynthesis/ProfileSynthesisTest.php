@@ -1384,6 +1384,32 @@ it('serves the workspace, suggestions and saving over HTTP, shows the revision o
     $this->post(route('jobs.profile-resumes.revisions.store', [$other, $variant]), $draft)->assertNotFound();
 });
 
+it('keeps a finished run ready, with the current resume, when its PDF is no longer cached, but not when no render ever finished', function () {
+    [$s, $synthesis, $variant] = writtenJobResume();
+    $posting = $s['posting'];
+    $runId = (string) Str::uuid();
+    $attempt = fn (GenerationType $type, int $subject, string $subjectType, GenerationStatus $status) => GenerationAttempt::factory()->create([
+        'subject_type' => $subjectType, 'subject_id' => $subject, 'generation_type' => $type, 'status' => $status,
+        'pipeline_run_id' => $runId, 'chain' => true, 'resume_profile_synthesis_id' => $synthesis->id,
+    ]);
+    $attempt(GenerationType::ResumeVariant, $s['analysis']->id, 'job_analysis', GenerationStatus::Succeeded);
+    $render = $attempt(GenerationType::ResumePdf, $variant->id, 'resume_variant', GenerationStatus::Succeeded);
+    $revision = app(ReviseResumeVariant::class)->revise($posting, $variant, [...unchangedDraft($variant), 'summary' => 'Full-Stack Developer who owns applications end to end.']);
+
+    // Nothing is cached for the generated variant (as after a template change), yet its render was validated.
+    Storage::disk('local')->deleteDirectory('resume-pdfs');
+    $status = app(PresentTailoredResume::class)->present($posting->fresh());
+
+    expect($status['state'])->toBe('ready')->and($status['label'])->toBe('Ready for review')->and($status['current_stage'])->toBeNull()
+        ->and($status['resume_variant_id'])->toBe($revision->id)->and(collect($status['stages'])->pluck('status')->unique()->all())->not->toContain('pending');
+
+    // A render that never finished is still unfinished: this does not paper over a missing PDF.
+    $render->update(['status' => GenerationStatus::Failed]);
+    Storage::disk('local')->deleteDirectory('resume-pdfs');
+
+    expect(app(PresentTailoredResume::class)->present($posting->fresh())['state'])->toBe('failed');
+});
+
 it('shows the revision, not the last generation, as the job\'s resume, and does not let a revision pass as a generation result', function () {
     [$s, $synthesis, $variant] = writtenJobResume();
     $draft = unchangedDraft($variant);
