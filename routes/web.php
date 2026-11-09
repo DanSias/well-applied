@@ -8,6 +8,7 @@ use App\Http\Controllers\ClarificationController;
 use App\Http\Controllers\EvidenceConsolidationController;
 use App\Http\Controllers\EvidenceExpansionController;
 use App\Http\Controllers\GenerationAttemptController;
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\JobAnalysisController;
 use App\Http\Controllers\JobBatchController;
 use App\Http\Controllers\JobMatchController;
@@ -23,7 +24,8 @@ use App\Http\Controllers\TailoredResumeController;
 use App\Http\Middleware\AllowLongRunningGeneration;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', [CareerDataController::class, 'index'])->name('career-data.index');
+Route::get('/', [HomeController::class, 'index'])->name('home');
+Route::get('/career-data', [CareerDataController::class, 'index'])->name('career-data.index');
 Route::get('/career-data/facts/{careerFact}', [CareerDataController::class, 'showFact'])->name('career-data.facts.show');
 
 Route::get('/jobs', [JobPostingController::class, 'index'])->name('jobs.index');
