@@ -26,4 +26,5 @@ enum JobDiscoverySource: string
     case Himalayas = 'himalayas';
     case Adzuna = 'adzuna';
     case Jobicy = 'jobicy';
+    case Eightfold = 'eightfold';
 }

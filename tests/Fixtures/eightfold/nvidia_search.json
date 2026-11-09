@@ -1,0 +1,249 @@
+{
+ "status": 200,
+ "error": {
+  "message": "",
+  "body": ""
+ },
+ "data": {
+  "positions": [
+   {
+    "id": 893397661414,
+    "displayJobId": "JR2025441",
+    "name": "Senior System Software Engineer, Software Defined Networking",
+    "locations": [
+     "India, Bengaluru",
+     "Remote - India"
+    ],
+    "standardizedLocations": [
+     "Bengaluru, KA, IN",
+     "IN"
+    ],
+    "postedTs": 1789171200,
+    "solrScore": null,
+    "stars": 0,
+    "department": "Engineer, Sys SW",
+    "creationTs": 1788912000,
+    "isHot": 0,
+    "workLocationOption": "remote_local",
+    "locationFlexibility": null,
+    "atsJobId": "JR2025441",
+    "positionUrl": "/careers/job/893397661414"
+   },
+   {
+    "id": 893397676085,
+    "displayJobId": "JR2025345",
+    "name": "Senior System Software Engineer, Software-Defined Networking",
+    "locations": [
+     "US, CA, Remote",
+     "US, TX, Remote",
+     "US, NC, Remote",
+     "US, CO, Remote",
+     "US, WA, Remote"
+    ],
+    "standardizedLocations": [
+     "CA,US",
+     "TX,US",
+     "NC,US",
+     "US",
+     "WA,US"
+    ],
+    "postedTs": 1793318400,
+    "solrScore": null,
+    "stars": 0,
+    "department": "Engineer, Sys SW",
+    "creationTs": 1788912000,
+    "isHot": 0,
+    "workLocationOption": "remote_local",
+    "locationFlexibility": null,
+    "atsJobId": "JR2025345",
+    "positionUrl": "/careers/job/893397676085"
+   },
+   {
+    "id": 893397023915,
+    "displayJobId": "JR2023005",
+    "name": "Senior System Software Engineer, Software Defined Networking",
+    "locations": [
+     "US, CA, Santa Clara",
+     "US, CA, Remote"
+    ],
+    "standardizedLocations": [
+     "Santa Clara, CA, US",
+     "CA,US"
+    ],
+    "postedTs": 1793318400,
+    "solrScore": null,
+    "stars": 0,
+    "department": "Engineer, Sys SW",
+    "creationTs": 1786320000,
+    "isHot": 0,
+    "workLocationOption": "remote_local",
+    "locationFlexibility": null,
+    "atsJobId": "JR2023005",
+    "positionUrl": "/careers/job/893397023915"
+   },
+   {
+    "id": 893397104917,
+    "displayJobId": "JR2023002",
+    "name": "Senior System Software Engineer, Software Defined Networking",
+    "locations": [
+     "Taiwan, Taipei"
+    ],
+    "standardizedLocations": [
+     "Taipei City,TW"
+    ],
+    "postedTs": 1787097600,
+    "solrScore": null,
+    "stars": 0,
+    "department": "Engineer, Sys SW",
+    "creationTs": 1786320000,
+    "isHot": 0,
+    "workLocationOption": "onsite",
+    "locationFlexibility": null,
+    "atsJobId": "JR2023002",
+    "positionUrl": "/careers/job/893397104917"
+   },
+   {
+    "id": 893398396886,
+    "displayJobId": "JR2028128",
+    "name": "Senior System Software Engineer - Embedded Software",
+    "locations": [
+     "Sweden, Gothenburg"
+    ],
+    "standardizedLocations": [
+     "Gothenburg, Västra Götaland County, SE"
+    ],
+    "postedTs": 1793404800,
+    "solrScore": null,
+    "stars": 0,
+    "department": "Engineer, Sys SW",
+    "creationTs": 1792022400,
+    "isHot": 0,
+    "workLocationOption": "onsite",
+    "locationFlexibility": null,
+    "atsJobId": "JR2028128",
+    "positionUrl": "/careers/job/893398396886"
+   },
+   {
+    "id": 893395979992,
+    "displayJobId": "JR2020319",
+    "name": "Principal Software Engineer, GPU Firmware and GPU System Software — CSP Engagements",
+    "locations": [
+     "US, CA, Santa Clara",
+     "US, TX, Austin",
+     "US, CA, Remote",
+     "US, OR, Remote"
+    ],
+    "standardizedLocations": [
+     "Santa Clara, CA, US",
+     "Austin, TX, US",
+     "CA,US",
+     "Remote, OR, US"
+    ],
+    "postedTs": 1794096000,
+    "solrScore": null,
+    "stars": 0,
+    "department": "Engineer, Sys SW",
+    "creationTs": 1782345600,
+    "isHot": 0,
+    "workLocationOption": "remote_local",
+    "locationFlexibility": null,
+    "atsJobId": "JR2020319",
+    "positionUrl": "/careers/job/893395979992"
+   },
+   {
+    "id": 893395979994,
+    "displayJobId": "JR2020316",
+    "name": "Principal Software Engineer, Rack-Scale System Software — CSP Engagements",
+    "locations": [
+     "US, CA, Santa Clara",
+     "US, TX, Austin",
+     "US, CA, Remote",
+     "US, OR, Remote"
+    ],
+    "standardizedLocations": [
+     "Santa Clara, CA, US",
+     "Austin, TX, US",
+     "CA,US",
+     "Remote, OR, US"
+    ],
+    "postedTs": 1793318400,
+    "solrScore": null,
+    "stars": 0,
+    "department": "Engineer, Sys SW",
+    "creationTs": 1782345600,
+    "isHot": 0,
+    "workLocationOption": "remote_local",
+    "locationFlexibility": null,
+    "atsJobId": "JR2020316",
+    "positionUrl": "/careers/job/893395979994"
+   },
+   {
+    "id": 893396344294,
+    "displayJobId": "JR2020271",
+    "name": "Senior Systems Software Engineer – GPU Software",
+    "locations": [
+     "US, CA, Santa Clara"
+    ],
+    "standardizedLocations": [
+     "Santa Clara, CA, US"
+    ],
+    "postedTs": 1793318400,
+    "solrScore": null,
+    "stars": 0,
+    "department": "Engineer, Sys SW",
+    "creationTs": 1782259200,
+    "isHot": 0,
+    "workLocationOption": "onsite",
+    "locationFlexibility": null,
+    "atsJobId": "JR2020271",
+    "positionUrl": "/careers/job/893396344294"
+   },
+   {
+    "id": 893398080225,
+    "displayJobId": "JR2025852",
+    "name": "Senior System Software Engineer, Tegra Security Software",
+    "locations": [
+     "UK, Bristol",
+     "UK, Cambridge"
+    ],
+    "standardizedLocations": [
+     "Bristol, England, GB",
+     "Cambridge, England, GB"
+    ],
+    "postedTs": 1791504000,
+    "solrScore": null,
+    "stars": 0,
+    "department": "Engineer, Sys SW",
+    "creationTs": 1789430400,
+    "isHot": 0,
+    "workLocationOption": "onsite",
+    "locationFlexibility": null,
+    "atsJobId": "JR2025852",
+    "positionUrl": "/careers/job/893398080225"
+   },
+   {
+    "id": 893397112878,
+    "displayJobId": "JR2023408",
+    "name": "Senior Linux Software Engineer - Chip System Software",
+    "locations": [
+     "US, CA, Santa Clara"
+    ],
+    "standardizedLocations": [
+     "Santa Clara, CA, US"
+    ],
+    "postedTs": 1793318400,
+    "solrScore": null,
+    "stars": 0,
+    "department": "Engineer, Sys SW",
+    "creationTs": 1786579200,
+    "isHot": 0,
+    "workLocationOption": "onsite",
+    "locationFlexibility": null,
+    "atsJobId": "JR2023408",
+    "positionUrl": "/careers/job/893397112878"
+   }
+  ],
+  "count": 2046,
+  "sortBy": "relevance"
+ }
+}

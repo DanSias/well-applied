@@ -1,0 +1,61 @@
+{
+ "status": 200,
+ "error": {
+  "message": "",
+  "body": ""
+ },
+ "data": {
+  "id": 996476572198,
+  "displayJobId": "7593",
+  "name": "Senior Software Engineer",
+  "locations": [
+   "Gloucester, GBR"
+  ],
+  "standardizedLocations": [
+   "Gloucester, England, GB"
+  ],
+  "postedTs": 1788357680,
+  "stars": 0,
+  "department": "RMS UK Svcs",
+  "creationTs": 1787755888,
+  "jobDescription": "<div><div style=\"padding: 10px 0px;border: 1px solid transparent;\"><div style=\"font-size:16px;word-wrap: break-word;\"><h2 style=\"font-size: 1em; margin: 0px\">About the role</h2>\r</div><div><p>We’re growing our Gloucester team and have several opportunities for <strong>Senior Software Engineers</strong> to work across our <strong>Defence, Cyber and Intelligence</strong> programmes.</p><p> </p><p>You’ll help create and improve secure software systems and applications that safeguard digital infrastructure across the UK. You may already specialise in a particular area, or you may enjoy working across several parts of software development - either is welcome.</p><p> </p><p>This is a senior role, so we’re looking for strong engineering practice, sound technical judgement and experience taking ownership of complex work. We don’t expect you to arrive knowing every technology we use; we welcome people with a passion for learning and continuous improvement.</p><p> </p><p><strong>The role</strong></p><p> </p><p>You’ll work alongside colleagues and our customers to understand complex needs and requirements, turning them into well-engineered technical solutions.</p><p> </p><p>Depending on your strengths and interests, you could specialise in one area or contribute across several parts of the development lifecycle. Your work may include:</p><p> </p><ul><li>Designing, building, testing, debugging and documenting software across its lifecycle.</li><li>Investigating problems and improving the reliability, security and maintainability of our systems.</li><li>Improving how software is built and delivered through infrastructure as code, CI/CD and test automation.</li><li>Contributing your experience to technical decisions, reviews and collaborative problem-solving.</li><li>Mentoring junior or new staff on project.</li></ul><p> </p><p><strong>Learning and development</strong></p><p>You’ll have access to internal training and development, education-assistance programmes and reimbursement for relevant professional memberships. We’ll help you build familiarity with our projects and technologies while giving you opportunities to deepen your existing strengths.</p><p> </p><p><strong>What we offer</strong></p><p>Flexible working, including the option to work a four-day week with Fridays off, depending on business requirements.</p><p> </p><p><strong>Security clearance</strong></p><p>This role requires you to be able to obtain and maintain eDV security clearance.</p><p>You don’t need to hold eDV clearance when you apply. If you don’t currently have it, we’ll support you through the application process.</p></div></div><div style=\"padding: 10px 0px;border: 1px solid transparent;\"><div style=\"font-size:16px;word-wrap: break-word;\"><h2 style=\"font-size: 1em; margin: 0px\">Required skills, qualifications and experience</h2>\r</div><div><ul><li>Proven experience delivering software in a professional engineering environment.</li><li>Confidence developing software in at least one modern language, such as Java, Python, C++, Go, Rust, JavaScript or TypeScript.</li><li>Practical experience with Linux, Git and automated unit testing.</li><li>The ability to work through technical trade-offs and explain your choices along the way to a mix of stakeholders.</li><li> A collaborative approach and a dedication to continuous learning and team improvement.</li><li>We want to hear about examples of how you’ve delivered complex software, exercised technical judgement and taken responsibility for the quality of your work.</li></ul></div></div><div style=\"padding: 10px 0px;border: 1px solid transparent;\"><div style=\"font-size:16px;word-wrap: break-word;\"><h2 style=\"font-size: 1em; margin: 0px\">Desired skills</h2>\r</div><div><ul><li>Cloud platforms, particularly AWS.</li><li>Automated GitLab delivery pipelines and infrastructure as code.</li><li>Microservices, serverless architectures and cloud migration.</li><li>Relational and NoSQL databases, data integration and search technologies.</li><li>Web and application frameworks such as React, Express and Next.js</li><li>Tools including Gitlab, NiFi, Elasticsearch, Kibana, Jira and Confluence</li><li>AI coding assistants, agentic coding and ML tooling</li></ul><p> </p><p>Experience in some of these areas is advantageous, but this is not a checklist, and we don’t expect one person to know them all. We’ll support you in learning new project-specific technologies, including opportunities to explore practical uses of AI within software development.</p><p> </p><p>Professional certifications are welcome - we’d love to know what qualifications you can bring to the team - but they aren’t essential.</p></div></div></div>",
+  "location": "Gloucester, GBR",
+  "isHot": 0,
+  "workLocationOption": "onsite",
+  "locationFlexibility": "not_flexible",
+  "atsJobId": "7593",
+  "positionUrl": "/careers/job/996476572198",
+  "publicUrl": "https://lockheedmartin.eightfold.ai/careers/job/996476572198",
+  "efcustomTextFinalclearancefortherole": [
+   "eDV (Enhanced Developed Vetting)"
+  ],
+  "efcustomTextCustshift": [
+   "1"
+  ],
+  "efcustomTextTypeofjob": null,
+  "efcustomTextCustrelocation": [],
+  "efcustomTextLevelofexperience": [
+   "Experienced Professional"
+  ],
+  "efcustomTextCustclearancepriortostart": [
+   "eDV (Enhanced Developed Vetting)"
+  ],
+  "efcustomTextCustteleworklocation": [
+   "Employee will work Onsite Full Time"
+  ],
+  "efcustomTextCareerarea": [
+   "Enterprise Engineering"
+  ],
+  "efcustomTextFtptcasual": [
+   "FullTime"
+  ],
+  "efcustomTextCustombusinessObj": [
+   "Rotary and Mission Systems"
+  ],
+  "efcustomTextSkilldomain": [],
+  "efcustomTextCustpayrange": [],
+  "efcustomTextCustpreferredsalaryV2": [
+   "£58,000 - £71,500"
+  ]
+ }
+}

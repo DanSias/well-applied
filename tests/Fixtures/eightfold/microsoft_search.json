@@ -1,0 +1,76 @@
+{
+ "status": 200,
+ "error": {
+  "message": "",
+  "body": ""
+ },
+ "data": {
+  "positions": [
+   {
+    "id": 1970393557053368,
+    "displayJobId": "200065330",
+    "name": "Principal Software Engineer(s) + Senior Software Engineer(s)",
+    "locations": [
+     "United States, Washington, Redmond"
+    ],
+    "standardizedLocations": [
+     "Redmond, WA, US"
+    ],
+    "postedTs": 1793840806,
+    "solrScore": null,
+    "stars": 0,
+    "department": "Software Engineering",
+    "creationTs": 1793724894,
+    "isHot": 0,
+    "workLocationOption": "onsite",
+    "locationFlexibility": null,
+    "atsJobId": "200065330",
+    "positionUrl": "/careers/job/1970393557053368"
+   },
+   {
+    "id": 1970393556992027,
+    "displayJobId": "200054590",
+    "name": "Software Engineer II/Sr. Software Engineer",
+    "locations": [
+     "United States, Washington, Redmond"
+    ],
+    "standardizedLocations": [
+     "Redmond, WA, US"
+    ],
+    "postedTs": 1793651117,
+    "solrScore": null,
+    "stars": 0,
+    "department": "Software Engineering",
+    "creationTs": 1788986378,
+    "isHot": 0,
+    "workLocationOption": "onsite",
+    "locationFlexibility": null,
+    "atsJobId": "200054590",
+    "positionUrl": "/careers/job/1970393556992027"
+   },
+   {
+    "id": 1970393557022605,
+    "displayJobId": "200059418",
+    "name": "Software Engineer/Sr. Software Engineer",
+    "locations": [
+     "United States, Washington, Redmond"
+    ],
+    "standardizedLocations": [
+     "Redmond, WA, US"
+    ],
+    "postedTs": 1790961532,
+    "solrScore": null,
+    "stars": 0,
+    "department": "Software Engineering",
+    "creationTs": 1790891201,
+    "isHot": 0,
+    "workLocationOption": "onsite",
+    "locationFlexibility": null,
+    "atsJobId": "200059418",
+    "positionUrl": "/careers/job/1970393557022605"
+   }
+  ],
+  "count": 742,
+  "sortBy": "relevance"
+ }
+}

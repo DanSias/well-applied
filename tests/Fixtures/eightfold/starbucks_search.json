@@ -1,0 +1,227 @@
+{
+ "status": 200,
+ "error": {
+  "message": "",
+  "body": ""
+ },
+ "data": {
+  "positions": [
+   {
+    "id": 481078371802,
+    "displayJobId": "260034647",
+    "name": "software engineer sr - ST; Seattle, WA",
+    "locations": [
+     "Seattle, Washington, United States",
+     "United States",
+     "Nashville, Tennessee, United States"
+    ],
+    "standardizedLocations": [
+     "Seattle, WA, US",
+     "US",
+     "Nashville, TN, US"
+    ],
+    "postedTs": 1793124613,
+    "solrScore": null,
+    "stars": 0,
+    "department": null,
+    "creationTs": 1779418663,
+    "isHot": 0,
+    "workLocationOption": "onsite",
+    "locationFlexibility": null,
+    "atsJobId": "260034647",
+    "positionUrl": "/careers/job/481078371802"
+   },
+   {
+    "id": 481080882295,
+    "displayJobId": "260077110",
+    "name": "lead software engineer - Digital Partner Experience(Nashville, TN - U.S.)",
+    "locations": [
+     "1101 Church ST, Nashville, Tennessee, United States"
+    ],
+    "standardizedLocations": [
+     "Nashville, TN, US"
+    ],
+    "postedTs": 1792518348,
+    "solrScore": null,
+    "stars": 0,
+    "department": "Application Development",
+    "creationTs": 1789694121,
+    "isHot": 0,
+    "workLocationOption": "onsite",
+    "locationFlexibility": null,
+    "atsJobId": "260077110",
+    "positionUrl": "/careers/job/481080882295"
+   },
+   {
+    "id": 481080281791,
+    "displayJobId": "260061429",
+    "name": "engineer principal- Data Platform and Services,  - ST (Seattle, WA)",
+    "locations": [
+     "2401 Utah Ave S #800, Seattle, Washington, United States"
+    ],
+    "standardizedLocations": [
+     "Seattle, WA, US"
+    ],
+    "postedTs": 1792526413,
+    "solrScore": null,
+    "stars": 0,
+    "department": null,
+    "creationTs": 1787188522,
+    "isHot": 0,
+    "workLocationOption": "onsite",
+    "locationFlexibility": null,
+    "atsJobId": "260061429",
+    "positionUrl": "/careers/job/481080281791"
+   },
+   {
+    "id": 481079965467,
+    "displayJobId": "260059058",
+    "name": "engineer principal, Edge Foundation Services - ST (Seattle, WA)",
+    "locations": [
+     "2401 Utah Ave S #800, Seattle, Washington, United States"
+    ],
+    "standardizedLocations": [
+     "Seattle, WA, US"
+    ],
+    "postedTs": 1792695526,
+    "solrScore": null,
+    "stars": 0,
+    "department": null,
+    "creationTs": 1785546919,
+    "isHot": 0,
+    "workLocationOption": "onsite",
+    "locationFlexibility": null,
+    "atsJobId": "260059058",
+    "positionUrl": "/careers/job/481079965467"
+   },
+   {
+    "id": 481081002160,
+    "displayJobId": "260079601",
+    "name": "senior engineer, AI (Nashville, TN)",
+    "locations": [
+     "1101 Church ST, Nashville, Tennessee, United States"
+    ],
+    "standardizedLocations": [
+     "Nashville, TN, US"
+    ],
+    "postedTs": 1793572727,
+    "solrScore": null,
+    "stars": 0,
+    "department": null,
+    "creationTs": 1790350522,
+    "isHot": 0,
+    "workLocationOption": "onsite",
+    "locationFlexibility": null,
+    "atsJobId": "260079601",
+    "positionUrl": "/careers/job/481081002160"
+   },
+   {
+    "id": 481079119952,
+    "displayJobId": "260051360",
+    "name": "engineer II (Web) - ST Seattle, WA",
+    "locations": [
+     "2401 Utah Ave S #800, Seattle, Washington, United States"
+    ],
+    "standardizedLocations": [
+     "Seattle, WA, US"
+    ],
+    "postedTs": 1791406180,
+    "solrScore": null,
+    "stars": 0,
+    "department": null,
+    "creationTs": 1782522937,
+    "isHot": 0,
+    "workLocationOption": "onsite",
+    "locationFlexibility": null,
+    "atsJobId": "260051360",
+    "positionUrl": "/careers/job/481079119952"
+   },
+   {
+    "id": 481081263904,
+    "displayJobId": "260084227",
+    "name": "engineer lead, SRE - ST",
+    "locations": [
+     "1101 Church ST, Nashville, Tennessee, United States"
+    ],
+    "standardizedLocations": [
+     "Nashville, TN, US"
+    ],
+    "postedTs": 1793291025,
+    "solrScore": null,
+    "stars": 0,
+    "department": "Engineering",
+    "creationTs": 1791843668,
+    "isHot": 0,
+    "workLocationOption": "onsite",
+    "locationFlexibility": null,
+    "atsJobId": "260084227",
+    "positionUrl": "/careers/job/481081263904"
+   },
+   {
+    "id": 481080971197,
+    "displayJobId": "260079204",
+    "name": "data engineer lead - Nashville",
+    "locations": [
+     "1101 Church ST, Nashville, Tennessee, United States"
+    ],
+    "standardizedLocations": [
+     "Nashville, TN, US"
+    ],
+    "postedTs": 1790208012,
+    "solrScore": null,
+    "stars": 0,
+    "department": "Engineering",
+    "creationTs": 1790200880,
+    "isHot": 0,
+    "workLocationOption": "onsite",
+    "locationFlexibility": null,
+    "atsJobId": "260079204",
+    "positionUrl": "/careers/job/481080971197"
+   },
+   {
+    "id": 481080971051,
+    "displayJobId": "260079197",
+    "name": "engineer lead - ST; Nashville",
+    "locations": [
+     "1101 Church ST, Nashville, Tennessee, United States"
+    ],
+    "standardizedLocations": [
+     "Nashville, TN, US"
+    ],
+    "postedTs": 1790200098,
+    "solrScore": null,
+    "stars": 0,
+    "department": "Engineering",
+    "creationTs": 1790199397,
+    "isHot": 0,
+    "workLocationOption": "onsite",
+    "locationFlexibility": null,
+    "atsJobId": "260079197",
+    "positionUrl": "/careers/job/481080971051"
+   },
+   {
+    "id": 481081660664,
+    "displayJobId": "260087662",
+    "name": "lead engineer, Platform (Seattle, WA)",
+    "locations": [
+     "2401 Utah Ave S #800, Seattle, Washington, United States"
+    ],
+    "standardizedLocations": [
+     "Seattle, WA, US"
+    ],
+    "postedTs": 1793825401,
+    "solrScore": null,
+    "stars": 0,
+    "department": null,
+    "creationTs": 1793672121,
+    "isHot": 0,
+    "workLocationOption": "onsite",
+    "locationFlexibility": null,
+    "atsJobId": "260087662",
+    "positionUrl": "/careers/job/481081660664"
+   }
+  ],
+  "count": 37,
+  "sortBy": "relevance"
+ }
+}

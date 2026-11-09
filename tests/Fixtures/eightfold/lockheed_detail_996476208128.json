@@ -1,0 +1,63 @@
+{
+ "status": 200,
+ "error": {
+  "message": "",
+  "body": ""
+ },
+ "data": {
+  "id": 996476208128,
+  "displayJobId": "1715",
+  "name": "Full Stack Engineer Sr Stf - E5",
+  "locations": [
+   "Orlando, FL"
+  ],
+  "standardizedLocations": [
+   "Orlando, FL, US"
+  ],
+  "postedTs": 1786687200,
+  "stars": 0,
+  "department": "MFC-Primary",
+  "creationTs": 1786567674,
+  "jobDescription": "<div><div style=\"padding: 10px 0px;border: 1px solid transparent;\"><div style=\"font-size:16px;word-wrap: break-word;\"><h2 style=\"font-size: 1em; margin: 0px\">Standard Job Description</h2>\r</div><div><table style=\"width: 1066px;\"><tbody><tr><td style=\"width: 1051.22px;\"><p>Lockheed Martin is a global security and aerospace company that employs approximately 114,000 people worldwide and is principally engaged in the research, design, development, manufacture, integration and sustainment of advanced technology systems, products and services. Lockheed Martin Missiles and Fire Control (MFC) is one of four Lockheed Martin business areas. MFC is a recognized designer, developer and manufacturer of precision engagement aerospace and defense systems for the U.S. and allied militaries. MFC develops, manufactures and supports advanced products for military customers that include the U.S. Army, Navy, Air Force, Marine Corps, NASA and dozens of foreign allies. MFC also offers a wide range of products and services for the global civil nuclear power industry and the military’s green power initiatives. You will be the Senior Software Engineer Full Stack for the Hub and ModStar team. Our team designs, develops, and sustains full‑stack applications that power critical MFC missions.</p><p><strong>What You Will Be Doing</strong></p><p>As the Senior Software Engineer Full Stack you will be responsible for delivering end‑to‑end software solutions while providing technical leadership to the Hub and ModStar teams.</p><p>Your responsibilities will include, but are not limited to:</p><ul><li>Design, develop, and maintain full‑stack web applications from front‑end UI to back‑end services.</li><li>Provide technical guidance and mentorship to team members, championing best practices and high‑quality code.</li><li>Collaborate with cross‑functional stakeholders to translate requirements into scalable software designs.</li><li>Own the CI/CD pipeline implementation and ensure secure, reliable deployments.</li><li>Monitor performance, troubleshoot issues, and continuously improve application reliability and maintainability.</li></ul><p><strong>Why Join Us</strong></p><p>We are looking for a collaborative, purpose‑driven professional who thrives in a mission‑critical environment. This role offers the chance to shape innovative software solutions that directly support our warfighter, space, and sustainability initiatives while growing your expertise alongside industry leaders.</p><p>We are committed to supporting your work‑life balance and overall well‑being, offering flexible 4‑day 10‑hour work schedules. <a href=\"https://lmt.co/OneLM-JobDescription-Benefits\" target=\"_blank\" rel=\"noopener noreferrer\">Learn more about Lockheed Martin’s comprehensive benefits package here</a>.</p><p><strong>Further Information About This Opportunity</strong></p><br><p>This position is located in Orlando, FL. <a href=\"https://www.lockheedmartin.com/en-us/who-we-are/business-areas/missiles-and-fire-control.html?utm_campaign=mfc&amp;utm_term=rm&amp;utm_source=MFC-JobDescriptions-MFC-Business-page-2025&amp;utm_medium=website\" target=\"_blank\" rel=\"noopener noreferrer\">Discover more about Lockheed Martin Missiles and Fire Control.</a></p><br><br><p>MUST BE A U.S. CITIZEN – This position is located at a facility that requires special access. The selected candidate must be able to obtain a secret clearance. A company‑sponsored interim secret clearance is required to start.</p></td></tr></tbody></table><p>Responsible for development of IT solutions across all components of software systems through design, integration, implementation and support. Proficient in infrastructure, security, software development, database management systems, and systems integration. Develops using agile processes and common technology stacks.</p></div></div><div style=\"padding: 10px 0px;border: 1px solid transparent;\"><div style=\"font-size:16px;word-wrap: break-word;\"><h2 style=\"font-size: 1em; margin: 0px\">Basic Qualifications</h2>\r</div><div><p>• Ability to obtain interim secret security clearance to start. Must be a US Citizen.<br><br>• Proven experience in full stack web development with a focus on technologies such as React, Next.js, Node.js, Redux, Tailwind CSS, Bootstrap, and TypeScript.<br><br>• Strong understanding of HTML, CSS, and JavaScript.<br><br>• Knowledge of database design and development using Object Relational Mapping (ORM).<br><br>• Strong understanding of software design patterns, principles, and best practices.<br><br>• Experience with agile development methodologies (e.g., Scrum, Kanban).</p></div></div><div style=\"padding: 10px 0px;border: 1px solid transparent;\"><div style=\"font-size:16px;word-wrap: break-word;\"><h2 style=\"font-size: 1em; margin: 0px\">Desired Skills</h2>\r</div><div><p>• Experience with containerization (e.g., Docker) and orchestration (e.g., Kubernetes)<br><br>• Strong communication and team collaboration skills<br><br>• Excellent problem-solving skills and attention to detail<br><br>• Knowledge of security best practices and experience with security testing<br><br>• Experience with cloud platforms (e.g., AWS, Google Cloud)<br><br>• Experience with CI/CD Pipelines, Azure, and PostgreSQL<br><br>• Knowledge of testing frameworks (e.g., Playwright, Jest, Mocha) and experience with unit testing and integration testing</p></div></div></div><p><strong>Pay Information</strong></p><p>Full-Time Salary Range: $148300.00 - $275500.00</p><p>At  Lockheed Martin, we know mission success starts with taking care of our people. Our Total Rewards program is designed to attract top talent, support your well-being, and help you grow—both professionally and personally.</p><p>The salary range for this position is as listed on the requisition. Please note that the salary information listed is a general guideline only. Lockheed Martin considers factors such as (but not limited to) scope and responsibilities of the position, candidate's work experience, education/ training, key skills as well as market(work location) and business considerations when extending an offer.  </p><p><strong>Benefits offered: </strong>Medical, Dental, Vision, Flexible work arrangements and schedules (e.g., 4x10), 401(k) match, Paid time off, Holidays, Parental Leave, EAP, Flexible Spending Accounts, Education Assistance, Life Insurance, Short-Term Disability, and Long-Term Disability.</p><ul><li>Annual short-term and/or long-term incentive compensation programs may be offered depending on the position. Payments under these annual programs are not guaranteed and can vary from year to year and are tied to a range of performance metrics.</li><li>For (Washington state applicants only) Non-represented full-time employees: accrue at least 10 hours per month of Paid Time Off (PTO) to be used for incidental absences and other reasons; receive at least 90 hours for holidays. Represented full time employees accrue 6.67 hours of Vacation per month; accrue up to 52 hours of sick leave annually; receive at least 96 hours for holidays. PTO, Vacation, sick leave, and holiday hours are prorated based on start date during the calendar year.</li></ul>",
+  "location": "Orlando, FL",
+  "isHot": 0,
+  "workLocationOption": "onsite",
+  "locationFlexibility": "not_flexible",
+  "atsJobId": "1715",
+  "positionUrl": "/careers/job/996476208128",
+  "publicUrl": "https://lockheedmartin.eightfold.ai/careers/job/996476208128",
+  "efcustomTextFinalclearancefortherole": [
+   "Secret"
+  ],
+  "efcustomTextCustshift": [
+   "1"
+  ],
+  "efcustomTextTypeofjob": null,
+  "efcustomTextCustrelocation": [
+   "Possible"
+  ],
+  "efcustomTextLevelofexperience": [
+   "Experienced Professional"
+  ],
+  "efcustomTextCustclearancepriortostart": [
+   "Interim Secret"
+  ],
+  "efcustomTextCustteleworklocation": [
+   "Employee will work Onsite Full Time"
+  ],
+  "efcustomTextCareerarea": [
+   "Enterprise Engineering"
+  ],
+  "efcustomTextFtptcasual": [
+   "FullTime"
+  ],
+  "efcustomTextCustombusinessObj": [
+   "Missiles and Fire Control"
+  ],
+  "efcustomTextSkilldomain": [],
+  "efcustomTextCustpayrange": [
+   "$148,300.00 - $275,500.00"
+  ],
+  "efcustomTextCustpreferredsalaryV2": []
+ }
+}

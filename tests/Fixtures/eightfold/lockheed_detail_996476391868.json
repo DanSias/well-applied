@@ -1,0 +1,75 @@
+{
+ "status": 200,
+ "error": {
+  "message": "",
+  "body": ""
+ },
+ "data": {
+  "id": 996476391868,
+  "displayJobId": "5599",
+  "name": "Software Engineer Stf - Enterprise IT",
+  "locations": [
+   "Bethesda, MD",
+   "Sunnyvale, CA",
+   "Orlando, FL",
+   "Littleton, CO",
+   "Moorestown, NJ",
+   "Owego, NY",
+   "Arlington, VA"
+  ],
+  "standardizedLocations": [
+   "Bethesda, MD, US",
+   "Sunnyvale, CA, US",
+   "Orlando, FL, US",
+   "Littleton, CO, US",
+   "Moorestown, NJ, US",
+   "Owego, NY, US",
+   "Arlington, VA, US"
+  ],
+  "postedTs": 1793070845,
+  "stars": 0,
+  "department": "Enterprise Business Services",
+  "creationTs": 1787253761,
+  "jobDescription": "<div><div style=\"padding: 10px 0px;border: 1px solid transparent;\"><div style=\"font-size:16px;word-wrap: break-word;\"><h2 style=\"font-size: 1em; margin: 0px\">Standard Job Description</h2>\r</div><div><p>The Infrastructure Technology Experience and Enablement (ITxN) team is hiring an experienced Staff Software Engineer.  This role will report to the Network Automations Manager and be part of a small, motivated team of architects, engineers, and developers who are focused on the design, development, and deployment of infrastructure and supporting automation capabilities across both the Enterprise and Business Area ecosystems.  As such, this role will require technical expertise in software design, software development &amp; integration, and software development of high-level foundational programming used to interface with a multi-vendor, multi-OS, multi-functional infrastructure services environment.  </p><p> </p><p><strong>What You Will Be Doing:</strong></p><p>In this role, you will focus on establishing and implementing infrastructure as code and automated operations methodologies across the organization’s infrastructure disciplines.  Your key responsibilities will include but not be limited to the following:</p><ul><li>Developing and maintaining assigned products (new, fix, feature) using sound and consistent engineering practices within the NetOps Automation software development framework (processes, standards, knowledge base, governance) and provided CI/CD pipeline </li><li>Interfacing and coordinating with key organizational stakeholders (both technical and non-technical) throughout the product development lifecycle</li><li>Assisting with CI/CD Toolchain maintenance and enhancements</li><li>Assisting with the NetOps Automation Software development framework maintenance and enhancements</li><li>Assisting with technical support and governance oversight of the NetOps Automation product portfolio</li><li>Contributing to technical and service strategy and roadmaps</li><li>Ensuring the successful resolution of cross-domain technical engineering issues, including Root Cause Analysis (RCA) efforts </li><li>Driving flawless execution of assigned programs through execution of sound and consistent architecture and engineering practices and common tools</li></ul><p> </p><p><strong>Further Information About This Opportunity:</strong></p><p>This role is fully remote.  US Citizenship is required due to system access.</p></div></div><div style=\"padding: 10px 0px;border: 1px solid transparent;\"><div style=\"font-size:16px;word-wrap: break-word;\"><h2 style=\"font-size: 1em; margin: 0px\">Basic Qualifications</h2>\r</div><div><ul><li>Demonstrated experience in Linux administration, Linux Shell, and Linux-based web services</li><li>Demonstrated experience with SQL databases </li><li>Demonstrated experience with containerized applications </li><li>Demonstrated experience of Python3 (Object-Oriented) and Ansible</li><li>Demonstrated experience of YAML, JSON, and XML data structures </li><li>Demonstrated experience with Django or similar Python web frameworks </li><li>Demonstrated experience of the traditional web development stack (HTML, CSS, JavaScript, TypeScript, Node.js), along with backend Python-based web frameworks  </li><li>Demonstrated experience developing APIs and solutions within an API-driven software architecture </li><li>Demonstrated experience with Industry tools related to software engineering and process automation (CI/CD pipelines) </li><li>Comfortable working with FOSS solutions </li><li>Demonstrated experience in software configuration management using Git-based platforms </li><li>Demonstrated experience of the software lifecycle, including requirements definition through system deployment (end-to-end engineering)</li><li>Excellent interpersonal skills</li><li>Collaborative and team-focused</li><li>Can work/follow processes independently with limited direction</li><li>US Citizenship is required due to system access</li></ul></div></div><div style=\"padding: 10px 0px;border: 1px solid transparent;\"><div style=\"font-size:16px;word-wrap: break-word;\"><h2 style=\"font-size: 1em; margin: 0px\">Desired Skills</h2>\r</div><div><ul><li>Demonstrated experience with C# </li><li>Demonstrated experience with Windows Server and web services </li><li>Demonstrated experience in container orchestration </li><li>Practical experience working with major private and public cloud solutions </li><li>Demonstrated experience with AI Agentic Frameworks</li><li>Knowledge of data networking (Wired/Wireless LANs, WAN, Data Center) theory, protocols, operations with primary Industry vendor OSs &amp; hardware platforms </li></ul></div></div></div><p><strong>Pay Information</strong></p><p><strong>GeoZone Definition:</strong> GeoZones are geographic groupings created by Lockheed Martin to align compensation ranges with regional labor markets and cost-of-labor differences across the United States. Locations are assigned a Geo Zone based on the primary work location of the role. </p><ul><li>Full-time salary range (GEOZONE 1): $150800.00 - $280000.00 <ul><li>Includes metropolitan areas such as Sunnyvale CA; Pal Alto, CA; New York City metropolitan area; Newark, New Jersey; etc.</li></ul></li><li>Full-time salary range (GEOZONE 2): $135700.00 - $251900.00 <ul><li>Includes metropolitan areas such as Denver, CO; King of Prussia, PA; Stratford, CT; Moorestown, NJ; etc.</li></ul></li><li>Full-time salary range (GEOZONE 3): $120600.00 - $224000.00<ul><li>Includes metropolitan areas such as Dallas–Fort Worth, TX; Orlando, FL; Grand Prairie, TX; Marietta, GA; etc.</li></ul></li><li>Full-time salary range (GEOZONE 4): $108600.00 - $201600.00<ul><li>Includes metropolitan areas such as Camden, AR; Lexington, KY; Ocala, FL; Lufkin, TX; etc. </li></ul></li></ul><p>At Lockheed Martin, we know mission success starts with taking care of our people. Our Total Rewards program is designed to attract top talent, support your well-being, and help you grow—both professionally and personally.</p><p>The salary range for this position is as listed on the requisition. Please note that the salary information listed is a general guideline only. <br>Lockheed Martin considers factors such as (but not limited to) scope and responsibilities of the position, candidate's work experience, education/ training, key skills as well as market(work location) and business considerations when extending an offer.  </p><p><strong>Benefits offered:</strong> Medical, Dental, Vision, Flexible work arrangements and schedules (e.g., 4x10), 401(k) match, Paid time off, Holidays, Parental Leave, EAP, Flexible Spending Accounts, Education Assistance, Life Insurance, Short-Term Disability, and Long-Term Disability.</p><ul><li>Annual short-term and/or long-term incentive compensation programs may be offered depending on the position. Payments under these annual programs are not guaranteed and can vary from year to year and are tied to a range of performance metrics.</li><li>For (Washington state applicants only) Non-represented full-time employees: accrue at least 10 hours per month of Paid Time Off (PTO) to be used for incidental absences and other reasons; receive at least 90 hours for holidays. Represented full time employees accrue 6.67 hours of Vacation per month; accrue up to 52 hours of sick leave annually; receive at least 96 hours for holidays. PTO, Vacation, sick leave, and holiday hours are prorated based on start date during the calendar year.</li></ul>",
+  "location": "Bethesda, MD",
+  "isHot": 0,
+  "workLocationOption": "remote_local",
+  "locationFlexibility": "not_flexible",
+  "atsJobId": "5599",
+  "positionUrl": "/careers/job/996476391868",
+  "publicUrl": "https://lockheedmartin.eightfold.ai/careers/job/996476391868",
+  "efcustomTextFinalclearancefortherole": [
+   "None"
+  ],
+  "efcustomTextCustshift": [
+   "1"
+  ],
+  "efcustomTextTypeofjob": null,
+  "efcustomTextCustrelocation": [
+   "No"
+  ],
+  "efcustomTextLevelofexperience": [
+   "Experienced Professional"
+  ],
+  "efcustomTextCustclearancepriortostart": [
+   "None"
+  ],
+  "efcustomTextCustteleworklocation": [
+   "Employee will Telework Full Time"
+  ],
+  "efcustomTextCareerarea": [
+   "Enterprise Bus & Digital Trans"
+  ],
+  "efcustomTextFtptcasual": [
+   "FullTime"
+  ],
+  "efcustomTextCustombusinessObj": [
+   "Enterprise Operations"
+  ],
+  "efcustomTextSkilldomain": [],
+  "efcustomTextCustpayrange": [
+   "$135,700.00 - $251,900.00"
+  ],
+  "efcustomTextCustpreferredsalaryV2": []
+ }
+}

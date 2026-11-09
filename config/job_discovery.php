@@ -155,6 +155,87 @@ return [
     ],
 
     /*
+    | Eightfold-hosted public career sites — ONE provider
+    | (App\Support\JobDiscovery\Providers\EightfoldDiscoveryProvider)
+    | with per-employer tenant configuration. Eightfold's candidate-facing
+    | careers interface exposes unauthenticated JSON at /api/pcsx/search and
+    | /api/pcsx/position_details; each employer is a (host, domain) pair.
+    | The endpoints are undocumented, and a tenant can switch them off
+    | ("PCSX is not enabled"), so every tenant is verified, bounded and
+    | isolated. robots.txt on every verified host explicitly allows /careers
+    | and /api/pcsx; Eightfold's published terms were not reviewed.
+    |
+    |   - enabled:   master switch for the whole provider. Off = the
+    |                orchestrator does not register it at all.
+    |   - scheduled: whether the hourly `discovery:run --due` schedule may
+    |                run it. OFF until a first manual run has been reviewed.
+    |   - budget:    per-tenant request ceilings and pacing (a tenant entry
+    |                may override any key in its own `budget`).
+    |   - tenants:   slug => company/host/domain/enabled. `slug` scopes the
+    |                source ID (`slug:positionId`). Add an employer by adding
+    |                an entry; nothing else changes. `salary` is set ONLY
+    |                where a tenant's pay field has known semantics.
+    |
+    | Microsoft is configured but disabled: it returned HTTP 429 after only a
+    | handful of requests during the feasibility spike.
+    */
+    'eightfold' => [
+        'enabled' => (bool) env('EIGHTFOLD_DISCOVERY_ENABLED', true),
+        'scheduled' => (bool) env('EIGHTFOLD_DISCOVERY_SCHEDULED', false),
+
+        'budget' => [
+            // Minimum gap between requests to one tenant.
+            'pause_ms' => 1500,
+            // Search calls per tenant per run (queries x pages).
+            'max_search_requests' => 12,
+            'max_pages_per_query' => 2,
+            // Uncached position_details calls per tenant per run.
+            'max_detail_requests' => 20,
+            // Total tries per request for 429 / 408 / 5xx / connection errors.
+            'max_attempts' => 3,
+            'backoff_seconds' => 2,
+            // A Retry-After longer than this is not waited out: the tenant stops.
+            'max_retry_after_seconds' => 60,
+            'timeout_seconds' => 20,
+            // Details are cached per tenant + position + posting version.
+            'detail_cache_hours' => 168,
+        ],
+
+        'tenants' => [
+            'lockheed' => [
+                'company' => 'Lockheed Martin',
+                'host' => 'lockheedmartin.eightfold.ai',
+                'domain' => 'lockheedmartin.com',
+                'enabled' => (bool) env('EIGHTFOLD_LOCKHEED_ENABLED', true),
+                // `efcustomTextCustpayrange` is the posting's full-time annual
+                // range for its single primary location. Normalized only for
+                // single-location postings with a lone "$a - $b" range.
+                'salary' => ['field' => 'efcustomTextCustpayrange', 'currency' => 'USD', 'interval' => 'year'],
+            ],
+            'nvidia' => [
+                'company' => 'NVIDIA',
+                'host' => 'nvidia.eightfold.ai',
+                'domain' => 'nvidia.com',
+                'enabled' => (bool) env('EIGHTFOLD_NVIDIA_ENABLED', true),
+            ],
+            'starbucks' => [
+                'company' => 'Starbucks',
+                'host' => 'starbucks.eightfold.ai',
+                'domain' => 'starbucks.com',
+                'enabled' => (bool) env('EIGHTFOLD_STARBUCKS_ENABLED', true),
+            ],
+            'microsoft' => [
+                'company' => 'Microsoft',
+                'host' => 'apply.careers.microsoft.com',
+                'domain' => 'microsoft.com',
+                'enabled' => (bool) env('EIGHTFOLD_MICROSOFT_ENABLED', false),
+                // Observed 429s: if enabled, pace it more slowly.
+                'budget' => ['pause_ms' => 4000, 'max_search_requests' => 6, 'max_detail_requests' => 10],
+            ],
+        ],
+    ],
+
+    /*
     | Automatic scheduling — see bootstrap/app.php's withSchedule(),
     | App\Support\JobDiscovery\DiscoveryScheduleIsDue and
     | docs/job-discovery.md "Scheduling / orchestration". The schedule
