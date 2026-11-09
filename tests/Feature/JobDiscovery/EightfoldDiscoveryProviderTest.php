@@ -1,11 +1,17 @@
 <?php
 
+use App\Enums\DiscoveryStatus;
 use App\Enums\JobDiscoverySource;
 use App\Enums\JobRemoteStatus;
+use App\Models\CareerProfile;
+use App\Models\DiscoveryProviderAttempt;
+use App\Models\JobPosting;
+use App\Support\JobDiscovery\DiscoveryScheduleIsDue;
 use App\Support\JobDiscovery\Providers\DiscoveryProviderException;
 use App\Support\JobDiscovery\Providers\Eightfold\EightfoldTenant;
 use App\Support\JobDiscovery\Providers\EightfoldDiscoveryProvider;
 use App\Support\JobDiscovery\Providers\ProviderDiscoveryContext;
+use App\Support\JobDiscovery\RunJobDiscovery;
 use App\Support\JobDiscovery\SearchProfile;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
@@ -866,4 +872,203 @@ it('refuses a tenant with a missing domain', function () {
     config(['job_discovery.eightfold.tenants.lockheed.domain' => '']);
 
     expect(fn () => EightfoldTenant::configured())->toThrow(DiscoveryProviderException::class, 'domain');
+});
+
+// ---------------------------------------------------------------------------
+// Integration with the existing discovery pipeline
+// ---------------------------------------------------------------------------
+
+function efPipeline(): void
+{
+    CareerProfile::factory()->create();
+    config([
+        'job_discovery.search.keywords' => ['software engineer'],
+        'job_discovery.search.excluded_keywords' => [],
+        'job_discovery.search.remote_preference' => 'any',
+        'job_discovery.search.allowed_locations' => [],
+        'job_discovery.search.employment_type' => null,
+    ]);
+}
+
+/** Lockheed serves two remote Software Engineer postings; NVIDIA serves one US-remote listing. */
+function efHealthyHosts(): array
+{
+    $lockheedRows = [fx('lockheed_search')['data']['positions'][1], fx('lockheed_search')['data']['positions'][2]];
+
+    return [
+        LOCKHEED_HOST => efTenant($lockheedRows, [
+            996476391868 => fx('lockheed_detail_996476391868'),
+            996476482699 => fx('lockheed_detail_996476482699'),
+        ]),
+        NVIDIA_HOST => efTenant(
+            [collect(fx('nvidia_search')['data']['positions'])->firstWhere('id', 893397676085)],
+            [893397676085 => fx('nvidia_detail_us')],
+        ),
+    ];
+}
+
+it('is not registered or scheduled while the master switch is off', function () {
+    config(['job_discovery.eightfold.enabled' => false]);
+
+    $registered = (new ReflectionProperty(RunJobDiscovery::class, 'providers'))->getValue(new RunJobDiscovery);
+
+    expect(array_keys($registered))->not->toContain('eightfold')
+        ->and(DiscoveryScheduleIsDue::scheduledSources())->not->toContain(JobDiscoverySource::Eightfold);
+});
+
+it('registers when configured but stays out of the schedule until scheduling is switched on', function () {
+    config(['job_discovery.eightfold.enabled' => true, 'job_discovery.eightfold.scheduled' => false]);
+    $registered = (new ReflectionProperty(RunJobDiscovery::class, 'providers'))->getValue(new RunJobDiscovery);
+
+    expect(array_keys($registered))->toContain('eightfold')
+        ->and(DiscoveryScheduleIsDue::scheduledSources())->not->toContain(JobDiscoverySource::Eightfold);
+
+    config(['job_discovery.eightfold.scheduled' => true]);
+    expect(DiscoveryScheduleIsDue::scheduledSources())->toContain(JobDiscoverySource::Eightfold)
+        ->and(array_map(fn ($s) => $s->value, DiscoveryScheduleIsDue::scheduledSources()))
+        ->toEqualCanonicalizing(array_keys((new ReflectionProperty(RunJobDiscovery::class, 'providers'))->getValue(new RunJobDiscovery)));
+
+    // Scheduled but with every tenant off: nothing to run, so nothing scheduled.
+    efOnly();
+    expect(DiscoveryScheduleIsDue::scheduledSources())->not->toContain(JobDiscoverySource::Eightfold);
+});
+
+it('ingests Eightfold candidates through the existing pipeline with employer-scoped IDs', function () {
+    efPipeline();
+    efOnly('lockheed', 'nvidia');
+    efFake(efHealthyHosts());
+
+    $run = (new RunJobDiscovery(eightfold: new EightfoldDiscoveryProvider))->run([JobDiscoverySource::Eightfold]);
+
+    expect($run->status)->toBe(DiscoveryStatus::Succeeded);
+    $attempt = $run->providerAttempts->sole();
+    expect($attempt->provider)->toBe(JobDiscoverySource::Eightfold)
+        ->and($attempt->status)->toBe(DiscoveryStatus::Succeeded)
+        ->and($attempt->candidates_retrieved)->toBe(3)
+        ->and($attempt->candidates_accepted)->toBe(3)
+        ->and($attempt->jobs_created)->toBe(3)
+        ->and($attempt->failure_category)->toBeNull();
+
+    $ids = JobPosting::query()->orderBy('discovery_source_id')->pluck('discovery_source_id')->all();
+    expect($ids)->toBe(['lockheed:996476391868', 'lockheed:996476482699', 'nvidia:893397676085']);
+
+    $posting = JobPosting::where('discovery_source_id', 'lockheed:996476391868')->sole();
+    expect($posting->discovery_source)->toBe(JobDiscoverySource::Eightfold)
+        ->and($posting->company)->toBe('Lockheed Martin')
+        ->and($posting->source_url)->toBe('https://lockheedmartin.eightfold.ai/careers/job/996476391868')
+        ->and($posting->remote_status)->toBe(JobRemoteStatus::Remote)
+        ->and($posting->compensation_min)->toBeNull()
+        ->and($posting->discovery_metadata['discovery']['tenant'])->toBe('lockheed')
+        ->and($posting->discovery_metadata['discovery']['floridaListed'])->toBeTrue();
+});
+
+it('updates rather than duplicates on a second run', function () {
+    efPipeline();
+    efOnly('lockheed', 'nvidia');
+    efFake(efHealthyHosts());
+
+    (new RunJobDiscovery(eightfold: new EightfoldDiscoveryProvider))->run([JobDiscoverySource::Eightfold]);
+    $second = (new RunJobDiscovery(eightfold: new EightfoldDiscoveryProvider))->run([JobDiscoverySource::Eightfold]);
+
+    $attempt = $second->providerAttempts->sole();
+    expect(JobPosting::count())->toBe(3)
+        ->and($attempt->jobs_created)->toBe(0)
+        ->and($attempt->jobs_updated)->toBe(3);
+});
+
+it('keeps equal position IDs from different employers as separate postings', function () {
+    efPipeline();
+    efOnly('lockheed', 'nvidia');
+    $lockheed = efRow(fx('lockheed_search')['data']['positions'][1], 555);
+    $nvidia = efRow(fx('nvidia_search')['data']['positions'][2], 555);
+    efFake([
+        LOCKHEED_HOST => efTenant([$lockheed], [555 => efDetail(fx('lockheed_detail_996476391868'), 555)]),
+        NVIDIA_HOST => efTenant([$nvidia], [555 => efDetail(fx('nvidia_detail_us'), 555)]),
+    ]);
+
+    (new RunJobDiscovery(eightfold: new EightfoldDiscoveryProvider))->run([JobDiscoverySource::Eightfold]);
+
+    expect(JobPosting::orderBy('discovery_source_id')->pluck('discovery_source_id')->all())->toBe(['lockheed:555', 'nvidia:555']);
+});
+
+it('records a partially failed multi-tenant run as Partial, not as a clean success', function () {
+    efPipeline();
+    efOnly('lockheed', 'nvidia');
+    $hosts = efHealthyHosts();
+    $hosts[NVIDIA_HOST] = fn () => Http::response('Please try again later', 429);
+    efFake($hosts);
+
+    $run = (new RunJobDiscovery(eightfold: new EightfoldDiscoveryProvider))->run([JobDiscoverySource::Eightfold]);
+
+    $attempt = $run->providerAttempts->sole();
+    expect($attempt->status)->toBe(DiscoveryStatus::Partial)
+        ->and($attempt->failure_category)->toBe('partial_provider_failure')
+        ->and($attempt->failure_message)->toContain('nvidia failed')->toContain('rate_limited')->not->toContain('lockheed')
+        // what the healthy tenant produced is kept and counted
+        ->and($attempt->candidates_retrieved)->toBe(2)
+        ->and($attempt->jobs_created)->toBe(2)
+        ->and($run->status)->toBe(DiscoveryStatus::Partial)
+        ->and(JobPosting::count())->toBe(2);
+});
+
+it('retries a partial attempt on the failed-provider cadence, not the success cadence', function () {
+    efPipeline();
+    config(['job_discovery.eightfold.scheduled' => true, 'job_discovery.eightfold.enabled' => true]);
+    DiscoveryProviderAttempt::factory()->create([
+        'provider' => JobDiscoverySource::Eightfold,
+        'status' => DiscoveryStatus::Partial,
+        'started_at' => now()->subHours(7),
+        'finished_at' => now()->subHours(7),
+    ]);
+
+    expect((new DiscoveryScheduleIsDue)->dueSources())->toContain(JobDiscoverySource::Eightfold);
+
+    DiscoveryProviderAttempt::query()->update(['started_at' => now()->subHours(2), 'finished_at' => now()->subHours(2)]);
+    expect((new DiscoveryScheduleIsDue)->dueSources())->not->toContain(JobDiscoverySource::Eightfold);
+});
+
+it('fails the attempt only when every tenant failed, and leaves other providers alone', function () {
+    efPipeline();
+    config([
+        'services.adzuna.app_id' => 'id', 'services.adzuna.app_key' => 'key', 'services.adzuna.country' => 'us',
+    ]);
+    efOnly('lockheed', 'nvidia');
+    Http::fake([
+        LOCKHEED_HOST.'/*' => Http::response('', 500),
+        NVIDIA_HOST.'/*' => Http::response('{"message": "PCSX is not enabled for this user."}', 403),
+        'himalayas.app/*' => Http::response(['jobs' => []]),
+        'api.adzuna.com/*' => Http::response(['results' => []]),
+        'jobicy.com/*' => Http::response(['jobs' => []]),
+    ]);
+
+    $run = (new RunJobDiscovery(eightfold: new EightfoldDiscoveryProvider))->run();
+
+    $eightfold = $run->providerAttempts->firstWhere('provider', JobDiscoverySource::Eightfold);
+    expect($eightfold->status)->toBe(DiscoveryStatus::Failed)
+        ->and($eightfold->failure_category)->toBe('provider_error')
+        ->and($eightfold->failure_message)->toContain('lockheed failed')->toContain('nvidia failed')
+        ->and($run->providerAttempts->firstWhere('provider', JobDiscoverySource::Jobicy)->status)->toBe(DiscoveryStatus::Succeeded)
+        ->and($run->status)->toBe(DiscoveryStatus::Partial);
+});
+
+it('runs a single provider from the command and warns about a partial run', function () {
+    efPipeline();
+    config(['job_discovery.eightfold.enabled' => true]);
+    efOnly('lockheed', 'nvidia');
+    $hosts = efHealthyHosts();
+    $hosts[NVIDIA_HOST] = fn () => Http::response('Please try again later', 429);
+    efFake($hosts);
+
+    $this->artisan('discovery:run', ['--only' => ['eightfold']])
+        ->expectsOutputToContain('only partly succeeded')
+        ->expectsOutputToContain('finished with status partial')
+        ->assertSuccessful();
+
+    expect(DiscoveryProviderAttempt::pluck('provider')->map->value->all())->toBe(['eightfold']);
+});
+
+it('rejects an unknown provider name on the command', function () {
+    $this->artisan('discovery:run', ['--only' => ['nope']])
+        ->expectsOutputToContain('Unknown discovery provider')
+        ->assertFailed();
 });

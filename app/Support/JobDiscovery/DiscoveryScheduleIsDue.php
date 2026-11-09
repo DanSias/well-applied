@@ -5,6 +5,7 @@ namespace App\Support\JobDiscovery;
 use App\Enums\DiscoveryStatus;
 use App\Enums\JobDiscoverySource;
 use App\Models\DiscoveryProviderAttempt;
+use App\Support\JobDiscovery\Providers\EightfoldDiscoveryProvider;
 
 /**
  * The per-provider eligibility check bootstrap/app.php's schedule
@@ -56,7 +57,8 @@ final class DiscoveryScheduleIsDue
     }
 
     /**
-     * Every real provider (everything but Manual) — kept in lockstep
+     * Every real provider (everything but Manual, plus Eightfold only when
+     * explicitly scheduled) — kept in lockstep
      * with App\Support\JobDiscovery\RunJobDiscovery's registered
      * providers by a regression test.
      *
@@ -66,7 +68,13 @@ final class DiscoveryScheduleIsDue
     {
         return array_values(array_filter(
             JobDiscoverySource::cases(),
-            fn (JobDiscoverySource $source): bool => $source !== JobDiscoverySource::Manual,
+            fn (JobDiscoverySource $source): bool => match ($source) {
+                JobDiscoverySource::Manual => false,
+                // Opt-in: scheduling stays off until a manual run has been reviewed.
+                JobDiscoverySource::Eightfold => EightfoldDiscoveryProvider::isActive()
+                    && config('job_discovery.eightfold.scheduled') === true,
+                default => true,
+            },
         ));
     }
 

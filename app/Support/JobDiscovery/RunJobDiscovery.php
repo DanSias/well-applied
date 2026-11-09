@@ -18,9 +18,11 @@ use App\Support\JobDiscovery\Canonical\ResolveAtsBoard;
 use App\Support\JobDiscovery\Providers\AdzunaDiscoveryProvider;
 use App\Support\JobDiscovery\Providers\DiscoveryProviderContract;
 use App\Support\JobDiscovery\Providers\DiscoveryProviderException;
+use App\Support\JobDiscovery\Providers\EightfoldDiscoveryProvider;
 use App\Support\JobDiscovery\Providers\HimalayasDiscoveryProvider;
 use App\Support\JobDiscovery\Providers\JobicyDiscoveryProvider;
 use App\Support\JobDiscovery\Providers\ProviderDiscoveryContext;
+use App\Support\JobDiscovery\Providers\ReportsPartialFailure;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -61,12 +63,22 @@ final class RunJobDiscovery
         ?LeverCanonicalAdapter $lever = null,
         ?AshbyCanonicalAdapter $ashby = null,
         ?JobicyDiscoveryProvider $jobicy = null,
+        ?EightfoldDiscoveryProvider $eightfold = null,
     ) {
-        $this->providers = [
+        $providers = [
             JobDiscoverySource::Himalayas->value => $himalayas ?? new HimalayasDiscoveryProvider,
             JobDiscoverySource::Adzuna->value => $adzuna ?? new AdzunaDiscoveryProvider,
             JobDiscoverySource::Jobicy->value => $jobicy ?? new JobicyDiscoveryProvider,
         ];
+
+        // Registered only when configured and at least one tenant is enabled
+        // (see config/job_discovery.php `eightfold`); an injected instance
+        // always registers. Absent, discovery behaves exactly as before.
+        $eightfold ??= EightfoldDiscoveryProvider::isActive() ? new EightfoldDiscoveryProvider : null;
+        if ($eightfold !== null) {
+            $providers[JobDiscoverySource::Eightfold->value] = $eightfold;
+        }
+        $this->providers = $providers;
 
         $this->canonicalAdapters = [
             JobCanonicalSource::Greenhouse->value => $greenhouse ?? new GreenhouseCanonicalAdapter,
@@ -121,7 +133,10 @@ final class RunJobDiscovery
 
         $attempts = $discoveryRun->providerAttempts()->get();
         $failures = $attempts->where('status', DiscoveryStatus::Failed)->count();
-        $status = $failures === 0 && ! $orchestrationFailed ? DiscoveryStatus::Succeeded
+        // A provider that only partly succeeded (some Eightfold tenants failed)
+        // is not a clean success either.
+        $degraded = $failures + $attempts->where('status', DiscoveryStatus::Partial)->count();
+        $status = $degraded === 0 && ! $orchestrationFailed ? DiscoveryStatus::Succeeded
             : ($failures < $attempts->count() ? DiscoveryStatus::Partial : DiscoveryStatus::Failed);
         $discoveryRun->update(['status' => $status, 'finished_at' => now()]);
 
@@ -148,11 +163,15 @@ final class RunJobDiscovery
 
         $retrieved = $accepted = $created = $updated = $canonicalized = 0;
         $failureCategory = $failureMessage = $failureExceptionClass = null;
+        $partialSummary = null;
         $candidate = null;
 
         try {
             $candidates = $provider->retrieve($context);
             $retrieved = count($candidates);
+            if ($provider instanceof ReportsPartialFailure) {
+                $partialSummary = $provider->partialFailureSummary();
+            }
             foreach ($candidates as $candidate) {
                 if (! $this->filter->accepts($candidate, $criteria)) {
                     continue;
@@ -200,8 +219,19 @@ final class RunJobDiscovery
             ]);
         }
 
+        // Failed beats Partial; a partial provider failure keeps its counts and
+        // is recorded in the same failure columns rather than a new structure.
+        $status = $failureCategory !== null ? DiscoveryStatus::Failed
+            : ($partialSummary !== null ? DiscoveryStatus::Partial : DiscoveryStatus::Succeeded);
+        if ($failureCategory === null && $partialSummary !== null) {
+            $failureCategory = 'partial_provider_failure';
+            $failureMessage = $partialSummary;
+        } elseif ($partialSummary !== null) {
+            $failureMessage = trim("{$failureMessage} {$partialSummary}");
+        }
+
         $attempt->update([
-            'status' => $failureCategory === null ? DiscoveryStatus::Succeeded : DiscoveryStatus::Failed,
+            'status' => $status,
             'finished_at' => now(),
             'candidates_retrieved' => $retrieved,
             'candidates_accepted' => $accepted,

@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Enums\DiscoveryStatus;
+use App\Enums\JobDiscoverySource;
 use App\Support\JobDiscovery\DiscoveryScheduleIsDue;
 use App\Support\JobDiscovery\RunJobDiscovery;
 use Illuminate\Console\Attributes\Description;
@@ -17,7 +18,7 @@ use Illuminate\Console\Command;
  * it (the scheduler's invocation) only the currently due ones do. See
  * docs/job-discovery.md "Manual discovery command".
  */
-#[Signature('discovery:run {--due : Only run providers whose schedule is currently due (used by the scheduler)}')]
+#[Signature('discovery:run {--due : Only run providers whose schedule is currently due (used by the scheduler)} {--only=* : Run only these providers (e.g. --only=eightfold)}')]
 #[Description('Run the automatic job discovery pipeline once: query providers, filter, canonically enrich, deduplicate, and ingest into JobPosting.')]
 class RunJobDiscoveryCommand extends Command
 {
@@ -25,8 +26,23 @@ class RunJobDiscoveryCommand extends Command
     {
         $only = null;
 
+        $requested = array_filter((array) $this->option('only'), 'is_string');
+        if ($requested !== []) {
+            $only = [];
+            foreach ($requested as $name) {
+                $source = JobDiscoverySource::tryFrom($name);
+                if ($source === null || $source === JobDiscoverySource::Manual) {
+                    $this->components->error("Unknown discovery provider \"{$name}\".");
+
+                    return self::FAILURE;
+                }
+                $only[] = $source;
+            }
+        }
+
         if ($this->option('due')) {
-            $only = (new DiscoveryScheduleIsDue)->dueSources();
+            $due = (new DiscoveryScheduleIsDue)->dueSources();
+            $only = $only === null ? $due : array_values(array_filter($only, fn ($source) => in_array($source, $due, true)));
 
             if ($only === []) {
                 $this->components->info('No discovery providers are due.');
@@ -56,9 +72,14 @@ class RunJobDiscoveryCommand extends Command
         );
 
         $anyFailed = $discoveryRun->providerAttempts->contains(fn ($attempt) => $attempt->status === DiscoveryStatus::Failed);
+        $anyPartial = $discoveryRun->providerAttempts->contains(fn ($attempt) => $attempt->status === DiscoveryStatus::Partial);
 
         if ($anyFailed) {
             $this->components->warn('At least one provider failed this run — see the table above. Other providers\' results were still ingested.');
+        }
+
+        if ($anyPartial) {
+            $this->components->warn('At least one provider only partly succeeded (some of its sources failed) — see the table above. What it did retrieve was ingested.');
         }
 
         $this->components->info("Discovery run #{$discoveryRun->id} finished with status {$discoveryRun->status->value}.");

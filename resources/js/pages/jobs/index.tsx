@@ -55,6 +55,7 @@ const DISCOVERY_SOURCE_LABELS: Record<string, string> = {
     himalayas: 'Himalayas',
     adzuna: 'Adzuna',
     jobicy: 'Jobicy',
+    eightfold: 'Eightfold',
 };
 
 function discoverySourceLabel(source: string): string {
