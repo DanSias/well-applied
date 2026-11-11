@@ -1,5 +1,6 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
+import { LayoutQualityNotice } from '@/components/layout-quality-notice';
 import { ReadinessReview } from '@/components/readiness-review';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -559,6 +560,7 @@ export default function ResumeWorkspace({
                             </>
                         )}
                     </p>
+                    <LayoutQualityNotice quality={variant.layout_quality} />
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">

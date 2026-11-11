@@ -7,6 +7,7 @@ use App\Jobs\RenderResumePdfJob;
 use App\Models\Education;
 use App\Models\GenerationAttempt;
 use App\Models\ResumeVariant;
+use App\Support\ResumeDocument\ComposedResumePdf;
 use App\Support\ResumeDocument\GenerateResumeDocument;
 use App\Support\ResumeDocument\GenerateResumePdf;
 use App\Support\ResumeDocument\ResumeDocument;
@@ -396,6 +397,8 @@ it('renders, validates, caches, and records timing and layout diagnostics in the
         ->and($fresh->render_ms)->toBeGreaterThan(0)
         ->and($fresh->duration_ms)->toBeInt()
         ->and($fresh->layout_diagnostics['render_count'])->toBe(1)
+        // The page-balance judgment is recorded with the measurements, so a short last page is never just a page count.
+        ->and($fresh->layout_diagnostics['quality']['status'])->toBe('one_page')
         ->and(app(ResumePdfStore::class)->get($document))->toStartWith('%PDF-');
 });
 
@@ -433,4 +436,102 @@ it('fails the PDF stage with a useful category when the page budget cannot be me
     expect($attempt->fresh()->status)->toBe(GenerationStatus::Failed)
         ->and($attempt->fresh()->failure_category)->toBe('pdf_page_budget')
         ->and($attempt->fresh()->failure_message)->toContain('pages');
+});
+
+// --- Page-balance judgment on real renders -----------------------------------
+
+function layoutBullet(int $i): string
+{
+    return "Delivered analytics platform increment number {$i}, unifying warehouse and CRM data behind one API to cut reporting time and give teams reliable KPI visibility.";
+}
+
+/**
+ * Composes resumes of growing length until one is two pages with a nearly empty last page and one is two pages with a
+ * well-filled last page, so the judgment is checked against the real layout rather than a number.
+ *
+ * @return array{short: ?ComposedResumePdf, full: ?ComposedResumePdf}
+ */
+function growingLayouts(): array
+{
+    $context = layoutContext();
+    $found = ['short' => null, 'full' => null];
+
+    for ($count = 10; $count <= 40; $count++) {
+        $composed = app(GenerateResumePdf::class)->compose(layoutVariant(array_map(layoutBullet(...), range(1, $count)), context: $context));
+
+        if ($composed->pageCount === 2 && $composed->lastPageFill !== null) {
+            $found['short'] ??= $composed->lastPageFill < 0.40 ? $composed : null;
+
+            if ($composed->lastPageFill >= 0.55) {
+                $found['full'] = $composed;
+                break;
+            }
+        }
+    }
+
+    return $found;
+}
+
+it('judges a balanced two-page resume balanced and a nearly empty second page a defect, from the real render', function () {
+    if (! pdftotextAvailable()) {
+        $this->markTestSkipped('pdftotext is not installed.');
+    }
+
+    $layouts = growingLayouts();
+
+    expect($layouts['short'])->not->toBeNull('Some length must produce a two-page resume with a second page under 40% full.')
+        ->and($layouts['full'])->not->toBeNull('Some length must produce a two-page resume with a second page at least 55% full.');
+
+    $short = $layouts['short']->quality;
+    $full = $layouts['full']->quality;
+
+    expect($short['status'])->toBe('underfilled')->and($short['severity'])->toBe('review')->and($short['fill'])->toBe($layouts['short']->lastPageFill)
+        ->and($short['summary'])->toContain('% full')
+        // The judgment travels with the measurements.
+        ->and($layouts['short']->diagnostics()['quality'])->toBe($short)
+        ->and($full['status'])->toBe('balanced')->and($full['severity'])->not->toBe('review');
+});
+
+it('does not change the PDF it judges: the same document renders to the same bytes', function () {
+    $variant = layoutVariant(array_map(layoutBullet(...), range(1, 14)));
+    $first = app(GenerateResumePdf::class)->compose($variant);
+    $second = app(GenerateResumePdf::class)->compose($variant);
+
+    expect($first->quality)->not->toBeNull()->and($first->pageCount)->toBe($second->pageCount)->and($first->lastPageFill)->toBe($second->lastPageFill)
+        ->and($first->mode)->toBe($second->mode)->and(pdfPages($first->pdf))->toBe($first->pageCount);
+});
+
+it('judges a legitimate one-page resume as one page, never a defect, and places nothing', function () {
+    $composed = app(GenerateResumePdf::class)->compose(layoutVariant(['Built a deployment pipeline on AWS.']));
+
+    expect($composed->pageCount)->toBe(1)->and($composed->quality['status'])->toBe('one_page')->and($composed->quality['severity'])->toBeNull()
+        ->and($composed->quality['findings'])->toBe([])->and($composed->placement)->toBeNull();
+});
+
+it('describes an employer that straddles the page break by where its bullets fell', function () {
+    $variant = layoutVariant(array_map(layoutBullet(...), range(1, 21)));
+    $composed = app(GenerateResumePdf::class)->compose($variant);
+
+    expect($composed->pageCount)->toBe(2)->and($composed->placement)->toHaveCount(1);
+
+    $role = $composed->placement[0];
+
+    // Every bullet is accounted for, on exactly the pages it is on, and the employer is reported as split.
+    expect(array_sum($role['by_page']))->toBe(21)->and(array_keys($role['by_page']))->toBe([1, 2])
+        ->and(array_column($composed->quality['findings'], 'code'))->toContain(count(array_filter($role['by_page'], fn ($n) => $n === 1)) > 0 && $role['bullets'] >= 3 ? 'role_split_awkward' : 'role_split');
+
+    // Bullets are found by the text layer: the page each lands on is the page its text is actually on.
+    $pageTwoText = preg_replace('/[^a-z0-9]+/', '', strtolower((new PdfParser)->parseContent($composed->pdf)->getPages()[1]->getText()));
+    $lastBullet = preg_replace('/[^a-z0-9]+/', '', strtolower(mb_substr(layoutBullet(21), 0, 60)));
+
+    expect(str_contains($pageTwoText, $lastBullet))->toBeTrue();
+});
+
+it('describes a trimmed over-long resume by what was rendered, not by what was stored', function () {
+    $variant = layoutVariant(array_map(longBullet(...), range(1, 40)));
+    $composed = app(GenerateResumePdf::class)->compose($variant);
+
+    // Bullets that were dropped to fit are not looked for in the PDF, so they cannot make the placement unmeasurable.
+    expect($composed->blocksRemoved)->toBeGreaterThan(0)->and($composed->placement)->not->toBeNull()
+        ->and(array_sum($composed->placement[0]['by_page']))->toBe(40 - $composed->blocksRemoved);
 });

@@ -14,6 +14,8 @@ final readonly class ComposedResumePdf
     /**
      * @param  'standard'|'compact'|'trimmed'  $mode
      * @param  array<int, array{density: string, blocks_removed: int, pages: int, ms: int}>  $renders
+     * @param  array<int, array{employer: string, title: string, bullets: int, by_page: array<int, int>}>|null  $placement  where each role's bullets landed (BulletPlacement)
+     * @param  array<string, mixed>|null  $quality  the layout judgment (LayoutQuality), from the measurement alone
      */
     public function __construct(
         public string $pdf,
@@ -24,6 +26,8 @@ final readonly class ComposedResumePdf
         public array $renders,
         public ?float $lastPageFill,
         public ?float $lastPageRemainingPoints,
+        public ?array $placement = null,
+        public ?array $quality = null,
     ) {}
 
     /**
@@ -39,6 +43,8 @@ final readonly class ComposedResumePdf
             'renders' => $this->renders,
             'last_page_fill' => $this->lastPageFill,
             'last_page_remaining_points' => $this->lastPageRemainingPoints,
+            'placement' => $this->placement,
+            'quality' => $this->quality,
         ];
     }
 }

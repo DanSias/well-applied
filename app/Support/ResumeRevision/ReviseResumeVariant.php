@@ -14,6 +14,7 @@ use App\Models\Role;
 use App\Support\JobTailoring\JobRelevance;
 use App\Support\JobTailoring\ProfileJobAdapter;
 use App\Support\ProfileSynthesis\EffectiveProfile;
+use App\Support\ResumeDocument\AssessResumeLayout;
 use App\Support\ResumeDocument\GenerateResumeDocument;
 use App\Support\ResumeDocument\GenerateResumePdf;
 use App\Support\ResumeDocument\ResumePdfStore;
@@ -59,6 +60,7 @@ final class ReviseResumeVariant
         private readonly ResumePdfStore $store,
         private readonly GenerateResumeDocument $documents,
         private readonly JobResumes $jobResumes,
+        private readonly AssessResumeLayout $layoutReview,
     ) {}
 
     /**
@@ -471,7 +473,7 @@ final class ReviseResumeVariant
                 'selection_raw_response' => json_encode($raw),
                 'selection_input_snapshot' => json_encode($snapshot),
                 'review_report' => json_encode(['version' => 1, 'counts' => $counts, 'items' => $items]),
-                'edit_log' => json_encode(['edits' => $edits, 'layout' => ['pages' => $composed->pageCount, 'mode' => $composed->mode, 'last_page_fill' => $composed->lastPageFill]]),
+                'edit_log' => json_encode(['edits' => $edits, 'layout' => ['pages' => $composed->pageCount, 'mode' => $composed->mode, 'last_page_fill' => $composed->lastPageFill, 'quality' => $this->layoutReview->forVariant($variant->fresh(), $composed)]]),
             ]);
 
             $this->jobResumes->setCurrent($posting, $variant);

@@ -96,4 +96,23 @@ return [
         ],
     ],
 
+    /*
+    | When a measured resume layout counts as a presentation defect (see App\Support\ResumeDocument\LayoutQuality). The
+    | fill is the share of the last page's usable height that holds content. A page that is mostly empty is not a
+    | failure of the PDF, it is a signal about the content: either relevant approved evidence was left out, or there is
+    | no more to say and the honest length is shorter. `bullet_points` is the height a typical bullet occupies, used only
+    | to say roughly how many bullets a gap is worth; nothing here changes how a resume is rendered or selected.
+    */
+    'layout_quality' => [
+        'underfilled_below' => 0.40,
+        'light_below' => 0.55,
+        'bullet_points' => 40.0,
+        // About this many of the weakest bullets or fewer, and a two-page resume would be a (legitimate) one-pager.
+        'one_page_within_bullets' => 3,
+        // A revision that takes the last page down by this much, to below `light_below`, is called out as the cause.
+        'revision_drop' => 0.15,
+        // Usable height of a continuation page, in points (matches MeasureResumePdf).
+        'later_page_points' => 709.2,
+    ],
+
 ];

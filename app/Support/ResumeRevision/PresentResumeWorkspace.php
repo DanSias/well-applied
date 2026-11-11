@@ -6,6 +6,7 @@ use App\Enums\GenerationType;
 use App\Models\CareerFact;
 use App\Models\JobPosting;
 use App\Models\ResumeVariant;
+use App\Support\ResumeDocument\AssessResumeLayout;
 
 /**
  * What the resume workspace needs beyond the resume itself: which resume this is among the job's, its history, the page
@@ -80,6 +81,7 @@ final class PresentResumeWorkspace
                 'current' => (bool) ($self['current'] ?? false),
                 'preferred' => (bool) ($self['preferred'] ?? false),
                 'pages' => $this->pages($variant),
+                'layout_quality' => $this->layoutQuality($variant),
                 'profile' => $variant->synthesis === null ? null : ['name' => (string) $variant->synthesis->resumeProfile->name, 'version' => $variant->synthesis->version],
                 'editable' => $variant->job_analysis_id !== null && $variant->resume_profile_synthesis_id !== null,
             ],
@@ -108,6 +110,24 @@ final class PresentResumeWorkspace
         }
 
         return array_values(array_map(fn (array $l) => ['label' => $l['count'] > 1 ? "{$l['label']} ({$l['count']})" : $l['label'], 'note' => $l['note']], $lines));
+    }
+
+    /**
+     * The page-balance judgment for this version: the one stored with its layout, or one made now from its stored
+     * measurement. Null when it has never been rendered.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function layoutQuality(ResumeVariant $variant): ?array
+    {
+        $layout = $variant->edit_log['layout'] ?? null;
+
+        if ($layout === null) {
+            $attempt = $variant->generationAttempts()->where('generation_type', GenerationType::ResumePdf)->latest('id')->first();
+            $layout = $attempt === null ? null : ['pages' => $attempt->pdf_page_count, 'last_page_fill' => $attempt->layout_diagnostics['last_page_fill'] ?? null, 'quality' => $attempt->layout_diagnostics['quality'] ?? null];
+        }
+
+        return app(AssessResumeLayout::class)->forStored($variant, $layout);
     }
 
     private function pages(ResumeVariant $variant): ?int

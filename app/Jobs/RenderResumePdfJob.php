@@ -8,6 +8,7 @@ use App\Exceptions\ResumePdfPageBudgetExceededException;
 use App\Jobs\Concerns\RecordsAttemptMetrics;
 use App\Models\GenerationAttempt;
 use App\Models\ResumeVariant;
+use App\Support\ResumeDocument\AssessResumeLayout;
 use App\Support\ResumeDocument\GenerateResumeDocument;
 use App\Support\ResumeDocument\GenerateResumePdf;
 use App\Support\ResumeDocument\ResumePdfStore;
@@ -37,8 +38,9 @@ final class RenderResumePdfJob implements ShouldQueue
         public readonly GenerationAttempt $attempt,
     ) {}
 
-    public function handle(GenerateResumePdf $renderer, GenerateResumeDocument $documents, ResumePdfStore $store, ResumePdfValidator $validator): void
+    public function handle(GenerateResumePdf $renderer, GenerateResumeDocument $documents, ResumePdfStore $store, ResumePdfValidator $validator, ?AssessResumeLayout $layout = null): void
     {
+        $layout ??= app(AssessResumeLayout::class);
         $this->attempt->update(['status' => GenerationStatus::Running, 'started_at' => now(), 'phase' => 'rendering']);
         $this->beginMetrics();
 
@@ -71,7 +73,8 @@ final class RenderResumePdfJob implements ShouldQueue
             'render_ms' => $composed->renderMs,
             'pdf_page_count' => $composed->pageCount,
             'layout_mode' => $composed->mode,
-            'layout_diagnostics' => $composed->diagnostics(),
+            // The page-balance judgment travels with the measurements: a short last page is flagged, never silently accepted.
+            'layout_diagnostics' => [...$composed->diagnostics(), 'quality' => $layout->forVariant($variant, $composed)],
             ...$this->successMetrics(),
         ]);
     }

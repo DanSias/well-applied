@@ -48,6 +48,7 @@ use App\Support\ReadinessReview\ReadinessPrompt;
 use App\Support\ReadinessReview\ResumeArtifact;
 use App\Support\ReadinessReview\RunReadinessReview;
 use App\Support\ReadinessReview\ValidateAssessment;
+use App\Support\ResumeDocument\AssessResumeLayout;
 use App\Support\ResumeDocument\GenerateResumeDocument;
 use App\Support\ResumeDocument\ResumeContact;
 use App\Support\ResumeDocument\ResumeDocument;
@@ -66,6 +67,7 @@ use App\Support\ResumeVariant\ResumeWordingResponseValidator;
 use App\Support\ResumeVariant\WordingCheckContext;
 use App\Support\TailoredResume\PresentTailoredResume;
 use App\Support\TailoredResume\TailoredResumePipeline;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -1912,4 +1914,45 @@ it('names the job-level download for the job, serves nothing for a job with no r
     // A job with no resume has nothing to download; another job's resume is never served for it.
     $other = JobPosting::factory()->create(['career_profile_id' => $s['career']->id]);
     $this->get(route('jobs.resume.pdf', $other))->assertNotFound();
+});
+
+// ---- Page balance: a short last page is judged with the job's own evidence, and shown where the resume is.
+
+it('records the layout judgment with a revision, and offers only relevant, Public approved facts that are not already on the resume', function () {
+    [$s, , $variant] = writtenJobResume();
+    $revision = app(ReviseResumeVariant::class)->revise($s['posting'], $variant, [...unchangedDraft($variant), 'summary' => 'Platform engineer who ships workflow tooling for delivery teams.']);
+
+    // A small resume is one page: judged, recorded with its measurements, and not a defect.
+    expect($revision->edit_log['layout'])->toHaveKeys(['pages', 'mode', 'last_page_fill', 'quality'])
+        ->and($revision->edit_log['layout']['quality']['status'])->toBe('one_page')->and($revision->edit_log['layout']['quality']['severity'])->toBeNull();
+
+    // The same resume with a nearly empty second page (a stored measurement) is judged against the job's evidence.
+    $quality = app(AssessResumeLayout::class)->forStored($revision, ['pages' => 2, 'mode' => 'standard', 'last_page_fill' => 0.30]);
+    $offered = array_column($quality['room']['candidates'], 'key');
+    $onResume = array_merge(...$revision->experienceRoles->load('bullets.citations.careerFact')->flatMap(fn ($r) => $r->bullets->map(fn ($b) => $b->citations->map(fn ($c) => $c->careerFact->key)->all()))->all());
+
+    expect($quality['status'])->toBe('underfilled')->and($quality['severity'])->toBe('review')->and($quality['room']['available'])->toBe(count($offered))
+        // What is offered is Public and not already on the resume; Restricted and Private evidence is never offered.
+        ->and($offered)->not->toContain('private-secret', 'private-card', 'remediation')->and(array_intersect($offered, $onResume))->toBe([])
+        ->and(CareerFact::whereIn('key', $offered)->pluck('visibility')->unique()->map(fn ($v) => $v->value)->all())->toBe(['public']);
+});
+
+it('shows a mostly empty last page on the job and in the workspace, and nothing for a balanced one', function () {
+    [$s, , $revision] = jobWithGeneratedAndRevisedResume();
+    $posting = $s['posting'];
+    $setLayout = fn (float $fill) => DB::table('resume_variants')->where('id', $revision->id)->update(['edit_log' => json_encode(['edits' => $revision->edit_log['edits'], 'layout' => ['pages' => 2, 'mode' => 'standard', 'last_page_fill' => $fill]])]);
+
+    $setLayout(0.31);
+    $status = app(PresentTailoredResume::class)->present($posting->fresh());
+
+    expect($status['layout']['quality']['status'])->toBe('underfilled')->and($status['layout']['quality']['severity'])->toBe('review')
+        ->and($status['layout']['pages'])->toBe(2);
+    $this->get(route('jobs.profile-resumes.show', [$posting, $revision]))->assertInertia(fn (Assert $page) => $page
+        ->where('workspace.variant.layout_quality.status', 'underfilled')->where('workspace.variant.layout_quality.severity', 'review'));
+
+    $setLayout(0.70);
+
+    expect(app(PresentTailoredResume::class)->present($posting->fresh())['layout']['quality']['status'])->toBe('balanced');
+    $this->get(route('jobs.profile-resumes.show', [$posting, $revision]))->assertInertia(fn (Assert $page) => $page
+        ->where('workspace.variant.layout_quality.status', 'balanced')->where('workspace.variant.layout_quality.severity', null));
 });

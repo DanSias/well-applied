@@ -140,6 +140,9 @@ final class GenerateResumePdf
         }
 
         $measured = (new MeasureResumePdf)->lastPage($pdf, $pages);
+        // Judged from what was just measured; no further render, and nothing about the PDF or the document changes.
+        $placement = $pages > 1 ? (new BulletPlacement)->of($removed > 0 ? $this->dropBlocks($original, $removed) : $original, $pdf) : null;
+        $quality = (new LayoutQuality)->assess($pages, $measured['fill'] ?? null, $placement);
 
         return new ComposedResumePdf(
             pdf: $pdf,
@@ -150,6 +153,8 @@ final class GenerateResumePdf
             renders: $renders,
             lastPageFill: $measured['fill'] ?? null,
             lastPageRemainingPoints: $measured['remaining_points'] ?? null,
+            placement: $placement,
+            quality: $quality,
         );
     }
 

@@ -1,3 +1,4 @@
+import type { LayoutQuality } from '@/types/layout-quality';
 /**
  * Matches App\Support\TailoredResume\PresentTailoredResume exactly: the
  * one unified status of "Generate Tailored Resume", used for both the
@@ -148,6 +149,7 @@ export type TailoredResumeStatus = {
         pages: number | null;
         mode: string | null;
         last_page_fill: number | null;
+        quality?: LayoutQuality | null;
     } | null;
     waiting_for_worker: boolean;
     clarification: Clarification | null;

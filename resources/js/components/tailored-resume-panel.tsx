@@ -1,6 +1,7 @@
 import { router } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import { ClarificationPanel } from '@/components/clarification-panel';
+import { LayoutQualityNotice } from '@/components/layout-quality-notice';
 import { useTailoredResumeStatus } from '@/hooks/use-tailored-resume-status';
 import { formatElapsedTime } from '@/lib/format-elapsed-time';
 import { start as startClarification } from '@/routes/jobs/clarification';
@@ -413,6 +414,7 @@ export function TailoredResumePanel({
                             {status.profile_resume.revisions > 1 &&
                                 ` · ${status.profile_resume.revisions} versions`}
                         </p>
+                        <LayoutQualityNotice quality={status.layout?.quality} />
                         {status.profile_resume.preferred &&
                             !status.profile_resume.preferred.is_current && (
                                 <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">

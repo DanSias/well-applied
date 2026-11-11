@@ -12,6 +12,7 @@ use App\Models\ResumeSelectionCheckpoint;
 use App\Models\ResumeVariant;
 use App\Support\Clarification\ClarificationGate;
 use App\Support\Clarification\PresentClarification;
+use App\Support\ResumeDocument\AssessResumeLayout;
 use App\Support\ResumeRevision\JobResumes;
 use Illuminate\Support\Collection;
 
@@ -38,6 +39,7 @@ final class PresentTailoredResume
         private readonly ClarificationGate $gate,
         private readonly PresentClarification $clarification,
         private readonly JobResumes $jobResumes,
+        private readonly AssessResumeLayout $layoutReview,
     ) {}
 
     /**
@@ -187,7 +189,7 @@ final class PresentTailoredResume
             // A job with a working resume downloads whatever is current when the button is used, not the variant this page
             // happened to load with, so a page left open across a revision cannot serve the superseded version.
             'download_url' => $variant === null ? null : ($downloadsCurrent ? route('jobs.resume.pdf', $posting) : route('resume-variants.pdf', $variant)),
-            'layout' => $state === 'ready' ? ($variant?->edit_log['layout'] ?? $this->layout($attempts)) : null,
+            'layout' => $state === 'ready' ? $this->withQuality($variant, $variant?->edit_log['layout'] ?? $this->layout($attempts)) : null,
             'review' => $variant === null ? null : $this->review($variant),
             'profile_resume' => $synthesis === null ? null : $this->profileResume($posting, $synthesis, $variant),
             'waiting_for_worker' => $current !== null && collect($stages)->firstWhere('key', $current)['status'] === 'queued',
@@ -313,6 +315,23 @@ final class PresentTailoredResume
             'pages' => $pdf->pdf_page_count,
             'mode' => $pdf->layout_mode,
             'last_page_fill' => $pdf->layout_diagnostics['last_page_fill'] ?? null,
+            'quality' => $pdf->layout_diagnostics['quality'] ?? null,
         ];
+    }
+
+    /**
+     * The layout with its page-balance judgment: the stored one, or one made now from the stored measurement for a resume
+     * rendered before the judgment existed, so a mostly empty last page is never shown as simply "2 pages".
+     *
+     * @param  array<string, mixed>|null  $layout
+     * @return array<string, mixed>|null
+     */
+    private function withQuality(?ResumeVariant $variant, ?array $layout): ?array
+    {
+        if ($layout === null || $variant === null) {
+            return $layout;
+        }
+
+        return [...$layout, 'quality' => $this->layoutReview->forStored($variant, $layout)];
     }
 }

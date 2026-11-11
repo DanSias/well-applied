@@ -1,3 +1,4 @@
+import type { LayoutQuality } from '@/types/layout-quality';
 export type ResumeCareerFactSummary = {
     key: string;
     statement: string;
@@ -152,6 +153,7 @@ export type ResumeWorkspace = {
         current: boolean;
         preferred: boolean;
         pages: number | null;
+        layout_quality: LayoutQuality | null;
         profile: { name: string; version: number } | null;
         editable: boolean;
     };
