@@ -66,6 +66,25 @@ export function useTailoredResumeStatus(
         }
     };
 
+    // A page left open, or restored by Back, shows what was true when it loaded. Asking again whenever it becomes
+    // visible keeps the summary, revision count and links on the resume the job is working from now. (The Download PDF
+    // link does not depend on this: it names the job, and the server picks the current resume when it is used.)
+    useEffect(() => {
+        const resync = () => {
+            if (document.visibilityState === 'visible') {
+                void refresh();
+            }
+        };
+
+        window.addEventListener('pageshow', resync);
+        document.addEventListener('visibilitychange', resync);
+
+        return () => {
+            window.removeEventListener('pageshow', resync);
+            document.removeEventListener('visibilitychange', resync);
+        };
+    }, [jobId]);
+
     useEffect(() => {
         if (status.state !== 'running') {
             return;

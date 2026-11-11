@@ -13,6 +13,7 @@ use App\Http\Controllers\JobAnalysisController;
 use App\Http\Controllers\JobBatchController;
 use App\Http\Controllers\JobMatchController;
 use App\Http\Controllers\JobPostingController;
+use App\Http\Controllers\JobResumePdfController;
 use App\Http\Controllers\ProfileSynthesisController;
 use App\Http\Controllers\ReadinessReviewController;
 use App\Http\Controllers\ResumeProfileController;
@@ -157,3 +158,7 @@ Route::get('/resume-variants/{resumeVariant}/preview', [ResumeVariantPreviewCont
 // PDF export of the same document — see
 // App\Http\Controllers\ResumeVariantPdfController.
 Route::get('/resume-variants/{resumeVariant}/pdf', [ResumeVariantPdfController::class, 'show'])->name('resume-variants.pdf');
+
+// The job's CURRENT resume as a PDF, resolved when requested (never a variant id frozen into a page) — see
+// App\Http\Controllers\JobResumePdfController.
+Route::get('/jobs/{jobPosting}/resume/pdf', [JobResumePdfController::class, 'show'])->name('jobs.resume.pdf');

@@ -52,6 +52,7 @@ use App\Support\ResumeDocument\GenerateResumeDocument;
 use App\Support\ResumeDocument\ResumeContact;
 use App\Support\ResumeDocument\ResumeDocument;
 use App\Support\ResumeDocument\ResumeExperienceRole;
+use App\Support\ResumeDocument\ResumePdfFilename;
 use App\Support\ResumeDocument\ResumePdfStore;
 use App\Support\ResumeDocument\SkillPresentation;
 use App\Support\ResumeProfile\QuestionWriter;
@@ -68,6 +69,7 @@ use App\Support\TailoredResume\TailoredResumePipeline;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
+use Smalot\PdfParser\Parser;
 use Tests\Support\FakeSequenceWriter;
 use Tests\Support\ResumeProfileFixtures as F;
 
@@ -1778,4 +1780,136 @@ it('does not change any data while rendering the list', function () {
     $this->get(route('resume-profiles.index'))->assertOk();
 
     expect([ResumeProfileSynthesis::count(), $synthesis->fresh()->updated_at, EvidenceRevision::current($s['career'])])->toEqual($before);
+});
+
+// ---- The job page's Download PDF is the job's current resume, resolved when it is used.
+
+/**
+ * A job whose run finished (so the job page shows "ready"), with the generated resume and a revision of it that changes
+ * only the summary, so the two PDFs differ in one findable sentence.
+ *
+ * @return array{0: array<string, mixed>, 1: ResumeVariant, 2: ResumeVariant}
+ */
+function jobWithGeneratedAndRevisedResume(bool $revise = true): array
+{
+    [$s, $synthesis, $variant] = writtenJobResume();
+    $runId = (string) Str::uuid();
+    $attempt = fn (GenerationType $type, int $subject, string $subjectType) => GenerationAttempt::factory()->create([
+        'subject_type' => $subjectType, 'subject_id' => $subject, 'generation_type' => $type, 'status' => GenerationStatus::Succeeded,
+        'pipeline_run_id' => $runId, 'chain' => true, 'resume_profile_synthesis_id' => $synthesis->id,
+    ]);
+    $attempt(GenerationType::ResumeVariant, $s['analysis']->id, 'job_analysis');
+    $attempt(GenerationType::ResumePdf, $variant->id, 'resume_variant');
+    $revision = $revise
+        ? app(ReviseResumeVariant::class)->revise($s['posting'], $variant, [...unchangedDraft($variant), 'summary' => 'Platform engineer who ships workflow tooling for delivery teams.'])
+        : $variant;
+
+    return [$s, $variant, $revision];
+}
+
+/** The text of a downloaded PDF, whitespace collapsed so a sentence can be searched for. */
+function pdfText(string $content): string
+{
+    return preg_replace('/\s+/', ' ', (new Parser)->parseContent($content)->getText());
+}
+
+it('serves the generated resume from the job download until a revision exists, and says which variant it served', function () {
+    [$s, $generated] = jobWithGeneratedAndRevisedResume(revise: false);
+    $posting = $s['posting'];
+    $status = app(PresentTailoredResume::class)->present($posting->fresh());
+    $response = $this->get($status['download_url']);
+
+    // Generation records the current selection, and the job-level download resolves to it by content, not just status.
+    expect(JobResumeSelection::where('job_posting_id', $posting->id)->value('current_resume_variant_id'))->toBe($generated->id)
+        ->and($status['state'])->toBe('ready')->and($status['resume_variant_id'])->toBe($generated->id)
+        ->and($status['download_url'])->toBe(route('jobs.resume.pdf', $posting));
+    $response->assertOk();
+    expect($response->headers->get('X-Resume-Variant-Id'))->toBe((string) $generated->id)
+        ->and($response->headers->get('Cache-Control'))->toContain('no-store')
+        ->and(pdfText($response->getContent()))->toContain('Full-Stack Developer who owns applications end to end.');
+});
+
+it('downloads the revision from the job page after revising, while the original stays available only through its own route', function () {
+    [$s, $generated, $revision] = jobWithGeneratedAndRevisedResume();
+    $posting = $s['posting'];
+    $status = app(PresentTailoredResume::class)->present($posting->fresh());
+
+    // Revising made the revision the job's current resume.
+    expect(JobResumeSelection::where('job_posting_id', $posting->id)->value('current_resume_variant_id'))->toBe($revision->id)
+        ->and($status['resume_variant_id'])->toBe($revision->id);
+
+    $current = $this->get($status['download_url']);
+    $historical = $this->get(route('resume-variants.pdf', $generated));
+    $explicit = $this->get(route('resume-variants.pdf', $revision));
+
+    // The job's button gives the revised text; the original's route still gives the original, and nothing mixes them up.
+    expect($current->headers->get('X-Resume-Variant-Id'))->toBe((string) $revision->id)
+        ->and(pdfText($current->getContent()))->toContain('Platform engineer who ships workflow tooling')->not->toContain('Full-Stack Developer who owns applications end to end.')
+        ->and(pdfText($historical->getContent()))->toContain('Full-Stack Developer who owns applications end to end.')->not->toContain('Platform engineer who ships')
+        ->and($historical->headers->get('X-Resume-Variant-Id'))->toBeNull()
+        // The job download and the revision's own download are the same file.
+        ->and(md5($current->getContent()))->toBe(md5($explicit->getContent()))
+        ->and(md5($current->getContent()))->not->toBe(md5($historical->getContent()));
+});
+
+it('cannot serve a superseded resume from a job page that was loaded before the revision', function () {
+    [$s, $generated] = jobWithGeneratedAndRevisedResume(revise: false);
+    $posting = $s['posting'];
+
+    // The page as it was loaded, then left open (or restored by Back): its Download PDF link is whatever it carried.
+    $staleLink = app(PresentTailoredResume::class)->present($posting->fresh())['download_url'];
+    $revision = app(ReviseResumeVariant::class)->revise($posting, $generated, [...unchangedDraft($generated), 'summary' => 'Platform engineer who ships workflow tooling for delivery teams.']);
+
+    $response = $this->get($staleLink);
+
+    // The link names the job, not a variant, so the revision is what it serves.
+    expect($staleLink)->toBe(route('jobs.resume.pdf', $posting))->and($staleLink)->not->toContain('resume-variants')
+        ->and($response->headers->get('X-Resume-Variant-Id'))->toBe((string) $revision->id)
+        ->and(pdfText($response->getContent()))->toContain('Platform engineer who ships workflow tooling');
+
+    // The real page props carry the same link, and the status endpoint a stale page polls says which resume is current.
+    $this->get(route('jobs.show', $posting))->assertInertia(fn (Assert $page) => $page
+        ->where('tailored_resume.download_url', route('jobs.resume.pdf', $posting))->where('tailored_resume.resume_variant_id', $revision->id));
+    $this->getJson(route('jobs.tailored-resume.status', $posting))->assertJsonPath('resume_variant_id', $revision->id)->assertJsonPath('download_url', route('jobs.resume.pdf', $posting));
+});
+
+it('keeps the job download on the current resume when another is marked final, and follows an explicit change of the current one', function () {
+    [$s, $generated, $revision] = jobWithGeneratedAndRevisedResume();
+    $posting = $s['posting'];
+    $served = fn () => $this->get(route('jobs.resume.pdf', $posting))->headers->get('X-Resume-Variant-Id');
+
+    // Marking the original final is a designation only: the working copy, and so the download, stays the revision.
+    $this->post(route('jobs.profile-resumes.preferred', [$posting, $generated]), ['preferred' => true])->assertRedirect();
+
+    expect(JobResumeSelection::where('job_posting_id', $posting->id)->value('current_resume_variant_id'))->toBe($revision->id)
+        ->and(JobResumeSelection::where('job_posting_id', $posting->id)->value('preferred_resume_variant_id'))->toBe($generated->id)
+        ->and($served())->toBe((string) $revision->id);
+
+    // Choosing an earlier resume as the current one is what moves the download.
+    $this->post(route('jobs.profile-resumes.current', [$posting, $generated]))->assertRedirect();
+
+    expect($served())->toBe((string) $generated->id)->and(JobResumeSelection::where('job_posting_id', $posting->id)->value('preferred_resume_variant_id'))->toBe($generated->id);
+
+    // A later revision of the original becomes current again without touching the final designation.
+    $again = app(ReviseResumeVariant::class)->revise($posting, $generated->fresh(), [...unchangedDraft($generated), 'summary' => 'Engineer who ships internal workflow software.']);
+
+    expect($served())->toBe((string) $again->id)->and(JobResumeSelection::where('job_posting_id', $posting->id)->value('preferred_resume_variant_id'))->toBe($generated->id);
+});
+
+it('names the job-level download for the job, serves nothing for a job with no resume, and never crosses jobs', function () {
+    [$s, , $revision] = jobWithGeneratedAndRevisedResume();
+    $posting = $s['posting'];
+    $response = $this->get(route('jobs.resume.pdf', $posting));
+
+    // The filename is the job-specific name, identical to the per-variant route's for the same variant.
+    expect($response->headers->get('Content-Disposition'))->toBe('attachment; filename="'.ResumePdfFilename::build($revision).'"')
+        ->and(ResumePdfFilename::build($revision))->toContain('Resume-Acme-Finance-Full-Stack-Engineer')
+        ->and($this->get(route('resume-variants.pdf', $revision))->headers->get('Content-Disposition'))->toBe($response->headers->get('Content-Disposition'));
+
+    // ?inline=1 is the same document shown in the browser.
+    expect($this->get(route('jobs.resume.pdf', [$posting, 'inline' => 1]))->headers->get('Content-Disposition'))->toStartWith('inline;');
+
+    // A job with no resume has nothing to download; another job's resume is never served for it.
+    $other = JobPosting::factory()->create(['career_profile_id' => $s['career']->id]);
+    $this->get(route('jobs.resume.pdf', $other))->assertNotFound();
 });

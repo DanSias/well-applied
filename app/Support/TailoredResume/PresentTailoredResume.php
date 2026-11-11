@@ -169,8 +169,12 @@ final class PresentTailoredResume
         $variant = $allDone ? $valid['variant'] : null;
 
         // The resume being worked on is the newest generated or revised one for this job, not only the last generation result.
+        $downloadsCurrent = false;
+
         if ($variant !== null && $synthesis !== null) {
-            $variant = $this->jobResumes->current($posting) ?? $variant;
+            $working = $this->jobResumes->current($posting);
+            $variant = $working ?? $variant;
+            $downloadsCurrent = $working !== null;
         }
 
         return $this->payload($state, $label, $stages, $runId, $needsConfirmation, [
@@ -180,7 +184,9 @@ final class PresentTailoredResume
             'failure' => $state === 'failed' ? $failure : null,
             'resume_variant_id' => $variant?->id,
             'preview_url' => $variant === null ? null : route('resume-variants.preview', $variant),
-            'download_url' => $variant === null ? null : route('resume-variants.pdf', $variant),
+            // A job with a working resume downloads whatever is current when the button is used, not the variant this page
+            // happened to load with, so a page left open across a revision cannot serve the superseded version.
+            'download_url' => $variant === null ? null : ($downloadsCurrent ? route('jobs.resume.pdf', $posting) : route('resume-variants.pdf', $variant)),
             'layout' => $state === 'ready' ? ($variant?->edit_log['layout'] ?? $this->layout($attempts)) : null,
             'review' => $variant === null ? null : $this->review($variant),
             'profile_resume' => $synthesis === null ? null : $this->profileResume($posting, $synthesis, $variant),
