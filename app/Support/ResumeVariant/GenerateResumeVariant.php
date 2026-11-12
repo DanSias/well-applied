@@ -31,7 +31,7 @@ use App\Support\ProfileSynthesis\ReferenceSelection;
 use App\Support\ProfileSynthesis\StoryRole;
 use App\Support\ResumeDocument\ResumeText;
 use App\Support\ResumeRevision\JobResumes;
-use App\Support\ResumeVariant\Prompts\ProfileJobWordingPromptV1;
+use App\Support\ResumeVariant\Prompts\ProfileJobWordingPromptV2;
 use App\Support\ResumeVariant\Prompts\ReferenceWordingPromptV3;
 use App\Support\ResumeVariant\Prompts\ResumeSelectionPromptV6;
 use App\Support\ResumeVariant\Prompts\ResumeWordingPromptV3;
@@ -131,7 +131,7 @@ final class GenerateResumeVariant
         $onPhase ??= static fn (string $phase) => null;
         $jobMode = $synthesis !== null && $analysis !== null;
         $wordingPrompt = match (true) {
-            $jobMode => app(ProfileJobWordingPromptV1::class),
+            $jobMode => app(ProfileJobWordingPromptV2::class),
             $synthesis !== null => app(ReferenceWordingPromptV3::class),
             default => $this->wordingPrompt,
         };
@@ -549,6 +549,13 @@ final class GenerateResumeVariant
 
             if ($triage->isStructurallyValid()) {
                 $recovered = app(RecoverWording::class)->recover($triage, $wordingContext);
+
+                if ($jobMode) {
+                    // Recovery only removes. A summary it cut down gets one narrow correction (never a retry of the resume),
+                    // and one that stays collapsed ships flagged, never as a finished summary.
+                    $recovered = app(CorrectSummary::class)->apply($recovered, $this->wordingProvider, app(ProfileJobWordingPromptV2::class), $wordingInput, $wordingContext, $metrics);
+                }
+
                 $validatedWording = $recovered['content'];
                 $reviewItems = $recovered['items'];
 
@@ -1341,9 +1348,17 @@ final class GenerateResumeVariant
     }
 
     /**
-     * The facts a job-tailored summary may draw on: the two the approved summary leads with (the candidate's identity), the
-     * selected facts that speak most to the job, a support-only fact the job asks for, and the figure-bearing selected facts,
-     * so a metric the summary states is cited by the fact that actually contains it.
+     * The facts a job-tailored summary may draw on. The summary is judged against exactly these (a technology or a figure
+     * it names must be stated by one of them), so they must include what a good summary naturally says:
+     *
+     *   identity      the two facts the approved summary leads with (the candidate's positioning);
+     *   strongest     the five facts that speak most to the job and the WHOLE bullet groups of the three strongest, not
+     *                 only single facts picked out of them. A
+     *                 summary that says "built a Node.js analytics platform" needs the fact that states Node.js, and
+     *                 that fact is in the group that makes the claim;
+     *   figures       the public, figure-bearing selected facts that speak most to the job (by relevance, not by the
+     *                 order they were selected), so a metric the summary states is cited by the fact that holds it;
+     *   support-only  a first-person fact the job asks for.
      *
      * @param  array<string, mixed>  $content  the deterministic selection
      * @param  array<string, mixed>  $effective  the job-adapted profile
@@ -1353,22 +1368,30 @@ final class GenerateResumeVariant
      */
     private function jobSummaryEvidence(array $content, array $effective, array $relevance, array $offered): array
     {
+        $score = fn (string $key): float => (float) ($relevance['facts'][$key]['score'] ?? 0.0);
+        $groups = [];
         $selected = [];
 
         foreach ($content['experience'] as $role) {
             foreach ($role['bullet_groups'] as $group) {
+                $groups[] = ['keys' => $group['career_fact_keys'], 'score' => max([0.0, ...array_map($score, $group['career_fact_keys'])])];
                 $selected = [...$selected, ...$group['career_fact_keys']];
             }
         }
 
+        usort($groups, fn (array $a, array $b) => $b['score'] <=> $a['score']);
+        $strongest = array_merge([], ...array_map(fn (array $g) => $g['keys'], array_slice($groups, 0, 3)));
+
         $selected = array_values(array_unique($selected));
         $byRelevance = $selected;
-        usort($byRelevance, fn (string $a, string $b) => ($relevance['facts'][$b]['score'] ?? 0.0) <=> ($relevance['facts'][$a]['score'] ?? 0.0));
-        $figures = array_slice(array_values(array_filter($selected, fn (string $k) => ($offered[$k]['visibility'] ?? '') === 'public' && preg_match('/\d/', (string) ($offered[$k]['statement'] ?? '')) === 1)), 0, 2);
+        usort($byRelevance, fn (string $a, string $b) => $score($b) <=> $score($a));
+        $figureFacts = array_values(array_filter($selected, fn (string $k) => ($offered[$k]['visibility'] ?? '') === 'public' && preg_match('/\d/', (string) ($offered[$k]['statement'] ?? '')) === 1));
+        usort($figureFacts, fn (string $a, string $b) => $score($b) <=> $score($a));
+        $figures = array_slice($figureFacts, 0, 2);
         $supportOnly = array_values(array_filter($effective['presentation']['summary_fact_keys'], fn (string $k) => isset($offered[$k]) && ($effective['facts'][$k]['support_only'] ?? false)));
         $identity = array_values(array_filter(array_slice($effective['presentation']['summary_fact_keys'], 0, 2), fn (string $k) => isset($offered[$k])));
 
-        return array_values(array_unique([...$identity, ...array_slice($byRelevance, 0, 5), ...$supportOnly, ...$figures]));
+        return array_values(array_unique([...$identity, ...$strongest, ...array_slice($byRelevance, 0, 5), ...$supportOnly, ...$figures]));
     }
 
     /**

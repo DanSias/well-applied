@@ -234,7 +234,7 @@ final class RecoverWording
      * @param  array<int, array{kind: string, severity: string, detail: string, message: string, repair?: array<string, string>}>  $findings
      * @return array{0: string, 1: string, 2: string|null}
      */
-    private function recoverSummary(string $summary, array $findings, WordingCheckContext $context): array
+    public function recoverSummary(string $summary, array $findings, WordingCheckContext $context): array
     {
         $rewrite = $this->generalize('summary', $summary, 'summary', $findings, $context, targetTerms: true, wordCount: false);
 
