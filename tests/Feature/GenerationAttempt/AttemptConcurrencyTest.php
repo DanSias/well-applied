@@ -113,3 +113,11 @@ it('joins the generation in flight instead of starting a second one after a tran
 it('makes a competing database writer wait instead of failing at once', function () {
     expect(config('database.connections.sqlite.busy_timeout'))->toBe(5000);
 });
+
+it('keeps the category and message of a real failure', function () {
+    $running = pdfAttempt(GenerationStatus::Running, ['started_at' => now()]);
+    $job = new GenerateResumeVariantJob($running);
+    $job->failed(new RuntimeException('boom'));
+
+    expect($running->fresh()->status)->toBe(GenerationStatus::Failed)->and($running->fresh()->failure_category)->toBe('unexpected_error')->and($running->fresh()->failure_message)->not->toBeNull();
+});

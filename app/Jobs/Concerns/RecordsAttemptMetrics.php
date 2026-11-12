@@ -122,7 +122,7 @@ trait RecordsAttemptMetrics
         }
 
         // The last live sub-stage (`phase`) is kept so a failure says where it stopped.
-        return array_diff_key($this->successMetrics(), ['queue_wait_ms' => true, 'phase' => true]);
+        return array_diff_key($this->successMetrics(), ['queue_wait_ms' => true, 'phase' => true, 'failure_category' => true, 'failure_message' => true]);
     }
 
     /**
