@@ -30,6 +30,14 @@ final class ResumePdfStore
         Storage::disk('local')->put($this->path($document), $pdf);
     }
 
+    /**
+     * Removes a cached file: for a render that was made to be judged and then not kept.
+     */
+    public function forget(ResumeDocument $document): void
+    {
+        Storage::disk('local')->delete($this->path($document));
+    }
+
     private function path(ResumeDocument $document): string
     {
         return 'resume-pdfs/'.$this->key($document).'.pdf';

@@ -34,7 +34,7 @@ use Throwable;
  * configuration was added for this, since the library already covers
  * it. See docs/resume-variant-generation.md "PDF export".
  */
-final class GenerateResumePdf
+class GenerateResumePdf
 {
     private const PAPER_WIDTH_INCHES = 8.5;
 

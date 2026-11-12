@@ -177,6 +177,26 @@ return [
     ],
 
     /*
+    | The one bounded corrective pass after the first PDF is rendered and measured (see App\Support\ResumeRevision\FinishResumeLayout).
+    | It runs only when the last page is UNDERFILLED (LayoutQuality) and relevant approved Public evidence is left off the
+    | resume, adds at most `max_additions` accomplishments in one narrow model call, and keeps the result only if it validates,
+    | stays on the same number of pages, reads better, and repeats nothing. Typography and margins are never changed.
+    |
+    |   min_relevance   the job relevance (after specificity adjustments) a fact needs to be offered at all
+    |   max_additions   accomplishments added, however much room LayoutQuality estimates
+    |   max_per_role    of those, per role
+    |   max_per_project bullets a project may have on the resume after the addition
+    |   overlap_limit   word overlap with an existing bullet at which a fact counts as already on the resume
+    |   min_fill_gain   the last page must be this much fuller than before for the result to be worth keeping
+    |   max_fill        a last page fuller than this is too close to a third page to keep
+    */
+    'finishing' => [
+        'enabled' => true,
+        'min_relevance' => 0.4, 'max_additions' => 4, 'max_per_role' => 2, 'max_per_project' => 2, 'overlap_limit' => 0.6,
+        'min_fill_gain' => 0.08, 'max_fill' => 0.95,
+    ],
+
+    /*
     | When a measured resume layout counts as a presentation defect (see App\Support\ResumeDocument\LayoutQuality). The
     | fill is the share of the last page's usable height that holds content. A page that is mostly empty is not a
     | failure of the PDF, it is a signal about the content: either relevant approved evidence was left out, or there is
