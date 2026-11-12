@@ -52,8 +52,9 @@ final class RecoverWording
         $summaryItem = ['location' => 'summary', 'field' => 'summary', 'fact_keys' => $context->careerFactKeysByLocation['summary'] ?? []];
 
         if ($this->blockedIn($summaryFindings)) {
+            $originalSummary = $summary;
             [$summary, $status, $action] = $this->recoverSummary($summary, $summaryFindings, $context);
-            $items[] = [...$summaryItem, 'status' => $status, 'findings' => $summaryFindings, 'action' => $action, 'text' => $summary];
+            $items[] = [...$summaryItem, 'status' => $status, 'findings' => $summaryFindings, 'action' => $action, 'text' => $summary, 'original' => $originalSummary];
             $content['summary'] = $summary;
         } else {
             $items[] = [...$summaryItem, 'status' => $summaryFindings === [] ? 'passed' : 'review', 'findings' => $summaryFindings, 'action' => null, 'text' => $summary];
@@ -83,12 +84,12 @@ final class RecoverWording
                 $rewrite = $this->generalize($field, $bullet['text'], $locationKey, $findings, $context, targetTerms: true, wordCount: true);
 
                 if ($rewrite === null) {
-                    $items[] = [...$item, 'status' => 'omitted', 'findings' => $findings, 'action' => 'Removed: it could not be generalized from eligible evidence.', 'text' => null];
+                    $items[] = [...$item, 'status' => 'omitted', 'findings' => $findings, 'action' => 'Removed: it could not be generalized from eligible evidence.', 'text' => null, 'original' => $bullet['text']];
 
                     continue;
                 }
 
-                $items[] = [...$item, 'status' => 'generalized', 'findings' => $findings, 'action' => $rewrite['action'], 'text' => $rewrite['text']];
+                $items[] = [...$item, 'status' => 'generalized', 'findings' => $findings, 'action' => $rewrite['action'], 'text' => $rewrite['text'], 'original' => $bullet['text']];
                 $kept[] = [...$bullet, 'text' => $rewrite['text']];
             }
 
@@ -114,12 +115,12 @@ final class RecoverWording
             $rewrite = $this->generalize($field, $project['text'], $locationKey, $findings, $context, targetTerms: false, wordCount: true);
 
             if ($rewrite === null) {
-                $items[] = [...$item, 'status' => 'omitted', 'findings' => $findings, 'action' => 'Removed: it could not be generalized from eligible evidence.', 'text' => null];
+                $items[] = [...$item, 'status' => 'omitted', 'findings' => $findings, 'action' => 'Removed: it could not be generalized from eligible evidence.', 'text' => null, 'original' => $project['text']];
 
                 continue;
             }
 
-            $items[] = [...$item, 'status' => 'generalized', 'findings' => $findings, 'action' => $rewrite['action'], 'text' => $rewrite['text']];
+            $items[] = [...$item, 'status' => 'generalized', 'findings' => $findings, 'action' => $rewrite['action'], 'text' => $rewrite['text'], 'original' => $project['text']];
             $keptProjects[] = [...$project, 'text' => $rewrite['text']];
         }
 
