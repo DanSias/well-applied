@@ -28,6 +28,7 @@ use App\Support\JobTailoring\ProfileJobAdapter;
 use App\Support\ProfileSynthesis\EffectiveProfile;
 use App\Support\ProfileSynthesis\FirstPerson;
 use App\Support\ProfileSynthesis\ReferenceSelection;
+use App\Support\ProfileSynthesis\StoryRole;
 use App\Support\ResumeDocument\ResumeText;
 use App\Support\ResumeRevision\JobResumes;
 use App\Support\ResumeVariant\Prompts\ProfileJobWordingPromptV1;
@@ -1256,6 +1257,9 @@ final class GenerateResumeVariant
                 'bullet_groups' => collect($role->bulletGroups)->map(fn (BulletGroupDraft $group, int $index) => [
                     'bullet_group_index' => $index,
                     'career_facts' => collect($group->careerFactKeys)->map(fn (string $key) => $factsByKey->get($key))->values()->all(),
+                    // A group of several facts is one accomplishment; each fact's part in it (built, implementation,
+                    // deployment, outcome) tells the wording stage what the bullet can say.
+                    ...(count($group->careerFactKeys) > 1 ? ['fact_roles' => collect($group->careerFactKeys)->mapWithKeys(fn (string $key, int $n) => [$key => StoryRole::of((string) ($factsByKey->get($key)['statement'] ?? ''), $n === 0)])->all()] : []),
                     'direct_target_terms' => $directTargetTermsByLocation["{$role->roleId}:{$index}"] ?? [],
                 ])->values()->all(),
             ])->values()->all(),

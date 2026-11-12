@@ -31,7 +31,7 @@ final class ReferenceSelection
     /** How much each kind of evidence is worth to a Full-Stack reference resume. */
     private const FACET_WEIGHT = [
         'architecture' => 1.25, 'security_reliability' => 1.25, 'backend_api' => 1.2, 'outcome' => 1.2, 'frontend' => 1.1,
-        'ownership' => 1.1, 'implementation' => 1.0, 'leadership' => 0.7, 'generic_dev' => 0.6, 'platform_use' => 0.5,
+        'ownership' => 1.1, 'implementation' => 1.0, 'leadership' => 0.7, 'generic_dev' => 0.6, 'platform_use' => 0.5, 'deployment' => 0.6,
     ];
 
     /**
@@ -83,9 +83,13 @@ final class ReferenceSelection
             $candidates[$roleId][] = [...$a, 'kind' => $kind, 'order_index' => $i, 'project_id' => $fact['attribution']['project_id'] ?? null];
         }
 
-        $titles = Role::query()->whereIn('id', $roleIds)->pluck('title', 'id');
+        $roleRows = Role::query()->whereIn('id', $roleIds)->get(['id', 'title', 'start_year', 'end_year'])->keyBy('id');
+        $titles = $roleRows->pluck('title', 'id');
         $meta = $this->meta($effective, $offered);
-        $allocation = $this->allocate($roleIds, $candidates, (int) $cfg['total_bullets'], (int) $cfg['per_role_max'], (int) $cfg['developer_role_floor'], $titles->all());
+        $forJob = isset($effective['job_priority_findings']);
+        $allocation = $forJob
+            ? $this->allocateForJob($roleIds, $candidates, $titles->all(), $roleRows->map(fn (Role $r) => ['start' => $r->start_year, 'end' => $r->end_year])->all())
+            : $this->allocate($roleIds, $candidates, (int) $cfg['total_bullets'], (int) $cfg['per_role_max'], (int) $cfg['developer_role_floor'], $titles->all());
         $weights = $this->projectWeights($effective, (int) $cfg['priority_projects']);
         // The user's top few projects are guaranteed a bullet on a reference resume. For a job only the pinned ones are: the
         // rest compete on what the job asks for.
@@ -100,7 +104,7 @@ final class ReferenceSelection
         usort($order, fn (int $a, int $b) => ($allocation[$b] ?? 1) <=> ($allocation[$a] ?? 1));
 
         foreach ($order as $roleId) {
-            $units = $this->units($candidates[$roleId] ?? [], $offered, (int) $cfg['outcomes_per_lead'], (float) $cfg['overlap_limit'], $meta);
+            $units = $this->units($candidates[$roleId] ?? [], $offered, (int) $cfg['outcomes_per_lead'], (float) $cfg['overlap_limit'], $meta, $forJob);
             $fallback = false;
 
             if ($units === []) {
@@ -114,6 +118,10 @@ final class ReferenceSelection
                 'per_project_max' => (int) $cfg['per_project_max'], 'weights' => $weights, 'priority' => $priority,
                 'overlap_limit' => (float) $cfg['overlap_limit'], 'extra' => min(1, $extraLeft), 'role_has_projects' => array_filter($units, fn (array $u) => $u['project_id'] !== null) !== [],
                 'job_priority' => $effective['job_priority_findings'] ?? [],
+                // For a job, evidence the job barely speaks to does not fill a slot once the role has a bullet.
+                'min_job' => $forJob ? (float) config('resume.composition.allocation.filler_relevance') : null,
+                // A general claim of ownership or leadership says the same thing wherever it is made; a role keeps a few and the rest of its slots go to the work.
+                'generic_max' => $forJob ? (int) config('resume.composition.allocation.generic_per_role') : null,
                 'technical_floor' => preg_match('/\b(?:developer|engineer)\b/i', (string) $titles[$roleId]) === 1, 'texts' => array_map(fn (array $f) => $f['statement'], $offered),
             ]);
             $extraLeft -= $result['extra_used'];
@@ -218,6 +226,81 @@ final class ReferenceSelection
     }
 
     /**
+     * Bullets per role for a resume written for a job. The shares follow how strong and how relevant each role's evidence is,
+     * weighted by tenure, so a role whose evidence the job barely speaks to takes few bullets whatever its title, and a long
+     * recent or earlier engineering role is not reduced to a token. Every role keeps at least one bullet (role completeness).
+     *
+     * A substantial earlier engineering role (a developer or engineer title, at least `continuity_min_years`, with at least
+     * `continuity_floor` facts the job speaks to) keeps that floor; a role with no such evidence has none. A role that is
+     * not an engineering role takes at most two. The total is the planning target for a two-page senior resume, lowered
+     * to the amount of evidence the job actually speaks to, never raised to fill space.
+     *
+     * @param  array<int, int>  $roleIds
+     * @param  array<int, array<int, array<string, mixed>>>  $candidates
+     * @param  array<int, string>  $titles
+     * @param  array<int, array{start: int|null, end: int|null}>  $tenure
+     * @return array<int, int>
+     */
+    private function allocateForJob(array $roleIds, array $candidates, array $titles, array $tenure): array
+    {
+        $cfg = (array) config('resume.composition');
+        $alloc = (array) $cfg['allocation'];
+        $perRoleMax = (int) $cfg['bullets']['per_role_max'];
+        $thisYear = (int) date('Y');
+        $isEngineering = fn (int $roleId): bool => preg_match('/\b(?:developer|engineer)\b/i', (string) ($titles[$roleId] ?? '')) === 1;
+
+        $relevant = 0;
+
+        foreach ($candidates as $list) {
+            $relevant += count(array_filter($list, fn (array $a) => ($a['job_relevance'] ?? 0.0) >= $alloc['relevant_at'] && $a['kind'] !== 'platform_use'));
+        }
+
+        $planned = max((int) $cfg['bullets']['min'], min((int) $cfg['bullets']['target'], (int) ceil($relevant / (float) $alloc['facts_per_bullet_unit'])));
+        $weight = [];
+        $years = [];
+
+        foreach ($roleIds as $roleId) {
+            $start = $tenure[$roleId]['start'] ?? null;
+            $end = $tenure[$roleId]['end'] ?? null;
+            $years[$roleId] = $start === null ? 0 : max(0, ($end ?? $thisYear) - $start);
+            $recent = $end === null || $end >= $thisYear - (int) $alloc['recent_years'];
+            $tenureFactor = $recent ? 1.0 : 0.7 + 0.3 * min(1.0, $years[$roleId] / max(1, (int) $alloc['tenure_full_years']));
+            $strength = array_sum(array_map(fn (array $a) => ($a['job_relevance'] ?? $a['score']) ** 2 + 0.25 * $a['score'] ** 2, array_slice($candidates[$roleId] ?? [], 0, 6)));
+            $weight[$roleId] = $strength * $tenureFactor;
+        }
+
+        $sum = array_sum($weight) ?: 1.0;
+        $floor = [];
+        $out = [];
+
+        foreach ($roleIds as $roleId) {
+            $speaksToJob = count(array_filter($candidates[$roleId] ?? [], fn (array $a) => ($a['job_relevance'] ?? 0.0) >= $alloc['relevant_at'] && $a['kind'] !== 'platform_use'));
+            $floor[$roleId] = $isEngineering($roleId) && $years[$roleId] >= (int) $alloc['continuity_min_years'] && $speaksToJob >= (int) $alloc['continuity_floor']
+                ? (int) $alloc['continuity_floor'] : 1;
+            $cap = $isEngineering($roleId) ? $perRoleMax : min(2, $perRoleMax);
+            $out[$roleId] = max($floor[$roleId], min($cap, (int) round($planned * $weight[$roleId] / $sum)));
+        }
+
+        while (array_sum($out) > $planned) {
+            $least = null;
+
+            foreach ($out as $roleId => $n) {
+                if ($n > $floor[$roleId] && ($least === null || $weight[$roleId] < $weight[$least])) {
+                    $least = $roleId;
+                }
+            }
+
+            if ($least === null) {
+                break;
+            }
+
+            $out[$least]--;
+        }
+
+        return $out;
+    }
+
+    /**
      * How strongly each project is protected: the user's top few employment projects (pinned first) are
      * priorities; other included employment projects are neutral.
      *
@@ -245,7 +328,7 @@ final class ReferenceSelection
     /**
      * The kind of evidence a statement is. Order matters: the most specific kinds are tested first.
      */
-    private function facet(string $statement, string $kind): string
+    private function facet(string $statement, string $kind, bool $story = false): string
     {
         if ($kind === 'platform_use' || $kind === 'outcome') {
             return $kind === 'outcome' ? 'outcome' : 'platform_use';
@@ -255,6 +338,7 @@ final class ReferenceSelection
         $has = fn (array $keys) => array_intersect($caps, $keys) !== [];
 
         return match (true) {
+            $story && StoryRole::isDeployment($statement) => 'deployment',
             preg_match('/\bfront-?end (?:experience|implementation|architecture)/i', $statement) === 1 => 'frontend',
             preg_match('/^(?:Independently\s+)?owned\b/i', $statement) === 1 => 'ownership',
             preg_match('/\btechnical leadership\b/i', $statement) === 1, $has(['mentoring_leadership']) => 'leadership',
@@ -270,18 +354,18 @@ final class ReferenceSelection
 
     /**
      * @param  array<int, string>  $facts
-     * @return array{facts: array<int, string>, rank: int, project_id: int|null, score: float, facet: string, has_outcome: bool, pinned: bool}
+     * @return array{facts: array<int, string>, rank: int, project_id: int|null, score: float, facet: string, has_outcome: bool, pinned: bool, boost: float, shared: bool, technical: bool, story: bool}
      */
     private function unit(array $facts, int $rank, ?int $projectId, float $score, string $facet, bool $hasOutcome, bool $pinned): array
     {
-        return ['facts' => $facts, 'rank' => $rank, 'project_id' => $projectId, 'score' => $score, 'facet' => $facet, 'has_outcome' => $hasOutcome, 'pinned' => $pinned, 'boost' => 1.0, 'shared' => false, 'technical' => false];
+        return ['facts' => $facts, 'rank' => $rank, 'project_id' => $projectId, 'score' => $score, 'facet' => $facet, 'has_outcome' => $hasOutcome, 'pinned' => $pinned, 'boost' => 1.0, 'shared' => false, 'technical' => false, 'story' => false];
     }
 
     /**
      * Fills one role's bullets by kind of evidence (see the class comment).
      *
      * @param  array<int, array<string, mixed>>  $units
-     * @param  array{per_project_max: int, weights: array<int, float>, priority: array<int, int>, overlap_limit: float, extra: int, role_has_projects: bool, technical_floor: bool, texts: array<string, string>, job_priority: array<int, int>}  $ctx
+     * @param  array{per_project_max: int, weights: array<int, float>, priority: array<int, int>, overlap_limit: float, extra: int, role_has_projects: bool, technical_floor: bool, texts: array<string, string>, job_priority: array<int, int>, min_job: float|null, generic_max: int|null}  $ctx
      * @return array{chosen: array<int, array<string, mixed>>, left: array<int, array{0: array<string, mixed>, 1: string}>, extra_used: int, uncovered: array<int, int>}
      */
     private function pick(array $units, int $slots, array $ctx): array
@@ -326,10 +410,24 @@ final class ReferenceSelection
                 $weight = 1.0 + ($weight - 1.0) * 0.5;
             }
 
-            return $job * (0.8 + 0.2 * $u['score'] / $maxScore) * $facet * $novelty * $sameFacetInProject * $weight * $shared * $u['boost'] * ($u['pinned'] ? 1.4 : 1.0);
+            // A complete story of what was built is a more persuasive bullet than a general claim of the same relevance.
+            $story = $u['story'] ? (float) config('resume.composition.allocation.story_preference') : 1.0;
+
+            return $job * (0.8 + 0.2 * $u['score'] / $maxScore) * $facet * $novelty * $sameFacetInProject * $weight * $shared * $story * $u['boost'] * ($u['pinned'] ? 1.4 : 1.0);
         };
 
         $eligible = function (array $u) use ($state, $ctx): bool {
+            if ($ctx['generic_max'] !== null && in_array($u['facet'], ['ownership', 'leadership'], true) && ! $u['has_outcome'] && ! $u['pinned']
+                && count(array_filter($state->chosen, fn (array $c) => in_array($c['facet'], ['ownership', 'leadership'], true) && ! $c['has_outcome'])) >= $ctx['generic_max']) {
+                return false;
+            }
+
+            // A role keeps its first bullet whatever the job asks (role completeness); after that, a slot is not filled with
+            // evidence the job does not ask for. Pinned evidence is the user's decision and always stays eligible.
+            if ($ctx['min_job'] !== null && $state->chosen !== [] && ! $u['pinned'] && ($u['job'] ?? null) !== null && $u['job'] < $ctx['min_job']) {
+                return false;
+            }
+
             // Two bullets per project. A priority project may carry a third only for a different kind of concrete
             // engineering (architecture, backend, security, frontend or a measured outcome), never for more of the same.
             if ($u['project_id'] !== null) {
@@ -560,11 +658,11 @@ final class ReferenceSelection
      * @param  array{boost?: array<string, float>, shared?: array<string, bool>}  $meta
      * @return array<int, array<string, mixed>>
      */
-    private function units(array $candidates, array $offered, int $outcomesPerLead, float $overlapLimit, array $meta = []): array
+    private function units(array $candidates, array $offered, int $outcomesPerLead, float $overlapLimit, array $meta = [], bool $story = false): array
     {
         // A statement that only says a technology was used is a skill, not a bullet: it fills a slot last.
         $candidates = array_map(fn (array $a) => $a['kind'] === 'platform_use' ? [...$a, 'score' => $a['score'] * 0.5] : $a, $candidates);
-        $facetOf = fn (array $a) => $this->facet((string) ($offered[$a['fact_key']]['statement'] ?? ''), (string) $a['kind']);
+        $facetOf = fn (array $a) => $this->facet((string) ($offered[$a['fact_key']]['statement'] ?? ''), (string) $a['kind'], $story);
         $units = [];
         $byProject = [];
 
@@ -578,10 +676,18 @@ final class ReferenceSelection
             $byProject[$a['project_id']][] = $a;
         }
 
+        // A reference resume keeps its original grouping; a project's full story (deployment, how, a fourth fact) is composed for a job.
+        $maxFacts = $story ? (int) config('resume.composition.story.max_facts', 3) : 3;
+        $leadMaxFacts = $story ? (int) config('resume.composition.story.lead_max_facts', 4) : 3;
+
         foreach ($byProject as $projectId => $items) {
             $outcomes = array_values(array_filter($items, fn (array $a) => $a['kind'] === 'outcome'));
-            $others = array_values(array_filter($items, fn (array $a) => $a['kind'] !== 'outcome'));
+            $rest = array_values(array_filter($items, fn (array $a) => $a['kind'] !== 'outcome'));
+            // Delivered or deployed to a named audience: part of the project's story, not a bullet of its own.
+            $deploy = $story ? array_values(array_filter($rest, fn (array $a) => StoryRole::isDeployment((string) ($offered[$a['fact_key']]['statement'] ?? '')))) : [];
+            $others = array_values(array_filter($rest, fn (array $a) => ! in_array($a, $deploy, true)));
             usort($others, fn (array $a, array $b) => $b['score'] <=> $a['score']);
+            usort($deploy, fn (array $a, array $b) => $b['score'] <=> $a['score']);
             /** facet of each group, and its member accomplishments */
             $facets = [];
             $members = [];
@@ -614,26 +720,90 @@ final class ReferenceSelection
                 $members[] = array_splice($outcomes, 0, 1);
             }
 
-            // A bullet carries at most three facts. A project's measured outcomes ride with its strongest bullets;
-            // any left over stand alone only when there is no bullet to carry them.
-            foreach ($facets as $i => $facet) {
-                $take = max(0, min($i === 0 ? $outcomesPerLead : 1, 3 - count($members[$i])));
-                $attached = array_splice($outcomes, 0, $take);
+            if ($facets === [] && $deploy !== []) {
+                $facets[] = 'deployment';
+                $members[] = array_splice($deploy, 0, 1);
+            }
+
+            // A project's story hangs off the bullet that says what was built (a generic ownership or design claim is not
+            // the story): it gets, as room allows, its measured result, where it was deployed, a second result and one
+            // distinct way it was implemented. The lead may carry `lead_max_facts`, any other bullet `max_facts`, and the
+            // other bullets of the project take a result of their own. Not every story has every part.
+            $leadIndex = 0;
+
+            foreach ($story ? $facets : [] as $i => $facet) {
+                if (StoryRole::isBuild((string) ($offered[$members[$i][0]['fact_key']]['statement'] ?? ''))) {
+                    $leadIndex = $i;
+
+                    break;
+                }
+            }
+
+            $merged = [];
+            $order = array_values(array_unique([$leadIndex, ...array_keys($facets)]));
+
+            foreach ($order as $i) {
+                if (isset($merged[$i])) {
+                    continue;
+                }
+
+                $facet = $facets[$i];
+                $isLead = $i === $leadIndex;
+                $room = ($isLead ? $leadMaxFacts : $maxFacts) - count($members[$i]);
+                $wantOutcomes = $isLead ? $outcomesPerLead : 1;
+                $attached = [];
+                $takeOutcome = function () use (&$outcomes, &$attached, &$room, &$wantOutcomes): void {
+                    if ($room > 0 && $wantOutcomes > 0 && $outcomes !== []) {
+                        $attached[] = array_shift($outcomes);
+                        $room--;
+                        $wantOutcomes--;
+                    }
+                };
+
+                $takeOutcome();
+
+                if ($isLead && $room > 0 && $deploy !== []) {
+                    $attached[] = array_shift($deploy);
+                    $room--;
+                }
+
+                $takeOutcome();
+
+                $lead = (string) ($offered[$members[$i][0]['fact_key']]['statement'] ?? '');
+
+                if ($story && $isLead && $room > 0 && count($members[$i]) === 1 && StoryRole::isBuild($lead)) {
+                    foreach ($facets as $j => $other) {
+                        $text = (string) ($offered[$members[$j][0]['fact_key']]['statement'] ?? '');
+
+                        if ($j !== $i && ! isset($merged[$j]) && count($members[$j]) === 1 && in_array($other, ['architecture', 'backend_api', 'security_reliability', 'implementation', 'frontend'], true)
+                            && $other !== $facet && $this->overlap($lead, $text) < $overlapLimit) {
+                            $attached[] = $members[$j][0];
+                            $merged[$j] = true;
+
+                            break;
+                        }
+                    }
+                }
+
                 $all = [...$members[$i], ...$attached];
 
-                $units[] = $this->unit(
+                $unit = $this->unit(
                     array_column($all, 'fact_key'),
                     (int) min([PHP_INT_MAX, ...array_column($all, 'order_index')]),
                     (int) $projectId,
-                    max([0.0, ...array_column($all, 'score')]) + 0.05 * count($attached),
+                    max([0.0, ...array_column($all, 'score')]) + 0.05 * count(array_filter($attached, fn (array $a) => $a['kind'] === 'outcome')),
                     $facet,
-                    $attached !== [] || $facet === 'outcome',
+                    array_filter($attached, fn (array $a) => $a['kind'] === 'outcome') !== [] || $facet === 'outcome',
                     in_array(true, array_column($all, 'pinned'), true),
                 );
+                // A complete story: it says what was built and adds how, where it was used or what it achieved.
+                $unit['story'] = $story && $isLead && $attached !== [] && StoryRole::isBuild($lead);
+                $units[] = $unit;
             }
 
-            foreach ($outcomes as $a) {
-                $units[] = $this->unit([$a['fact_key']], $a['order_index'], (int) $projectId, (float) $a['score'], 'outcome', true, (bool) $a['pinned']);
+            // Evidence the story had no room for stands alone rather than disappearing.
+            foreach ([...$outcomes, ...$deploy] as $a) {
+                $units[] = $this->unit([$a['fact_key']], $a['order_index'], (int) $projectId, (float) $a['score'], $a['kind'] === 'outcome' ? 'outcome' : 'deployment', $a['kind'] === 'outcome', (bool) $a['pinned']);
             }
         }
 

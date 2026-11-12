@@ -97,6 +97,35 @@ return [
     ],
 
     /*
+    | Editorial targets for a resume written for a job. These are soft, reviewable preferences, not quotas: nothing
+    | here pads a resume with weak evidence to reach a number, and nothing here changes how a PDF is rendered.
+    |
+    |   summary      Preferred length of the professional summary, in words. A strong shorter summary is not padded.
+    |                `collapsed_below` is the length under which a summary that validation cut down is treated as
+    |                collapsed: it is corrected once, and if it stays that short it ships flagged for review.
+    |   bullets      The planning range for a two-page senior resume. `target` is what allocation plans for;
+    |                `per_role_max` bounds any one role. Page-aware tuning is a separate concern (LayoutQuality).
+    |   allocation   How bullets are shared between roles for a job. A role's share follows how strong and how relevant
+    |                its evidence is, weighted by tenure. `continuity_floor` keeps a substantial earlier engineering role
+    |                from shrinking to a token bullet, but only when it holds at least that many facts the job speaks to
+    |                (`relevant_at`), `filler_relevance` stops a role being filled with evidence the job does not ask for, and
+    |                `generic_per_role` bounds the general ownership and leadership claims a role may carry, and
+    |                `story_preference` is the weight a complete story of what was built gets over a general claim.
+    |   story        The most facts one bullet may combine (what was built, how, where it was used, what it achieved):
+    |                `lead_max_facts` for the bullet that tells a project's story, `max_facts` for any other.
+    */
+    'composition' => [
+        'summary' => ['min_words' => 45, 'max_words' => 65, 'collapsed_below' => 30],
+        'bullets' => ['min' => 14, 'target' => 17, 'max' => 19, 'per_role_max' => 7],
+        'allocation' => [
+            'relevant_at' => 0.4, 'filler_relevance' => 0.3, 'continuity_floor' => 2, 'continuity_min_years' => 3,
+            'tenure_full_years' => 6, 'recent_years' => 3, 'facts_per_bullet_unit' => 1.5, 'generic_per_role' => 2, 'story_preference' => 1.3,
+        ],
+        'story' => ['max_facts' => 3, 'lead_max_facts' => 4],
+        'duplicates' => ['restated_below_new_share' => 0.35, 'drop_confidence' => 'high'],
+    ],
+
+    /*
     | When a measured resume layout counts as a presentation defect (see App\Support\ResumeDocument\LayoutQuality). The
     | fill is the share of the last page's usable height that holds content. A page that is mostly empty is not a
     | failure of the PDF, it is a signal about the content: either relevant approved evidence was left out, or there is
