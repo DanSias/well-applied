@@ -1043,7 +1043,7 @@ it('composes a job-tailored resume from the approved profile with one wording ca
 
     expect($seen->calls)->toBe(1)
         ->and($variant->job_match_id)->toBeNull()->and($variant->job_analysis_id)->toBe($s['analysis']->id)->and($variant->resume_profile_synthesis_id)->toBe($synthesis->id)
-        ->and($variant->wording_prompt_version)->toBe('resume-wording-profile-job-v2')
+        ->and($variant->wording_prompt_version)->toBe('resume-wording-profile-job-v3')
         // The job's evidence reaches the resume even though the reference profile does not emphasize it.
         ->and($cited)->toContain('webhooks')->not->toContain('private-card', 'private-secret', 'personal-docker', 'first-person')
         ->and($tailoring['mode'])->toBe('profile_job')->and($tailoring['job_analysis_id'])->toBe($s['analysis']->id)->and($tailoring['profile_version'])->toBe($synthesis->version)

@@ -5,7 +5,7 @@ use App\Exceptions\ResumeGenerationProviderException;
 use App\Support\GenerationAttempt\GenerationMetrics;
 use App\Support\ResumeVariant\CorrectSummary;
 use App\Support\ResumeVariant\GenerateResumeVariant;
-use App\Support\ResumeVariant\Prompts\ProfileJobWordingPromptV2;
+use App\Support\ResumeVariant\Prompts\ProfileJobWordingPromptV3;
 use App\Support\ResumeVariant\RecoverWording;
 use App\Support\ResumeVariant\ResumeWordingProviderResponse;
 use App\Support\ResumeVariant\ResumeWordingResponseValidator;
@@ -55,7 +55,7 @@ function cqCorrect(array $recovered, FakeResumeWordingProvider $provider): array
     ];
 
     return (new CorrectSummary(new ResumeWordingResponseValidator, new RecoverWording(new ResumeWordingResponseValidator)))
-        ->apply($recovered, $provider, new ProfileJobWordingPromptV2, $input, cqContext(), new GenerationMetrics);
+        ->apply($recovered, $provider, new ProfileJobWordingPromptV3, $input, cqContext(), new GenerationMetrics);
 }
 
 function cqSummaryItem(array $result): array

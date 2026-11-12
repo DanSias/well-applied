@@ -31,7 +31,7 @@ use App\Support\ProfileSynthesis\ReferenceSelection;
 use App\Support\ProfileSynthesis\StoryRole;
 use App\Support\ResumeDocument\ResumeText;
 use App\Support\ResumeRevision\JobResumes;
-use App\Support\ResumeVariant\Prompts\ProfileJobWordingPromptV2;
+use App\Support\ResumeVariant\Prompts\ProfileJobWordingPromptV3;
 use App\Support\ResumeVariant\Prompts\ReferenceWordingPromptV3;
 use App\Support\ResumeVariant\Prompts\ResumeSelectionPromptV6;
 use App\Support\ResumeVariant\Prompts\ResumeWordingPromptV3;
@@ -131,7 +131,7 @@ final class GenerateResumeVariant
         $onPhase ??= static fn (string $phase) => null;
         $jobMode = $synthesis !== null && $analysis !== null;
         $wordingPrompt = match (true) {
-            $jobMode => app(ProfileJobWordingPromptV2::class),
+            $jobMode => app(ProfileJobWordingPromptV3::class),
             $synthesis !== null => app(ReferenceWordingPromptV3::class),
             default => $this->wordingPrompt,
         };
@@ -459,6 +459,18 @@ final class GenerateResumeVariant
                 $wordingInput['summary_evidence'],
             );
         }
+        if ($jobMode) {
+            // How the bullets work together: why each matters, what its neighbours establish, what must not be said twice.
+            $plan = app(EditorialPlan::class)->build($selectionDraft->experience, $factsByKey, $relevance);
+            $wordingInput['editorial_plan'] = ['career_narrative' => $plan['career_narrative'], 'ownership_in' => $plan['ownership_in']];
+
+            foreach ($wordingInput['experience'] as $r => $role) {
+                foreach ($role['bullet_groups'] as $g => $group) {
+                    $wordingInput['experience'][$r]['bullet_groups'][$g]['editorial'] = $plan['groups']["{$role['role_id']}:{$group['bullet_group_index']}"] ?? null;
+                }
+            }
+        }
+
         $careerFactKeysByLocation = $this->buildCareerFactKeysByLocation($selectionDraft);
         $denylistTerms = $this->buildDenylistTerms($validTargetTerms, $selectionDraft);
 
@@ -554,7 +566,7 @@ final class GenerateResumeVariant
                 if ($jobMode) {
                     // Recovery only removes. A summary it cut down gets one narrow correction (never a retry of the resume),
                     // and one that stays collapsed ships flagged, never as a finished summary.
-                    $recovered = app(CorrectSummary::class)->apply($recovered, $this->wordingProvider, app(ProfileJobWordingPromptV2::class), $wordingInput, $wordingContext, $metrics);
+                    $recovered = app(CorrectSummary::class)->apply($recovered, $this->wordingProvider, app(ProfileJobWordingPromptV3::class), $wordingInput, $wordingContext, $metrics);
                     $recovered = $this->withoutDuplicates($recovered, $selectionDraft, $factsByKey, $tailoring, $relevance);
                 }
 

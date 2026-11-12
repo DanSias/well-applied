@@ -5,6 +5,7 @@ namespace App\Support\ResumeVariant;
 use App\Models\CareerFact;
 use App\Models\CareerProfile;
 use App\Models\JobAnalysis;
+use App\Support\ProfileSynthesis\StoryDimensions;
 use App\Support\ResumeProfile\CapabilityCoverage;
 
 /**
@@ -68,6 +69,7 @@ final class CompositionChecks
 
         array_push($findings, ...$this->resultContext($groups, $facts, $selected, $accomplishments));
         array_push($findings, ...$this->narrativeConsistency($selected, $facts, $job));
+        array_push($findings, ...$this->storyDimensions($selected, $facts, $accomplishments));
 
         return $findings;
     }
@@ -481,6 +483,37 @@ final class CompositionChecks
         }
 
         return array_values(array_unique($out));
+    }
+
+    /**
+     * Do the selected accomplishments, together, show how the candidate designs, builds, integrates, delivers and what it
+     * achieved? A dimension no selected fact shows is reported only when an eligible fact that does is left off the resume,
+     * so the finding always names something that could be done. Advice, never a change to the selection.
+     *
+     * @param  array<int, string>  $selected
+     * @param  array<string, array<string, mixed>>  $facts
+     * @param  array<int, array<string, mixed>>  $accomplishments
+     * @return array<int, array{check: string, severity: string, message: string, selected: array<int, string>, available: array<int, string>}>
+     */
+    private function storyDimensions(array $selected, array $facts, array $accomplishments): array
+    {
+        $shown = [];
+
+        foreach ($selected as $key) {
+            array_push($shown, ...StoryDimensions::of((string) ($facts[$key]['statement'] ?? '')));
+        }
+
+        $findings = [];
+
+        foreach (array_diff(['architecture', 'implementation', 'integration', 'delivery', 'outcome'], array_unique($shown)) as $dimension) {
+            $available = $this->available($accomplishments, $selected, fn (string $key) => isset($facts[$key]) && in_array($dimension, StoryDimensions::of((string) $facts[$key]['statement']), true));
+
+            if ($available !== []) {
+                $findings[] = $this->finding('story_dimensions', self::INFORMATIONAL, "Nothing selected shows {$dimension}, and approved evidence that does is left off the resume.", [], $available);
+            }
+        }
+
+        return $findings;
     }
 
     /**

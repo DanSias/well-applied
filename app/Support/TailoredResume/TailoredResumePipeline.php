@@ -21,7 +21,7 @@ use App\Support\JobAnalysis\Prompts\JobAnalysisPromptV4;
 use App\Support\JobMatch\Prompts\JobMatchPromptV3;
 use App\Support\ResumeDocument\GenerateResumeDocument;
 use App\Support\ResumeDocument\ResumePdfStore;
-use App\Support\ResumeVariant\Prompts\ProfileJobWordingPromptV2;
+use App\Support\ResumeVariant\Prompts\ProfileJobWordingPromptV3;
 use App\Support\ResumeVariant\Prompts\ResumeSelectionPromptV6;
 use App\Support\ResumeVariant\Prompts\ResumeWordingPromptV3;
 use Illuminate\Database\Eloquent\Builder;
@@ -207,7 +207,7 @@ final class TailoredResumePipeline
                 ->where('resume_profile_synthesis_id', $synthesis->id)
                 // A saved revision is the user's edit of a generated resume, not a generation result to reuse or replace.
                 ->whereNull('parent_variant_id')
-                ->where('wording_prompt_version', app(ProfileJobWordingPromptV2::class)->version())
+                ->where('wording_prompt_version', app(ProfileJobWordingPromptV3::class)->version())
                 ->orderByDesc('generated_at')->orderByDesc('id');
 
             if ($regenerateRunId !== null) {

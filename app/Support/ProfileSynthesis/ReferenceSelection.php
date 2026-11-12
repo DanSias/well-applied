@@ -1001,7 +1001,7 @@ final class ReferenceSelection
             $score = 0.8 * $capScore + min(1.5, $stack) + min(0.75, 0.25 * $s['cited']) + (array_intersect($caps, $summaryCaps) !== [] ? 0.5 : 0.0)
                 + (in_array($skill['name'], (array) config('resume.skill_presentation.core'), true) ? 1.5 : 0.0);
             // For a job, a skill with no professional use is discounted (never for the reference resume, whose order is the user's).
-            $score *= $layout !== null && ($s['professional'] ?? 0) === 0 ? (float) config('resume.composition.skills.isolated_tag') : 1.0;
+            $score *= $layout !== null && $s['professional'] === 0 ? (float) config('resume.composition.skills.isolated_tag') : 1.0;
             $technology = in_array($skill['category'], ['build_technology', 'platform_integration'], true);
 
             if ($score > 0) {

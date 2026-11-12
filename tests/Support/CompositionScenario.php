@@ -135,6 +135,7 @@ final class CompositionScenario
             public function generate(string $system, string $user, array $schema): ResumeWordingProviderResponse
             {
                 $this->seen->calls = ($this->seen->calls ?? 0) + 1;
+                $this->seen->system = $system;
 
                 if (str_contains($user, '--- Summary correction input ---')) {
                     $this->seen->corrections = ($this->seen->corrections ?? 0) + 1;
