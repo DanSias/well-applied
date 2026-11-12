@@ -14,6 +14,13 @@ namespace App\Support\ResumeVariant;
  *  - ownership_upgrade  an authority verb stronger than any the evidence uses ("designed", "led", "drove").
  *  - figure_precision   a figure whose qualifier or sign differs from the evidence ("approximately 20+" restated as
  *                       "20+", or "over 3" for "3"), and a figure no cited fact contains.
+ *  - unsupported_qualifier  an adjective that asserts something about the work the evidence does not ("a custom frontend"
+ *                       for "the frontend experience"). Only the intensifiers in config('resume.claim_qualifiers') are
+ *                       checked, and one the evidence uses (or an equivalent) is always allowed.
+ *  - lifecycle_upgrade  a stage of the delivery lifecycle the evidence stops short of ("through testing to production" for
+ *                       "testing and delivery"). Delivery and deployment are not stages beyond each other; production,
+ *                       launch, maintenance and operation are, and are matched as whole words, never by a shared stem
+ *                       ("production" is not supported by "product design").
  *
  * Every finding carries the exact span and, where one exists, a deterministic repair that only REMOVES the
  * unsupported claim or RESTORES the evidence's own wording; it never adds a claim. Deterministic; no model call.
@@ -21,7 +28,7 @@ namespace App\Support\ResumeVariant;
 final class ClaimFidelityChecker
 {
     /** @var array<int, string> kinds that RecoverWording repairs or omits */
-    public const KINDS = ['scope_expansion', 'unsupported_cause', 'ownership_upgrade', 'figure_precision'];
+    public const KINDS = ['scope_expansion', 'unsupported_cause', 'ownership_upgrade', 'figure_precision', 'unsupported_qualifier', 'lifecycle_upgrade'];
 
     private const STOP = ['which', 'their', 'there', 'these', 'those', 'other', 'while', 'where', 'would', 'about', 'after', 'being', 'every', 'using', 'across', 'through', 'within', 'between', 'during', 'those', 'could', 'should'];
 
@@ -52,7 +59,7 @@ final class ClaimFidelityChecker
             return [];
         }
 
-        return [...$this->scope($text, $evidence), ...$this->cause($text, $evidence), ...$this->authority($text, $evidence), ...$this->figures($text, $evidence)];
+        return [...$this->scope($text, $evidence), ...$this->cause($text, $evidence), ...$this->authority($text, $evidence), ...$this->figures($text, $evidence), ...$this->qualifiers($text, $evidence), ...$this->lifecycle($text, $evidence)];
     }
 
     /**
@@ -71,6 +78,7 @@ final class ClaimFidelityChecker
         $next = match ($repair['op']) {
             'remove' => str_replace($repair['span'], '', $text),
             'replace' => str_replace($repair['from'], $repair['to'], $text),
+            'qualifier' => $this->withoutQualifier($text, $repair['word']),
             default => $text,
         };
 
@@ -266,6 +274,98 @@ final class ClaimFidelityChecker
         }
 
         return $findings;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function qualifiers(string $text, string $evidence): array
+    {
+        $findings = [];
+
+        foreach ((array) config('resume.claim_qualifiers') as $group) {
+            $used = $this->firstWord($text, $group);
+
+            if ($used === null || $this->firstWord($evidence, $group) !== null) {
+                continue;
+            }
+
+            $findings[] = [
+                'kind' => 'unsupported_qualifier', 'severity' => 'block', 'detail' => $used,
+                'message' => "calls the work \"{$used}\", which the cited evidence does not say",
+                'repair' => ['op' => 'qualifier', 'word' => $used],
+            ];
+        }
+
+        return $findings;
+    }
+
+    /**
+     * The delivery lifecycle runs requirements, design, implementation, testing, delivery (or deployment, which are one step
+     * here), then production, launch, maintenance and operation. Text that reaches a later stage than the evidence is an
+     * upgrade: "through testing to production" for "testing and delivery". Production is removed (the repair takes only that
+     * phrase); the others are flagged for a person, since removing them could leave a fragment.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function lifecycle(string $text, string $evidence): array
+    {
+        $findings = [];
+
+        // Whole words only: "production" is not stated by "product design".
+        if (preg_match('/\b(?:(?:in|to|into|through|for)\s+)?production(?:-grade|-ready)?\b/i', $text, $hit, PREG_OFFSET_CAPTURE) === 1 && preg_match('/\bproduction\b|\bprod\b/i', $evidence) !== 1) {
+            preg_match('/\s*\b(?:(?:in|to|into)\s+)?production(?:-grade|-ready)?\b/i', $text, $span);
+            $findings[] = [
+                'kind' => 'lifecycle_upgrade', 'severity' => 'block', 'detail' => trim($hit[0][0]),
+                'message' => 'takes the work "'.trim($hit[0][0]).'", a later stage of delivery than the cited evidence states',
+                'repair' => ['op' => 'remove', 'span' => $span[0]],
+            ];
+        }
+
+        foreach (['launch' => ['/\b(?:launch(?:ed|ing)?|go-live|went live)\b/i', '/\b(?:launch\w*|go-live|went live)\b/i'], 'maintenance' => ['/\b(?:maintain(?:ed|ing)|maintenance|operat(?:ed|ing)|on-call|post-launch)\b/i', '/\b(?:maintain\w*|maintenance|operat\w*|on-call|post-launch)\b/i']] as $stage => [$textPattern, $evidencePattern]) {
+            if (preg_match($textPattern, $text, $hit) === 1 && preg_match($evidencePattern, $evidence) !== 1) {
+                $findings[] = [
+                    'kind' => 'lifecycle_upgrade', 'severity' => 'review', 'detail' => $hit[0],
+                    'message' => "says the work was \"{$hit[0]}\" ({$stage}), a later stage of delivery than the cited evidence states",
+                ];
+            }
+        }
+
+        return $findings;
+    }
+
+    /**
+     * The first word of a group of equivalent words that the text uses, as whole words with hyphen and space interchangeable.
+     *
+     * @param  array<int, string>  $group
+     */
+    private function firstWord(string $text, array $group): ?string
+    {
+        foreach ($group as $word) {
+            $pattern = '/(?<![\p{L}\p{N}])'.strtr(preg_quote($word, '/'), ['\\-' => '[\s-]', ' ' => '[\s-]']).'(?![\p{L}\p{N}])/iu';
+
+            if (preg_match($pattern, $text, $m) === 1) {
+                return mb_strtolower($m[0]);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The text without a qualifier, keeping the sentence whole: the word, its comma and its space go, and "a" or "an" before
+     * it agrees with the word that follows.
+     */
+    private function withoutQualifier(string $text, string $word): string
+    {
+        $pattern = strtr(preg_quote($word, '/'), ['\\-' => '[\s-]', ' ' => '[\s-]']);
+        $text = (string) preg_replace_callback('/\b(a|an)\s+'.$pattern.'\b,?\s*([\p{L}])/iu', function (array $m): string {
+            $vowel = preg_match('/^(?:[aeio]|u(?!s|ni))/iu', $m[2]) === 1;
+
+            return ($m[1] === ucfirst($m[1]) ? ($vowel ? 'An' : 'A') : ($vowel ? 'an' : 'a')).' '.$m[2];
+        }, $text);
+
+        return (string) preg_replace('/\s*(?<![\p{L}\p{N}])'.$pattern.'(?![\p{L}\p{N}]),?(?=\s)/iu', '', $text);
     }
 
     private function core(string $figure): string

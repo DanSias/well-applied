@@ -177,6 +177,29 @@ return [
     ],
 
     /*
+    | Qualifiers a resume bullet must not add to the work (see ClaimFidelityChecker). Each is an intensifier or a kind of system
+    | that asserts something the evidence may not: calling a frontend "custom", a pipeline "robust", a platform "enterprise-grade".
+    | One is flagged only when the cited evidence does not use it (or an equivalent, listed together); ordinary descriptive words
+    | are never listed, and a qualifier the evidence itself uses is always allowed. Matching is on whole words, hyphen or space.
+    | Each entry is a group of equivalent words: evidence using any of them supports the others.
+    */
+    'claim_qualifiers' => [
+        ['custom', 'bespoke', 'proprietary', 'in-house'],
+        ['robust', 'resilient'],
+        ['scalable', 'highly scalable'],
+        ['enterprise-grade', 'enterprise-level', 'enterprise scale'],
+        ['high-performance', 'high performance'],
+        ['high-availability', 'highly available'],
+        ['mission-critical'],
+        ['real-time', 'real time'],
+        ['seamless', 'seamlessly'],
+        ['cutting-edge', 'state-of-the-art', 'best-in-class', 'world-class'],
+        ['sophisticated'],
+        ['large-scale'],
+        ['production-grade', 'production-ready'],
+    ],
+
+    /*
     | The one bounded corrective pass after the first PDF is rendered and measured (see App\Support\ResumeRevision\FinishResumeLayout).
     | It runs only when the last page is UNDERFILLED (LayoutQuality) and relevant approved Public evidence is left off the
     | resume, adds at most `max_additions` accomplishments in one narrow model call, and keeps the result only if it validates,

@@ -195,6 +195,8 @@ final class RecoverWording
                     'scope_expansion' => "removed the unsupported scope [{$finding['detail']}]",
                     'unsupported_cause' => "removed the unsupported attribution [{$finding['detail']}]",
                     'ownership_upgrade' => "removed the stronger role [{$finding['detail']}] the evidence does not state",
+                    'unsupported_qualifier' => "removed the qualifier [{$finding['detail']}] the evidence does not state",
+                    'lifecycle_upgrade' => "removed the delivery stage [{$finding['detail']}] the evidence does not state",
                     default => "restored the evidence's own figure wording [{$finding['detail']}]",
                 };
             } else {
