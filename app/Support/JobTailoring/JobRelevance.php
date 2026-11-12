@@ -4,6 +4,7 @@ namespace App\Support\JobTailoring;
 
 use App\Models\CareerProfile;
 use App\Models\JobAnalysis;
+use App\Support\ProfileSynthesis\StoryRole;
 use App\Support\ResumeProfile\CapabilityCoverage;
 
 /**
@@ -31,11 +32,12 @@ final class JobRelevance
 
     /**
      * @param  array<string, array<string, mixed>>  $facts  inventory facts, keyed by fact key
-     * @return array{findings: array<int, array<string, mixed>>, facts: array<string, array<string, mixed>>, capabilities: array<string, float>, gaps: array<int, array<string, mixed>>}
+     * @return array{findings: array<int, array<string, mixed>>, engineering: bool, facts: array<string, array<string, mixed>>, capabilities: array<string, float>, gaps: array<int, array<string, mixed>>}
      */
     public function analyze(JobAnalysis $analysis, array $facts, CareerProfile $career): array
     {
         $findings = [];
+        $engineering = preg_match('/engineer|developer|architect|programmer/i', (string) $analysis->jobPosting?->title) === 1;
 
         foreach ($analysis->findings as $finding) {
             $weight = self::WEIGHT[$finding->category->value] ?? null;
@@ -170,17 +172,76 @@ final class JobRelevance
 
             $why = $because[$key] ?? [];
             arsort($why);
-            $relevant[$key] = ['score' => round($total, 3), 'finding_ids' => array_slice(array_keys($why), 0, 3)];
+            [$factor, $adjusted] = $this->specificity($fact, $engineering);
+            $relevant[$key] = ['score' => round(min(1.0, $total * $factor), 3), 'finding_ids' => array_slice(array_keys($why), 0, 3), 'adjustments' => $adjusted];
         }
 
         $top = $capabilityWeight === [] ? 1.0 : max($capabilityWeight);
 
         return [
             'findings' => $findings,
+            'engineering' => $engineering,
             'facts' => $relevant,
             'capabilities' => array_map(fn (float $w) => round($w / $top, 3), $capabilityWeight),
             'gaps' => $this->gaps($findings, $career),
         ];
+    }
+
+    /**
+     * A small, explainable correction for what keyword and capability overlap cannot see: whether a fact is demonstrated
+     * work or a general statement. General ownership and leadership prose, a bare platform mention and (for an engineering
+     * job) marketing-only results are discounted; a concrete build in a named system, an integration, a deployment to
+     * real users and a project's measured result are credited. Age is never a factor. The factors are in
+     * config('resume.composition.relevance'); the labels of those applied are returned so a ranking can be explained.
+     *
+     * @param  array<string, mixed>  $fact  an inventory fact
+     * @return array{0: float, 1: array<int, string>}
+     */
+    private function specificity(array $fact, bool $engineeringJob): array
+    {
+        $cfg = (array) config('resume.composition.relevance');
+        $text = trim((string) $fact['statement']);
+        $caps = (array) $fact['capabilities'];
+        $project = ($fact['project_id'] ?? null) !== null;
+        $buildVerb = preg_match('/^(?:Built|Developed|Implemented|Integrated|Designed|Automated|Created|Engineered|Normalized|Extended)\b/', $text) === 1;
+        $integration = preg_match('/\b(?:APIs?|integrat\w+|webhooks?|pipelines?|data warehouse|retriev\w+)\b/i', $text) === 1;
+        $engineering = $integration || preg_match('/\b(?:backend|frontend|database|SQL|React|Node|Laravel|TypeScript|architect\w*|deploy\w*|migrat\w+)\b/i', $text) === 1;
+        $applied = [];
+        $factor = 1.0;
+        $apply = function (string $label) use (&$factor, &$applied, $cfg): void {
+            $factor *= (float) $cfg[$label];
+            $applied[] = $label;
+        };
+
+        if (preg_match('/\btechnical leadership\b|\bmentor\w*/i', $text) === 1 || in_array('mentoring_leadership', $caps, true)) {
+            $apply('generic_leadership');
+        } elseif (preg_match('/^(?:Independently\s+)?(?:owned|designed and implemented the technical solution)\b/i', $text) === 1) {
+            $apply('generic_ownership');
+        }
+
+        if (! $project && $caps !== [] && array_diff($caps, ['cloud_platforms', 'docker']) === []) {
+            $apply('platform_tag');
+        }
+
+        if ($engineeringJob && ! $engineering && preg_match('/\b(?:SEO|search engine|CRO|conversion|lead generation|landing page|paid|campaign\w*|marketing|A\/B|keyword|organic|attribution)\b/i', $text) === 1) {
+            $apply('marketing_only');
+        }
+
+        if ($project && $buildVerb && $engineering) {
+            $apply('concrete_build');
+        } elseif ($integration && $buildVerb) {
+            $apply('integration');
+        }
+
+        if (StoryRole::isDeployment($text)) {
+            $apply('deployed');
+        }
+
+        if ($project && StoryRole::isOutcome($text)) {
+            $apply('project_outcome');
+        }
+
+        return [max((float) $cfg['min'], min((float) $cfg['max'], $factor)), $applied];
     }
 
     /**

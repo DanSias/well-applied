@@ -231,7 +231,7 @@ final class ReferenceSelection
      * recent or earlier engineering role is not reduced to a token. Every role keeps at least one bullet (role completeness).
      *
      * A substantial earlier engineering role (a developer or engineer title, at least `continuity_min_years`, with at least
-     * `continuity_floor` facts the job speaks to) keeps that floor; a role with no such evidence has none. A role that is
+     * `continuity_floor` facts the job speaks to at all) keeps that floor; a role with no such evidence has none. A role that is
      * not an engineering role takes at most two. The total is the planning target for a two-page senior resume, lowered
      * to the amount of evidence the job actually speaks to, never raised to fill space.
      *
@@ -274,7 +274,7 @@ final class ReferenceSelection
         $out = [];
 
         foreach ($roleIds as $roleId) {
-            $speaksToJob = count(array_filter($candidates[$roleId] ?? [], fn (array $a) => ($a['job_relevance'] ?? 0.0) >= $alloc['relevant_at'] && $a['kind'] !== 'platform_use'));
+            $speaksToJob = count(array_filter($candidates[$roleId] ?? [], fn (array $a) => ($a['job_relevance'] ?? 0.0) >= $alloc['filler_relevance'] && $a['kind'] !== 'platform_use'));
             $floor[$roleId] = $isEngineering($roleId) && $years[$roleId] >= (int) $alloc['continuity_min_years'] && $speaksToJob >= (int) $alloc['continuity_floor']
                 ? (int) $alloc['continuity_floor'] : 1;
             $cap = $isEngineering($roleId) ? $perRoleMax : min(2, $perRoleMax);
@@ -412,6 +412,11 @@ final class ReferenceSelection
 
             // A complete story of what was built is a more persuasive bullet than a general claim of the same relevance.
             $story = $u['story'] ? (float) config('resume.composition.allocation.story_preference') : 1.0;
+
+            // A result with no work attached says little however well it is quantified.
+            if ($u['facet'] === 'outcome' && ($u['job'] ?? null) !== null) {
+                $story *= (float) config('resume.composition.allocation.bare_outcome');
+            }
 
             return $job * (0.8 + 0.2 * $u['score'] / $maxScore) * $facet * $novelty * $sameFacetInProject * $weight * $shared * $story * $u['boost'] * ($u['pinned'] ? 1.4 : 1.0);
         };

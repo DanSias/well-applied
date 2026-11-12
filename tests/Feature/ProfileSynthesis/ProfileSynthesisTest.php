@@ -1221,6 +1221,9 @@ function writtenJobResume(): array
         'career_profile_id' => $s['career']->id, 'key' => 'wi-built', 'statement' => 'Built Workflow Intelligence, a Laravel and Vue platform that gives engineering teams visibility into work items and delivery progress.',
         'visibility' => Visibility::Public, 'verification' => Verification::Verified, 'fact_type' => CareerFactType::Bullet, 'attributable_type' => 'project', 'attributable_id' => $s['projects']['flagship']->id,
     ]);
+    // These tests exercise the revision workflow and need `wi-built` to be an available fact that generation left off the
+    // resume. Credit for concrete builds would now select it, so it is switched off here (it has its own tests).
+    config(['resume.composition.relevance.concrete_build' => 1.0]);
     $synthesis = synthesize($s);
     app(ReviewProfileSynthesis::class)->approve($synthesis);
     $seen = new stdClass;

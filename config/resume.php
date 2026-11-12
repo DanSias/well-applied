@@ -110,7 +110,8 @@ return [
     |                from shrinking to a token bullet, but only when it holds at least that many facts the job speaks to
     |                (`relevant_at`), `filler_relevance` stops a role being filled with evidence the job does not ask for, and
     |                `generic_per_role` bounds the general ownership and leadership claims a role may carry, and
-    |                `story_preference` is the weight a complete story of what was built gets over a general claim.
+    |                `story_preference` is the weight a complete story of what was built gets over a general claim, and
+    |                `bare_outcome` discounts a quantified result that has no work attached.
     |   story        The most facts one bullet may combine (what was built, how, where it was used, what it achieved):
     |                `lead_max_facts` for the bullet that tells a project's story, `max_facts` for any other.
     */
@@ -119,7 +120,16 @@ return [
         'bullets' => ['min' => 14, 'target' => 17, 'max' => 19, 'per_role_max' => 7],
         'allocation' => [
             'relevant_at' => 0.4, 'filler_relevance' => 0.3, 'continuity_floor' => 2, 'continuity_min_years' => 3,
-            'tenure_full_years' => 6, 'recent_years' => 3, 'facts_per_bullet_unit' => 1.5, 'generic_per_role' => 2, 'story_preference' => 1.3,
+            'tenure_full_years' => 6, 'recent_years' => 3, 'facts_per_bullet_unit' => 1.5, 'generic_per_role' => 2, 'story_preference' => 1.3, 'bare_outcome' => 0.85,
+        ],
+        // Small multipliers on a fact's relevance to a job, applied once after the keyword and capability scoring (see
+        // JobRelevance::specificity). That scoring cannot tell a general claim from the work that proves it: a sentence about
+        // "owning" or "leading" shares words with nearly every requirement. A factor below 1 is a general or incidental
+        // statement, above 1 is demonstrated work. Each applied factor is recorded per fact, so a ranking can be explained.
+        'relevance' => [
+            'generic_leadership' => 0.7, 'generic_ownership' => 0.8, 'platform_tag' => 0.8, 'marketing_only' => 0.6,
+            'concrete_build' => 1.12, 'integration' => 1.05, 'deployed' => 1.06, 'project_outcome' => 1.05,
+            'min' => 0.5, 'max' => 1.2,
         ],
         'story' => ['max_facts' => 3, 'lead_max_facts' => 4],
         'duplicates' => ['restated_below_new_share' => 0.35, 'drop_confidence' => 'high'],
