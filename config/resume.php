@@ -159,7 +159,7 @@ return [
         'bullets' => ['min' => 14, 'target' => 17, 'max' => 19, 'per_role_max' => 7],
         'allocation' => [
             'relevant_at' => 0.4, 'filler_relevance' => 0.3, 'continuity_floor' => 2, 'continuity_min_years' => 3,
-            'tenure_full_years' => 6, 'recent_years' => 3, 'facts_per_bullet_unit' => 1.5, 'generic_per_role' => 2, 'story_preference' => 1.3, 'bare_outcome' => 0.85,
+            'tenure_full_years' => 6, 'recent_years' => 3, 'facts_per_bullet_unit' => 1.5, 'generic_per_role' => 1, 'story_preference' => 1.3, 'bare_outcome' => 0.85,
         ],
         // Small multipliers on a fact's relevance to a job, applied once after the keyword and capability scoring (see
         // JobRelevance::specificity). That scoring cannot tell a general claim from the work that proves it: a sentence about

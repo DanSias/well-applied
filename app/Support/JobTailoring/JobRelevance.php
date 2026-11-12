@@ -217,7 +217,8 @@ final class JobRelevance
         $project = ($fact['project_id'] ?? null) !== null;
         $buildVerb = preg_match('/^(?:Built|Developed|Implemented|Integrated|Designed|Automated|Created|Engineered|Normalized|Extended)\b/', $text) === 1;
         $integration = preg_match('/\b(?:APIs?|integrat\w+|webhooks?|pipelines?|data warehouse|retriev\w+)\b/i', $text) === 1;
-        $engineering = $integration || preg_match('/\b(?:backend|frontend|database|SQL|React|Node|Laravel|TypeScript|architect\w*|deploy\w*|migrat\w+)\b/i', $text) === 1;
+        $builtSoftware = $buildVerb && preg_match('/\b(?:platform|application|app|dashboard|tool|system|portal|service|pipeline|workflows?)\b/i', $text) === 1;
+        $engineering = $integration || $builtSoftware || preg_match('/\b(?:backend|frontend|database|SQL|React|Node|Laravel|TypeScript|architect\w*|deploy\w*|migrat\w+)\b/i', $text) === 1;
         $applied = [];
         $factor = 1.0;
         $apply = function (string $label) use (&$factor, &$applied, $cfg): void {

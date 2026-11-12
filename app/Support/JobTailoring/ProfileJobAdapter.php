@@ -33,7 +33,7 @@ final class ProfileJobAdapter
     {
         $facts = $relevance['facts'];
 
-        $accomplishments = array_map(function (array $a) use ($facts) {
+        $accomplishments = array_map(function (array $a) use ($facts, $relevance) {
             $score = self::PRIOR * (float) $a['score'] + (float) ($facts[$a['fact_key']]['score'] ?? 0.0);
 
             $relevant = (float) ($facts[$a['fact_key']]['score'] ?? 0.0);
@@ -41,7 +41,12 @@ final class ProfileJobAdapter
             // the experience a job that asks for webhooks wants: strong relevance makes it a bullet candidate, not skills text.
             $kind = $a['kind'] === 'platform_use' && $relevant >= self::BULLET_RELEVANCE ? 'implementation' : $a['kind'];
 
-            return [...$a, 'kind' => $kind, 'profile_score' => $a['score'], 'score' => round($score, 3), 'job_relevance' => $relevant, 'job_findings' => $facts[$a['fact_key']]['finding_ids'] ?? []];
+            return [
+                ...$a, 'kind' => $kind, 'profile_score' => $a['score'], 'score' => round($score, 3), 'job_relevance' => $relevant, 'job_findings' => $facts[$a['fact_key']]['finding_ids'] ?? [],
+                // What the relevance step found the statement to be: a general claim of ownership or leadership, or a bare platform mention.
+                'general' => JobRelevance::isGeneralClaim($relevance, $a['fact_key']),
+                'bare_tag' => in_array('platform_tag', (array) ($relevance['facts'][$a['fact_key']]['adjustments'] ?? []), true),
+            ];
         }, $effective['accomplishments']);
         usort($accomplishments, fn (array $x, array $y) => $y['score'] <=> $x['score']);
 

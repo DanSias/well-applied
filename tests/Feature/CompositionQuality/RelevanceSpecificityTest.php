@@ -21,6 +21,7 @@ const SPEC_FACTS = [
     'deploy' => ['Beacon was delivered and deployed to the Product Management team to track work items.', 1, 1],
     'old-build' => ['Built Beacon, a React and TypeScript platform that integrates the Jira and GitLab APIs to give teams delivery visibility.', 2, 2],
     'result' => ['Beacon reduced status-reporting time by 85%.', 1, 1],
+    'hub' => ['Built the Marketing Budget Hub, a centralized multi-user forecasting platform with approval workflows that replaced shared-spreadsheet planning.', 2, 2],
 ];
 
 function specRelevance(string $title = 'Full Stack Engineer', array $only = []): array
@@ -108,4 +109,12 @@ it('credits a deployment as delivery without implying how many people used it', 
 
     expect(array_column($faithful, 'severity'))->not->toContain('block')
         ->and(array_column($inflated, 'kind'))->toContain('scope_expansion');
+});
+
+it('does not mistake software built for marketing for a marketing result', function () {
+    $r = specRelevance('Senior Software Engineer');
+
+    // The Budget Hub is a platform with approval workflows: engineering work, though it has "marketing" in its name.
+    expect($r['facts']['hub']['adjustments'])->not->toContain('marketing_only')->and($r['facts']['hub']['adjustments'])->toContain('concrete_build')
+        ->and($r['facts']['cro']['adjustments'])->toContain('marketing_only');
 });

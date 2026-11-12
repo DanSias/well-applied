@@ -93,7 +93,8 @@ it('keeps the user\'s exclusions in a job, and never selects a fact that was not
 it('prefers a complete story of what was built to a general claim of similar relevance', function () {
     $default = (float) config('resume.composition.allocation.story_preference');
     $hasStory = function (float $preference): bool {
-        config(['resume.composition.allocation.story_preference' => $preference]);
+        // A role short of slots, so the story has to win one against other relevant work.
+        config(['resume.composition.allocation.story_preference' => $preference, 'resume.composition.bullets.per_role_max' => 3]);
         [$result, $roles] = allocated('infrastructure', ['b-what' => ['job' => 0.5]]);
 
         return collect(Cases::groupsByRole($result, $roles)['current'])->contains(fn ($g) => in_array('b-what', $g, true) && in_array('b-deploy', $g, true));
@@ -107,7 +108,7 @@ it('bounds the general ownership and leadership claims a role carries, leaving i
     $general = ['b-own' => ['job' => 0.9], 'b-own2' => ['job' => 0.7], 'c-lead' => ['job' => 0.9], 'c-docs' => ['job' => 0.9, 'statement' => 'Owned the developer documentation program for payment-gateway integration and merchant onboarding.']];
     [$result, $roles] = allocated('architect', $general);
     $groups = Cases::groupsByRole($result, $roles)['current'];
-    $claims = collect($groups)->filter(fn ($g) => array_intersect($g, ['b-own', 'c-lead', 'c-docs']) !== []);
+    $claims = collect($groups)->filter(fn ($g) => array_intersect($g, ['b-own', 'c-lead']) !== []);
 
     expect($claims->count())->toBeLessThanOrEqual((int) config('resume.composition.allocation.generic_per_role'))
         ->and(collect($groups)->flatten()->all())->toContain('l-what', 'e-what');

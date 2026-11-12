@@ -354,11 +354,11 @@ final class ReferenceSelection
 
     /**
      * @param  array<int, string>  $facts
-     * @return array{facts: array<int, string>, rank: int, project_id: int|null, score: float, facet: string, has_outcome: bool, pinned: bool, boost: float, shared: bool, technical: bool, story: bool}
+     * @return array{facts: array<int, string>, rank: int, project_id: int|null, score: float, facet: string, has_outcome: bool, pinned: bool, boost: float, shared: bool, technical: bool, story: bool, general: bool}
      */
     private function unit(array $facts, int $rank, ?int $projectId, float $score, string $facet, bool $hasOutcome, bool $pinned): array
     {
-        return ['facts' => $facts, 'rank' => $rank, 'project_id' => $projectId, 'score' => $score, 'facet' => $facet, 'has_outcome' => $hasOutcome, 'pinned' => $pinned, 'boost' => 1.0, 'shared' => false, 'technical' => false, 'story' => false];
+        return ['facts' => $facts, 'rank' => $rank, 'project_id' => $projectId, 'score' => $score, 'facet' => $facet, 'has_outcome' => $hasOutcome, 'pinned' => $pinned, 'boost' => 1.0, 'shared' => false, 'technical' => false, 'story' => false, 'general' => false];
     }
 
     /**
@@ -595,7 +595,8 @@ final class ReferenceSelection
         // requirement nothing chosen answers, for the weakest bullet that is not the only answer to another.
         foreach ($ctx['job_priority'] as $findingId) {
             $answered = fn (array $us) => array_filter($us, fn (array $u) => in_array($findingId, $u['findings'] ?? [], true)) !== [];
-            $inRole = array_values(array_filter($remaining, fn (array $u) => in_array($findingId, $u['findings'] ?? [], true)));
+            // A general claim of ownership or leadership answers a requirement in name only; it has to earn a slot by its score.
+            $inRole = array_values(array_filter($remaining, fn (array $u) => in_array($findingId, $u['findings'] ?? [], true) && ! $u['general']));
 
             if ($answered($state->chosen) || $inRole === [] || $state->chosen === []) {
                 continue;
@@ -671,9 +672,19 @@ final class ReferenceSelection
         $units = [];
         $byProject = [];
 
+        $ridesWith = $story ? $this->pairRoleLevelResults($candidates, $offered) : [];
+        $rides = array_merge([], ...array_values($ridesWith));
+        $score = array_column($candidates, 'score', 'fact_key');
+
         foreach ($candidates as $a) {
             if ($a['project_id'] === null) {
-                $units[] = $this->unit([$a['fact_key']], $a['order_index'], null, (float) $a['score'], $facetOf($a), $a['kind'] === 'outcome', (bool) $a['pinned']);
+                // A role-level result with no project is part of the work it describes, not a bullet of its own.
+                if (in_array($a['fact_key'], $rides, true)) {
+                    continue;
+                }
+
+                $with = $ridesWith[$a['fact_key']] ?? [];
+                $units[] = $this->unit([$a['fact_key'], ...$with], $a['order_index'], null, max([(float) $a['score'], ...array_map(fn (string $k) => (float) $score[$k], $with)]) + 0.05 * count($with), $facetOf($a), $a['kind'] === 'outcome' || $with !== [], (bool) $a['pinned']);
 
                 continue;
             }
@@ -691,6 +702,9 @@ final class ReferenceSelection
             // Delivered or deployed to a named audience: part of the project's story, not a bullet of its own.
             $deploy = $story ? array_values(array_filter($rest, fn (array $a) => StoryRole::isDeployment((string) ($offered[$a['fact_key']]['statement'] ?? '')))) : [];
             $others = array_values(array_filter($rest, fn (array $a) => ! in_array($a, $deploy, true)));
+            // A bare platform mention ("worked with Azure identity management") is not appended to a project's bullet: it stays
+            // evidence for the skills list. A project that has nothing else keeps it.
+            $others = $story ? (array_values(array_filter($others, fn (array $a) => ! ($a['bare_tag'] ?? false))) ?: $others) : $others;
             usort($others, fn (array $a, array $b) => $b['score'] <=> $a['score']);
             usort($deploy, fn (array $a, array $b) => $b['score'] <=> $a['score']);
             /** facet of each group, and its member accomplishments */
@@ -796,7 +810,7 @@ final class ReferenceSelection
                     array_column($all, 'fact_key'),
                     (int) min([PHP_INT_MAX, ...array_column($all, 'order_index')]),
                     (int) $projectId,
-                    max([0.0, ...array_column($all, 'score')]) + 0.05 * count(array_filter($attached, fn (array $a) => $a['kind'] === 'outcome')),
+                    max([0.0, ...array_column(array_filter($all, fn (array $m) => ! ($m['bare_tag'] ?? false)) ?: $all, 'score')]) + 0.05 * count(array_filter($attached, fn (array $a) => $a['kind'] === 'outcome')),
                     $facet,
                     array_filter($attached, fn (array $a) => $a['kind'] === 'outcome') !== [] || $facet === 'outcome',
                     in_array(true, array_column($all, 'pinned'), true),
@@ -817,12 +831,17 @@ final class ReferenceSelection
         // For a job-tailored resume the accomplishments carry the job's relevance; a reference resume has none.
         $jobByKey = array_column($candidates, 'job_relevance', 'fact_key');
         $findingsByKey = array_column($candidates, 'job_findings', 'fact_key');
-        $units = array_map(function (array $u) use ($meta, $offered, $jobByKey, $findingsByKey) {
+        $generalByKey = array_column($candidates, 'general', 'fact_key');
+        $tagByKey = array_column($candidates, 'bare_tag', 'fact_key');
+        $units = array_map(function (array $u) use ($meta, $offered, $jobByKey, $findingsByKey, $generalByKey, $tagByKey, $story) {
             $lead = (string) ($offered[$u['facts'][0]]['statement'] ?? '');
-            $jobScores = array_values(array_filter(array_map(fn (string $k) => $jobByKey[$k] ?? null, $u['facts']), fn ($v) => $v !== null));
+            // A bare platform mention riding with real work adds nothing to how relevant the work is.
+            $substantive = array_values(array_filter($u['facts'], fn (string $k) => ! ($tagByKey[$k] ?? false))) ?: $u['facts'];
+            $jobScores = array_values(array_filter(array_map(fn (string $k) => $jobByKey[$k] ?? null, $substantive), fn ($v) => $v !== null));
 
             return [
                 ...$u,
+                'general' => $story && array_filter($u['facts'], fn (string $k) => ! ($generalByKey[$k] ?? false)) === [],
                 'job' => $jobScores === [] ? null : max($jobScores),
                 'findings' => array_values(array_unique(array_merge([], ...array_map(fn (string $k) => $findingsByKey[$k] ?? [], $u['facts'])))),
                 'boost' => max([1.0, ...array_map(fn (string $k) => $meta['boost'][$k] ?? 1.0, $u['facts'])]),
@@ -835,6 +854,49 @@ final class ReferenceSelection
         usort($units, fn (array $a, array $b) => $a['rank'] <=> $b['rank']);
 
         return $units;
+    }
+
+    /**
+     * Which role-level results describe which role-level work. A project's results join its bullet because they share the
+     * project; a result that belongs to a role has no project, so it is matched to the work it describes by what they say:
+     * a result joins the role-level, non-result fact that shares at least two significant words with it ("new-merchant
+     * onboarding effort" with "...merchant payment-gateway integration and internal onboarding"), the closest first. A result
+     * that matches nothing stays a bullet of its own.
+     *
+     * @param  array<int, array<string, mixed>>  $candidates
+     * @param  array<string, array<string, mixed>>  $offered
+     * @return array<string, array<int, string>> lead fact key => result fact keys (at most two)
+     */
+    private function pairRoleLevelResults(array $candidates, array $offered): array
+    {
+        $roleLevel = array_values(array_filter($candidates, fn (array $a) => $a['project_id'] === null));
+        $words = fn (string $t) => array_values(array_unique(array_map(fn (string $w) => substr($w, 0, 6), array_filter(preg_split('/[^a-z0-9]+/', strtolower($t)) ?: [], fn (string $w) => strlen($w) >= 6))));
+        $leads = array_values(array_filter($roleLevel, fn (array $a) => $a['kind'] !== 'outcome' && ! ($a['general'] ?? false)));
+        $pairs = [];
+
+        // A result states what changed ("Reduced ...", "Saved ..."); a description of the work that the profile happens to call an
+        // outcome ("Led SEO for 34 programs ...") is not one.
+        $isResult = fn (string $statement) => preg_match('/^\s*(?:Reduced|Saved|Cut|Increased|Improved|Grew|Decreased|Lowered|Accelerated|Eliminated|Boosted)\b/', $statement) === 1;
+
+        foreach (array_filter($roleLevel, fn (array $a) => $a['kind'] === 'outcome' && $isResult((string) ($offered[$a['fact_key']]['statement'] ?? ''))) as $result) {
+            $best = null;
+            $bestShared = 1;
+
+            foreach ($leads as $lead) {
+                $shared = count(array_intersect($words((string) ($offered[$result['fact_key']]['statement'] ?? '')), $words((string) ($offered[$lead['fact_key']]['statement'] ?? ''))));
+
+                if ($shared > $bestShared || ($shared === $bestShared && $best !== null && $shared >= 2 && $lead['score'] > $best['score'])) {
+                    $best = $lead;
+                    $bestShared = $shared;
+                }
+            }
+
+            if ($best !== null && count($pairs[$best['fact_key']] ?? []) < 2) {
+                $pairs[$best['fact_key']][] = $result['fact_key'];
+            }
+        }
+
+        return $pairs;
     }
 
     /**

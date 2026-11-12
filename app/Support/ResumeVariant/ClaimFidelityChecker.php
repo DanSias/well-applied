@@ -313,11 +313,11 @@ final class ClaimFidelityChecker
         $findings = [];
 
         // Whole words only: "production" is not stated by "product design".
-        if (preg_match('/\b(?:(?:in|to|into|through|for)\s+)?production(?:-grade|-ready)?\b/i', $text, $hit, PREG_OFFSET_CAPTURE) === 1 && preg_match('/\bproduction\b|\bprod\b/i', $evidence) !== 1) {
-            preg_match('/\s*\b(?:(?:in|to|into)\s+)?production(?:-grade|-ready)?\b/i', $text, $span);
+        if (preg_match('/\s*\b(?:(?:in|to|into|through|for)\s+)?production(?:-grade|-ready)?\b/i', $text, $span) === 1 && preg_match('/\bproduction\b|\bprod\b/i', $evidence) !== 1) {
+            $phrase = trim($span[0]);
             $findings[] = [
-                'kind' => 'lifecycle_upgrade', 'severity' => 'block', 'detail' => trim($hit[0][0]),
-                'message' => 'takes the work "'.trim($hit[0][0]).'", a later stage of delivery than the cited evidence states',
+                'kind' => 'lifecycle_upgrade', 'severity' => 'block', 'detail' => $phrase,
+                'message' => 'takes the work "'.$phrase.'", a later stage of delivery than the cited evidence states',
                 'repair' => ['op' => 'remove', 'span' => $span[0]],
             ];
         }
