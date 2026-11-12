@@ -189,6 +189,17 @@ final class JobRelevance
     }
 
     /**
+     * Whether a fact's recorded adjustments mark it as a general statement of ownership or leadership: positioning built on
+     * it says the same thing as every other resume ("owned it end to end") rather than what this candidate built.
+     *
+     * @param  array<string, mixed>  $relevance  analyze()
+     */
+    public static function isGeneralClaim(array $relevance, string $factKey): bool
+    {
+        return array_intersect((array) ($relevance['facts'][$factKey]['adjustments'] ?? []), ['generic_ownership', 'generic_leadership']) !== [];
+    }
+
+    /**
      * A small, explainable correction for what keyword and capability overlap cannot see: whether a fact is demonstrated
      * work or a general statement. General ownership and leadership prose, a bare platform mention and (for an engineering
      * job) marketing-only results are discounted; a concrete build in a named system, an integration, a deployment to

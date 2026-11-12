@@ -121,7 +121,9 @@ final class ProfileJobAdapter
      */
     private function summaryKeys(array $effective, array $relevance): array
     {
-        $keys = array_slice($effective['presentation']['summary_fact_keys'], 0, 2);
+        // The profile's identity facts lead the summary, unless they are general claims of ownership or leadership: those
+        // position the candidate the same way as everyone, and the next specific fact takes their place.
+        $keys = array_slice(array_values(array_filter($effective['presentation']['summary_fact_keys'], fn (string $k) => ! JobRelevance::isGeneralClaim($relevance, $k))), 0, 2);
         $ranked = $relevance['facts'];
         uasort($ranked, fn (array $a, array $b) => $b['score'] <=> $a['score']);
         $excluded = array_column(array_filter($effective['accomplishments'], fn (array $a) => ! $a['included']), 'fact_key');

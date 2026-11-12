@@ -63,6 +63,16 @@ final class OllamaResumeWordingClient implements GeneratesResumeWording
      */
     private const MAX_OUTPUT_TOKENS = 16000;
 
+    /**
+     * The reasoning effort asked for on the request that follows an empty or truncated reply. The live test showed why an
+     * identical retry is pointless: a reasoning model spent 14.7k of its 16k output tokens thinking and returned nothing, and
+     * asking again with the same input repeats the same thinking. A lower effort leaves room for the answer.
+     */
+    private const RETRY_REASONING_EFFORT = 'low';
+
+    /** Set when the last reply was empty or truncated; cleared by a reply that carries content. */
+    private bool $lastReplyUnusable = false;
+
     public function __construct(
         private readonly string $baseUrl,
         private readonly string $model,
@@ -86,6 +96,7 @@ final class OllamaResumeWordingClient implements GeneratesResumeWording
                 maxOutputTokens: self::MAX_OUTPUT_TOKENS,
                 timeoutSeconds: $this->timeoutSeconds,
                 logPrefix: 'Resume Wording generation (Ollama)',
+                reasoningEffort: $this->lastReplyUnusable ? self::RETRY_REASONING_EFFORT : null,
             );
         } catch (OllamaChatCompletionsException $e) {
             $diagnostics = new ProviderDiagnostics(
@@ -97,11 +108,24 @@ final class OllamaResumeWordingClient implements GeneratesResumeWording
             );
 
             if ($e instanceof OllamaEmptyOutputException) {
+                $this->lastReplyUnusable = true;
+
                 throw new ResumeEmptyOutputException($e->getMessage(), $diagnostics, $e, $e->reasoningPresent, $e->reasoningChars);
+            }
+
+            // A reply cut off at the output budget is, for the caller, the same as an empty one: there is no usable
+            // answer, and asking again at a lower reasoning effort can produce one. It is retried inside the same bounded
+            // number of wording calls, not failed outright.
+            if ($e->finishReason === 'length') {
+                $this->lastReplyUnusable = true;
+
+                throw new ResumeEmptyOutputException($e->getMessage(), $diagnostics, $e);
             }
 
             throw new ResumeGenerationProviderException($e->getMessage(), diagnostics: $diagnostics, previous: $e);
         }
+
+        $this->lastReplyUnusable = false;
 
         return new ResumeWordingProviderResponse(
             provider: 'ollama',

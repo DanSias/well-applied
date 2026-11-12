@@ -60,12 +60,16 @@ it('promotes a technology mention the job asks for strongly to a bullet candidat
     }
 });
 
-it('leads the summary with the profile\'s own two facts, then the facts that speak most to the job', function () {
+it('leads the summary with the profile\'s own specific facts, then the facts that speak most to the job, and never a general ownership claim', function () {
     $s = CompositionScenario::create();
     [$adapted, $effective, $relevance] = adapted($s, CompositionScenario::approvedProfile($s));
     $keys = $adapted['presentation']['summary_fact_keys'];
+    $approved = $effective['presentation']['summary_fact_keys'];
+    $specific = array_values(array_filter($approved, fn ($k) => ! JobRelevance::isGeneralClaim($relevance, $k)));
 
-    expect(array_slice($keys, 0, 2))->toBe(array_slice($effective['presentation']['summary_fact_keys'], 0, 2))
+    // The approved summary leads with an ownership statement; positioning starts from what was built instead.
+    expect(JobRelevance::isGeneralClaim($relevance, $approved[0]))->toBeTrue()
+        ->and(array_slice($keys, 0, 2))->toBe(array_slice($specific, 0, 2))->and($keys)->not->toContain($approved[0])
         ->and(count($keys))->toBeLessThanOrEqual(2 + 5 + 2)
         ->and($keys)->toBe(array_values(array_unique($keys)));
 });

@@ -232,7 +232,7 @@ it('classifies null and whitespace-only content as empty output without a reason
     }
 })->with([[null], [''], ["  \n "]]);
 
-it('keeps malformed JSON, truncation and HTTP failures distinct from empty output', function () {
+it('keeps malformed JSON and HTTP failures distinct from empty output', function () {
     $malformed = fakeResumeWordingChatCompletionsBody([]);
     $malformed['choices'][0]['message']['content'] = '{not json';
     Http::fake(['*' => Http::response($malformed)]);
@@ -240,15 +240,54 @@ it('keeps malformed JSON, truncation and HTTP failures distinct from empty outpu
     expect(fn () => ollamaResumeWordingClient()->generate('s', 'u', []))
         ->toThrow(fn (ResumeGenerationProviderException $e) => ! $e instanceof ResumeEmptyOutputException && str_contains($e->getMessage(), 'not valid JSON'));
 
-    $truncated = fakeResumeWordingChatCompletionsBody([]);
-    $truncated['choices'][0]['finish_reason'] = 'length';
-    Http::fake(['*' => Http::response($truncated)]);
-
-    expect(fn () => ollamaResumeWordingClient()->generate('s', 'u', []))
-        ->toThrow(fn (ResumeGenerationProviderException $e) => ! $e instanceof ResumeEmptyOutputException && str_contains($e->getMessage(), 'truncated'));
-
     Http::fake(['*' => Http::response('nope', 400)]);
 
     expect(fn () => ollamaResumeWordingClient()->generate('s', 'u', []))
         ->toThrow(fn (ResumeGenerationProviderException $e) => ! $e instanceof ResumeEmptyOutputException);
+});
+
+/**
+ * @return array<string, mixed>
+ */
+function reasoningOnlyBody(string $finishReason = 'stop'): array
+{
+    $body = fakeResumeWordingChatCompletionsBody([]);
+    $body['choices'][0]['message'] = ['role' => 'assistant', 'content' => '', 'reasoning' => str_repeat('thinking ', 400)];
+    $body['choices'][0]['finish_reason'] = $finishReason;
+    $body['usage'] = ['prompt_tokens' => 21599, 'completion_tokens' => 14741, 'total_tokens' => 36340];
+
+    return $body;
+}
+
+it('treats a reply cut off at the output budget as a retryable empty output, with its usage', function () {
+    $truncated = fakeResumeWordingChatCompletionsBody(['summary' => 'cut']);
+    $truncated['choices'][0]['finish_reason'] = 'length';
+    $truncated['usage'] = ['prompt_tokens' => 21685, 'completion_tokens' => 16000, 'total_tokens' => 37685];
+    Http::fake(['*' => Http::response($truncated)]);
+
+    try {
+        ollamaResumeWordingClient()->generate('s', 'u', []);
+        $this->fail('Expected a retryable empty-output exception.');
+    } catch (ResumeEmptyOutputException $e) {
+        expect($e->getMessage())->toContain('truncated')->and($e->diagnostics?->finishReason)->toBe('length')->and($e->diagnostics?->usage['completion_tokens'])->toBe(16000);
+    }
+});
+
+it('asks for low reasoning effort after an empty or truncated reply, and goes back to the default once a reply carries content', function () {
+    $good = fakeResumeWordingChatCompletionsBody(['summary' => 'ok']);
+    Http::fake(['*' => Http::sequence()->push(reasoningOnlyBody())->push(reasoningOnlyBody('length'))->push($good)->push($good)]);
+    $client = ollamaResumeWordingClient();
+    $tries = [];
+
+    foreach (range(1, 4) as $i) {
+        try {
+            $client->generate('s', 'u', ['type' => 'object']);
+        } catch (ResumeEmptyOutputException) {
+        }
+    }
+
+    $efforts = Http::recorded()->map(fn ($pair) => $pair[0]->data()['reasoning_effort'] ?? null)->all();
+
+    // First call: the model's own default. After an empty reply and after a truncated one: low. After a good reply: default again.
+    expect($efforts)->toBe([null, 'low', 'low', null]);
 });

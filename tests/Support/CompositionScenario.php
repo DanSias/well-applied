@@ -151,7 +151,7 @@ final class CompositionScenario
                 $all = fn (array $facts) => implode(' ', array_map(fn ($f) => rtrim((string) preg_replace('/\s+/', ' ', $f['statement']), '.').'.', $facts));
 
                 return new ResumeWordingProviderResponse('fake', 'stub', [
-                    'summary' => $this->seen->summary ?? 'Full-Stack Developer who builds internal platforms and payment integrations for engineering and product teams. Delivers work that is deployed to the teams who use it, from requirements and architecture through testing and delivery, with reliable handling of payment events.',
+                    'summary' => $this->seen->summary ?? 'Full-Stack Developer who builds internal platforms and payment integrations for engineering and product teams. Builds React and TypeScript applications, integrates third-party APIs, and delivers them to the teams that use them, with reliable handling of payment events and a focus on clear, maintainable code.',
                     'experience' => array_map(fn ($r) => ['role_id' => $r['role_id'], 'bullets' => array_map(fn ($g) => ['bullet_group_index' => $g['bullet_group_index'], 'text' => (isset($this->seen->bullet) ? ($this->seen->bullet)($g) : null) ?? $all($g['career_facts'])], $r['bullet_groups'])], $in['experience']),
                     'selected_projects' => [],
                 ]);

@@ -13,7 +13,7 @@ use App\Support\ResumeDocument\GenerateResumeDocument;
 use App\Support\ResumeDocument\ResumePdfStore;
 use App\Support\ResumeDocument\ResumeText;
 use App\Support\ResumeVariant\CompositionChecks;
-use App\Support\ResumeVariant\Prompts\ProfileJobWordingPromptV3;
+use App\Support\ResumeVariant\Prompts\ProfileJobWordingPromptV4;
 use App\Support\ResumeVariant\ResumeCandidatePayloadBuilder;
 use Illuminate\Support\Facades\DB;
 use Throwable;
@@ -46,7 +46,7 @@ final class FinishResumeLayout
         private readonly CompositionChecks $composition,
         private readonly GenerateResumeDocument $documents,
         private readonly ResumePdfStore $store,
-        private readonly ProfileJobWordingPromptV3 $prompt,
+        private readonly ProfileJobWordingPromptV4 $prompt,
     ) {}
 
     /**

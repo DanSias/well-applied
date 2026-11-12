@@ -5,7 +5,7 @@ use App\Exceptions\ResumeGenerationProviderException;
 use App\Support\GenerationAttempt\GenerationMetrics;
 use App\Support\ResumeVariant\CorrectSummary;
 use App\Support\ResumeVariant\GenerateResumeVariant;
-use App\Support\ResumeVariant\Prompts\ProfileJobWordingPromptV3;
+use App\Support\ResumeVariant\Prompts\ProfileJobWordingPromptV4;
 use App\Support\ResumeVariant\RecoverWording;
 use App\Support\ResumeVariant\ResumeWordingProviderResponse;
 use App\Support\ResumeVariant\ResumeWordingResponseValidator;
@@ -55,7 +55,7 @@ function cqCorrect(array $recovered, FakeResumeWordingProvider $provider): array
     ];
 
     return (new CorrectSummary(new ResumeWordingResponseValidator, new RecoverWording(new ResumeWordingResponseValidator)))
-        ->apply($recovered, $provider, new ProfileJobWordingPromptV3, $input, cqContext(), new GenerationMetrics);
+        ->apply($recovered, $provider, new ProfileJobWordingPromptV4, $input, cqContext(), new GenerationMetrics);
 }
 
 function cqSummaryItem(array $result): array
@@ -138,7 +138,7 @@ it('corrects a collapsed summary inside a job-tailored generation with one extra
     $seen = new stdClass;
     // The first summary names Ruby on Rails, a confirmed limitation, in its second sentence: recovery removes it.
     $seen->summary = 'Full-Stack Developer who builds internal platforms. Ships Ruby on Rails services and cut reporting time by 85% across the company.';
-    $seen->correction = 'Full-Stack Developer who builds internal platforms and payment integrations. Built Nimbus, a full-stack React and Node.js analytics platform unifying BigQuery and Salesforce data that reduced reporting time by 85%, and webhook handlers for payment events with retry schedules and idempotent processing of duplicate deliveries.';
+    $seen->correction = 'Full-Stack Developer who builds internal platforms and payment integrations. Built Nimbus, a full-stack React and Node.js analytics platform unifying BigQuery and Salesforce data, and webhook handlers for payment events with retry schedules and idempotent processing of duplicate deliveries.';
     app()->instance(GeneratesResumeWording::class, CompositionScenario::wording($seen));
 
     $variant = app(GenerateResumeVariant::class)->generateForJob($s['analysis'], $synthesis);
@@ -179,19 +179,22 @@ it('makes a single wording call for a healthy summary', function () {
         ->and(collect($variant->review_report['items'])->firstWhere('location', 'summary')['status'])->toBe('passed');
 });
 
-it('gives the summary the whole groups behind the strongest bullets, and the public figure that holds a metric', function () {
+it('offers the summary what was built, never a general claim or a result a bullet already carries', function () {
     $s = CompositionScenario::create();
     $synthesis = CompositionScenario::approvedProfile($s);
     $seen = new stdClass;
     app()->instance(GeneratesResumeWording::class, CompositionScenario::wording($seen));
 
     app(GenerateResumeVariant::class)->generateForJob($s['analysis'], $synthesis);
-    $summaryKeys = array_column($seen->input['summary_evidence'], 'key');
-    $bulletGroups = collect($seen->input['experience'])->flatMap(fn ($r) => $r['bullet_groups'])->map(fn ($g) => array_column($g['career_facts'], 'key'));
-    $strongestGroup = $bulletGroups->first(fn ($keys) => in_array('webhooks', $keys, true));
+    $keys = $seen->input['summary_evidence_keys'];
+    $bulletKeys = collect($seen->input['experience'])->flatMap(fn ($r) => $r['bullet_groups'])->flatMap(fn ($g) => array_column($g['career_facts'], 'key'))->all();
+    $fullKeys = array_column($seen->input['summary_evidence'], 'key');
 
-    // A technology the summary may name is stated by a fact the summary cites: the whole group is there, not one fact of it.
-    expect($strongestGroup)->not->toBeNull()
-        ->and(array_diff($strongestGroup, $summaryKeys))->toBe([])
-        ->and(array_intersect($summaryKeys, ['private', 'restricted-figure']))->toBe([]);
+    // The whole group behind the strongest bullet is there, so a technology it names is stated by a fact it cites.
+    expect($keys)->toContain('webhooks', 'n-what')
+        // The profile's general ownership claim does not position the summary, and the Nimbus result is told once, in its bullet.
+        ->and($keys)->not->toContain('b-owned', 'n-result')
+        ->and(array_intersect($keys, ['private', 'restricted-figure']))->toBe([])
+        // Each fact is sent once: in a bullet group, or in the summary's own list when no bullet shows it.
+        ->and(array_intersect($fullKeys, $bulletKeys))->toBe([])->and(array_diff($keys, [...$bulletKeys, ...$fullKeys]))->toBe([]);
 });

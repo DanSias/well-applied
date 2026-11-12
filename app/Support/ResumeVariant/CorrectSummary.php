@@ -7,7 +7,7 @@ use App\Exceptions\ResumeEmptyOutputException;
 use App\Exceptions\ResumeGenerationProviderException;
 use App\Support\GenerationAttempt\GenerationMetrics;
 use App\Support\ResumeDocument\ResumeText;
-use App\Support\ResumeVariant\Prompts\ProfileJobWordingPromptV3;
+use App\Support\ResumeVariant\Prompts\ProfileJobWordingPromptV4;
 
 /**
  * The one narrow correction for a summary that validation cut down.
@@ -39,7 +39,7 @@ final class CorrectSummary
      * @param  array<string, mixed>  $wordingInput  the input the wording call was given
      * @return array{content: array<string, mixed>, items: array<int, array<string, mixed>>, outcome: string}
      */
-    public function apply(array $recovered, GeneratesResumeWording $provider, ProfileJobWordingPromptV3 $prompt, array $wordingInput, WordingCheckContext $context, GenerationMetrics $metrics): array
+    public function apply(array $recovered, GeneratesResumeWording $provider, ProfileJobWordingPromptV4 $prompt, array $wordingInput, WordingCheckContext $context, GenerationMetrics $metrics): array
     {
         $content = $recovered['content'];
         $items = $recovered['items'];
@@ -86,7 +86,7 @@ final class CorrectSummary
      * @param  array<string, mixed>  $item
      * @param  array<string, mixed>  $wordingInput
      */
-    private function correct(array &$content, array $item, GeneratesResumeWording $provider, ProfileJobWordingPromptV3 $prompt, array $wordingInput, WordingCheckContext $context, GenerationMetrics $metrics): string
+    private function correct(array &$content, array $item, GeneratesResumeWording $provider, ProfileJobWordingPromptV4 $prompt, array $wordingInput, WordingCheckContext $context, GenerationMetrics $metrics): string
     {
         $problems = array_values(array_unique(array_map(
             fn (array $f) => (string) $f['message'],

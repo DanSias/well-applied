@@ -1043,7 +1043,7 @@ it('composes a job-tailored resume from the approved profile with one wording ca
 
     expect($seen->calls)->toBe(1)
         ->and($variant->job_match_id)->toBeNull()->and($variant->job_analysis_id)->toBe($s['analysis']->id)->and($variant->resume_profile_synthesis_id)->toBe($synthesis->id)
-        ->and($variant->wording_prompt_version)->toBe('resume-wording-profile-job-v3')
+        ->and($variant->wording_prompt_version)->toBe('resume-wording-profile-job-v4')
         // The job's evidence reaches the resume even though the reference profile does not emphasize it.
         ->and($cited)->toContain('webhooks')->not->toContain('private-card', 'private-secret', 'personal-docker', 'first-person')
         ->and($tailoring['mode'])->toBe('profile_job')->and($tailoring['job_analysis_id'])->toBe($s['analysis']->id)->and($tailoring['profile_version'])->toBe($synthesis->version)
@@ -1189,9 +1189,9 @@ it('never publishes a Restricted-only figure through the summary, and cites the 
     $variant = app(GenerateResumeVariant::class)->generateForJob($s['analysis'], $synthesis->fresh());
     $summaryKeys = array_column($seen->input['summary_evidence'], 'key');
 
-    // The summary cites the public fact that contains the 85% it states, no Private evidence is offered, and the
-    // Restricted-only figure never reaches the resume.
-    expect($summaryKeys)->toContain('nexus-85')->and(array_intersect($summaryKeys, ['private-secret', 'private-card']))->toBe([])
+    // A figure a bullet already carries is not offered to the summary (it is told once, in the bullet), no Private
+    // evidence is offered, and the Restricted-only figure never reaches the resume.
+    expect($summaryKeys)->not->toContain('nexus-85')->and(array_intersect($summaryKeys, ['private-secret', 'private-card']))->toBe([])
         ->and($variant->summary)->not->toContain('32,000')
         ->and($seen->input['job_context']['lead_with'])->not->toBeEmpty()->and($seen->input['job_context']['not_supported'])->toContain('Ruby on Rails')
         ->and(json_encode($variant->review_report))->not->toContain('SECRET-PROJECT-ZEBRA');
