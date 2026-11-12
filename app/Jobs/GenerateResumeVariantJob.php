@@ -73,10 +73,10 @@ final class GenerateResumeVariantJob implements ShouldQueue
 
     public function handle(GenerateResumeVariant $generator): void
     {
-        $this->attempt->update([
-            'status' => GenerationStatus::Running,
-            'started_at' => now(),
-        ]);
+        if (! $this->claimAttempt()) {
+            return;
+        }
+
         $this->beginMetrics();
 
         $subject = $this->attempt->subject;
@@ -183,6 +183,10 @@ final class GenerateResumeVariantJob implements ShouldQueue
      */
     public function failed(Throwable $exception): void
     {
+        if ($this->shouldIgnoreFailure($exception)) {
+            return;
+        }
+
         Log::error('ResumeVariant generation failed unexpectedly.', [
             'generation_attempt_id' => $this->attempt->id,
             'exception' => $exception::class,

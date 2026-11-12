@@ -2,10 +2,12 @@
 
 namespace App\Jobs\Concerns;
 
+use App\Enums\GenerationStatus;
 use App\Models\GenerationAttempt;
 use App\Models\JobPosting;
 use App\Support\GenerationAttempt\GenerationMetrics;
 use App\Support\TailoredResume\TailoredResumePipeline;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -20,6 +22,57 @@ use Throwable;
 trait RecordsAttemptMetrics
 {
     private int|float $jobStartedAt = 0;
+
+    /**
+     * Takes the attempt for this worker, exactly once. Only a still-queued attempt can be claimed, and the claim is one
+     * atomic UPDATE, so if two workers pop the same job (SQLite has no row locks, and two queue listeners can race for a
+     * row) the second finds the attempt already Running or finished and does nothing. Without it both ran the whole job.
+     */
+    private function claimAttempt(): bool
+    {
+        $claimed = GenerationAttempt::query()
+            ->whereKey($this->attempt->getKey())
+            ->where('status', GenerationStatus::Queued)
+            ->update(['status' => GenerationStatus::Running, 'started_at' => now(), 'updated_at' => now()]);
+
+        if ($claimed === 0) {
+            Log::warning('A generation attempt was already claimed or finished; this worker skipped it.', [
+                'generation_attempt_id' => $this->attempt->id,
+                'status' => GenerationAttempt::query()->whereKey($this->attempt->getKey())->value('status')?->value,
+            ]);
+
+            return false;
+        }
+
+        $this->attempt->refresh();
+
+        return true;
+    }
+
+    /**
+     * Whether the framework's failure callback should leave the attempt alone. The callback also fires when the QUEUE could
+     * not reserve a job (a transient `database is locked`), which says nothing about the work: if another worker is running
+     * the attempt, or it already finished, marking it failed would be false, and would let the pipeline start a second
+     * generation of the same job. A real failure of this worker's own run is still recorded.
+     */
+    private function shouldIgnoreFailure(Throwable $exception): bool
+    {
+        $status = GenerationAttempt::query()->whereKey($this->attempt->getKey())->value('status');
+
+        if ($status === GenerationStatus::Succeeded) {
+            return true;
+        }
+
+        $busy = $exception instanceof QueryException && preg_match('/database (?:table )?is locked|SQLITE_BUSY/i', $exception->getMessage()) === 1;
+
+        if ($busy && $status === GenerationStatus::Running && $this->jobStartedAt === 0) {
+            Log::warning('A transient database lock hit the queue while another worker is running this attempt; it was left running.', ['generation_attempt_id' => $this->attempt->id]);
+
+            return true;
+        }
+
+        return false;
+    }
 
     private function beginMetrics(): void
     {
@@ -38,6 +91,9 @@ trait RecordsAttemptMetrics
             : null;
 
         return [
+            // A run that finishes clears any failure recorded for it while it was in flight.
+            'failure_category' => null,
+            'failure_message' => null,
             'phase' => null,
             'queue_wait_ms' => $queueWaitMs,
             'duration_ms' => (int) round((hrtime(true) - $this->jobStartedAt) / 1_000_000),

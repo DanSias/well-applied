@@ -56,10 +56,10 @@ final class GenerateJobMatchJob implements ShouldQueue
 
     public function handle(GenerateJobMatch $generator): void
     {
-        $this->attempt->update([
-            'status' => GenerationStatus::Running,
-            'started_at' => now(),
-        ]);
+        if (! $this->claimAttempt()) {
+            return;
+        }
+
         $this->beginMetrics();
 
         $analysis = $this->attempt->subject;
@@ -131,6 +131,10 @@ final class GenerateJobMatchJob implements ShouldQueue
      */
     public function failed(Throwable $exception): void
     {
+        if ($this->shouldIgnoreFailure($exception)) {
+            return;
+        }
+
         Log::error('JobMatch generation failed unexpectedly.', [
             'generation_attempt_id' => $this->attempt->id,
             'exception' => $exception::class,

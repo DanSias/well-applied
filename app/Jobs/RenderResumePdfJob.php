@@ -43,7 +43,11 @@ final class RenderResumePdfJob implements ShouldQueue
     {
         $layout ??= app(AssessResumeLayout::class);
         $finish ??= app(FinishResumeLayout::class);
-        $this->attempt->update(['status' => GenerationStatus::Running, 'started_at' => now(), 'phase' => 'rendering']);
+        if (! $this->claimAttempt()) {
+            return;
+        }
+
+        $this->attempt->update(['phase' => 'rendering']);
         $this->beginMetrics();
 
         $variant = $this->attempt->subject;
@@ -87,6 +91,10 @@ final class RenderResumePdfJob implements ShouldQueue
 
     public function failed(Throwable $exception): void
     {
+        if ($this->shouldIgnoreFailure($exception)) {
+            return;
+        }
+
         Log::error('Resume PDF render failed unexpectedly.', [
             'generation_attempt_id' => $this->attempt->id,
             'exception' => $exception::class,
