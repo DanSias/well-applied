@@ -59,7 +59,7 @@ final class ClaimFidelityChecker
             return [];
         }
 
-        return [...$this->scope($text, $evidence), ...$this->cause($text, $evidence), ...$this->authority($text, $evidence), ...$this->figures($text, $evidence), ...$this->qualifiers($text, $evidence), ...$this->lifecycle($text, $evidence)];
+        return [...$this->scope($text, $evidence), ...$this->cause($text, $evidence), ...$this->authority($text, $evidence, $this->evidenceByFact($citedKeys, $factTextByKey)), ...$this->figures($text, $evidence), ...$this->qualifiers($text, $evidence), ...$this->lifecycle($text, $evidence)];
     }
 
     /**
@@ -79,6 +79,7 @@ final class ClaimFidelityChecker
             'remove' => str_replace($repair['span'], '', $text),
             'replace' => str_replace($repair['from'], $repair['to'], $text),
             'qualifier' => $this->withoutQualifier($text, $repair['word']),
+            'production' => $this->withoutProduction($text) ?? $text,
             default => $text,
         };
 
@@ -179,9 +180,10 @@ final class ClaimFidelityChecker
     }
 
     /**
+     * @param  array<int, string>  $facts  each cited fact's own text, in cited order
      * @return array<int, array<string, mixed>>
      */
-    private function authority(string $text, string $evidence): array
+    private function authority(string $text, string $evidence, array $facts): array
     {
         $findings = [];
 
@@ -200,8 +202,8 @@ final class ClaimFidelityChecker
             // "Designed and implemented X" becomes "Implemented X": drop the unsupported verb and keep the supported one.
             if (preg_match('/^'.preg_quote($verb, '/').'\s+and\s+/iu', $text) === 1) {
                 $repair = ['op' => 'remove', 'span' => $verb.' and '];
-            } elseif (preg_match('/^'.preg_quote($verb, '/').'\b/iu', $text) === 1 && ($lead = $this->leadVerb($evidence)) !== null) {
-                // A bare unsupported lead verb takes the evidence's own: "Drove" becomes "Delivered".
+            } elseif (preg_match('/^'.preg_quote($verb, '/').'\b/iu', $text) === 1 && ($lead = $this->replacementVerb($text, $verb, $facts)) !== null) {
+                // A bare unsupported lead verb takes the verb of the fact that describes this very work: "Drove" becomes "Delivered".
                 $repair = ['op' => 'replace', 'from' => $verb, 'to' => $lead];
             }
 
@@ -313,12 +315,13 @@ final class ClaimFidelityChecker
         $findings = [];
 
         // Whole words only: "production" is not stated by "product design".
-        if (preg_match('/\s*\b(?:(?:in|to|into|through|for)\s+)?production(?:-grade|-ready)?\b/i', $text, $span) === 1 && preg_match('/\bproduction\b|\bprod\b/i', $evidence) !== 1) {
+        if (preg_match(self::PRODUCTION, $text, $span) === 1 && preg_match('/\bproduction\b|\bprod\b/i', $evidence) !== 1) {
             $phrase = trim($span[0]);
+            $repairable = $this->withoutProduction($text) !== null;
             $findings[] = [
                 'kind' => 'lifecycle_upgrade', 'severity' => 'block', 'detail' => $phrase,
                 'message' => 'takes the work "'.$phrase.'", a later stage of delivery than the cited evidence states',
-                'repair' => ['op' => 'remove', 'span' => $span[0]],
+                ...($repairable ? ['repair' => ['op' => 'production']] : []),
             ];
         }
 
@@ -391,6 +394,114 @@ final class ClaimFidelityChecker
         $stem = mb_substr($word, 0, min(mb_strlen($word), 6));
 
         return preg_match('/\b'.preg_quote($stem, '/').'/iu', $evidence) === 1;
+    }
+
+    private const PRODUCTION = '/\s*\b(?<prep>(?:in|to|into|through|for|at|on)\s+)?production(?<suffix>-grade|-ready|-level|-scale)?\b/i';
+
+    /** After "production", these mean the word ends its phrase ("to production and monitored"), so it is a stage, not a modifier. */
+    private const PHRASE_END = '/^(?:and|or|but|then|while|where|when|after|before|until|so|that|which|to|for|in|on|at|by|from|with|without|using|via|across|of|as|per|into|through|daily|weekly|monthly|today|often|regularly|continuously|\w+ly)\b/i';
+
+    /**
+     * Removes the unsupported word "production" and nothing else the sentence needs:
+     *   "into production software"   -> "into software"      (a modifier: the preposition stays)
+     *   "production deployment"      -> "deployment"
+     *   "in production environments" -> "in environments"
+     *   "deployed to production."    -> "deployed."          (a stage: the whole "to production" goes)
+     * Null when any occurrence is a bare noun with nothing to remove it from ("supported production"), where taking the word
+     * out would leave a broken sentence; the caller then flags the text for a person instead of rewriting it.
+     */
+    private function withoutProduction(string $text): ?string
+    {
+        $unsafe = false;
+
+        $next = (string) preg_replace_callback(self::PRODUCTION, function (array $m) use ($text, &$unsafe): string {
+            $prep = $m['prep'] ?? '';
+            $tail = ltrim(mb_substr($text, mb_strpos($text, $m[0]) + mb_strlen($m[0])));
+            $stage = $tail === '' || preg_match('/^[,.;:)!?]/u', $tail) === 1 || preg_match(self::PHRASE_END, $tail) === 1;
+
+            if (($m['suffix'] ?? '') !== '' || ! $stage) {
+                // A modifier ("production software", "production-ready code"): the word goes, the preposition stays.
+                return $prep === '' ? '' : ' '.rtrim($prep);
+            }
+
+            if ($prep === '') {
+                $unsafe = true; // "supported production": the word is the object, not a modifier.
+
+                return $m[0];
+            }
+
+            return ''; // "to production": the stage phrase goes whole.
+        }, $text);
+
+        if ($unsafe) {
+            return null;
+        }
+
+        // A modifier removed from the front leaves a leading space; "in , " style gaps are not produced by the cases above.
+        return trim((string) preg_replace('/\s{2,}/u', ' ', $next));
+    }
+
+    /**
+     * The verb to put in place of an unsupported lead verb, chosen from the facts that describe the sentence's own subject,
+     * never from which fact came first. The words right after the verb ("Verbatim, a documentation Q&A system") name the
+     * subject; only the facts that mention it can say what was done to it. When they agree on one verb, or one of them is a
+     * build verb (the most specific action, ahead of reuse), that verb is used. Null when no fact describes the subject, or
+     * the facts that do disagree on a verb with no clear order between them.
+     *
+     * @param  array<int, string>  $facts
+     */
+    private function replacementVerb(string $text, string $verb, array $facts): ?string
+    {
+        $after = preg_replace('/^\s*'.preg_quote($verb, '/').'\b\s*/iu', '', $text) ?? '';
+        $subject = preg_split('/[,;:]|\s(?:to|that|which|for|using|with|by|in)\s/iu', $after)[0] ?? '';
+        $terms = $this->significant($subject);
+
+        if ($terms === []) {
+            return null;
+        }
+
+        $verbs = [];
+
+        foreach ($facts as $fact) {
+            $lead = $this->leadVerb($fact);
+
+            if ($lead === null) {
+                continue;
+            }
+
+            foreach ($terms as $term) {
+                if (preg_match('/(?<![\p{L}\p{N}])'.preg_quote($term, '/').'/iu', $fact) === 1) {
+                    $verbs[$lead] = true;
+
+                    break;
+                }
+            }
+        }
+
+        $verbs = array_keys($verbs);
+
+        if (count($verbs) === 1) {
+            return $verbs[0];
+        }
+
+        // Several facts speak of the subject: the most specific defensible action wins, and reuse only when nothing else does.
+        foreach (['Built', 'Developed', 'Implemented', 'Integrated', 'Deployed'] as $preferred) {
+            if (in_array($preferred, $verbs, true)) {
+                return $preferred;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<int, string>  $citedKeys
+     * @param  array<string, string>  $factTextByKey
+     * @return array<int, string>
+     */
+    private function evidenceByFact(array $citedKeys, array $factTextByKey): array
+    {
+        return array_values(array_filter(array_map(fn (string $k) => trim($factTextByKey[$k] ?? ''), $citedKeys), fn (string $t) => $t !== ''));
     }
 
     private function leadVerb(string $evidence): ?string
