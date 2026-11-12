@@ -261,6 +261,229 @@ final class CompositionChecks
     }
 
     /**
+     * Substantive duplication among WRITTEN bullets: two bullets that tell the reader the same thing about the same work.
+     *
+     * Text overlap alone proves nothing (two bullets about one platform legitimately share its name and stack), so a
+     * pair is a duplicate only when the second adds too little that the first does not already say AND they concern the
+     * same project, or when they state the same measured result, or when they repeat the same ownership claim. A second
+     * bullet that brings its own words (a different design decision, integration, operation or result) is never flagged
+     * for overlap.
+     *
+     * `confidence` is `high` when the later bullet restates the earlier one or repeats its result for the same project:
+     * those carry a `drop` (the later bullet) that generation may apply without losing any claim. `medium` findings are
+     * advice for a person. Each finding names the eligible facts not on the resume that could take the later bullet's place.
+     *
+     * @param  array<int, array{role_id: int, index: int, text: string, fact_keys: array<int, string>}>  $bullets  in resume order
+     * @param  array<string, array<string, mixed>>  $facts  eligible facts by key (attribution.project_id, attribution.project)
+     * @param  array<int, string>  $unused  eligible, shareable facts that are not on the resume, best first
+     * @return array<int, array{check: string, severity: string, message: string, selected: array<int, string>, available: array<int, string>, confidence: string, reason: string, bullets: array<int, array{role_id: int, index: int}>, drop: array{role_id: int, index: int}|null}>
+     */
+    public function duplicates(array $bullets, array $facts, array $unused = []): array
+    {
+        $threshold = (float) config('resume.composition.duplicates.restated_below_new_share', 0.35);
+        $info = array_map(fn (array $b) => [
+            'project' => $this->projectOf($b['fact_keys'], $facts),
+            'words' => $this->contentWords($b['text'], $this->projectNameOf($b['fact_keys'], $facts)),
+            'figures' => $this->figures($b['text']),
+            'ownership' => preg_match('/\b(?:independently|owned|ownership|end[- ]to[- ]end)\b/i', $b['text']) === 1,
+        ], $bullets);
+        $findings = [];
+        $dropped = [];
+
+        for ($j = 1; $j < count($bullets); $j++) {
+            for ($i = 0; $i < $j; $i++) {
+                if (isset($dropped[$j]) || isset($dropped[$i])) {
+                    continue;
+                }
+
+                $a = $info[$i];
+                $b = $info[$j];
+                $sameProject = $a['project'] !== null && $a['project'] === $b['project'];
+                $shared = array_values(array_intersect($a['figures'], $b['figures']));
+                $adds = $b['words'] === [] ? 0.0 : count(array_diff($b['words'], $a['words'])) / count($b['words']);
+                $restated = $adds < $threshold;
+
+                [$reason, $confidence] = match (true) {
+                    $sameProject && $shared !== [] => ['repeated_result', 'high'],
+                    $sameProject && $restated && count($b['words']) >= 5 => ['restated', 'high'],
+                    $shared !== [] => ['repeated_result', 'medium'],
+                    $restated && count($b['words']) >= 6 => ['restated', 'medium'],
+                    $sameProject && $a['ownership'] && $b['ownership'] => ['repeated_ownership', 'medium'],
+                    default => [null, null],
+                };
+
+                if ($reason === null) {
+                    continue;
+                }
+
+                $where = $bullets[$i]['role_id'] === $bullets[$j]['role_id'] ? 'bullets '.($bullets[$i]['index'] + 1).' and '.($bullets[$j]['index'] + 1).' of the same role' : 'two bullets';
+                $about = $sameProject ? ' about the same project' : '';
+                $what = match ($reason) {
+                    'repeated_result' => 'state the same result ('.implode(', ', $shared).')',
+                    'repeated_ownership' => 'repeat the same ownership claim',
+                    default => 'say largely the same thing',
+                };
+                $keys = array_values(array_unique([...$bullets[$i]['fact_keys'], ...$bullets[$j]['fact_keys']]));
+                $alternatives = array_slice(array_values(array_diff($unused, $keys)), 0, self::AVAILABLE);
+                $advice = $confidence === 'high' ? 'The later one adds no distinct evidence' : 'Keep the stronger or give the later one a different dimension (design, integration, operation or result)';
+                $finding = $this->finding('duplicate_accomplishment', 'review', "{$where}{$about} {$what}. {$advice}.", $keys, $alternatives);
+                $finding['confidence'] = $confidence;
+                $finding['reason'] = $reason;
+                $finding['bullets'] = [['role_id' => $bullets[$i]['role_id'], 'index' => $bullets[$i]['index']], ['role_id' => $bullets[$j]['role_id'], 'index' => $bullets[$j]['index']]];
+                $finding['drop'] = $confidence === 'high' ? ['role_id' => $bullets[$j]['role_id'], 'index' => $bullets[$j]['index']] : null;
+                $findings[] = $finding;
+
+                if ($confidence === 'high') {
+                    $dropped[$j] = true;
+                }
+            }
+        }
+
+        // The same claim of ownership, made again and again across the resume, is a pattern no single pair shows.
+        $own = array_keys(array_filter($bullets, fn (array $b) => preg_match('/^\s*independently\b/i', $b['text']) === 1));
+
+        if (count($own) >= 2) {
+            $finding = $this->finding('duplicate_accomplishment', 'review', 'Several bullets open with "Independently". State ownership once, where it is strongest, and let the other bullets show the work.', array_merge([], ...array_map(fn (int $i) => $bullets[$i]['fact_keys'], $own)), []);
+            $finding['confidence'] = 'medium';
+            $finding['reason'] = 'repeated_ownership';
+            $finding['bullets'] = array_map(fn (int $i) => ['role_id' => $bullets[$i]['role_id'], 'index' => $bullets[$i]['index']], $own);
+            $finding['drop'] = null;
+            $findings[] = $finding;
+        }
+
+        return $findings;
+    }
+
+    /**
+     * Applies the duplicate check to recovered wording. A bullet that adds nothing to an earlier one about the same project
+     * (a `high` finding) is removed, with the reason on its review item; every other finding is flagged on the later bullet
+     * for a person. A role never loses its only bullet, and nothing is rewritten, so this step cannot create a claim.
+     *
+     * @param  array{content: array<string, mixed>, items: array<int, array<string, mixed>>}  $recovered  RecoverWording::recover()
+     * @param  array<string, array<int, string>>  $keysAt  "role_id:bullet_group_index" => the facts that bullet cites
+     * @param  array<string, array<string, mixed>>  $facts
+     * @param  array<int, string>  $unused  eligible, shareable facts not on the resume, best first
+     * @return array{content: array<string, mixed>, items: array<int, array<string, mixed>>, findings: array<int, array<string, mixed>>}
+     */
+    public function resolveDuplicates(array $recovered, array $keysAt, array $facts, array $unused = []): array
+    {
+        $bullets = [];
+        $textAt = [];
+
+        foreach ((array) $recovered['content']['experience'] as $role) {
+            foreach ((array) $role['bullets'] as $bullet) {
+                $at = "{$role['role_id']}:{$bullet['bullet_group_index']}";
+                $textAt[$at] = (string) $bullet['text'];
+                $bullets[] = ['role_id' => (int) $role['role_id'], 'index' => (int) $bullet['bullet_group_index'], 'text' => (string) $bullet['text'], 'fact_keys' => $keysAt[$at] ?? []];
+            }
+        }
+
+        $content = $recovered['content'];
+        $items = $recovered['items'];
+        $stored = [];
+
+        foreach ($this->duplicates($bullets, $facts, $unused) as $finding) {
+            $drop = $finding['drop'];
+            $removed = false;
+
+            if ($drop !== null) {
+                foreach ($content['experience'] as $r => $role) {
+                    if ((int) $role['role_id'] === $drop['role_id'] && count($role['bullets']) >= 2) {
+                        $kept = array_values(array_filter($role['bullets'], fn (array $b) => (int) $b['bullet_group_index'] !== $drop['index']));
+                        $removed = count($kept) < count($role['bullets']);
+                        $content['experience'][$r]['bullets'] = $kept;
+                    }
+                }
+            }
+
+            $flag = ['kind' => 'duplicate_accomplishment', 'severity' => 'review', 'detail' => $finding['reason'], 'message' => $finding['message']];
+            $target = $drop ?? $finding['bullets'][count($finding['bullets']) - 1];
+
+            foreach ($items as $i => $item) {
+                if (($item['location'] ?? null) === 'experience' && (int) $item['role_id'] === $target['role_id'] && (int) $item['bullet_group_index'] === $target['index']) {
+                    $items[$i] = [
+                        ...$item,
+                        'findings' => [...$item['findings'], $flag],
+                        'status' => $removed ? 'omitted' : ($item['status'] === 'passed' ? 'review' : $item['status']),
+                        'text' => $removed ? ($textAt["{$target['role_id']}:{$target['index']}"] ?? $item['text']) : $item['text'],
+                        'action' => $removed ? 'Removed: it repeats an earlier bullet and adds no distinct evidence.' : $item['action'],
+                    ];
+                }
+            }
+
+            $stored[] = [...array_diff_key($finding, ['drop' => 1]), 'resolved' => $removed];
+        }
+
+        return ['content' => $content, 'items' => $items, 'findings' => $stored];
+    }
+
+    /**
+     * @param  array<int, string>  $keys
+     * @param  array<string, array<string, mixed>>  $facts
+     */
+    private function projectOf(array $keys, array $facts): ?int
+    {
+        $counts = array_count_values(array_filter(array_map(fn (string $k) => $facts[$k]['attribution']['project_id'] ?? null, $keys), fn ($p) => $p !== null));
+        arsort($counts);
+
+        return $counts === [] ? null : (int) array_key_first($counts);
+    }
+
+    /**
+     * @param  array<int, string>  $keys
+     * @param  array<string, array<string, mixed>>  $facts
+     */
+    private function projectNameOf(array $keys, array $facts): string
+    {
+        foreach ($keys as $key) {
+            $name = trim(explode(':', (string) ($facts[$key]['attribution']['project'] ?? ''))[0]);
+
+            if ($name !== '') {
+                return $name;
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * The words that carry a bullet's content: stems of its longer words, without the project's own name and the verbs
+     * and connectives every bullet uses.
+     *
+     * @return array<int, string>
+     */
+    private function contentWords(string $text, string $projectName): array
+    {
+        $skip = array_merge(['built', 'developed', 'designed', 'implemented', 'integrated', 'created', 'delivered', 'owned', 'independently', 'using', 'with', 'from', 'into', 'across', 'their', 'that', 'which', 'while', 'through', 'each', 'than', 'over', 'also', 'platform', 'application', 'applications', 'system', 'systems', 'team', 'teams'], preg_split('/[^a-z0-9]+/', strtolower($projectName)) ?: []);
+        $words = array_filter(preg_split('/[^a-z0-9]+/', strtolower($text)) ?: [], fn (string $w) => strlen($w) >= 4 && ! in_array($w, $skip, true));
+
+        return array_values(array_unique(array_map(fn (string $w) => substr($w, 0, 6), $words)));
+    }
+
+    /**
+     * Measured figures in a text, normalized: "85%", "20+", "10-15", "$1.2". Years and bare small numbers are not results.
+     *
+     * @return array<int, string>
+     */
+    private function figures(string $text): array
+    {
+        preg_match_all('/\$?\d[\d,]*(?:\.\d+)?\+?%?/', $text, $m);
+        $out = [];
+
+        foreach ($m[0] as $token) {
+            $n = str_replace(',', '', $token);
+
+            if (preg_match('/^(?:19|20)\d{2}$/', $n) === 1 || (strlen(preg_replace('/\D/', '', $n)) < 2 && ! str_contains($n, '%'))) {
+                continue;
+            }
+
+            $out[] = $n;
+        }
+
+        return array_values(array_unique($out));
+    }
+
+    /**
      * Eligible facts that would address a finding, in the profile's own order.
      *
      * @param  array<int, array<string, mixed>>  $accomplishments

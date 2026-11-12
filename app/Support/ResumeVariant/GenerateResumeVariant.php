@@ -554,6 +554,7 @@ final class GenerateResumeVariant
                     // Recovery only removes. A summary it cut down gets one narrow correction (never a retry of the resume),
                     // and one that stays collapsed ships flagged, never as a finished summary.
                     $recovered = app(CorrectSummary::class)->apply($recovered, $this->wordingProvider, app(ProfileJobWordingPromptV2::class), $wordingInput, $wordingContext, $metrics);
+                    $recovered = $this->withoutDuplicates($recovered, $selectionDraft, $factsByKey, $tailoring, $relevance);
                 }
 
                 $validatedWording = $recovered['content'];
@@ -1345,6 +1346,41 @@ final class GenerateResumeVariant
         }
 
         return $byLocation;
+    }
+
+    /**
+     * Applies the duplicate check to the WRITTEN bullets (CompositionChecks::resolveDuplicates) and records what it found with
+     * the tailoring provenance, where the revision tool already looks for suggestions.
+     *
+     * @param  array{content: array<string, mixed>, items: array<int, array<string, mixed>>}  $recovered
+     * @param  Collection<string, array<string, mixed>>  $factsByKey
+     * @param  array<string, mixed>|null  $tailoring
+     * @param  array<string, mixed>|null  $relevance
+     * @return array{content: array<string, mixed>, items: array<int, array<string, mixed>>}
+     */
+    private function withoutDuplicates(array $recovered, ResumeSelectionDraft $draft, Collection $factsByKey, ?array &$tailoring, ?array $relevance): array
+    {
+        $keysAt = [];
+        $onResume = $draft->summaryEvidenceFactKeys;
+
+        foreach ($draft->experience as $role) {
+            foreach ($role->bulletGroups as $index => $group) {
+                $keysAt["{$role->roleId}:{$index}"] = $group->careerFactKeys;
+                $onResume = [...$onResume, ...$group->careerFactKeys];
+            }
+        }
+
+        // Eligible, shareable facts that speak to the job and are not on the resume, best first: what could take a removed bullet's place.
+        $unused = array_keys(array_filter((array) ($relevance['facts'] ?? []), fn (array $f, string $key) => $f['score'] >= 0.4 && ! in_array($key, $onResume, true) && ($factsByKey->get($key)['visibility'] ?? null) === 'public', ARRAY_FILTER_USE_BOTH));
+        usort($unused, fn (string $a, string $b) => $relevance['facts'][$b]['score'] <=> $relevance['facts'][$a]['score']);
+
+        $resolved = app(CompositionChecks::class)->resolveDuplicates($recovered, $keysAt, $factsByKey->all(), $unused);
+
+        if ($tailoring !== null && $resolved['findings'] !== []) {
+            $tailoring['composition'] = [...(array) ($tailoring['composition'] ?? []), ...$resolved['findings']];
+        }
+
+        return ['content' => $resolved['content'], 'items' => $resolved['items']];
     }
 
     /**
