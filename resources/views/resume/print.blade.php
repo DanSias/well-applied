@@ -106,27 +106,25 @@
         }
 
         /* The single source of truth for physical page geometry: US
-           Letter. Side/bottom page margin stays 0 on every page — the
-           .page div's own 0.75in padding remains the only visual
-           left/right/bottom margin in this document, and Chromium's
-           own PDF page-margin options for those sides are set to 0 to
-           match exactly (see App\Support\ResumeDocument\GenerateResumePdf),
-           so the two can never silently double up. Top margin is the
-           one deliberate exception: .page's own 0.75in top padding
-           only ever renders once, at the very top of the whole flowing
-           box (page 1) — CSS fragmentation does not reapply a
-           fragmented box's own padding-top at an internal page break —
-           so every CONTINUATION page would otherwise start flush
-           against the physical top edge with no breathing room at all.
-           `@page`'s own margin-top supplies that continuation-page-only
-           top safe area instead, deliberately zeroed back out for the
-           first page via `@page :first` so page 1's spacing continues
-           to come from .page's own padding exactly as before, never
-           doubled. This rule also governs an interactive browser's own
-           print dialog when "Default margins" is selected. */
+           Letter, and no text closer than 0.5in to any edge on any page.
+           Left and right come from the .page div's own 0.75in padding,
+           which repeats on every fragment; Chromium's own PDF page-margin
+           options are 0 to match exactly (see App\Support\ResumeDocument\
+           GenerateResumePdf), so the two can never silently double up.
+           Top and bottom cannot come from .page's padding: CSS
+           fragmentation applies a fragmented box's padding-top only on
+           the first page and its padding-bottom only on the last, so
+           without help a continuation page starts, and page 1 ends,
+           close to the physical edge. `@page`'s own margin supplies the
+           0.5in safe area at the top of every continuation page and the
+           bottom of every page; `@page :first` zeroes the top back out
+           so page 1's top spacing keeps coming from .page's padding,
+           never doubled. App\Support\ResumeDocument\MeasureResumePdf
+           uses the same numbers. This rule also governs an interactive
+           browser's own print dialog when "Default margins" is selected. */
         @page {
             size: letter;
-            margin: 0.4in 0 0 0;
+            margin: 0.5in 0;
         }
 
         @page :first {

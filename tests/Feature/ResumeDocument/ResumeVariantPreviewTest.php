@@ -497,7 +497,7 @@ it('gives every continuation page a top safe area via @page margin-top, while pa
     $pageRule = cssRuleBody($css, '@page');
     expect($pageRule)->not->toBeNull()
         ->and($pageRule)->toContain('size: letter')
-        ->and($pageRule)->toContain('margin: 0.4in 0 0 0');
+        ->and($pageRule)->toContain('margin: 0.5in 0;');
 
     $firstPageRule = cssRuleBody($css, '@page :first');
     expect($firstPageRule)->not->toBeNull()

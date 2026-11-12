@@ -11,18 +11,18 @@ use Throwable;
  * null (not a guess) when the tool is unavailable or fails: page count,
  * which drives every layout decision, never depends on this.
  *
- * Geometry matches print.blade.php: US Letter (792pt), 0.75in bottom
- * padding, and a top inset of 0.75in on page 1 or 0.4in on later pages.
+ * Geometry matches print.blade.php: US Letter (792pt), a 0.5in bottom
+ * margin on every page, and a top inset of 0.75in on page 1 or 0.5in on later pages.
  */
 final class MeasureResumePdf
 {
     private const PAGE_HEIGHT = 792.0;
 
-    private const BOTTOM_INSET = 54.0;
+    private const BOTTOM_INSET = 36.0;
 
     private const FIRST_PAGE_TOP_INSET = 54.0;
 
-    private const LATER_PAGE_TOP_INSET = 28.8;
+    private const LATER_PAGE_TOP_INSET = 36.0;
 
     /**
      * @return array{fill: float, remaining_points: float}|null

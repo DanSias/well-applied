@@ -192,7 +192,7 @@ return [
         // A revision that takes the last page down by this much, to below `light_below`, is called out as the cause.
         'revision_drop' => 0.15,
         // Usable height of a continuation page, in points (matches MeasureResumePdf).
-        'later_page_points' => 709.2,
+        'later_page_points' => 720.0,
     ],
 
 ];
