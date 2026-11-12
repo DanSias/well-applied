@@ -66,6 +66,10 @@ return [
         'resume_selection_timeout' => (int) env('OLLAMA_RESUME_SELECTION_TIMEOUT_SECONDS', 900),
         'resume_wording_model' => env('OLLAMA_RESUME_WORDING_MODEL', 'qwen3.8:27b'),
         'resume_wording_timeout' => (int) env('OLLAMA_RESUME_WORDING_TIMEOUT_SECONDS', 900),
+        // Sent as `reasoning_effort` on wording requests. Blank sends nothing (the model thinks as it does by default). Ollama
+        // reads "none" as thinking off; for a model with on/off thinking (qwen3.8), "low", "medium" and "high" all mean on.
+        'resume_wording_reasoning_effort' => env('OLLAMA_RESUME_WORDING_REASONING_EFFORT'),
+        'resume_wording_retry_reasoning_effort' => env('OLLAMA_RESUME_WORDING_RETRY_REASONING_EFFORT', 'none'),
         'profile_question_model' => env('OLLAMA_PROFILE_QUESTION_MODEL', 'qwen3.8:27b'),
         'profile_question_timeout' => (int) env('OLLAMA_PROFILE_QUESTION_TIMEOUT_SECONDS', 600),
     ],

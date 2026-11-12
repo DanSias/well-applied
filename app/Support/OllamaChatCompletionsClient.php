@@ -156,6 +156,9 @@ final class OllamaChatCompletionsClient
                 'prompt_tokens' => $usageForDiagnostics['prompt_tokens'] ?? null,
                 'completion_tokens' => $usageForDiagnostics['completion_tokens'] ?? null,
                 'total_tokens' => $usageForDiagnostics['total_tokens'] ?? null,
+                // Ollama reports no reasoning-token count, so the size of the reasoning text is the only way to see how much
+                // of the completion was thinking (about four characters a token).
+                'reasoning_field_chars' => $this->reasoningChars($firstChoice),
             ]);
         }
 
@@ -165,6 +168,16 @@ final class OllamaChatCompletionsClient
             finishReason: $finishReasonForDiagnostics,
             usage: $usageForDiagnostics,
         );
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $choice
+     */
+    private function reasoningChars(?array $choice): int
+    {
+        $reasoning = $choice['message']['reasoning'] ?? $choice['message']['reasoning_content'] ?? null;
+
+        return is_string($reasoning) ? strlen($reasoning) : 0;
     }
 
     /**
@@ -209,7 +222,7 @@ final class OllamaChatCompletionsClient
         $finishReason = $firstChoice['finish_reason'] ?? null;
 
         if ($finishReason === 'length') {
-            Log::warning("{$logPrefix}: Ollama response was truncated.", ['finish_reason' => $finishReason]);
+            Log::warning("{$logPrefix}: Ollama response was truncated.", ['finish_reason' => $finishReason, 'reasoning_field_chars' => $this->reasoningChars($firstChoice)]);
 
             throw new OllamaChatCompletionsException(
                 'Ollama response was truncated before completing (finish_reason: length) — the configured '.

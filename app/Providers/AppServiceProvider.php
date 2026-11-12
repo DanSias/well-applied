@@ -203,6 +203,8 @@ class AppServiceProvider extends ServiceProvider
                 baseUrl: (string) config('services.ollama.base_url'),
                 model: (string) config('services.ollama.resume_wording_model'),
                 timeoutSeconds: (int) config('services.ollama.resume_wording_timeout'),
+                reasoningEffort: config('services.ollama.resume_wording_reasoning_effort') ?: null,
+                retryReasoningEffort: config('services.ollama.resume_wording_retry_reasoning_effort') ?: null,
             ),
             default => throw new InvalidArgumentException(
                 "Unsupported AI_RESUME_WORDING_PROVIDER value [{$provider}]. Supported values: openai, ollama."

@@ -66,9 +66,12 @@ final class OllamaResumeWordingClient implements GeneratesResumeWording
     /**
      * The reasoning effort asked for on the request that follows an empty or truncated reply. The live test showed why an
      * identical retry is pointless: a reasoning model spent 14.7k of its 16k output tokens thinking and returned nothing, and
-     * asking again with the same input repeats the same thinking. A lower effort leaves room for the answer.
+     * asking again with the same input repeats the same thinking. "low" did not help: qwen3.8:27b has on/off thinking (Ollama
+     * lists the capability as plain `thinking`, with no levels), so every level but "none" means on, and the retry that asked
+     * for "low" still spent 13.2k tokens thinking. "none" turns thinking off, which the earlier Job Match experiments showed
+     * this server and model honor. It is used only after a reply that was already unusable, where the alternative is failure.
      */
-    private const RETRY_REASONING_EFFORT = 'low';
+    private const RETRY_REASONING_EFFORT = 'none';
 
     /** Set when the last reply was empty or truncated; cleared by a reply that carries content. */
     private bool $lastReplyUnusable = false;
@@ -78,6 +81,10 @@ final class OllamaResumeWordingClient implements GeneratesResumeWording
         private readonly string $model,
         private readonly int $timeoutSeconds,
         private readonly OllamaChatCompletionsClient $transport = new OllamaChatCompletionsClient,
+        /** Sent on every request when set (OLLAMA_RESUME_WORDING_REASONING_EFFORT). Null leaves the model's own default thinking. */
+        private readonly ?string $reasoningEffort = null,
+        /** Sent on the request after an empty or truncated reply (OLLAMA_RESUME_WORDING_RETRY_REASONING_EFFORT). */
+        private readonly ?string $retryReasoningEffort = self::RETRY_REASONING_EFFORT,
     ) {}
 
     /**
@@ -96,7 +103,7 @@ final class OllamaResumeWordingClient implements GeneratesResumeWording
                 maxOutputTokens: self::MAX_OUTPUT_TOKENS,
                 timeoutSeconds: $this->timeoutSeconds,
                 logPrefix: 'Resume Wording generation (Ollama)',
-                reasoningEffort: $this->lastReplyUnusable ? self::RETRY_REASONING_EFFORT : null,
+                reasoningEffort: $this->lastReplyUnusable ? ($this->retryReasoningEffort ?? $this->reasoningEffort) : $this->reasoningEffort,
             );
         } catch (OllamaChatCompletionsException $e) {
             $diagnostics = new ProviderDiagnostics(

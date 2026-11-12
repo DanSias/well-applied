@@ -273,7 +273,7 @@ it('treats a reply cut off at the output budget as a retryable empty output, wit
     }
 });
 
-it('asks for low reasoning effort after an empty or truncated reply, and goes back to the default once a reply carries content', function () {
+it('asks for thinking off after an empty or truncated reply, and goes back to the default once a reply carries content', function () {
     $good = fakeResumeWordingChatCompletionsBody(['summary' => 'ok']);
     Http::fake(['*' => Http::sequence()->push(reasoningOnlyBody())->push(reasoningOnlyBody('length'))->push($good)->push($good)]);
     $client = ollamaResumeWordingClient();
@@ -288,6 +288,6 @@ it('asks for low reasoning effort after an empty or truncated reply, and goes ba
 
     $efforts = Http::recorded()->map(fn ($pair) => $pair[0]->data()['reasoning_effort'] ?? null)->all();
 
-    // First call: the model's own default. After an empty reply and after a truncated one: low. After a good reply: default again.
-    expect($efforts)->toBe([null, 'low', 'low', null]);
+    // First call: the model's own default. After an empty reply and after a truncated one: none (thinking off). After a good reply: default again.
+    expect($efforts)->toBe([null, 'none', 'none', null]);
 });
