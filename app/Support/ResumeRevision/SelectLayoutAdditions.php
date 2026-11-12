@@ -81,6 +81,13 @@ final class SelectLayoutAdditions
             }
 
             foreach ($this->stories($eligible) as $story) {
+                // A deployment or a result with no work attached says little, however well it is quantified.
+                if (array_filter($story, fn (array $f) => ! StoryRole::isDeployment($f['statement']) && ! StoryRole::isOutcome($f['statement'])) === []) {
+                    $skipped[] = ['key' => $story[0]['key'], 'reason' => 'a deployment or result with no work attached'];
+
+                    continue;
+                }
+
                 $statements = array_column($story, 'statement');
                 $dimensions = StoryDimensions::of(implode(' ', $statements));
                 $new = array_values(array_diff($dimensions, $shown));

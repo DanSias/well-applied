@@ -8,6 +8,7 @@ use App\Jobs\RenderResumePdfJob;
 use App\Models\GenerationAttempt;
 use App\Models\ResumeVariant;
 use App\Models\ResumeVariantExperienceBullet;
+use App\Support\ProfileSynthesis\StoryRole;
 use App\Support\ResumeDocument\AssessResumeLayout;
 use App\Support\ResumeDocument\ComposedResumePdf;
 use App\Support\ResumeDocument\GenerateResumeDocument;
@@ -16,6 +17,7 @@ use App\Support\ResumeDocument\ResumePdfStore;
 use App\Support\ResumeDocument\ResumePdfValidator;
 use App\Support\ResumeRevision\FinishResumeLayout;
 use App\Support\ResumeRevision\JobResumes;
+use App\Support\ResumeRevision\SelectLayoutAdditions;
 use App\Support\ResumeVariant\GenerateResumeVariant;
 use App\Support\ResumeVariant\ResumeWordingProviderResponse;
 use Tests\Support\CompositionScenario;
@@ -292,4 +294,24 @@ it('records an error inside the correction and still finishes the render with th
 
     expect($fresh->status)->toBe(GenerationStatus::Succeeded)->and($fresh->layout_diagnostics['correction']['outcome'])->toBe('error')
         ->and($fresh->layout_diagnostics['quality']['status'])->toBe('underfilled')->and(ResumeVariant::count())->toBe(1);
+});
+
+it('never adds a bare deployment or a bare result: the work comes first', function () {
+    // The Beacon build is not offered (it is on the resume); only its deployment and a result remain as candidates.
+    [, $variant, , , $composed] = underfilledDraft();
+    config(['resume.finishing.min_relevance' => 0.0]);
+    $variant->load('experienceRoles');
+    $selector = app(SelectLayoutAdditions::class);
+    $stories = new ReflectionMethod($selector, 'stories');
+    $row = fn (string $key, string $statement) => ['key' => $key, 'statement' => $statement, 'score' => 0.8, 'build' => false, 'project_id' => 1, 'project' => 'Beacon'];
+
+    $kept = $stories->invoke($selector, [$row('d', 'Beacon was delivered and deployed to the Product Management team.'), $row('o', 'Beacon cut status-reporting time by 85%.')]);
+
+    expect($kept)->toHaveCount(1)->and(array_column($kept[0], 'key'))->toBe(['d', 'o']);
+
+    // The story of only a deployment and a result is joined, then refused by the selector as having no work in it.
+    $result = $selector->select($variant->jobAnalysis->jobPosting, $variant, 4, $composed->placement);
+
+    expect(collect($result['skipped'])->pluck('reason')->all())->not->toContain('a deployment or result with no work attached')
+        ->and(collect($result['additions'])->every(fn ($a) => array_filter($a['statements'], fn ($t) => ! StoryRole::isDeployment($t) && ! StoryRole::isOutcome($t)) !== []))->toBeTrue();
 });

@@ -220,7 +220,7 @@ final class JobRelevance
             $apply('generic_ownership');
         }
 
-        if (! $project && $caps !== [] && array_diff($caps, ['cloud_platforms', 'docker']) === []) {
+        if ($caps !== [] && array_diff($caps, ['cloud_platforms', 'docker']) === [] && (! $project || ! $buildVerb)) {
             $apply('platform_tag');
         }
 
