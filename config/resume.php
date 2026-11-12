@@ -93,6 +93,45 @@ return [
                     'Docker' => 'Cloud & Delivery', 'Git' => 'Cloud & Delivery', 'GitLab' => 'Cloud & Delivery',
                 ],
             ],
+            /*
+            | Job-aware layouts (chosen per job by ProfileJobAdapter and stored with the variant, so a saved resume always
+            | renders as it was made). Like every layout they only regroup: a skill must still be in the shared map or in this
+            | layout's `labels`, and must still be selected from approved evidence. `order` => 'selection' keeps a group's
+            | skills in the job-scored order they were selected in. `labels` give a skill its name in this layout only (the
+            | reference resume is untouched), and are the only way a canonical skill the reference map leaves off can be shown.
+            */
+            'fullstack' => [
+                'order' => 'selection', 'max_per_group' => 6,
+                'groups' => ['Languages & Frameworks', 'APIs & Integration', 'Data & Databases', 'Cloud & Workflow'],
+                'labels' => ['Python' => 'Python', 'Webhooks' => 'Webhooks', 'Prisma' => 'Prisma', 'Inertia.js' => 'Inertia.js', 'CI/CD' => 'CI/CD'],
+                'categories' => [
+                    'TypeScript' => 'Languages & Frameworks', 'JavaScript' => 'Languages & Frameworks', 'PHP' => 'Languages & Frameworks', 'Python' => 'Languages & Frameworks',
+                    'React' => 'Languages & Frameworks', 'Vue.js' => 'Languages & Frameworks', 'Next.js' => 'Languages & Frameworks', 'Inertia.js' => 'Languages & Frameworks', 'Tailwind CSS' => 'Languages & Frameworks',
+                    'Node.js' => 'Languages & Frameworks', 'Express.js' => 'Languages & Frameworks', 'Laravel' => 'Languages & Frameworks',
+                    'API integration & design' => 'APIs & Integration', 'REST APIs' => 'APIs & Integration', 'Webhooks' => 'APIs & Integration', 'Jira' => 'APIs & Integration', 'Salesforce' => 'APIs & Integration',
+                    'OpenAI' => 'APIs & Integration', 'Anthropic' => 'APIs & Integration',
+                    'SQL' => 'Data & Databases', 'PostgreSQL' => 'Data & Databases', 'MySQL' => 'Data & Databases', 'SQLite' => 'Data & Databases', 'BigQuery' => 'Data & Databases', 'Prisma' => 'Data & Databases',
+                    'AWS' => 'Cloud & Workflow', 'Google Cloud (general)' => 'Cloud & Workflow', 'Google Cloud Functions' => 'Cloud & Workflow', 'Microsoft Azure' => 'Cloud & Workflow',
+                    'Docker' => 'Cloud & Workflow', 'Git' => 'Cloud & Workflow', 'GitLab' => 'Cloud & Workflow', 'CI/CD' => 'Cloud & Workflow',
+                ],
+            ],
+            'ai' => [
+                'order' => 'selection', 'max_per_group' => 6,
+                'groups' => ['AI & Retrieval', 'Languages & Frameworks', 'Integration & Architecture', 'Data & Cloud'],
+                // The record states deterministic retrieval with an LLM limited to synthesis over cited passages; this names it.
+                'labels' => ['Deterministic AI boundaries' => 'Grounded retrieval', 'Python' => 'Python', 'Webhooks' => 'Webhooks', 'Prisma' => 'Prisma', 'CI/CD' => 'CI/CD'],
+                'categories' => [
+                    'OpenAI' => 'AI & Retrieval', 'Anthropic' => 'AI & Retrieval', 'Deterministic AI boundaries' => 'AI & Retrieval',
+                    'TypeScript' => 'Languages & Frameworks', 'JavaScript' => 'Languages & Frameworks', 'PHP' => 'Languages & Frameworks', 'Python' => 'Languages & Frameworks',
+                    'React' => 'Languages & Frameworks', 'Vue.js' => 'Languages & Frameworks', 'Next.js' => 'Languages & Frameworks', 'Tailwind CSS' => 'Languages & Frameworks',
+                    'Node.js' => 'Languages & Frameworks', 'Express.js' => 'Languages & Frameworks', 'Laravel' => 'Languages & Frameworks',
+                    'API integration & design' => 'Integration & Architecture', 'REST APIs' => 'Integration & Architecture', 'Webhooks' => 'Integration & Architecture',
+                    'Jira' => 'Integration & Architecture', 'Salesforce' => 'Integration & Architecture', 'GitLab' => 'Integration & Architecture',
+                    'SQL' => 'Data & Cloud', 'PostgreSQL' => 'Data & Cloud', 'MySQL' => 'Data & Cloud', 'SQLite' => 'Data & Cloud', 'BigQuery' => 'Data & Cloud', 'Prisma' => 'Data & Cloud',
+                    'AWS' => 'Data & Cloud', 'Google Cloud (general)' => 'Data & Cloud', 'Google Cloud Functions' => 'Data & Cloud', 'Microsoft Azure' => 'Data & Cloud',
+                    'Docker' => 'Data & Cloud', 'Git' => 'Data & Cloud', 'CI/CD' => 'Data & Cloud',
+                ],
+            ],
         ],
     ],
 
@@ -132,6 +171,8 @@ return [
             'min' => 0.5, 'max' => 1.2,
         ],
         'story' => ['max_facts' => 3, 'lead_max_facts' => 4],
+        // A job gets the AI skills layout when it asks strongly for LLM work (capability weight, or the title says so).
+        'skills' => ['ai_capability' => 0.6, 'isolated_tag' => 0.5],
         'duplicates' => ['restated_below_new_share' => 0.35, 'drop_confidence' => 'high'],
     ],
 

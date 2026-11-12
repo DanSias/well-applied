@@ -150,7 +150,7 @@ final class ReferenceSelection
 
         return [
             'content' => [
-                'summary_evidence' => $summary, 'skills' => $this->skills($effective, $offered, $experience, $summary), 'experience' => $experience,
+                'summary_evidence' => $summary, 'skills' => $this->skills($effective, $offered, $experience, $summary, $effective['skills_layout'] ?? null), 'experience' => $experience,
                 'selected_projects' => $this->personalProjects($effective, $offered, (int) $cfg['personal_projects_max']),
                 'target_term_usages' => [],
             ],
@@ -943,7 +943,7 @@ final class ReferenceSelection
      * @param  array<int, string>  $summaryKeys
      * @return array<int, array{skill_id: int, order: int}>
      */
-    private function skills(array $effective, array $offered, array $experience, array $summaryKeys): array
+    private function skills(array $effective, array $offered, array $experience, array $summaryKeys, ?string $layout = null): array
     {
         $cfg = (array) config('resume_profiles.reference');
         $kept = [];
@@ -968,13 +968,16 @@ final class ReferenceSelection
             foreach ($f['skills'] ?? [] as $skill) {
                 // Only skills the reference resume can present. They are general technologies (never a confidential system),
                 // so a skill that only a restricted fact carries may still be listed.
-                if (SkillPresentation::for((string) $skill['name']) === null) {
+                if (SkillPresentation::for((string) $skill['name'], $layout) === null) {
                     continue;
                 }
 
                 $id = (int) $skill['id'];
                 $meta[$id] = $skill;
                 $scores[$id]['projects'][$project ?? 0] = true;
+                // Direct professional experience: a fact of an employer's role. A skill only a personal project or a
+                // whole-career statement carries is an isolated tag, and ranks below skills used on the job.
+                $scores[$id]['professional'] = ($scores[$id]['professional'] ?? 0) + (($f['attribution']['role_id'] ?? null) !== null ? 1 : 0);
                 $scores[$id]['cited'] = ($scores[$id]['cited'] ?? 0) + (in_array($key, $cited, true) ? 1 : 0);
             }
         }
@@ -997,6 +1000,8 @@ final class ReferenceSelection
 
             $score = 0.8 * $capScore + min(1.5, $stack) + min(0.75, 0.25 * $s['cited']) + (array_intersect($caps, $summaryCaps) !== [] ? 0.5 : 0.0)
                 + (in_array($skill['name'], (array) config('resume.skill_presentation.core'), true) ? 1.5 : 0.0);
+            // For a job, a skill with no professional use is discounted (never for the reference resume, whose order is the user's).
+            $score *= $layout !== null && ($s['professional'] ?? 0) === 0 ? (float) config('resume.composition.skills.isolated_tag') : 1.0;
             $technology = in_array($skill['category'], ['build_technology', 'platform_integration'], true);
 
             if ($score > 0) {
@@ -1010,9 +1015,9 @@ final class ReferenceSelection
         $shown = [];
         $out = [];
         $limit = (int) ($cfg['skills'] ?? 14);
-        $perGroupMax = (int) config('resume.skill_presentation.max_per_group', 5);
-        $take = function (array $r) use (&$perCapability, &$perGroup, &$shown, &$out, $perGroupMax, $limit): bool {
-            [$group, $label] = SkillPresentation::for($r['name']) ?? ['', ''];
+        $perGroupMax = SkillPresentation::maxPerGroup($layout);
+        $take = function (array $r) use (&$perCapability, &$perGroup, &$shown, &$out, $perGroupMax, $limit, $layout): bool {
+            [$group, $label] = SkillPresentation::for($r['name'], $layout) ?? ['', ''];
             $family = $this->coverage->capabilitiesIn($r['name'])[0] ?? 'skill:'.$r['id'];
 
             // A category holds a handful; cloud platforms at most two (a third says less than two); two skills that present
@@ -1031,11 +1036,11 @@ final class ReferenceSelection
 
         // Breadth first: every category the evidence supports gets its strongest two, then the rest fill by score. Without
         // this a deep stack (many database and cloud tags) crowds out a core language that has a single supporting fact.
-        foreach (SkillPresentation::groups() as $group) {
+        foreach (SkillPresentation::groups($layout) as $group) {
             $taken = 0;
 
             foreach ($rows as $r) {
-                if ($taken < 2 && (SkillPresentation::for($r['name'])[0] ?? '') === $group && $take($r)) {
+                if ($taken < 2 && (SkillPresentation::for($r['name'], $layout)[0] ?? '') === $group && $take($r)) {
                     $taken++;
                 }
             }

@@ -106,7 +106,7 @@ final class CompositionCases
                 'profile_score' => $profile, 'score' => round(0.5 * $profile + $job, 3), 'job_relevance' => $job, 'job_findings' => [],
                 'included' => $o['included'] ?? true, 'pinned' => $o['pinned'] ?? false, 'rank' => $i + 1,
             ];
-            $facts[$key] = ['type' => 'bullet', 'statement' => $o['statement'] ?? $statement];
+            $facts[$key] = ['type' => 'bullet', 'statement' => $o['statement'] ?? $statement, 'capabilities' => []];
             $offered[] = ['key' => $key, 'statement' => $o['statement'] ?? $statement, 'visibility' => $o['visibility'] ?? 'public', 'skills' => [], 'attribution' => ['role_id' => $roleIds[$role], 'project_id' => $project, 'project' => $project === null ? null : ['', 'Beacon', 'Lookup', 'Exporter', 'Nimbus', 'Forecast'][$project]]];
         }
 
@@ -118,7 +118,7 @@ final class CompositionCases
         unset($a);
 
         $effective = [
-            'projects' => array_map(fn (int $pid) => ['id' => "project:{$pid}", 'project_id' => $pid, 'personal' => false, 'included' => true, 'pinned' => false, 'rank' => $pid], [1, 2, 3, 4, 5]),
+            'projects' => array_map(fn (int $pid) => ['id' => "project:{$pid}", 'project_id' => $pid, 'personal' => false, 'included' => true, 'pinned' => false, 'rank' => $pid, 'fact_keys' => []], [1, 2, 3, 4, 5]),
             'accomplishments' => $accomplishments, 'facts' => $facts,
             'presentation' => ['summary_fact_keys' => [], 'differentiators' => [], 'headline' => 'Full-Stack Developer', 'summary' => 'x'],
             'capabilities' => ['direct' => []],

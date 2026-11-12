@@ -294,6 +294,7 @@ final class GenerateResumeVariant
             $tailoring = $jobMode ? [
                 'mode' => 'profile_job', 'job_posting_id' => $analysis->job_posting_id, 'job_analysis_id' => $analysis->id, 'analysis_prompt_version' => $analysis->prompt_version,
                 'profile_version' => $synthesis->version,
+                'skills_layout' => $effective['skills_layout'] ?? null,
                 'findings' => array_values(array_map(fn (array $f) => ['id' => $f['id'], 'label' => $f['label'], 'category' => $f['category'], 'weight' => round($f['weight'], 2)], $relevance['findings'])),
                 'gaps' => $relevance['gaps'], 'composition' => $reference['composition'], ...$reference['tailoring'],
             ] : null;

@@ -156,7 +156,10 @@ final class GenerateResumeDocument
         // Variants generated for a job keep the original presentation, so their PDFs do not change.
         if ($variant->resume_profile_synthesis_id !== null) {
             // A resume written for a job uses the compact, architecture-oriented grouping; a reference resume keeps its own.
-            return $this->buildReferenceSkillGroups($selections, $variant->job_analysis_id !== null ? 'tailored' : null);
+            // A layout chosen for the job is stored with the variant; one made before that renders as it always did.
+            $layout = $variant->job_analysis_id === null ? null : (string) ($variant->selection_input_snapshot['tailoring']['skills_layout'] ?? 'tailored');
+
+            return $this->buildReferenceSkillGroups($selections, $layout);
         }
 
         // The one deliberate, narrow exception to this class's own
@@ -208,7 +211,7 @@ final class GenerateResumeDocument
         $byGroup = [];
         // A layout reads in its own declared order (languages before frameworks, and so on); the reference grouping keeps selection order.
         $position = $layout === null ? [] : array_flip(array_keys((array) config("resume.skill_presentation.layouts.{$layout}.categories")));
-        $ordered = $layout === null ? $selections : $selections->sortBy(fn (ResumeVariantSkillSelection $s) => $position[$s->name] ?? PHP_INT_MAX)->values();
+        $ordered = $layout === null || SkillPresentation::keepsSelectionOrder($layout) ? $selections : $selections->sortBy(fn (ResumeVariantSkillSelection $s) => $position[$s->name] ?? PHP_INT_MAX)->values();
 
         foreach ($ordered as $selection) {
             $entry = SkillPresentation::for($selection->name, $layout);

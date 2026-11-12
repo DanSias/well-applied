@@ -20,17 +20,31 @@ final class SkillPresentation
         // Not config()'s dot notation: names such as "Node.js" contain dots.
         $entry = ((array) config('resume.skill_presentation.skills'))[$canonicalName] ?? null;
 
-        if (! is_array($entry)) {
-            return null;
-        }
-
         if ($layout === null) {
-            return [(string) $entry[0], (string) $entry[1]];
+            return is_array($entry) ? [(string) $entry[0], (string) $entry[1]] : null;
         }
 
         $category = ((array) config("resume.skill_presentation.layouts.{$layout}.categories"))[$canonicalName] ?? null;
+        // A layout may name a skill itself (`labels`); otherwise the label comes from the shared map.
+        $label = ((array) config("resume.skill_presentation.layouts.{$layout}.labels"))[$canonicalName] ?? (is_array($entry) ? (string) $entry[1] : null);
 
-        return is_string($category) ? [$category, (string) $entry[1]] : null;
+        return is_string($category) && is_string($label) ? [$category, $label] : null;
+    }
+
+    /**
+     * How many skills a category of this layout holds before the next best goes unshown (a soft presentation preference).
+     */
+    public static function maxPerGroup(?string $layout = null): int
+    {
+        return (int) ($layout === null ? config('resume.skill_presentation.max_per_group', 5) : config("resume.skill_presentation.layouts.{$layout}.max_per_group", config('resume.skill_presentation.max_per_group', 5)));
+    }
+
+    /**
+     * Whether a layout lists a category's skills in the order the job scored them, rather than in its own fixed order.
+     */
+    public static function keepsSelectionOrder(?string $layout = null): bool
+    {
+        return $layout !== null && config("resume.skill_presentation.layouts.{$layout}.order") === 'selection';
     }
 
     /**

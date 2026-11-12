@@ -32,7 +32,7 @@ final class JobRelevance
 
     /**
      * @param  array<string, array<string, mixed>>  $facts  inventory facts, keyed by fact key
-     * @return array{findings: array<int, array<string, mixed>>, engineering: bool, facts: array<string, array<string, mixed>>, capabilities: array<string, float>, gaps: array<int, array<string, mixed>>}
+     * @return array{findings: array<int, array<string, mixed>>, engineering: bool, title: string, facts: array<string, array<string, mixed>>, capabilities: array<string, float>, gaps: array<int, array<string, mixed>>}
      */
     public function analyze(JobAnalysis $analysis, array $facts, CareerProfile $career): array
     {
@@ -181,6 +181,7 @@ final class JobRelevance
         return [
             'findings' => $findings,
             'engineering' => $engineering,
+            'title' => (string) $analysis->jobPosting?->title,
             'facts' => $relevant,
             'capabilities' => array_map(fn (float $w) => round($w / $top, 3), $capabilityWeight),
             'gaps' => $this->gaps($findings, $career),

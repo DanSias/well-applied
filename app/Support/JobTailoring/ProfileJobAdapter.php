@@ -66,8 +66,24 @@ final class ProfileJobAdapter
         $effective['capabilities'] = $capabilities;
         $effective['presentation']['summary_fact_keys'] = $this->summaryKeys($effective, $relevance);
         $effective['job_priority_findings'] = $this->priorityFindings($accomplishments, $relevance);
+        $effective['skills_layout'] = $this->skillsLayout($relevance);
 
         return $effective;
+    }
+
+    /**
+     * How the Technical Skills section is grouped for this job: an AI engineering job (the title says so, or the posting asks
+     * strongly for LLM work) leads with AI and retrieval; any other job gets the full-stack grouping. Only a regrouping:
+     * which skills appear is still decided by the approved evidence.
+     *
+     * @param  array<string, mixed>  $relevance
+     */
+    private function skillsLayout(array $relevance): string
+    {
+        $ai = preg_match('/\b(?:AI|ML|LLM|machine learning|artificial intelligence|generative)\b/', (string) ($relevance['title'] ?? '')) === 1
+            || (float) ($relevance['capabilities']['ai_llm'] ?? 0.0) >= (float) config('resume.composition.skills.ai_capability');
+
+        return $ai ? 'ai' : 'fullstack';
     }
 
     /**
