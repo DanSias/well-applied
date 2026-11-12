@@ -104,6 +104,46 @@ final readonly class ProfileJobWordingPromptV4
         return $this->base->correctionSchema();
     }
 
+    public function bulletCorrectionSystemPrompt(): string
+    {
+        return <<<'PROMPT'
+        You rewrite one thing: a single resume bullet that left out something one of its own facts says. Return JSON with a
+        single `text` string.
+
+        - The bullet is one accomplishment built from the facts in `facts`. Say what every fact says, in one or two
+          sentences of about 15 to 35 words, and keep what the current bullet already says well.
+        - Use only the facts in `facts`. Name only technologies in `skills` or stated by a fact, and only figures a fact
+          states. Never add a technology, number, scope, leadership or responsibility they do not state.
+        - Start with a strong past-tense verb that the facts support; do not claim to have designed, led or owned anything
+          they do not say.
+        - `missing` names what the current bullet leaves out. Work it in; do not just append it.
+        - Natural, confident resume voice. No first person, no em dashes, no filler.
+        PROMPT;
+    }
+
+    /**
+     * @param  array<string, mixed>  $input  current_text, facts, skills, missing, target
+     */
+    public function bulletCorrectionUserPrompt(array $input): string
+    {
+        return "--- Bullet correction input ---\n"
+            .json_encode($input, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
+            ."\n--- End of bullet correction input ---";
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function bulletCorrectionSchema(): array
+    {
+        return [
+            'type' => 'object',
+            'properties' => ['text' => ['type' => 'string']],
+            'required' => ['text'],
+            'additionalProperties' => false,
+        ];
+    }
+
     public function additionSystemPrompt(): string
     {
         return $this->base->additionSystemPrompt();

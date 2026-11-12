@@ -145,6 +145,14 @@ final class CompositionScenario
                     return new ResumeWordingProviderResponse('fake', 'stub', ['summary' => $this->seen->correction ?? '']);
                 }
 
+                if (str_contains($user, '--- Bullet correction input ---')) {
+                    $this->seen->bulletCorrections = ($this->seen->bulletCorrections ?? 0) + 1;
+                    preg_match('/--- Bullet correction input ---\n(.*?)\n--- End of bullet correction input ---/s', $user, $c);
+                    $this->seen->bulletCorrectionInput = json_decode($c[1], true);
+
+                    return new ResumeWordingProviderResponse('fake', 'stub', ['text' => $this->seen->bulletCorrection ?? '']);
+                }
+
                 preg_match('/--- Approved selection[^\n]*\n(.*?)\n--- End of approved selection/s', $user, $m);
                 $in = json_decode($m[1], true);
                 $this->seen->input = $in;

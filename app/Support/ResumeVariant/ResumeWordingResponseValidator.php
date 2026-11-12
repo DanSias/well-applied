@@ -263,7 +263,9 @@ final class ResumeWordingResponseValidator
             $add($field, $this->textFindings($field, (string) $project['text'], "project:{$project['project_id']}", $context, targetTerms: false, wordCount: true));
         }
 
-        return new WordingTriage([], $findings, $structure->validated(), $context->claimFidelity ? $this->retentionProblems($structuredContent, $context) : []);
+        $soft = $context->claimFidelity ? $this->retentionProblems($structuredContent, $context) : [];
+
+        return new WordingTriage([], $findings, $structure->validated(), $soft, array_values(array_filter($soft, fn (string $m) => str_starts_with($m, 'The bullet citing'))));
     }
 
     /**

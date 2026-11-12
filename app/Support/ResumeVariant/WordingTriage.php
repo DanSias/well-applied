@@ -20,12 +20,14 @@ final readonly class WordingTriage
      * @param  array<string, array<int, array{kind: string, severity: string, detail: string, message: string, repair?: array<string, string>}>>  $findings
      * @param  array<string, mixed>|null  $validated
      * @param  array<int, string>  $softProblems  Things a better response would fix (an approved capability dropped, a cited fact never stated). They earn one corrective retry and, if they persist, ship flagged rather than failing the run.
+     * @param  array<int, string>  $bulletProblems  The part of softProblems that is about one bullet leaving out a fact it cites. A single bullet can be rewritten from its own facts; the others (the summary dropped something) need the whole response.
      */
     public function __construct(
         public array $structuralErrors,
         public array $findings,
         public ?array $validated,
         public array $softProblems = [],
+        public array $bulletProblems = [],
     ) {}
 
     public function isStructurallyValid(): bool

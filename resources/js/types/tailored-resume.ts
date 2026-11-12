@@ -27,6 +27,7 @@ export type TailoredResumeReviewItem = {
     status: 'review' | 'generalized' | 'omitted';
     needs_verification: boolean;
     text?: string | null;
+    original?: string | null;
     action: string | null;
     findings: {
         kind: string;

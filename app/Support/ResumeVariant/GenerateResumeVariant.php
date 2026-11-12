@@ -560,7 +560,13 @@ final class GenerateResumeVariant
 
             // A valid response that dropped something the approved profile states, or never says a fact it cites, earns
             // one corrective retry; if it persists, it ships with the omission flagged in the review report.
-            if ($triage->isStructurallyValid() && $triage->softProblems !== [] && $wordingCall < self::MAX_SOFT_RETRY_CALLS) {
+            // A bullet that only leaves out one of its own facts is rewritten on its own below; asking for the whole resume
+            // again costs a full reasoning pass to fix one sentence.
+            $bulletOnly = $jobMode && $triage->bulletProblems !== []
+                && count($triage->bulletProblems) === count($triage->softProblems)
+                && count($triage->bulletProblems) <= (int) config('resume.composition.retention.max_bullet_corrections', 2);
+
+            if ($triage->isStructurallyValid() && $triage->softProblems !== [] && ! $bulletOnly && $wordingCall < self::MAX_SOFT_RETRY_CALLS) {
                 $reason = mb_substr('The response is valid but should keep the following: '.implode(' ', $triage->softProblems), 0, 1500);
                 $metrics->event(['stage' => 'wording', 'call' => $wordingCall, 'kind' => 'retention_retry', 'reason' => $reason]);
                 $rejection = $reason;
@@ -570,19 +576,24 @@ final class GenerateResumeVariant
 
             if ($triage->isStructurallyValid()) {
                 $recovered = app(RecoverWording::class)->recover($triage, $wordingContext);
+                $stillOpen = $triage->softProblems;
 
                 if ($jobMode) {
                     // Recovery only removes. A summary it cut down gets one narrow correction (never a retry of the resume),
                     // and one that stays collapsed ships flagged, never as a finished summary.
                     $recovered = app(CorrectSummary::class)->apply($recovered, $this->wordingProvider, app(ProfileJobWordingPromptV4::class), [...$wordingInput, 'summary_evidence' => array_map(fn (array $f) => SlimWordingFacts::fact($f, withRole: true), $summaryFacts)], $wordingContext, $metrics);
+                    $recovered = app(CorrectBullets::class)->apply($recovered, $this->wordingProvider, app(ProfileJobWordingPromptV4::class), $wordingInput, $wordingContext, $metrics);
+                    $stillOpen = array_values(array_filter($triage->softProblems, fn (string $m) => ! array_filter($recovered['resolved'], fn (string $key) => str_contains($m, "[{$key}]"))));
                     $recovered = $this->withoutDuplicates($recovered, $selectionDraft, $factsByKey, $tailoring, $relevance);
                 }
 
                 $validatedWording = $recovered['content'];
                 $reviewItems = $recovered['items'];
 
-                if ($triage->softProblems !== []) {
-                    $reviewItems[] = ['location' => 'profile', 'status' => 'review', 'findings' => array_map(fn (string $m) => ['kind' => 'retention', 'severity' => 'review', 'detail' => '', 'message' => $m], $triage->softProblems), 'action' => null, 'text' => null, 'fact_keys' => []];
+                $open = $jobMode ? $stillOpen : $triage->softProblems;
+
+                if ($open !== []) {
+                    $reviewItems[] = ['location' => 'profile', 'status' => 'review', 'findings' => array_map(fn (string $m) => ['kind' => 'retention', 'severity' => 'review', 'detail' => '', 'message' => $m], $open), 'action' => null, 'text' => null, 'fact_keys' => []];
                 }
 
                 break;
@@ -1120,6 +1131,19 @@ final class GenerateResumeVariant
     }
 
     /**
+     * Whether everything that blocked an item is an unsupported claim (scope, cause, role, qualifier, delivery stage), as
+     * opposed to protected content, so the claim's own wording is safe to show next to its repair.
+     *
+     * @param  array<int, array<string, mixed>>  $findings
+     */
+    private function claimsOnly(array $findings): bool
+    {
+        $blocks = array_filter($findings, fn (array $f) => $f['severity'] === 'block');
+
+        return $blocks !== [] && array_filter($blocks, fn (array $f) => ! in_array($f['kind'], ClaimFidelityChecker::KINDS, true)) === [];
+    }
+
+    /**
      * The human-readable account of what happened to each generated
      * location: which passed, which were generalized or omitted, and
      * which need verification, each with the evidence behind it. Holds
@@ -1165,6 +1189,9 @@ final class GenerateResumeVariant
                 'needs_verification' => in_array($item['status'], ['review', 'generalized'], true),
                 // The exact sentence under review (for an omitted item, the text that was removed).
                 'text' => $flagged ? ($item['text'] ?? null) : null,
+                // What the repair started from, so a person can compare. Only where every blocking finding is an unsupported
+                // claim: text blocked for restricted or confidential detail is never kept here.
+                'original' => $flagged && $this->claimsOnly($item['findings']) ? ($item['original'] ?? null) : null,
                 'findings' => array_map(fn (array $f) => ['kind' => $f['kind'], 'severity' => $f['severity'], 'detail' => $f['detail'], 'message' => $f['message']], $item['findings']),
                 'action' => $item['action'],
                 'evidence' => array_map(fn (string $key) => array_filter([

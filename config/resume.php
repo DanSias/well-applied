@@ -156,6 +156,8 @@ return [
     */
     'composition' => [
         'summary' => ['min_words' => 45, 'max_words' => 65, 'collapsed_below' => 30],
+        // A bullet that leaves out a fact it cites is rewritten on its own (one small call each) instead of regenerating the resume.
+        'retention' => ['max_bullet_corrections' => 2],
         'bullets' => ['min' => 14, 'target' => 17, 'max' => 19, 'per_role_max' => 7],
         'allocation' => [
             'relevant_at' => 0.4, 'filler_relevance' => 0.3, 'continuity_floor' => 2, 'continuity_min_years' => 3,
