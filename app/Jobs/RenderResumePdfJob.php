@@ -13,6 +13,7 @@ use App\Support\ResumeDocument\GenerateResumeDocument;
 use App\Support\ResumeDocument\GenerateResumePdf;
 use App\Support\ResumeDocument\ResumePdfStore;
 use App\Support\ResumeDocument\ResumePdfValidator;
+use App\Support\ResumeRevision\FinishResumeLayout;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -38,9 +39,10 @@ final class RenderResumePdfJob implements ShouldQueue
         public readonly GenerationAttempt $attempt,
     ) {}
 
-    public function handle(GenerateResumePdf $renderer, GenerateResumeDocument $documents, ResumePdfStore $store, ResumePdfValidator $validator, ?AssessResumeLayout $layout = null): void
+    public function handle(GenerateResumePdf $renderer, GenerateResumeDocument $documents, ResumePdfStore $store, ResumePdfValidator $validator, ?AssessResumeLayout $layout = null, ?FinishResumeLayout $finish = null): void
     {
         $layout ??= app(AssessResumeLayout::class);
+        $finish ??= app(FinishResumeLayout::class);
         $this->attempt->update(['status' => GenerationStatus::Running, 'started_at' => now(), 'phase' => 'rendering']);
         $this->beginMetrics();
 
@@ -66,6 +68,10 @@ final class RenderResumePdfJob implements ShouldQueue
             return;
         }
 
+        // The first render and its judgment are final for this variant. One bounded correction may follow for an underfilled
+        // last page; it saves a new derived version or nothing, never changes this one, and its outcome is recorded beside the render.
+        $diagnostics = $finish->finish($variant, $composed, [...$composed->diagnostics(), 'quality' => $layout->forVariant($variant, $composed)]);
+
         $this->attempt->update([
             'status' => GenerationStatus::Succeeded,
             'finished_at' => now(),
@@ -74,7 +80,7 @@ final class RenderResumePdfJob implements ShouldQueue
             'pdf_page_count' => $composed->pageCount,
             'layout_mode' => $composed->mode,
             // The page-balance judgment travels with the measurements: a short last page is flagged, never silently accepted.
-            'layout_diagnostics' => [...$composed->diagnostics(), 'quality' => $layout->forVariant($variant, $composed)],
+            'layout_diagnostics' => $diagnostics,
             ...$this->successMetrics(),
         ]);
     }

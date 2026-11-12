@@ -67,6 +67,50 @@ final readonly class ProfileJobWordingPromptV3
         return $this->base->jsonSchema($rolesInSelection, $selectedProjectIds);
     }
 
+    public function additionSystemPrompt(): string
+    {
+        return <<<'PROMPT'
+        You write resume bullets, nothing else. Each item in `additions` is one accomplishment that is missing from a resume;
+        write exactly one bullet for each, using only the facts listed for it. Return JSON: `bullets`, one {id, text} per item.
+
+        - One sentence of about 20 to 32 words. Each fact has a `role` (built, implementation, deployment, outcome): say what
+          was built and how, then where or by whom it was used, then what it achieved, using only the parts its facts state.
+        - Say what the facts say and no more. Do not turn a deployment into adoption scale, an outcome into a cause the facts
+          do not state, or a contribution into leadership. Keep every figure exactly as stated.
+        - Name only technologies the facts name. Never add a technology, number, scope or responsibility they do not state.
+        - Do not repeat a figure listed in `figures_already_on_resume`, and do not open with a word in `openings_already_used`.
+        - Open with a specific verb for the work. No "Responsible for", no "Provided technical leadership", no em dashes, no
+          first person, no filler such as "passionate" or "results-driven".
+        PROMPT;
+    }
+
+    /**
+     * @param  array<string, mixed>  $input  job, additions[], figures_already_on_resume, openings_already_used
+     */
+    public function additionUserPrompt(array $input): string
+    {
+        return "--- Missing accomplishments ---\n"
+            .json_encode($input, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
+            ."\n--- End of missing accomplishments ---";
+    }
+
+    /**
+     * @param  array<int, int>  $ids
+     * @return array<string, mixed>
+     */
+    public function additionSchema(array $ids): array
+    {
+        return [
+            'type' => 'object',
+            'properties' => ['bullets' => [
+                'type' => 'array', 'minItems' => count($ids), 'maxItems' => count($ids),
+                'items' => ['type' => 'object', 'properties' => ['id' => ['type' => 'integer', 'enum' => array_values($ids)], 'text' => ['type' => 'string']], 'required' => ['id', 'text'], 'additionalProperties' => false],
+            ]],
+            'required' => ['bullets'],
+            'additionalProperties' => false,
+        ];
+    }
+
     public function correctionSystemPrompt(): string
     {
         return $this->base->correctionSystemPrompt();
