@@ -176,6 +176,17 @@ class JobPosting extends Model
     }
 
     /**
+     * Every recorded submission of an application to this job, oldest first. A job may have several over time. Not the
+     * same thing as applications(): those are browser inspection records.
+     *
+     * @return HasMany<Submission, $this>
+     */
+    public function submissions(): HasMany
+    {
+        return $this->hasMany(Submission::class)->orderBy('submitted_at')->orderBy('id');
+    }
+
+    /**
      * Every attempt (zero or more) to evaluate or pursue this posting —
      * see App\Models\Application and docs/domain-model.md
      * "Application".
