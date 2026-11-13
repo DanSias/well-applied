@@ -10,6 +10,7 @@ import { Card, Disclosure, SectionTitle } from '@/components/ui/surface';
 import { Tabs } from '@/components/ui/tabs';
 import AppShell from '@/layouts/app-shell';
 import { show as jobShow } from '@/routes/jobs';
+import { show as opportunityShow } from '@/routes/opportunities';
 import {
     current as makeCurrent,
     preferred as markPreferred,
@@ -508,11 +509,16 @@ export default function ResumeWorkspace({
             <Head title={`Resume: ${job.title} at ${job.company}`} />
 
             <Link
-                href={jobShow.url({ jobPosting: job.id })}
+                href={
+                    job.pursued
+                        ? opportunityShow.url({ jobPosting: job.id })
+                        : jobShow.url({ jobPosting: job.id })
+                }
                 className="rounded-control text-fg-muted hover:text-fg inline-flex max-w-full items-center gap-1 text-sm"
             >
                 <span aria-hidden="true">←</span>
                 <span className="truncate">
+                    {job.pursued ? 'Opportunity: ' : ''}
                     {job.title} at {job.company}
                 </span>
             </Link>
