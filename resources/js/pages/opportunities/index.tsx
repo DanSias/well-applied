@@ -75,7 +75,8 @@ function OpportunityRow({
     const showInspection =
         op.inspection.state !== 'not_inspected' ||
         op.inspection.latest_attempt_failed;
-    const canInspect = op.inspection.application_id !== null || op.source_url !== null;
+    const canInspect =
+        op.inspection.application_id !== null || op.source_url !== null;
     const label = `${op.title} at ${op.company}`;
 
     return (
@@ -322,6 +323,11 @@ export default function OpportunitiesIndex({
     useEffect(() => {
         if (openId !== null) {
             drawerSession.active = true;
+
+            // Opened by a direct link or reload: nothing was clicked, so the job in the URL is the one to return to.
+            if (!drawerSession.openedByPush) {
+                drawerSession.triggerId = openId;
+            }
 
             return;
         }

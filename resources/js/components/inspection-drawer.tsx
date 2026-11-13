@@ -77,7 +77,13 @@ function Question({ question }: { question: ApplicationQuestionView }) {
     );
 }
 
-function Fact({ label, children }: { label: string; children: React.ReactNode }) {
+function Fact({
+    label,
+    children,
+}: {
+    label: string;
+    children: React.ReactNode;
+}) {
     return (
         <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
             <dt className="text-fg-subtle text-xs">{label}</dt>
@@ -111,6 +117,8 @@ function InspectionBody({
     const view = presentInspection(state);
     const worker = useWorkerStatusPolling();
     const [starting, setStarting] = useState(false);
+    // A ref as well as state: two clicks in the same tick both see the state as false.
+    const requested = useRef(false);
     const result = state?.latest_result ?? null;
     const run = state?.workflow_run ?? null;
 
@@ -126,10 +134,16 @@ function InspectionBody({
     }, [view.active, view.headline.label]);
 
     const inspect = () => {
-        if (starting || view.active || job.source_url === null) {
+        if (
+            requested.current ||
+            starting ||
+            view.active ||
+            job.source_url === null
+        ) {
             return;
         }
 
+        requested.current = true;
         setStarting(true);
         router.post(
             inspectStore.url({ jobPosting: job.id }),
@@ -148,7 +162,10 @@ function InspectionBody({
                         description: 'Nothing was queued. Try again.',
                     });
                 },
-                onFinish: () => setStarting(false),
+                onFinish: () => {
+                    requested.current = false;
+                    setStarting(false);
+                },
             },
         );
     };
@@ -223,7 +240,9 @@ function InspectionBody({
                 {(view.active || run === null) && (
                     <div className="space-y-1">
                         <WorkerStatusBadge status={worker} />
-                        {view.active && <WaitingForWorkerNotice status={worker} />}
+                        {view.active && (
+                            <WaitingForWorkerNotice status={worker} />
+                        )}
                     </div>
                 )}
 
@@ -282,7 +301,11 @@ function InspectionBody({
                         disabled={starting || view.active}
                         onClick={inspect}
                     >
-                        {view.active ? 'Inspecting…' : view.action}
+                        {view.active
+                            ? run?.status === 'pending'
+                                ? 'Queued…'
+                                : 'Inspecting…'
+                            : view.action}
                     </Button>
                 ) : (
                     <p className="text-fg-muted text-sm">
@@ -352,8 +375,8 @@ export function InspectionDrawer({
                         This inspection isn't available.
                     </p>
                     <p className="mt-1">
-                        The job may have moved out of Opportunities, or the
-                        link is not one of your jobs.
+                        The job may have moved out of Opportunities, or the link
+                        is not one of your jobs.
                     </p>
                 </div>
             )}

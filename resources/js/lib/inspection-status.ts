@@ -1,5 +1,8 @@
 import type { Tone } from '@/components/ui/badge';
-import type { ApplicationInspectionState } from '@/types/application-inspection';
+import type {
+    ApplicationInspectionState,
+    InspectionSummary,
+} from '@/types/application-inspection';
 
 /**
  * Two different questions, kept apart on purpose:
@@ -132,4 +135,44 @@ export function presentInspection(
                   ? 'Inspect application form'
                   : 'Inspect again',
     };
+}
+
+/**
+ * The one-line badge for a list row, from the compact summary. Led by what the inspection found, so an outcome with no
+ * usable fields never reads as "Inspected": only a complete or partial result counts its questions. Execution state
+ * (queued, running, failed) is shown as such. Shares the outcome wording with the drawer.
+ */
+export function summaryBadge(summary: InspectionSummary): Labelled {
+    switch (summary.state) {
+        case 'not_inspected':
+            return { label: 'Not inspected', tone: 'neutral' };
+        case 'queued':
+            return { label: 'Inspection queued', tone: 'accent' };
+        case 'running':
+            return { label: 'Inspecting…', tone: 'accent' };
+        case 'failed':
+            return { label: 'Inspection failed', tone: 'bad' };
+        case 'unsupported':
+            return { label: OUTCOMES.unsupported.label, tone: 'warn' };
+        case 'inspected': {
+            const outcome =
+                summary.outcome !== null
+                    ? OUTCOMES[summary.outcome]
+                    : undefined;
+            const n = summary.field_count ?? 0;
+            const questions = `${n} question${n === 1 ? '' : 's'}`;
+
+            if (summary.outcome === 'partial') {
+                return { label: `Partial · ${questions}`, tone: 'warn' };
+            }
+
+            if (outcome !== undefined && summary.outcome !== 'complete') {
+                return { label: outcome.label, tone: outcome.tone };
+            }
+
+            return n > 0
+                ? { label: `Inspected · ${questions}`, tone: 'ok' }
+                : { label: 'Nothing extracted', tone: 'warn' };
+        }
+    }
 }

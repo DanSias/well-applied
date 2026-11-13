@@ -1,5 +1,6 @@
 import type { InspectionSummary } from '@/types/application-inspection';
 import { TONE_STYLES } from '@/components/ui/badge';
+import { summaryBadge } from '@/lib/inspection-status';
 import { cn } from '@/lib/utils';
 import type {
     SkillCategory,
@@ -76,15 +77,6 @@ export function SkillCategoryBadge({ value }: { value: SkillCategory }) {
     );
 }
 
-const INSPECTION_STATE_STYLES: Record<InspectionSummary['state'], string> = {
-    not_inspected: TONE_STYLES.neutral,
-    queued: TONE_STYLES.accent,
-    running: TONE_STYLES.accent,
-    inspected: TONE_STYLES.ok,
-    failed: TONE_STYLES.bad,
-    unsupported: TONE_STYLES.warn,
-};
-
 const DESCRIPTION_COMPLETENESS_STYLES: Record<DescriptionCompleteness, string> =
     {
         complete: TONE_STYLES.ok,
@@ -124,33 +116,11 @@ export function InspectionStateBadge({
 }: {
     summary: InspectionSummary;
 }) {
-    const label = (() => {
-        switch (summary.state) {
-            case 'not_inspected':
-                return 'Not inspected';
-            case 'queued':
-                return 'Inspection queued';
-            case 'running':
-                return 'Inspecting…';
-            case 'inspected':
-                return `Inspected — ${summary.field_count ?? 0} question${summary.field_count === 1 ? '' : 's'}`;
-            case 'failed':
-                return 'Inspection failed';
-            case 'unsupported':
-                return 'Unsupported ATS';
-        }
-    })();
+    const { label, tone } = summaryBadge(summary);
 
     return (
         <span className="inline-flex flex-col gap-0.5">
-            <span
-                className={cn(
-                    badgeClass,
-                    INSPECTION_STATE_STYLES[summary.state],
-                )}
-            >
-                {label}
-            </span>
+            <span className={cn(badgeClass, TONE_STYLES[tone])}>{label}</span>
             {summary.latest_attempt_failed && (
                 <span className="text-bad text-xs">Latest attempt failed</span>
             )}

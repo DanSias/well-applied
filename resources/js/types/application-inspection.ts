@@ -82,6 +82,8 @@ export type InspectionSummary = {
     application_id: number | null;
     field_count: number | null;
     latest_attempt_failed: boolean;
+    /** What the latest successful run found (complete, partial, unsupported, …); null when nothing has finished. */
+    outcome: string | null;
 };
 
 /** What the Opportunities inspection drawer is handed for one pursued job (OpportunityController::inspectionJob). */

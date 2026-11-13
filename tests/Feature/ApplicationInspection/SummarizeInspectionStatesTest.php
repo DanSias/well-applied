@@ -75,6 +75,18 @@ it('reports unsupported when the successful inspection outcome is unsupported', 
     expect(summarize($job)[$job->id]['state'])->toBe('unsupported');
 });
 
+it('carries the outcome of the latest successful run, so a list can tell the outcomes apart', function () {
+    foreach (['complete', 'partial', 'authentication_required', 'unsupported'] as $outcome) {
+        $job = JobPosting::factory()->create();
+        successfulAgentRunFor(Application::factory()->for($job, 'jobPosting')->create(), 2, $outcome);
+
+        expect(summarize($job)[$job->id]['outcome'])->toBe($outcome);
+    }
+
+    $untouched = JobPosting::factory()->create();
+    expect(summarize($untouched)[$untouched->id]['outcome'])->toBeNull();
+});
+
 it('reports failed when the only attempt failed', function () {
     $job = JobPosting::factory()->create();
     $application = Application::factory()->for($job, 'jobPosting')->create();

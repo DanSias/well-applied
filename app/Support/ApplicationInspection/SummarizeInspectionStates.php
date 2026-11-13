@@ -87,6 +87,9 @@ final class SummarizeInspectionStates
             'application_id' => $applicationId,
             'field_count' => null,
             'latest_attempt_failed' => false,
+            // What the latest successful run found (complete, partial, unsupported, ...), read from the same row the
+            // state is derived from; the badge uses it to say more than "inspected". Null when nothing has finished.
+            'outcome' => $latestSuccessfulAgentRun?->inspection_outcome?->value,
         ];
 
         if ($latestRun === null) {
@@ -137,6 +140,7 @@ final class SummarizeInspectionStates
             'application_id' => null,
             'field_count' => null,
             'latest_attempt_failed' => false,
+            'outcome' => null,
         ];
     }
 
