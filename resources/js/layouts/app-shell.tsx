@@ -21,23 +21,27 @@ export default function AppShell({ children }: { children: ReactNode }) {
     return (
         <div className="bg-canvas text-fg min-h-screen">
             <header className="border-line bg-canvas/90 sticky top-0 z-20 border-b backdrop-blur-sm">
-                <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2 sm:gap-4 sm:px-6">
-                    <Link
-                        href={home.url()}
-                        className="text-fg rounded-control hover:bg-raised/60 focus-visible:ring-focus -mx-1.5 flex shrink-0 items-center gap-2 px-1.5 py-1 text-sm font-semibold tracking-tight whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:outline-none"
-                    >
-                        <span
-                            aria-hidden="true"
-                            className="bg-accent h-2.5 w-2.5 rounded-[3px]"
-                        />
-                        <span className="hidden sm:inline">Well Applied</span>
-                        <span className="sr-only sm:hidden">
-                            Well Applied, home
-                        </span>
-                    </Link>
+                <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-4 py-2 sm:gap-4 sm:px-6">
+                    <div className="flex min-w-0 items-center justify-start">
+                        <Link
+                            href={home.url()}
+                            className="text-fg rounded-control hover:bg-raised/60 focus-visible:ring-focus -mx-1.5 flex shrink-0 items-center gap-2 px-1.5 py-1 text-lg leading-none font-semibold tracking-tight whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                        >
+                            <span
+                                aria-hidden="true"
+                                className="bg-accent h-2.5 w-2.5 rounded-[3px]"
+                            />
+                            <span className="hidden sm:inline">
+                                Well Applied
+                            </span>
+                            <span className="sr-only sm:hidden">
+                                Well Applied, home
+                            </span>
+                        </Link>
+                    </div>
                     <nav
                         aria-label="Primary"
-                        className="-mx-1 flex min-w-0 items-center gap-0.5 overflow-x-auto px-1 text-sm sm:gap-1"
+                        className="flex items-center gap-0.5 text-sm sm:gap-1"
                     >
                         {PRIMARY_NAV.map((item) => {
                             const isActive = active === item.key;
@@ -48,7 +52,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
                                     href={item.href}
                                     aria-current={isActive ? 'page' : undefined}
                                     className={cn(
-                                        'rounded-control focus-visible:ring-focus px-2 py-1.5 font-medium whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:outline-none sm:px-2.5',
+                                        'rounded-control focus-visible:ring-focus shrink-0 px-2 py-1.5 font-medium whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:outline-none sm:px-2.5',
                                         isActive
                                             ? 'bg-raised text-fg'
                                             : 'text-fg-muted hover:bg-raised/60 hover:text-fg',
@@ -59,7 +63,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
                             );
                         })}
                     </nav>
-                    <div className="ml-auto shrink-0">
+                    <div className="flex min-w-0 items-center justify-end">
                         <ProfileMenu name={props.profile?.name} url={url} />
                     </div>
                 </div>
