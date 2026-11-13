@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { OverflowMenu, type MenuItem } from '@/components/overflow-menu';
 import { TextInput } from '@/components/ui/field';
 import type {
     DismissalReason,
@@ -190,4 +191,106 @@ export function DismissStrip({
             </div>
         </div>
     );
+}
+
+/**
+ * The actions on a compact list row. The quick ones stay visible as real buttons (Shortlist and Dismiss on an Inbox
+ * row, so many jobs can be triaged fast, with Pursue as the next step on a shortlisted one); the rarer ones sit in the
+ * overflow menu, with any extras the row supplies (such as inspecting the application form). Nothing is hover-only.
+ */
+export function CompactRowActions({
+    disposition,
+    jobLabel,
+    disabled,
+    onDecide,
+    onStartDismiss,
+    extraItems,
+}: {
+    disposition: JobDisposition;
+    jobLabel: string;
+    disabled: boolean;
+    onDecide: DecideFn;
+    onStartDismiss: () => void;
+    extraItems: MenuItem[];
+}) {
+    const dismiss = (
+        <Button
+            variant="ghost"
+            size="sm"
+            disabled={disabled}
+            aria-label={`Dismiss ${jobLabel}`}
+            onClick={onStartDismiss}
+        >
+            Dismiss
+        </Button>
+    );
+    const menu = (items: MenuItem[]) =>
+        items.length > 0 ? (
+            <OverflowMenu
+                label={`More actions for ${jobLabel}`}
+                items={items}
+                disabled={disabled}
+            />
+        ) : null;
+
+    switch (disposition) {
+        case 'new':
+            return (
+                <>
+                    <Button
+                        size="sm"
+                        disabled={disabled}
+                        aria-label={`Shortlist ${jobLabel}`}
+                        onClick={() => onDecide('shortlisted')}
+                    >
+                        Shortlist
+                    </Button>
+                    {dismiss}
+                    {menu([
+                        {
+                            label: 'Pursue',
+                            onSelect: () => onDecide('pursued'),
+                        },
+                        ...extraItems,
+                    ])}
+                </>
+            );
+        case 'shortlisted':
+            return (
+                <>
+                    <Button
+                        size="sm"
+                        disabled={disabled}
+                        aria-label={`Pursue ${jobLabel}`}
+                        onClick={() => onDecide('pursued')}
+                    >
+                        Pursue
+                    </Button>
+                    {dismiss}
+                    {menu([
+                        {
+                            label: 'Restore to Inbox',
+                            onSelect: () => onDecide('new'),
+                        },
+                        ...extraItems,
+                    ])}
+                </>
+            );
+        case 'dismissed':
+            return (
+                <>
+                    <Button
+                        size="sm"
+                        disabled={disabled}
+                        aria-label={`Restore ${jobLabel} to Inbox`}
+                        onClick={() => onDecide('new')}
+                    >
+                        Restore to Inbox
+                    </Button>
+                    {menu(extraItems)}
+                </>
+            );
+        default:
+            return menu(extraItems);
+    }
 }

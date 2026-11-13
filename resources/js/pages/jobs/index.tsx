@@ -15,11 +15,12 @@ import {
     TriageStageBadge,
 } from '@/components/badges';
 import {
-    DecisionActions,
+    CompactRowActions,
     DismissStrip,
     DispositionBadge,
     type DecideFn,
 } from '@/components/job-decisions';
+import { type MenuItem } from '@/components/overflow-menu';
 import { Button, ButtonLink } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { TextInput } from '@/components/ui/field';
@@ -164,50 +165,12 @@ function FilterGroup({
     );
 }
 
-function InspectAction({ job }: { job: JobPostingSummary }) {
-    const form = useForm({});
-
-    if (!job.has_source_url) {
-        return null;
-    }
-
-    if (job.inspection.application_id !== null) {
-        return (
-            <ButtonLink
-                variant="ghost"
-                size="sm"
-                href={applicationsShow.url({
-                    application: job.inspection.application_id,
-                })}
-            >
-                View results
-            </ButtonLink>
-        );
-    }
-
-    // Not inspected is the common case, so this stays quiet until the row
-    // is hovered or focused (always visible on small and touch screens).
-    return (
-        <Button
-            variant="ghost"
-            size="sm"
-            disabled={form.processing}
-            className="sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100 pointer-coarse:opacity-100"
-            onClick={() =>
-                form.post(inspectStore.url({ jobPosting: job.id }), {
-                    showProgress: false,
-                })
-            }
-        >
-            Inspect Application
-        </Button>
-    );
-}
-
 /**
- * One job. The whole row shares one hover/selected surface; the
- * title link is stretched over the row (so any click opens the job) and
- * the checkbox and actions sit above it, independent of that link.
+ * One job, as a compact inbox entry. The title link is stretched over the row (so any click on the row opens the job)
+ * and the checkbox and actions sit above it, independent of that link.
+ *
+ * First line: checkbox, title and company, and the quick actions. Second line: location, source, remote status, pay,
+ * and the status badges inline. Less frequent actions live in the overflow menu rather than a permanent row of buttons.
  */
 function JobRow({
     job,
@@ -234,7 +197,7 @@ function JobRow({
         job.location,
         job.discovery.source === 'manual'
             ? `Captured ${job.captured_at}`
-            : `Discovered via ${discoverySourceLabel(job.discovery.source)}`,
+            : `via ${discoverySourceLabel(job.discovery.source)}`,
         job.discovery.remote_status,
         formatCompensation(job.discovery),
     ].filter((item): item is string => Boolean(item));
@@ -242,12 +205,35 @@ function JobRow({
     const showInspection =
         inspection.state !== 'not_inspected' ||
         inspection.latest_attempt_failed;
+    const inspectItem: MenuItem[] =
+        inspection.application_id !== null
+            ? [
+                  {
+                      label: 'View inspection results',
+                      href: applicationsShow.url({
+                          application: inspection.application_id,
+                      }),
+                  },
+              ]
+            : job.has_source_url
+              ? [
+                    {
+                        label: 'Inspect application form',
+                        onSelect: () =>
+                            router.post(
+                                inspectStore.url({ jobPosting: job.id }),
+                                {},
+                                { showProgress: false },
+                            ),
+                    },
+                ]
+              : [];
 
     return (
         <li
             data-selected={selected || undefined}
             className={cn(
-                'group relative grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-2 px-4 py-3 transition-colors md:grid-cols-[auto_minmax(0,1fr)_auto]',
+                'group relative grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-1.5 px-4 py-2.5 transition-colors sm:grid-cols-[auto_minmax(0,1fr)_auto]',
                 'has-[a.row-link:focus-visible]:ring-focus has-[a.row-link:focus-visible]:ring-2 has-[a.row-link:focus-visible]:ring-inset',
                 selected
                     ? 'bg-accent-soft/60 hover:bg-accent-soft'
@@ -260,7 +246,7 @@ function JobRow({
                     className="bg-accent absolute inset-y-0 left-0 w-0.5"
                 />
             )}
-            <label className="relative z-10 -mx-2 -mt-1.5 -mb-2 flex cursor-pointer p-2 pt-2.5">
+            <label className="relative z-10 -mx-2 -mt-2 -mb-2 flex cursor-pointer p-2 pt-2.5">
                 <Checkbox
                     checked={selected}
                     disabled={checkboxDisabled}
@@ -279,23 +265,15 @@ function JobRow({
                     </Link>
                     <span className="text-fg-muted"> · {job.company}</span>
                 </p>
-                <p className="text-fg-subtle mt-0.5 text-xs leading-relaxed break-words">
-                    {meta.map((item, i) => (
-                        <Fragment key={i}>
-                            {i > 0 && ' · '}
-                            {item}
-                        </Fragment>
-                    ))}
-                </p>
-                {job.triage.coverage !== null && (
-                    <p className="text-fg-subtle mt-1 text-xs">
-                        <TriageCoverageGroup coverage={job.triage.coverage} />
-                    </p>
-                )}
-            </div>
-
-            <div className="relative z-10 col-start-2 flex flex-col gap-1.5 md:col-start-3 md:row-start-1 md:items-end">
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 md:justify-end">
+                <div className="text-fg-subtle mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs leading-relaxed">
+                    <span className="break-words">
+                        {meta.map((item, i) => (
+                            <Fragment key={i}>
+                                {i > 0 && ' · '}
+                                {item}
+                            </Fragment>
+                        ))}
+                    </span>
                     <DispositionBadge disposition={job.disposition} />
                     <TriageStageBadge value={job.triage.stage} />
                     {job.discovery.description_completeness === 'preview' && (
@@ -306,17 +284,21 @@ function JobRow({
                     {showInspection && (
                         <InspectionStateBadge summary={inspection} />
                     )}
+                    {job.triage.coverage !== null && (
+                        <TriageCoverageGroup coverage={job.triage.coverage} />
+                    )}
                 </div>
-                <div className="-ml-2.5 flex flex-wrap items-center gap-x-1 gap-y-1 md:ml-0 md:justify-end">
-                    <DecisionActions
-                        disposition={job.disposition.value}
-                        jobLabel={`${job.title} at ${job.company}`}
-                        disabled={decisionsDisabled}
-                        onDecide={onDecide}
-                        onStartDismiss={onStartDismiss}
-                    />
-                    <InspectAction job={job} />
-                </div>
+            </div>
+
+            <div className="relative z-10 col-start-2 -ml-2.5 flex flex-wrap items-center gap-1 sm:col-start-3 sm:row-start-1 sm:-my-1 sm:ml-0 sm:justify-end">
+                <CompactRowActions
+                    disposition={job.disposition.value}
+                    jobLabel={`${job.title} at ${job.company}`}
+                    disabled={decisionsDisabled}
+                    onDecide={onDecide}
+                    onStartDismiss={onStartDismiss}
+                    extraItems={inspectItem}
+                />
             </div>
 
             {dismissing && (
