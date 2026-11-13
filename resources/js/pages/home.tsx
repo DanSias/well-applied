@@ -49,13 +49,13 @@ function Stat({
     return (
         <Link
             href={href}
-            className="group rounded-card hover:bg-raised/60 block px-5 py-4 transition-colors"
+            className="bg-surface hover:bg-raised block px-4 py-3 transition-colors"
         >
             <p className="text-fg-subtle text-xs font-medium">{label}</p>
-            <p className="text-fg mt-1 text-2xl font-semibold tracking-tight tabular-nums">
+            <p className="text-fg mt-0.5 text-2xl leading-tight font-semibold tracking-tight tabular-nums">
                 {value}
             </p>
-            <p className="text-fg-subtle mt-0.5 min-h-4 text-xs">{hint}</p>
+            <p className="text-fg-subtle mt-0.5 text-xs">{hint}</p>
         </Link>
     );
 }
@@ -152,32 +152,39 @@ export default function Home({
     // recent work, else the first step.
     const top = attention.items[0] ?? null;
     const latest = recent[0] ?? null;
+    // A resume destination reads "Continue resume"; the job it belongs to goes
+    // in the tooltip and accessible name rather than the visible label.
     const primary = top
         ? {
               label:
-                  top.kind === 'summary'
-                      ? top.action
-                      : `${top.action}: ${top.title}`,
+                  top.resume_variant_id !== null
+                      ? 'Continue resume'
+                      : top.action,
+              job: top.kind === 'summary' ? null : top.title,
               href: destination(top.job_id, top.resume_variant_id, top.filter),
           }
         : latest
           ? {
-                label: `Continue: ${latest.title}`,
+                label:
+                    latest.resume_variant_id !== null
+                        ? 'Continue resume'
+                        : latest.action,
+                job: latest.title,
                 href: destination(latest.job_id, latest.resume_variant_id),
             }
-          : { label: 'Add an opportunity', href: jobsCreate.url() };
+          : { label: 'Add an opportunity', job: null, href: jobsCreate.url() };
     const empty = overview.opportunities === 0;
 
     return (
         <AppShell>
-            <Head title="Home" />
+            <Head title="Overview" />
 
-            <header className="flex flex-wrap items-end justify-between gap-4">
+            <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
                 <div>
-                    <h1 className="text-fg text-2xl font-semibold tracking-tight">
-                        Home
+                    <h1 className="text-fg text-xl font-semibold tracking-tight sm:text-2xl">
+                        Overview
                     </h1>
-                    <p className="text-fg-muted mt-1 text-sm">
+                    <p className="text-fg-muted mt-0.5 text-sm">
                         Where your job search stands and what to do next.
                     </p>
                 </div>
@@ -188,7 +195,16 @@ export default function Home({
                                 Add opportunity
                             </ButtonLink>
                         )}
-                        <ButtonLink variant="primary" href={primary.href}>
+                        <ButtonLink
+                            variant="primary"
+                            href={primary.href}
+                            title={primary.job ?? undefined}
+                            aria-label={
+                                primary.job
+                                    ? `${primary.label}: ${primary.job}`
+                                    : undefined
+                            }
+                        >
                             {primary.label}
                         </ButtonLink>
                     </div>
@@ -196,7 +212,7 @@ export default function Home({
             </header>
 
             {!has_profile && (
-                <Alert tone="warn" className="mt-8" role="status">
+                <Alert tone="warn" className="mt-5" role="status">
                     <p className="font-medium">No career data yet</p>
                     <p className="text-fg-muted mt-1">
                         Import your career dataset with{' '}
@@ -209,7 +225,7 @@ export default function Home({
             )}
 
             {has_profile && empty && (
-                <Card className="mt-8 p-8 text-center">
+                <Card className="mt-5 p-6 text-center">
                     <h2 className="text-fg text-base font-semibold">
                         No opportunities yet
                     </h2>
@@ -222,8 +238,8 @@ export default function Home({
             )}
 
             {has_profile && !empty && (
-                <div className="mt-8 space-y-8">
-                    <Card className="divide-line grid grid-cols-2 sm:grid-cols-4 sm:divide-x">
+                <div className="mt-5 space-y-6">
+                    <Card className="bg-line grid grid-cols-2 gap-px overflow-hidden lg:grid-cols-4">
                         <Stat
                             label="Opportunities"
                             value={overview.opportunities}
@@ -316,7 +332,7 @@ export default function Home({
             )}
 
             {has_profile && (
-                <section aria-label="Quick access" className="mt-8">
+                <section aria-label="Quick access" className="mt-6">
                     <SectionTitle>Quick access</SectionTitle>
                     <div className="mt-3 grid gap-3 sm:grid-cols-3">
                         <QuickLink

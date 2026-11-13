@@ -68,10 +68,23 @@ export function ButtonLink({
     size,
     className,
     href,
+    title,
     children,
-}: Shared & { href: string; className?: string; children: ReactNode }) {
+    'aria-label': ariaLabel,
+}: Shared & {
+    href: string;
+    className?: string;
+    title?: string;
+    'aria-label'?: string;
+    children: ReactNode;
+}) {
     return (
-        <Link href={href} className={buttonClass(variant, size, className)}>
+        <Link
+            href={href}
+            title={title}
+            aria-label={ariaLabel}
+            className={buttonClass(variant, size, className)}
+        >
             {children}
         </Link>
     );
