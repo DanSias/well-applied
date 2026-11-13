@@ -6,6 +6,10 @@ import {
     pruneSelection,
     toggleAllSelection,
     toggleSelection,
+    bulkDecisionsFor,
+    canUndoDecision,
+    decisionSummaryText,
+    DECISION_MAX_ITEMS,
     type ListState,
 } from './opportunities-list';
 
@@ -14,6 +18,7 @@ const base: ListState = {
     status: 'all',
     triage: 'all',
     resume: 'all',
+    disposition: 'inbox',
     per_page: 25,
     page: 1,
 };
@@ -32,6 +37,7 @@ describe('list URL state', () => {
                 status: 'inspected',
                 triage: 'raw',
                 resume: 'in-progress',
+                disposition: 'shortlist',
                 per_page: 50,
                 page: 3,
             }),
@@ -40,6 +46,7 @@ describe('list URL state', () => {
             status: 'inspected',
             triage: 'raw',
             resume: 'in-progress',
+            disposition: 'shortlist',
             per_page: 50,
             page: 3,
         });
@@ -123,5 +130,99 @@ describe('batch selection', () => {
         const selected = new Set([1, 2]);
 
         expect(pruneSelection(selected, [1, 2, 3])).toBe(selected);
+    });
+});
+
+describe('job decision views and results', () => {
+    it('keeps the Inbox out of the URL but writes every other view, including All', () => {
+        expect(buildListParams(base)).toEqual({});
+        expect(buildListParams({ ...base, disposition: 'all' })).toEqual({
+            disposition: 'all',
+        });
+        expect(
+            buildListParams({ ...base, disposition: 'dismissed', q: 'x' }),
+        ).toEqual({ q: 'x', disposition: 'dismissed' });
+    });
+
+    it('returns to page 1 when the decision view changes', () => {
+        expect(
+            nextListState({ ...base, page: 4 }, { disposition: 'all' }).page,
+        ).toBe(1);
+    });
+
+    it('lets a decision selection run past the analysis limit, but not past its own', () => {
+        const some = ids(DECISION_MAX_ITEMS);
+
+        expect(
+            toggleAllSelection(new Set(), some, DECISION_MAX_ITEMS).size,
+        ).toBe(DECISION_MAX_ITEMS);
+        expect(
+            toggleAllSelection(
+                new Set(),
+                ids(DECISION_MAX_ITEMS + 1),
+                DECISION_MAX_ITEMS,
+            ).size,
+        ).toBe(0);
+    });
+
+    it('summarizes what a decision did and leaves out zero counts', () => {
+        const none = { changed: [], unchanged: [], failed: [], not_found: [] };
+
+        expect(
+            decisionSummaryText({
+                ...none,
+                to: 'shortlisted',
+                changed: [1, 2, 3],
+            }),
+        ).toBe('Shortlisted 3 jobs');
+        expect(
+            decisionSummaryText({ ...none, to: 'dismissed', changed: [1] }),
+        ).toBe('Dismissed 1 job');
+        expect(
+            decisionSummaryText({ ...none, to: 'new', changed: [1, 2] }),
+        ).toBe('Moved 2 jobs back to the Inbox');
+        expect(
+            decisionSummaryText({
+                ...none,
+                to: 'shortlisted',
+                changed: [1],
+                unchanged: [2],
+                failed: [3],
+                not_found: [4],
+            }),
+        ).toBe(
+            'Shortlisted 1 job · 1 already there · 1 could not be changed · 1 not found',
+        );
+        expect(
+            decisionSummaryText({ ...none, to: 'undo', changed: [1, 2] }),
+        ).toBe('Undid 2 decisions');
+        expect(decisionSummaryText({ ...none, to: 'shortlisted' })).toBe(
+            'Nothing changed',
+        );
+    });
+
+    it('offers undo only for a decision that changed something and is not itself an undo', () => {
+        const base = { unchanged: [], failed: [], not_found: [] };
+
+        expect(
+            canUndoDecision({ ...base, to: 'shortlisted', changed: [1] }),
+        ).toBe(true);
+        expect(
+            canUndoDecision({ ...base, to: 'shortlisted', changed: [] }),
+        ).toBe(false);
+        expect(canUndoDecision({ ...base, to: 'undo', changed: [1] })).toBe(
+            false,
+        );
+    });
+
+    it('never offers the decision a view already is', () => {
+        expect(bulkDecisionsFor('inbox')).toEqual(['shortlisted', 'dismissed']);
+        expect(bulkDecisionsFor('shortlist')).toEqual(['dismissed', 'new']);
+        expect(bulkDecisionsFor('dismissed')).toEqual(['shortlisted', 'new']);
+        expect(bulkDecisionsFor('all')).toEqual([
+            'shortlisted',
+            'dismissed',
+            'new',
+        ]);
     });
 });

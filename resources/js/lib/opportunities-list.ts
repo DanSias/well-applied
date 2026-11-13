@@ -4,14 +4,17 @@
  */
 
 export const DEFAULT_PER_PAGE = 25;
-/** Hard cap on how many opportunities one batch may process. */
+/** Hard cap on how many jobs one analyze/match batch may process. */
 export const BATCH_MAX_ITEMS = 50;
+/** Shortlisting, dismissing and restoring are cheap writes, so a selection for them may be larger. */
+export const DECISION_MAX_ITEMS = 100;
 
 export type ListState = {
     q: string;
     status: string;
     triage: string;
     resume: string;
+    disposition: string;
     per_page: number;
     page: number;
 };
@@ -36,6 +39,11 @@ export function buildListParams(
 
     if (state.triage !== 'all') {
         params.triage = state.triage;
+    }
+
+    // The Inbox is the default view, so only the other views appear in the URL.
+    if (state.disposition !== 'inbox') {
+        params.disposition = state.disposition;
     }
 
     if (state.resume !== 'all') {
@@ -122,4 +130,67 @@ export function pruneSelection(
     const kept = [...selected].filter((id) => visible.has(id));
 
     return kept.length === selected.size ? selected : new Set(kept);
+}
+
+type DecisionOutcome = {
+    to: string;
+    changed: readonly unknown[];
+    unchanged: readonly unknown[];
+    failed: readonly unknown[];
+    not_found: readonly unknown[];
+};
+
+const plural = (n: number, one: string, many: string) =>
+    `${n} ${n === 1 ? one : many}`;
+
+/** "Shortlisted 3 jobs · 1 already there · 1 could not be changed" — zero counts left out. */
+export function decisionSummaryText(result: DecisionOutcome): string {
+    const changed = result.changed.length;
+    const parts: string[] = [];
+
+    if (changed > 0) {
+        const jobs = plural(changed, 'job', 'jobs');
+        parts.push(
+            {
+                shortlisted: `Shortlisted ${jobs}`,
+                dismissed: `Dismissed ${jobs}`,
+                pursued: `Pursued ${jobs}`,
+                new: `Moved ${jobs} back to the Inbox`,
+                undo: `Undid ${plural(changed, 'decision', 'decisions')}`,
+            }[result.to] ?? `Updated ${jobs}`,
+        );
+    }
+
+    if (result.unchanged.length > 0) {
+        parts.push(`${result.unchanged.length} already there`);
+    }
+
+    if (result.failed.length > 0) {
+        parts.push(`${result.failed.length} could not be changed`);
+    }
+
+    if (result.not_found.length > 0) {
+        parts.push(`${result.not_found.length} not found`);
+    }
+
+    return parts.length > 0 ? parts.join(' · ') : 'Nothing changed';
+}
+
+/** A result can be undone only when it changed something and is not itself an undo. */
+export function canUndoDecision(result: DecisionOutcome): boolean {
+    return result.to !== 'undo' && result.changed.length > 0;
+}
+
+/** Which bulk decisions make sense in a view: never the one the view already is. */
+export function bulkDecisionsFor(
+    view: string,
+): ('shortlisted' | 'dismissed' | 'new')[] {
+    return (['shortlisted', 'dismissed', 'new'] as const).filter(
+        (d) =>
+            !(
+                (view === 'inbox' && d === 'new') ||
+                (view === 'shortlist' && d === 'shortlisted') ||
+                (view === 'dismissed' && d === 'dismissed')
+            ),
+    );
 }

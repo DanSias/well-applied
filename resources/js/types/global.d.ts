@@ -1,5 +1,5 @@
 import type { Auth } from '@/types/auth';
-import type { BatchResult } from '@/types/job-posting';
+import type { BatchResult, DecisionResult } from '@/types/job-posting';
 
 declare module 'react' {
     interface InputHTMLAttributes<T> {
@@ -17,6 +17,7 @@ declare module '@inertiajs/core' {
         };
         flashDataType: {
             batch_result?: BatchResult;
+            decision_result?: DecisionResult;
         };
     }
 }

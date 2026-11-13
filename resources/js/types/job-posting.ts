@@ -81,6 +81,42 @@ export type JobPostingSummary = {
     inspection: InspectionSummary;
     triage: OpportunityTriage;
     discovery: JobPostingDiscoveryMetadata;
+    disposition: JobDispositionSummary;
+};
+
+export type JobDisposition = 'new' | 'shortlisted' | 'dismissed' | 'pursued';
+
+/** A job's decision state, with the reason when it was dismissed. */
+export type JobDispositionSummary = {
+    value: JobDisposition;
+    reason: string | null;
+    reason_label: string | null;
+    decided_at: string | null;
+};
+
+/** Which decision view of the Jobs page: the inbox (undecided), the shortlist, dismissed jobs, or everything. */
+export type JobDispositionFilter = 'inbox' | 'shortlist' | 'dismissed' | 'all';
+
+export type DismissalReason =
+    | 'seniority'
+    | 'technology_stack'
+    | 'location'
+    | 'compensation'
+    | 'company'
+    | 'duplicate'
+    | 'other';
+
+/**
+ * What a decision did, flashed under `decision_result` by JobDecisionController: which jobs changed, which were
+ * already in that state, which were refused (with a safe message) or not found, and the decision ids to undo them.
+ */
+export type DecisionResult = {
+    to: JobDisposition | 'undo';
+    changed: number[];
+    unchanged: number[];
+    failed: { id: number; message: string }[];
+    not_found: number[];
+    decision_ids: Record<string, number>;
 };
 
 export type JobAnalysisSummary = {
@@ -124,6 +160,7 @@ export type JobsIndexFilters = {
     status: 'all' | 'not_inspected' | 'inspected';
     triage: OpportunityTriageFilter;
     resume: OpportunityResumeFilter;
+    disposition: JobDispositionFilter;
 };
 
 /** Resume work per opportunity: a resume exists but none is final, or one is marked final. */
@@ -143,6 +180,7 @@ export type JobsIndexProps = {
     jobs: JobPostingSummary[];
     filters: JobsIndexFilters;
     pagination: JobsIndexPagination;
+    disposition_counts: Record<JobDispositionFilter, number>;
 };
 
 export type JobShowProps = {

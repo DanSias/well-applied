@@ -49,5 +49,7 @@ it('stores no analysis, matching, or resume-generation fields', function () {
         'remote_status', 'employment_type',
         'compensation_min', 'compensation_max', 'compensation_currency', 'compensation_interval',
         'posted_at', 'source_updated_at', 'discovered_at', 'status', 'last_checked_at', 'discovery_metadata',
+        // The user's decision about the job (inbox / shortlisted / dismissed / pursued): neither generated content nor pipeline state.
+        'disposition', 'disposition_source', 'disposition_reason', 'dispositioned_at', 'pursued_at',
     ]);
 });

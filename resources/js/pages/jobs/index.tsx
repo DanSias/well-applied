@@ -21,6 +21,13 @@ import {
     TriageCoverageGroup,
     TriageStageBadge,
 } from '@/components/badges';
+import {
+    DecisionActions,
+    DecisionResultPanel,
+    DismissStrip,
+    DispositionBadge,
+    type DecideFn,
+} from '@/components/job-decisions';
 import { Alert } from '@/components/ui/alert';
 import { Button, ButtonLink } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -32,6 +39,8 @@ import { Card } from '@/components/ui/surface';
 import AppShell from '@/layouts/app-shell';
 import {
     BATCH_MAX_ITEMS,
+    DECISION_MAX_ITEMS,
+    bulkDecisionsFor,
     buildListParams,
     nextListState,
     pruneSelection,
@@ -48,11 +57,18 @@ import {
 import { store as inspectStore } from '@/routes/jobs/applications';
 import {
     analyze as batchAnalyze,
+    decision as batchDecision,
     match as batchMatch,
 } from '@/routes/jobs/batch';
+import { store as decisionStore } from '@/routes/jobs/decision';
+import { undo as decisionsUndo } from '@/routes/jobs/decisions';
 import type {
     BatchOperation,
     BatchResult,
+    DecisionResult,
+    JobDisposition,
+    JobDispositionFilter,
+    DismissalReason,
     JobPostingDiscoveryMetadata,
     JobPostingSummary,
     JobsIndexProps,
@@ -114,6 +130,20 @@ const TRIAGE_STAGES: {
     { value: 'failed', label: 'Failed' },
 ];
 
+const DISPOSITION_TABS: { value: JobDispositionFilter; label: string }[] = [
+    { value: 'inbox', label: 'Inbox' },
+    { value: 'shortlist', label: 'Shortlist' },
+    { value: 'dismissed', label: 'Dismissed' },
+    { value: 'all', label: 'All' },
+];
+
+const VIEW_NAMES: Record<JobDispositionFilter, string> = {
+    inbox: 'the Inbox',
+    shortlist: 'the Shortlist',
+    dismissed: 'Dismissed',
+    all: 'All jobs',
+};
+
 const RESUME_TABS: { value: OpportunityResumeFilter; label: string }[] = [
     { value: 'all', label: 'All' },
     { value: 'in-progress', label: 'In progress' },
@@ -148,8 +178,8 @@ function describeFilters(filters: JobsIndexProps['filters']): string {
     }
 
     return parts.length > 0
-        ? `No opportunities have ${parts.join(' and ')}.`
-        : 'No opportunities match this search/filter.';
+        ? `Nothing in ${VIEW_NAMES[filters.disposition]} has ${parts.join(' and ')}.`
+        : `Nothing in ${VIEW_NAMES[filters.disposition]} matches.`;
 }
 
 /** Pause between the last keystroke and the search hitting the server. */
@@ -265,20 +295,30 @@ function InspectAction({ job }: { job: JobPostingSummary }) {
 }
 
 /**
- * One opportunity. The whole row shares one hover/selected surface; the
+ * One job. The whole row shares one hover/selected surface; the
  * title link is stretched over the row (so any click opens the job) and
  * the checkbox and actions sit above it, independent of that link.
  */
-function OpportunityRow({
+function JobRow({
     job,
     selected,
     checkboxDisabled,
+    decisionsDisabled,
+    dismissing,
     onToggle,
+    onDecide,
+    onStartDismiss,
+    onCancelDismiss,
 }: {
     job: JobPostingSummary;
     selected: boolean;
     checkboxDisabled: boolean;
+    decisionsDisabled: boolean;
+    dismissing: boolean;
     onToggle: (checked: boolean) => void;
+    onDecide: DecideFn;
+    onStartDismiss: () => void;
+    onCancelDismiss: () => void;
 }) {
     const meta = [
         job.location,
@@ -344,18 +384,43 @@ function OpportunityRow({
                 )}
             </div>
 
-            <div className="relative z-10 col-start-2 flex flex-wrap items-center gap-x-2 gap-y-1.5 md:col-start-3 md:row-start-1 md:justify-end">
-                <TriageStageBadge value={job.triage.stage} />
-                {job.discovery.description_completeness === 'preview' && (
-                    <DescriptionCompletenessBadge
-                        value={job.discovery.description_completeness}
+            <div className="relative z-10 col-start-2 flex flex-col gap-1.5 md:col-start-3 md:row-start-1 md:items-end">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 md:justify-end">
+                    <DispositionBadge disposition={job.disposition} />
+                    <TriageStageBadge value={job.triage.stage} />
+                    {job.discovery.description_completeness === 'preview' && (
+                        <DescriptionCompletenessBadge
+                            value={job.discovery.description_completeness}
+                        />
+                    )}
+                    {showInspection && (
+                        <InspectionStateBadge summary={inspection} />
+                    )}
+                </div>
+                <div className="-ml-2.5 flex flex-wrap items-center gap-x-1 gap-y-1 md:ml-0 md:justify-end">
+                    <DecisionActions
+                        disposition={job.disposition.value}
+                        jobLabel={`${job.title} at ${job.company}`}
+                        disabled={decisionsDisabled}
+                        onDecide={onDecide}
+                        onStartDismiss={onStartDismiss}
                     />
-                )}
-                {showInspection && (
-                    <InspectionStateBadge summary={inspection} />
-                )}
-                <InspectAction job={job} />
+                    <InspectAction job={job} />
+                </div>
             </div>
+
+            {dismissing && (
+                <div className="border-line relative z-10 col-span-full border-t pt-2.5">
+                    <DismissStrip
+                        heading="Dismiss because…"
+                        disabled={decisionsDisabled}
+                        onPick={(reason, note) =>
+                            onDecide('dismissed', { reason, note })
+                        }
+                        onCancel={onCancelDismiss}
+                    />
+                </div>
+            )}
         </li>
     );
 }
@@ -364,6 +429,7 @@ export default function JobsIndex({
     jobs,
     filters,
     pagination,
+    disposition_counts,
 }: JobsIndexProps) {
     const [q, setQ] = useState(filters.q);
     const searchInputRef = useRef<HTMLInputElement>(null);
@@ -401,6 +467,7 @@ export default function JobsIndex({
             status: string;
             triage: string;
             resume: string;
+            disposition: string;
             page: number;
             per_page: number;
         }>,
@@ -414,6 +481,7 @@ export default function JobsIndex({
                 status: filters.status,
                 triage: filters.triage,
                 resume: filters.resume,
+                disposition: filters.disposition,
                 per_page: pagination.per_page,
                 page: pagination.page,
             },
@@ -433,6 +501,10 @@ export default function JobsIndex({
         triage?: string;
         resume?: string;
     }) => navigate(next);
+
+    // The decision view is the page's primary navigation, so each one is a history entry: Back returns to the last view.
+    const showView = (disposition: JobDispositionFilter) =>
+        navigate({ disposition }, { replace: false });
 
     const scheduleSearch = (value: string) => {
         cancelPendingSearch();
@@ -474,6 +546,29 @@ export default function JobsIndex({
         () => new Set(),
     );
     const [pendingOp, setPendingOp] = useState<BatchOperation | null>(null);
+
+    // Decisions (shortlist / dismiss / pursue / restore, one job or a selection). The result arrives as flash data and is
+    // copied into page state for the same reason the batch result is (a poll clears the flash).
+    const [decisionPending, setDecisionPending] = useState(false);
+    const [dismissing, setDismissing] = useState<number | 'selection' | null>(
+        null,
+    );
+    const flashDecisionResult = usePage().flash?.decision_result;
+    const [decisionResult, setDecisionResult] = useState<
+        DecisionResult | undefined
+    >(flashDecisionResult);
+    const seenDecisionResult = useRef<DecisionResult | undefined>(
+        flashDecisionResult,
+    );
+    useEffect(() => {
+        if (
+            flashDecisionResult !== undefined &&
+            seenDecisionResult.current !== flashDecisionResult
+        ) {
+            seenDecisionResult.current = flashDecisionResult;
+            setDecisionResult(flashDecisionResult);
+        }
+    }, [flashDecisionResult]);
     const batchForm = useForm<{ job_ids: number[] }>({ job_ids: [] });
 
     // The batch result arrives as one-shot Inertia flash data. E5
@@ -549,7 +644,7 @@ export default function JobsIndex({
     const { start: startPolling, stop: stopPolling } = usePoll(
         4000,
         () => ({
-            only: ['jobs', 'pagination'],
+            only: ['jobs', 'pagination', 'disposition_counts'],
             showProgress: false,
             onBefore: () => !userVisitInFlight.current,
         }),
@@ -581,7 +676,7 @@ export default function JobsIndex({
             // take over. A new visit supersedes any in-flight poll request,
             // so nothing overlaps.
             router.reload({
-                only: ['jobs', 'pagination'],
+                only: ['jobs', 'pagination', 'disposition_counts'],
                 showProgress: false,
                 onBefore: () => !userVisitInFlight.current,
             });
@@ -619,7 +714,9 @@ export default function JobsIndex({
     const selectAllRef = useRef<HTMLInputElement>(null);
     const allSelected = jobs.length > 0 && selectedVisible.size === jobs.length;
     const anySelected = selectedVisible.size > 0;
-    const tooManyToSelectAll = jobs.length > BATCH_MAX_ITEMS;
+    const tooManyToSelectAll = jobs.length > DECISION_MAX_ITEMS;
+    // Analysis and matching take up to 50 jobs; shortlisting and dismissing take more.
+    const tooManyToProcess = selectedVisible.size > BATCH_MAX_ITEMS;
 
     // "Some but not all visible rows checked" is DOM-only state — expose
     // it straight on the input's indeterminate property.
@@ -636,7 +733,9 @@ export default function JobsIndex({
         // A re-selection invalidates any error from the prior attempt; drop it
         // so a message about the old selection can't linger after it changes.
         batchForm.clearErrors();
-        setSelectedIds((prev) => toggleSelection(prev, jobId, checked));
+        setSelectedIds((prev) =>
+            toggleSelection(prev, jobId, checked, DECISION_MAX_ITEMS),
+        );
     };
 
     const toggleAll = () => {
@@ -653,6 +752,7 @@ export default function JobsIndex({
             toggleAllSelection(
                 prev,
                 jobs.map((job) => job.id),
+                DECISION_MAX_ITEMS,
             ),
         );
     };
@@ -661,6 +761,57 @@ export default function JobsIndex({
         setSelectedIds(new Set<number>());
         // Selection changed — clear a stale error from the prior attempt.
         batchForm.clearErrors();
+    };
+
+    const post = (
+        url: string,
+        data: Record<string, unknown>,
+        onSuccess?: () => void,
+    ) => {
+        setDecisionPending(true);
+        router.post(url, data as Parameters<typeof router.post>[1], {
+            showProgress: false,
+            preserveScroll: true,
+            preserveState: true,
+            onSuccess,
+            onFinish: () => setDecisionPending(false),
+        });
+    };
+
+    const decideOne =
+        (job: JobPostingSummary): DecideFn =>
+        (to, options) => {
+            setDismissing(null);
+            post(decisionStore.url({ jobPosting: job.id }), {
+                disposition: to,
+                reason: options?.reason,
+                note: options?.note,
+            });
+        };
+
+    const decideSelected: DecideFn = (to, options) => {
+        const ids = [...selectedVisible];
+        if (ids.length < 1 || ids.length > DECISION_MAX_ITEMS) {
+            return;
+        }
+        setDismissing(null);
+        post(
+            batchDecision.url(),
+            {
+                job_ids: ids,
+                disposition: to,
+                reason: options?.reason,
+                note: options?.note,
+            },
+            () => setSelectedIds(new Set<number>()),
+        );
+    };
+
+    const undoDecision = () => {
+        if (decisionResult === undefined) {
+            return;
+        }
+        post(decisionsUndo.url(), { decisions: decisionResult.decision_ids });
     };
 
     const submitBatch = (operation: BatchOperation) => {
@@ -699,7 +850,7 @@ export default function JobsIndex({
     const batchError =
         batchErrors['job_ids'] ??
         (hasIndexedBatchError
-            ? 'One of the selected opportunities could not be processed.'
+            ? 'One of the selected jobs could not be processed.'
             : undefined);
     const reasonLines =
         batchResult === undefined ? [] : batchReasonLines(batchResult);
@@ -708,15 +859,27 @@ export default function JobsIndex({
         filters.status !== 'all' ||
         filters.triage !== 'all' ||
         filters.resume !== 'all';
+    const bulkDecisions = bulkDecisionsFor(filters.disposition);
+    const viewTabs = DISPOSITION_TABS.map((tab) => ({
+        value: tab.value,
+        label: `${tab.label} ${disposition_counts[tab.value]}`,
+    }));
+    const emptyView = {
+        inbox: 'Your Inbox is empty: every job has been shortlisted, dismissed or pursued.',
+        shortlist:
+            'Nothing is shortlisted yet. Shortlist jobs from the Inbox to keep them in view.',
+        dismissed: 'No jobs have been dismissed.',
+        all: 'No jobs captured yet.',
+    }[filters.disposition];
 
     return (
         <AppShell>
-            <Head title="Opportunities" />
+            <Head title="Jobs" />
 
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <h1 className="text-fg text-xl font-semibold tracking-tight sm:text-2xl">
-                        Opportunities
+                        Jobs
                     </h1>
                     <p
                         aria-live="polite"
@@ -747,7 +910,7 @@ export default function JobsIndex({
                             scheduleSearch(value);
                         }}
                         placeholder="Search title or company…"
-                        aria-label="Search opportunities"
+                        aria-label="Search jobs"
                         className="pr-8"
                     />
                     {q !== '' && (
@@ -762,6 +925,14 @@ export default function JobsIndex({
                     )}
                 </div>
 
+                <FilterGroup label="Show">
+                    <SegmentedControl
+                        label="Decision view"
+                        items={viewTabs}
+                        value={filters.disposition}
+                        onChange={showView}
+                    />
+                </FilterGroup>
                 <FilterGroup label="Stage">
                     <SegmentedControl
                         label="Triage stage"
@@ -787,6 +958,15 @@ export default function JobsIndex({
                     />
                 </FilterGroup>
             </div>
+
+            {decisionResult !== undefined && (
+                <DecisionResultPanel
+                    result={decisionResult}
+                    busy={decisionPending}
+                    onUndo={undoDecision}
+                    onDismiss={() => setDecisionResult(undefined)}
+                />
+            )}
 
             {batchResult !== undefined && !batchResultDismissed && (
                 <Alert
@@ -821,9 +1001,7 @@ export default function JobsIndex({
             {jobs.length === 0 ? (
                 <Card className="mt-5 border-dashed p-10 text-center">
                     <p className="text-fg-muted text-sm">
-                        {filtersActive
-                            ? describeFilters(filters)
-                            : 'No jobs captured yet.'}
+                        {filtersActive ? describeFilters(filters) : emptyView}
                     </p>
                     {filtersActive ? (
                         <Button
@@ -840,6 +1018,13 @@ export default function JobsIndex({
                             }}
                         >
                             Clear search and filters
+                        </Button>
+                    ) : filters.disposition !== 'all' ? (
+                        <Button
+                            className="mt-4"
+                            onClick={() => showView('all')}
+                        >
+                            Show all jobs
                         </Button>
                     ) : (
                         <ButtonLink
@@ -875,7 +1060,7 @@ export default function JobsIndex({
                                     pendingOp !== null || tooManyToSelectAll
                                 }
                                 onChange={toggleAll}
-                                aria-label="Select all visible opportunities"
+                                aria-label="Select all visible jobs"
                             />
                             <span aria-live="polite">
                                 {anySelected
@@ -885,59 +1070,134 @@ export default function JobsIndex({
                         </label>
 
                         {anySelected ? (
-                            <div className="flex flex-wrap items-center gap-2">
-                                <Button
-                                    variant="primary"
-                                    size="sm"
-                                    disabled={pendingOp !== null}
-                                    onClick={() => submitBatch('analyze')}
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                                <div
+                                    role="group"
+                                    aria-label="Decide on selected jobs"
+                                    className="flex flex-wrap items-center gap-1.5"
                                 >
-                                    {pendingOp === 'analyze'
-                                        ? 'Analyzing…'
-                                        : 'Analyze selected'}
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    disabled={pendingOp !== null}
-                                    onClick={() => submitBatch('match')}
+                                    {bulkDecisions.includes('shortlisted') && (
+                                        <Button
+                                            size="sm"
+                                            disabled={decisionPending}
+                                            aria-label="Shortlist selected"
+                                            onClick={() =>
+                                                decideSelected('shortlisted')
+                                            }
+                                        >
+                                            Shortlist
+                                        </Button>
+                                    )}
+                                    {bulkDecisions.includes('dismissed') && (
+                                        <Button
+                                            size="sm"
+                                            disabled={decisionPending}
+                                            aria-label="Dismiss selected"
+                                            onClick={() =>
+                                                setDismissing('selection')
+                                            }
+                                        >
+                                            Dismiss
+                                        </Button>
+                                    )}
+                                    {bulkDecisions.includes('new') && (
+                                        <Button
+                                            size="sm"
+                                            disabled={decisionPending}
+                                            aria-label="Restore selected to Inbox"
+                                            onClick={() =>
+                                                decideSelected('new')
+                                            }
+                                        >
+                                            Restore to Inbox
+                                        </Button>
+                                    )}
+                                </div>
+                                <div
+                                    role="group"
+                                    aria-label="Process selected jobs"
+                                    title={
+                                        tooManyToProcess
+                                            ? `Analyze and match handle up to ${BATCH_MAX_ITEMS} jobs at a time`
+                                            : undefined
+                                    }
+                                    className="flex flex-wrap items-center gap-1.5"
                                 >
-                                    {pendingOp === 'match'
-                                        ? 'Matching…'
-                                        : 'Match selected'}
-                                </Button>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    disabled={pendingOp !== null}
-                                    onClick={clearSelection}
-                                >
-                                    Clear
-                                </Button>
+                                    <Button
+                                        variant="primary"
+                                        size="sm"
+                                        disabled={
+                                            pendingOp !== null ||
+                                            tooManyToProcess
+                                        }
+                                        onClick={() => submitBatch('analyze')}
+                                    >
+                                        {pendingOp === 'analyze'
+                                            ? 'Analyzing…'
+                                            : 'Analyze selected'}
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        disabled={
+                                            pendingOp !== null ||
+                                            tooManyToProcess
+                                        }
+                                        onClick={() => submitBatch('match')}
+                                    >
+                                        {pendingOp === 'match'
+                                            ? 'Matching…'
+                                            : 'Match selected'}
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        disabled={pendingOp !== null}
+                                        onClick={clearSelection}
+                                    >
+                                        Clear
+                                    </Button>
+                                </div>
                             </div>
                         ) : tooManyToSelectAll ? (
                             <p className="text-fg-subtle text-xs">
                                 <span className="sm:hidden">
-                                    Batch limit: {BATCH_MAX_ITEMS}. Pick rows
-                                    one by one.
+                                    Limit: {DECISION_MAX_ITEMS} per action.
                                 </span>
                                 <span className="hidden sm:inline">
-                                    Select all is limited to {BATCH_MAX_ITEMS}{' '}
-                                    rows. Pick rows individually, or show 25 or
-                                    50 per page.
+                                    Select all is limited to{' '}
+                                    {DECISION_MAX_ITEMS} rows. Pick rows
+                                    individually, or show fewer per page.
                                 </span>
                             </p>
                         ) : (
                             <p className="text-fg-subtle text-xs">
                                 <span className="sm:hidden">
-                                    Batch limit: {BATCH_MAX_ITEMS}
+                                    Analyze/match: up to {BATCH_MAX_ITEMS}
                                 </span>
                                 <span className="hidden sm:inline">
-                                    Select rows to analyze or match them in a
-                                    batch (up to {BATCH_MAX_ITEMS}).
+                                    Select jobs to shortlist or dismiss them, or
+                                    to analyze or match up to {BATCH_MAX_ITEMS}{' '}
+                                    at a time.
                                 </span>
                             </p>
                         )}
                     </div>
+
+                    {dismissing === 'selection' && anySelected && (
+                        <div className="border-line border-b px-4 py-3">
+                            <DismissStrip
+                                heading={`Dismiss ${selectedVisible.size} selected because…`}
+                                disabled={decisionPending}
+                                onPick={(reason, note) =>
+                                    decideSelected('dismissed', {
+                                        reason,
+                                        note,
+                                    })
+                                }
+                                onCancel={() => setDismissing(null)}
+                            />
+                        </div>
+                    )}
 
                     {batchError !== undefined && (
                         <p
@@ -950,18 +1210,24 @@ export default function JobsIndex({
 
                     <ul className="divide-line divide-y">
                         {jobs.map((job) => (
-                            <OpportunityRow
+                            <JobRow
                                 key={job.id}
                                 job={job}
                                 selected={selectedVisible.has(job.id)}
                                 checkboxDisabled={
                                     pendingOp !== null ||
                                     (!selectedVisible.has(job.id) &&
-                                        selectedVisible.size >= BATCH_MAX_ITEMS)
+                                        selectedVisible.size >=
+                                            DECISION_MAX_ITEMS)
                                 }
+                                decisionsDisabled={decisionPending}
+                                dismissing={dismissing === job.id}
                                 onToggle={(checked) =>
                                     toggleJob(job.id, checked)
                                 }
+                                onDecide={decideOne(job)}
+                                onStartDismiss={() => setDismissing(job.id)}
+                                onCancelDismiss={() => setDismissing(null)}
                             />
                         ))}
                     </ul>

@@ -11,6 +11,7 @@ use App\Http\Controllers\GenerationAttemptController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\JobAnalysisController;
 use App\Http\Controllers\JobBatchController;
+use App\Http\Controllers\JobDecisionController;
 use App\Http\Controllers\JobMatchController;
 use App\Http\Controllers\JobPostingController;
 use App\Http\Controllers\JobResumePdfController;
@@ -98,6 +99,13 @@ Route::post('/evidence-consolidations/{consolidation}/reject', [EvidenceConsolid
 // App\Support\OpportunityTriage\ProcessBatchOpportunities.
 Route::post('/jobs/batch/analyze', [JobBatchController::class, 'analyze'])->name('jobs.batch.analyze');
 Route::post('/jobs/batch/match', [JobBatchController::class, 'match'])->name('jobs.batch.match');
+
+// Job decisions (Inbox / Shortlist / Dismissed / Pursued): every change goes through App\Support\JobDecisions\RecordJobDecision,
+// which keeps the history, the guardrails and undo. The batch route is declared before the per-job one so "batch" is
+// never read as a job id.
+Route::post('/jobs/batch/decision', [JobDecisionController::class, 'batch'])->name('jobs.batch.decision');
+Route::post('/jobs/decisions/undo', [JobDecisionController::class, 'undo'])->name('jobs.decisions.undo');
+Route::post('/jobs/{jobPosting}/decision', [JobDecisionController::class, 'store'])->whereNumber('jobPosting')->name('jobs.decision.store');
 
 // Job Analysis generation is queued (GenerateJobAnalysisJob) — this
 // POST only creates/looks up a GenerationAttempt and dispatches, so it

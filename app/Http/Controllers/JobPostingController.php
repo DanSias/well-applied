@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\DismissalReason;
 use App\Enums\GenerationStatus;
 use App\Enums\GenerationType;
+use App\Enums\JobDisposition;
 use App\Http\Requests\StoreJobPostingRequest;
 use App\Models\GenerationAttempt;
 use App\Models\JobAnalysis;
@@ -41,8 +43,17 @@ class JobPostingController extends Controller
         // Resume work, per job: 'in-progress' (a resume exists, none marked final) or 'final'. Anything else is no restriction.
         $resume = in_array($request->query('resume'), ['in-progress', 'final'], true) ? (string) $request->query('resume') : 'all';
         $perPage = $this->perPage($request);
+        // The decision view: the inbox (jobs nobody has decided on) unless another is asked for. Anything unrecognized is the inbox.
+        $disposition = in_array($request->query('disposition'), ['inbox', 'shortlist', 'dismissed', 'all'], true) ? (string) $request->query('disposition') : 'inbox';
 
         $query = CurrentCareerProfile::resolve()->jobPostings()->latest()->orderByDesc('id');
+
+        match ($disposition) {
+            'inbox' => $query->where('disposition', JobDisposition::New->value),
+            'shortlist' => $query->where('disposition', JobDisposition::Shortlisted->value),
+            'dismissed' => $query->where('disposition', JobDisposition::Dismissed->value),
+            default => null,
+        };
 
         if ($search !== '') {
             $query->where(function ($q) use ($search) {
@@ -92,7 +103,8 @@ class JobPostingController extends Controller
             // `triage` is normalized so the echoed filter always reflects
             // what was actually applied — an invalid value degrades to
             // `all` in both behavior and props.
-            'filters' => ['q' => $search, 'status' => $status, 'triage' => $triageStages === null ? 'all' : $triage, 'resume' => $resume],
+            'filters' => ['q' => $search, 'status' => $status, 'triage' => $triageStages === null ? 'all' : $triage, 'resume' => $resume, 'disposition' => $disposition],
+            'disposition_counts' => $this->dispositionCounts(),
             // Normalized the same way: an out-of-range page or an
             // unsupported page size degrades to a valid one and is echoed.
             'pagination' => [
@@ -105,6 +117,23 @@ class JobPostingController extends Controller
                 'per_page_options' => self::PER_PAGE_OPTIONS,
             ],
         ]);
+    }
+
+    /**
+     * How many of the profile's jobs sit in each decision view, regardless of the other filters. `all` includes pursued jobs.
+     *
+     * @return array{inbox: int, shortlist: int, dismissed: int, all: int}
+     */
+    private function dispositionCounts(): array
+    {
+        $counts = CurrentCareerProfile::resolve()->jobPostings()->selectRaw('disposition, count(*) as total')->groupBy('disposition')->pluck('total', 'disposition');
+
+        return [
+            'inbox' => (int) $counts->get(JobDisposition::New->value, 0),
+            'shortlist' => (int) $counts->get(JobDisposition::Shortlisted->value, 0),
+            'dismissed' => (int) $counts->get(JobDisposition::Dismissed->value, 0),
+            'all' => (int) $counts->sum(),
+        ];
     }
 
     /** Page sizes the list offers; anything else degrades to the default. */
@@ -190,6 +219,12 @@ class JobPostingController extends Controller
             'inspection' => $inspection,
             'triage' => $triage,
             'discovery' => $this->transformDiscoveryMetadata($job),
+            'disposition' => [
+                'value' => $job->disposition->value,
+                'reason' => $job->disposition_reason,
+                'reason_label' => DismissalReason::tryFrom((string) $job->disposition_reason)?->label(),
+                'decided_at' => $job->dispositioned_at?->toIso8601String(),
+            ],
         ];
     }
 
