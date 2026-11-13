@@ -1,5 +1,6 @@
 import type { Tone } from '@/components/ui/badge';
 import type { OpportunityTriageStage } from '@/types/job-posting';
+import type { SubmissionIndicator } from '@/lib/submission';
 import type { InspectionSummary } from '@/types/application-inspection';
 
 /**
@@ -38,6 +39,8 @@ export type Opportunity = {
         final_variant_id: number | null;
     };
     inspection: InspectionSummary;
+    /** An application the person recorded themselves, or null. Never the browser inspection above. */
+    submission: SubmissionIndicator | null;
     pending_questions: boolean;
     next: NextKind;
 };

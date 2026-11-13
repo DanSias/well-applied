@@ -15,6 +15,7 @@ import { Card } from '@/components/ui/surface';
 import { useJobDecisions } from '@/hooks/use-job-decisions';
 import AppShell from '@/layouts/app-shell';
 import { formatCompensation } from '@/lib/job-display';
+import { browserTimezone, submissionIndicator } from '@/lib/submission';
 import { notify } from '@/lib/toast';
 import {
     RESUME_FILTERS,
@@ -82,6 +83,8 @@ function OpportunityRow({
     const canInspect =
         op.inspection.application_id !== null || op.source_url !== null;
     const label = `${op.title} at ${op.company}`;
+    // The application the person recorded, never the browser inspection, which has its own badge.
+    const applied = submissionIndicator(op.submission, browserTimezone());
 
     return (
         <li className="grid grid-cols-1 items-start gap-x-3 gap-y-2 px-4 py-2.5 sm:grid-cols-[minmax(0,1fr)_auto]">
@@ -112,6 +115,11 @@ function OpportunityRow({
                             ? ` · ${op.resume.versions} versions`
                             : ''}
                     </Badge>
+                    {applied.tone !== null ? (
+                        <Badge tone={applied.tone}>{applied.label}</Badge>
+                    ) : (
+                        <span className="text-fg-subtle">{applied.label}</span>
+                    )}
                     <TriageStageBadge value={op.stage} />
                     {showInspection && (
                         <InspectionStateBadge summary={op.inspection} />
