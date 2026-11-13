@@ -87,7 +87,7 @@ final class RecordSubmissionEvent
                 throw new SubmissionException('This application was marked as recorded in error, so nothing more can be added to it.', 'recorded_in_error');
             }
 
-            $this->refuseAfterAnEnding($locked, $type, $occurredAt);
+            $this->refuseAfterAnEnding($locked, $type, $occurredAt, $occurredOn);
 
             // By calendar day when a date was entered, so the same day entered from another timezone is never "before".
             $before = $occurredOn !== null ? $occurredOn < $locked->displayDate() : $occurredAt->isBefore($locked->submitted_at);
@@ -118,16 +118,30 @@ final class RecordSubmissionEvent
      * Once an application has ended (rejected, withdrawn, offer accepted or declined) nothing can happen to it afterwards:
      * no further ending and nothing dated after the ending. Earlier history can still be filled in (an interview that took
      * place before the rejection but was recorded after it), and a mistaken record can still be marked as such.
+     *
+     * "After" is judged by calendar day, the same convention as "before the submission": the day entered is compared with
+     * the ending's own display date (the date entered for it, or for older events the date of its instant in the
+     * application's timezone). So a same-day update is never "after" because it was entered from another timezone, and
+     * only an update genuinely dated on a later day is refused.
      */
-    private function refuseAfterAnEnding(Submission $submission, SubmissionEventType $type, CarbonInterface $occurredAt): void
+    private function refuseAfterAnEnding(Submission $submission, SubmissionEventType $type, CarbonInterface $occurredAt, ?string $occurredOn): void
     {
         if ($type === SubmissionEventType::RecordedInError) {
             return;
         }
 
-        $ending = $submission->events()->get()->filter(fn (SubmissionEvent $e) => $e->type->isTerminal())->last();
+        $ending = $submission->events()->get()
+            ->filter(fn (SubmissionEvent $e) => $e->type->isTerminal())
+            ->sortBy(fn (SubmissionEvent $e) => [$e->displayDate(), $e->occurred_at->getTimestamp(), $e->id])
+            ->last();
 
-        if ($ending !== null && ($type->isTerminal() || $occurredAt->isAfter($ending->occurred_at))) {
+        if ($ending === null) {
+            return;
+        }
+
+        $day = $occurredOn ?? $occurredAt->copy()->setTimezone(config('app.timezone'))->toDateString();
+
+        if ($type->isTerminal() || $day > $ending->displayDate()) {
             throw new SubmissionException("This application already ended ({$ending->type->label()}), so nothing after that can be added. If you applied again, record another application.", 'already_ended');
         }
     }

@@ -6,6 +6,7 @@ use App\Models\Submission;
 use App\Models\SubmissionEvent;
 use App\Support\Submissions\RecordSubmissionEvent;
 use App\Support\Submissions\SubmissionException;
+use App\Support\Submissions\SummarizeSubmission;
 use Illuminate\Support\Carbon;
 
 function events(): RecordSubmissionEvent
@@ -240,5 +241,94 @@ describe('evidence', function () {
 
     it('treats empty evidence as none', function () {
         expect(events()->record($this->submission, SubmissionEventType::FollowUpSent, now()->subDay(), evidence: [])->evidence)->toBeNull();
+    });
+});
+
+describe('after an ending, judged by calendar day', function () {
+    beforeEach(function () {
+        $this->old = Submission::factory()->create(['submitted_at' => '2026-11-01 05:00:00', 'submitted_on' => '2026-11-01']);
+        $this->at = fn (string $day, string $tz) => Carbon::parse($day, $tz)->startOfDay();
+    });
+
+    it('accepts a same-day update entered from another timezone', function (string $endedIn, string $enteredIn) {
+        events()->record($this->old, SubmissionEventType::Rejected, ($this->at)('2026-11-10', $endedIn), occurredOn: '2026-11-10');
+
+        $event = events()->record($this->old, SubmissionEventType::Interview, ($this->at)('2026-11-10', $enteredIn), occurredOn: '2026-11-10');
+
+        expect($event->occurred_on)->toBe('2026-11-10')->and($this->old->events()->count())->toBe(2);
+    })->with([
+        'rejected in Tokyo, update from New York' => ['Asia/Tokyo', 'America/New_York'],
+        'rejected in New York, update from Tokyo' => ['America/New_York', 'Asia/Tokyo'],
+        'rejected in Honolulu, update from Kiritimati' => ['Pacific/Honolulu', 'Pacific/Kiritimati'],
+        'rejected in Kiritimati, update from Honolulu' => ['Pacific/Kiritimati', 'Pacific/Honolulu'],
+    ]);
+
+    it('refuses an update genuinely dated after the ending, whatever timezone it came from', function (string $endedIn, string $enteredIn) {
+        events()->record($this->old, SubmissionEventType::Rejected, ($this->at)('2026-11-10', $endedIn), occurredOn: '2026-11-10');
+
+        refused(fn () => events()->record($this->old, SubmissionEventType::FollowUpSent, ($this->at)('2026-11-11', $enteredIn), occurredOn: '2026-11-11'), 'already_ended');
+        expect($this->old->events()->count())->toBe(1);
+    })->with([
+        'New York, then Tokyo' => ['America/New_York', 'Asia/Tokyo'],
+        'Tokyo, then New York' => ['Asia/Tokyo', 'America/New_York'],
+        // The two day-starts are the very same instant here, yet the days differ by one.
+        'Honolulu, then Kiritimati: same instant, next day' => ['Pacific/Honolulu', 'Pacific/Kiritimati'],
+    ]);
+
+    it('accepts an update dated before the ending', function () {
+        events()->record($this->old, SubmissionEventType::Withdrawn, ($this->at)('2026-11-10', 'Asia/Tokyo'), occurredOn: '2026-11-10');
+
+        events()->record($this->old, SubmissionEventType::ConfirmationReceived, ($this->at)('2026-11-09', 'America/New_York'), occurredOn: '2026-11-09');
+
+        expect($this->old->events()->count())->toBe(2);
+    });
+
+    it('still refuses a second ending, even on the same day', function () {
+        events()->record($this->old, SubmissionEventType::Rejected, ($this->at)('2026-11-10', 'Asia/Tokyo'), occurredOn: '2026-11-10');
+
+        refused(fn () => events()->record($this->old, SubmissionEventType::Withdrawn, ($this->at)('2026-11-10', 'America/New_York'), occurredOn: '2026-11-10'), 'already_ended');
+    });
+
+    it('judges an ending recorded before dates were kept by the date of its instant', function () {
+        SubmissionEvent::factory()->create(['submission_id' => $this->old->id, 'type' => SubmissionEventType::Rejected, 'occurred_at' => '2026-11-10 05:00:00', 'occurred_on' => null]);
+
+        // Same day, from any zone; and an instant-only caller late on the same UTC day.
+        events()->record($this->old, SubmissionEventType::Interview, ($this->at)('2026-11-10', 'Asia/Tokyo'), occurredOn: '2026-11-10');
+        events()->record($this->old, SubmissionEventType::FollowUpSent, Carbon::parse('2026-11-10 23:00:00', 'UTC'));
+
+        refused(fn () => events()->record($this->old, SubmissionEventType::FollowUpSent, Carbon::parse('2026-11-11 00:30:00', 'UTC')), 'already_ended');
+        refused(fn () => events()->record($this->old, SubmissionEventType::Interview, ($this->at)('2026-11-11', 'America/New_York'), occurredOn: '2026-11-11'), 'already_ended');
+        expect($this->old->events()->count())->toBe(3);
+    });
+
+    it('leaves the derived status exactly as it was after a historical backfill', function () {
+        events()->record($this->old, SubmissionEventType::Rejected, ($this->at)('2026-11-10', 'Asia/Tokyo'), occurredOn: '2026-11-10');
+        $before = app(SummarizeSubmission::class)->forSubmission($this->old);
+
+        events()->record($this->old, SubmissionEventType::Interview, ($this->at)('2026-11-10', 'America/New_York'), occurredOn: '2026-11-10');
+        events()->record($this->old, SubmissionEventType::ConfirmationReceived, ($this->at)('2026-11-05', 'America/New_York'), occurredOn: '2026-11-05');
+        $after = app(SummarizeSubmission::class)->forSubmission($this->old->fresh());
+
+        expect($before->phase->value)->toBe('rejected')->and($after->phase->value)->toBe('rejected')
+            ->and($after->active)->toBeFalse()->and($after->conflictingOutcomes)->toBeFalse()->and($after->interviews)->toBe(1);
+    });
+
+    it('keeps duplicate handling intact for a backfilled update', function () {
+        events()->record($this->old, SubmissionEventType::Rejected, ($this->at)('2026-11-10', 'Asia/Tokyo'), occurredOn: '2026-11-10');
+        $at = ($this->at)('2026-11-10', 'America/New_York');
+
+        $first = events()->record($this->old, SubmissionEventType::Interview, $at, occurredOn: '2026-11-10', idempotencyKey: 'bf');
+        $retry = events()->record($this->old, SubmissionEventType::Interview, $at->copy(), occurredOn: '2026-11-10', idempotencyKey: 'bf');
+        $identical = events()->record($this->old, SubmissionEventType::Interview, $at->copy(), occurredOn: '2026-11-10');
+
+        expect($retry->id)->toBe($first->id)->and($identical->id)->toBe($first->id)->and($this->old->events()->count())->toBe(2);
+    });
+
+    it('still lets a mistaken record be corrected', function () {
+        events()->record($this->old, SubmissionEventType::OfferAccepted, ($this->at)('2026-11-10', 'Asia/Tokyo'), occurredOn: '2026-11-10');
+
+        events()->record($this->old, SubmissionEventType::RecordedInError, now());
+
+        expect($this->old->events()->count())->toBe(2);
     });
 });
