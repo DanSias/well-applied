@@ -2,9 +2,12 @@
 
 namespace App\Support\Submissions;
 
+use App\Enums\JobDisposition;
+use App\Models\CareerProfile;
 use App\Models\JobPosting;
 use App\Models\ResumeVariant;
 use App\Models\Submission;
+use App\Support\Navigation\JobHome;
 use App\Support\ResumeRevision\JobResumes;
 
 /**
@@ -36,6 +39,89 @@ final class PresentSubmissions
             'form' => [
                 'application_url' => $job->source_url,
                 'resumes' => $this->resumeOptions($job, $history),
+            ],
+        ];
+    }
+
+    /**
+     * The Applications page: every submission of this profile's jobs, newest first, whether or not the job is still
+     * pursued. A job may have several, each its own row (numbered when there is more than one). Records marked in error
+     * are not mixed into the list; they come back separately. State is the derived one, never stored or guessed.
+     *
+     * @return array{applications: list<array<string, mixed>>, in_error: list<array<string, mixed>>, counts: array<string, int>}
+     */
+    public function forIndex(CareerProfile $profile): array
+    {
+        $submissions = Submission::query()
+            ->whereHas('jobPosting', fn ($q) => $q->where('career_profile_id', $profile->id))
+            ->with(['jobPosting', 'events'])
+            ->get();
+        $labels = [];
+        $rows = [];
+
+        foreach ($submissions as $submission) {
+            $job = $submission->jobPosting;
+            $labels[$job->id] ??= collect($this->resumes->history($job))->pluck('label', 'id');
+            $summary = $this->summaries->fromEvents($submission->events);
+
+            $rows[] = [
+                'id' => $submission->id,
+                'job' => [
+                    'id' => $job->id,
+                    'title' => $job->title,
+                    'company' => $job->company,
+                    'pursued' => $job->disposition === JobDisposition::Pursued,
+                    // A pursued job's workspace, any other job's own page: the same rule as every other link back to a job.
+                    'url' => JobHome::url($job),
+                ],
+                'submitted_at' => $submission->submitted_at->toIso8601String(),
+                'method' => $submission->method->value,
+                'phase' => $summary->phase->value,
+                'phase_label' => $summary->phase->label(),
+                'active' => $summary->active,
+                'in_error' => $summary->recordedInError,
+                'resume' => $submission->resume_variant_id !== null
+                    ? ($labels[$job->id]->get($submission->resume_variant_id) ?? 'A Well Applied resume')
+                    : ($submission->submitted_pdf_sha256 !== null ? 'A PDF you uploaded' : null),
+                'pdf_kept' => $submission->submitted_pdf_sha256 !== null,
+                'application_url' => $submission->application_url,
+                '_order' => [$submission->submitted_at->getTimestamp(), $submission->id],
+            ];
+        }
+
+        // Newest first, then number each job's own applications oldest to newest ("2 of 3"), mistakes excluded.
+        usort($rows, fn (array $a, array $b) => $b['_order'] <=> $a['_order']);
+        $perJob = collect($rows)->reject(fn (array $r) => $r['in_error'])->groupBy(fn (array $r) => $r['job']['id'])->map(fn ($g) => $g->count());
+        $seen = [];
+
+        foreach (array_reverse(array_keys($rows)) as $i) {
+            $jobId = $rows[$i]['job']['id'];
+
+            if ($rows[$i]['in_error']) {
+                $rows[$i]['attempt'] = null;
+                $rows[$i]['attempts'] = 1;
+
+                continue;
+            }
+
+            $seen[$jobId] = ($seen[$jobId] ?? 0) + 1;
+            $rows[$i]['attempt'] = $seen[$jobId];
+            $rows[$i]['attempts'] = (int) $perJob->get($jobId, 1);
+        }
+
+        $rows = array_map(function (array $r) {
+            unset($r['_order']);
+
+            return $r;
+        }, $rows);
+        $normal = array_values(array_filter($rows, fn (array $r) => ! $r['in_error']));
+
+        return [
+            'applications' => $normal,
+            'in_error' => array_values(array_filter($rows, fn (array $r) => $r['in_error'])),
+            'counts' => [
+                'recorded' => count($normal),
+                'in_progress' => count(array_filter($normal, fn (array $r) => $r['active'])),
             ],
         ];
     }

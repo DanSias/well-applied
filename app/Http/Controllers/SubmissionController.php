@@ -7,11 +7,14 @@ use App\Models\JobPosting;
 use App\Models\ResumeVariant;
 use App\Support\CurrentCareerProfile;
 use App\Support\Navigation\ReturnTo;
+use App\Support\Submissions\PresentSubmissions;
 use App\Support\Submissions\RecordSubmission;
 use App\Support\Submissions\SubmissionException;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
+use Inertia\Response;
 
 /**
  * Records that a person submitted an application themselves. Thin by design: RecordSubmission owns every rule (the
@@ -21,6 +24,15 @@ use Illuminate\Validation\ValidationException;
  */
 class SubmissionController extends Controller
 {
+    /**
+     * Everything the current profile has recorded as applied to, across all its jobs: read-only, so nothing here changes a
+     * submission. Shown whether or not the job is still pursued.
+     */
+    public function index(PresentSubmissions $submissions): Response
+    {
+        return Inertia::render('applications/index', $submissions->forIndex(CurrentCareerProfile::resolve()));
+    }
+
     public function store(StoreSubmissionRequest $request, JobPosting $jobPosting, RecordSubmission $recorder): RedirectResponse
     {
         abort_unless($jobPosting->career_profile_id === CurrentCareerProfile::resolve()->id, 404);

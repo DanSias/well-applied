@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\CurrentCareerProfile;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -41,6 +42,9 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
             ],
+            // The career profile in use (there is no sign-in): what the header's profile menu is named for. Lazy, so a
+            // request that never renders a page does not look it up.
+            'profile' => fn () => ['name' => CurrentCareerProfile::tryResolve()?->name],
         ];
     }
 }

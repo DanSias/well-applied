@@ -133,6 +133,9 @@ Route::post('/jobs/{jobPosting}/applications', [ApplicationController::class, 's
 Route::get('/applications/{application}', [ApplicationController::class, 'show'])->name('applications.show');
 
 // Recording that a person submitted an application themselves (a Submission, not the inspection Application above).
+// Every application the person recorded, newest first: read-only. (/applications/{application} below is the browser
+// inspection record, a different thing.)
+Route::get('/applications', [SubmissionController::class, 'index'])->name('applications.index');
 Route::post('/jobs/{jobPosting}/submissions', [SubmissionController::class, 'store'])->whereNumber('jobPosting')->name('jobs.submissions.store');
 Route::get('/applications/{application}/status', [ApplicationInspectionStatusController::class, 'show'])->name('applications.status');
 

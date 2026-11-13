@@ -311,3 +311,48 @@ export function createSubmitGuard() {
         },
     };
 }
+
+/** One row of the Applications page (a recorded submission), as PresentSubmissions::forIndex hands it over. */
+export type ApplicationListItem = {
+    id: number;
+    job: {
+        id: number;
+        title: string;
+        company: string;
+        pursued: boolean;
+        url: string;
+    };
+    submitted_at: string;
+    method: string;
+    phase: string;
+    phase_label: string;
+    active: boolean;
+    in_error: boolean;
+    resume: string | null;
+    pdf_kept: boolean;
+    application_url: string | null;
+    /** Which of this job's applications this is (oldest is 1), and how many it has; null for a record marked in error. */
+    attempt: number | null;
+    attempts: number;
+};
+
+/**
+ * What a row says, in words: the date (never a time), the resume when known, which application of several it is, and
+ * whether the job has left Opportunities. Nothing is invented: no resume means "no resume recorded".
+ */
+export function applicationRow(item: ApplicationListItem, timezone: string) {
+    return {
+        title: item.job.title,
+        company: item.job.company,
+        href: item.job.url,
+        status: item.phase_label,
+        tone: phaseTone(item.phase),
+        date: formatSubmittedDate(item.submitted_at, timezone),
+        resume: item.resume ?? 'No resume recorded',
+        series:
+            item.attempt !== null && item.attempts > 1
+                ? `Application ${item.attempt} of ${item.attempts}`
+                : null,
+        note: item.job.pursued ? null : 'No longer pursued',
+    };
+}

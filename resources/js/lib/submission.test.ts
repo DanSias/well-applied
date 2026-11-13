@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+    applicationRow,
     buildPayload,
     createSubmitGuard,
     formatSubmittedDate,
@@ -8,6 +9,7 @@ import {
     submissionIndicator,
     todayIn,
     validateSubmission,
+    type ApplicationListItem,
     type ApplicationSection,
     type SubmissionForm,
     type SubmissionIndicator,
@@ -346,5 +348,89 @@ describe('submit guard', () => {
         guard.finish();
 
         expect(guard.tryStart()).toBe(true);
+    });
+});
+
+describe('applicationRow', () => {
+    const item = (
+        over: Partial<ApplicationListItem> = {},
+    ): ApplicationListItem => ({
+        id: 1,
+        job: {
+            id: 7,
+            title: 'Staff Engineer',
+            company: 'Acme',
+            pursued: true,
+            url: '/opportunities/7',
+        },
+        submitted_at: '2026-11-10T05:00:00Z',
+        method: 'manual',
+        phase: 'submitted',
+        phase_label: 'Applied',
+        active: true,
+        in_error: false,
+        resume: 'Generated resume 2',
+        pdf_kept: true,
+        application_url: null,
+        attempt: 1,
+        attempts: 1,
+        ...over,
+    });
+
+    it('presents company, title, date, status and resume', () => {
+        expect(applicationRow(item(), NY)).toMatchObject({
+            title: 'Staff Engineer',
+            company: 'Acme',
+            href: '/opportunities/7',
+            status: 'Applied',
+            date: 'Nov 10, 2026',
+            resume: 'Generated resume 2',
+            series: null,
+            note: null,
+        });
+    });
+
+    it('never invents a resume, and says when the job is no longer pursued', () => {
+        const row = applicationRow(
+            item({
+                resume: null,
+                job: {
+                    id: 7,
+                    title: 'x',
+                    company: 'y',
+                    pursued: false,
+                    url: '/jobs/7',
+                },
+            }),
+            NY,
+        );
+
+        expect(row.resume).toBe('No resume recorded');
+        expect(row.note).toBe('No longer pursued');
+        expect(row.href).toBe('/jobs/7');
+    });
+
+    it('numbers several applications to the same job', () => {
+        expect(
+            applicationRow(item({ attempt: 2, attempts: 3 }), NY).series,
+        ).toBe('Application 2 of 3');
+        expect(
+            applicationRow(item({ attempt: 1, attempts: 1 }), NY).series,
+        ).toBeNull();
+    });
+
+    it('uses the derived status label and tone', () => {
+        expect(
+            applicationRow(
+                item({ phase: 'rejected', phase_label: 'Rejected' }),
+                NY,
+            ),
+        ).toMatchObject({ status: 'Rejected', tone: 'neutral' });
+        expect(
+            applicationRow(
+                item({ phase: 'interviewing', phase_label: 'Interviewing' }),
+                NY,
+            ).tone,
+        ).toBe('accent');
     });
 });
