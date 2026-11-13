@@ -13,6 +13,7 @@ import {
     show as jobShow,
 } from '@/routes/jobs';
 import { show as workspaceShow } from '@/routes/jobs/profile-resumes';
+import { index as opportunitiesIndex } from '@/routes/opportunities';
 import { index as resumeProfilesIndex } from '@/routes/resume-profiles';
 import type {
     HomeAttentionItem,
@@ -37,6 +38,13 @@ function destination(
     return variantId === null
         ? jobShow.url({ jobPosting: jobId })
         : workspaceShow.url({ jobPosting: jobId, resumeVariant: variantId });
+}
+
+/** Where an attention item leads; "review" items open Opportunities, where existing work is reviewed. */
+function attentionHref(item: HomeAttentionItem): string {
+    return item.kind === 'review'
+        ? opportunitiesIndex.url()
+        : destination(item.job_id, item.resume_variant_id, item.filter);
 }
 
 function Stat({
@@ -97,14 +105,7 @@ function AttentionRow({ item }: { item: HomeAttentionItem }) {
                     {item.message}
                 </p>
             </div>
-            <ButtonLink
-                size="sm"
-                href={destination(
-                    item.job_id,
-                    item.resume_variant_id,
-                    item.filter,
-                )}
-            >
+            <ButtonLink size="sm" href={attentionHref(item)}>
                 {item.action}
             </ButtonLink>
         </li>
@@ -180,8 +181,11 @@ export default function Home({
                   top.resume_variant_id !== null
                       ? 'Continue resume'
                       : top.action,
-              job: top.kind === 'summary' ? null : top.title,
-              href: destination(top.job_id, top.resume_variant_id, top.filter),
+              job:
+                  top.kind === 'summary' || top.kind === 'review'
+                      ? null
+                      : top.title,
+              href: attentionHref(top),
           }
         : latest
           ? {
@@ -193,7 +197,7 @@ export default function Home({
                 href: destination(latest.job_id, latest.resume_variant_id),
             }
           : { label: 'Add a job', job: null, href: jobsCreate.url() };
-    const empty = overview.opportunities === 0;
+    const empty = overview.jobs === 0;
 
     return (
         <AppShell>
@@ -259,10 +263,10 @@ export default function Home({
 
             {has_profile && !empty && (
                 <div className="mt-5 space-y-6">
-                    <Card className="bg-line grid grid-cols-2 gap-px overflow-hidden lg:grid-cols-4">
+                    <Card className="bg-line grid grid-cols-2 gap-px overflow-hidden lg:grid-cols-3">
                         <Stat
                             label="Jobs"
-                            value={overview.opportunities}
+                            value={overview.jobs}
                             hint={
                                 overview.not_analyzed > 0
                                     ? `${overview.not_analyzed} not analyzed`
@@ -283,33 +287,39 @@ export default function Home({
                             }
                         />
                         <Stat
-                            label="Processing now"
-                            value={overview.in_flight}
-                            hint="Analyzing or matching"
+                            label="Awaiting qualification"
+                            value={overview.awaiting}
+                            hint="In your Inbox"
+                            href={jobsIndex.url()}
+                        />
+                        <Stat
+                            label="Shortlisted"
+                            value={overview.shortlisted}
+                            hint="Worth a closer look"
                             href={jobsIndex.url({
-                                query: {
-                                    triage: 'in-progress',
-                                    disposition: 'all',
-                                },
+                                query: { disposition: 'shortlist' },
                             })}
+                        />
+                        <Stat
+                            label="Opportunities"
+                            value={overview.pursued}
+                            hint="Jobs you are pursuing"
+                            href={opportunitiesIndex.url()}
                         />
                         <Stat
                             label="Resumes in progress"
                             value={overview.resumes_in_progress}
-                            hint="Not marked final"
-                            href={jobsIndex.url({
-                                query: {
-                                    resume: 'in-progress',
-                                    disposition: 'all',
-                                },
+                            hint="On your opportunities"
+                            href={opportunitiesIndex.url({
+                                query: { resume: 'in-progress' },
                             })}
                         />
                         <Stat
                             label="Final resumes"
                             value={overview.resumes_final}
-                            hint="Ready to apply with"
-                            href={jobsIndex.url({
-                                query: { resume: 'final', disposition: 'all' },
+                            hint="On your opportunities"
+                            href={opportunitiesIndex.url({
+                                query: { resume: 'final' },
                             })}
                         />
                     </Card>
@@ -379,11 +389,16 @@ export default function Home({
             {has_profile && (
                 <section aria-label="Quick access" className="mt-6">
                     <SectionTitle>Quick access</SectionTitle>
-                    <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                         <QuickLink
                             href={jobsIndex.url()}
                             title="Jobs"
                             description="Qualify, analyze and match job postings."
+                        />
+                        <QuickLink
+                            href={opportunitiesIndex.url()}
+                            title="Opportunities"
+                            description="Resumes and next steps for jobs you are pursuing."
                         />
                         <QuickLink
                             href={resumeProfilesIndex.url()}

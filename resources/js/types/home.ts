@@ -1,16 +1,20 @@
 import type { Tone } from '@/components/ui/badge';
 
 export type HomeOverview = {
-    opportunities: number;
+    jobs: number;
+    awaiting: number;
+    shortlisted: number;
+    pursued: number;
     not_analyzed: number;
     in_flight: number;
     resumes_in_progress: number;
     resumes_final: number;
+    existing_work_to_review: number;
 };
 
 export type HomeAttentionItem = {
     key: string;
-    kind: 'questions' | 'resume' | 'summary';
+    kind: 'questions' | 'resume' | 'summary' | 'review';
     title: string;
     company: string | null;
     message: string;

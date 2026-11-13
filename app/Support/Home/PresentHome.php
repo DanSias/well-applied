@@ -3,6 +3,7 @@
 namespace App\Support\Home;
 
 use App\Enums\ClarificationSessionStatus;
+use App\Enums\JobDisposition;
 use App\Enums\JobPostingLifecycleStatus;
 use App\Models\ClarificationSession;
 use App\Models\JobAnalysis;
@@ -11,6 +12,7 @@ use App\Models\JobResumeSelection;
 use App\Models\ResumeProfile;
 use App\Models\ResumeVariant;
 use App\Support\CurrentCareerProfile;
+use App\Support\Opportunities\PresentOpportunities;
 use App\Support\OpportunityTriage\SummarizeTriageStates;
 use App\Support\ReadinessReview\PresentReadiness;
 use App\Support\ResumeRevision\JobResumes;
@@ -49,6 +51,7 @@ final class PresentHome
         private readonly JobResumes $jobResumes,
         private readonly PresentReadiness $readiness,
         private readonly PresentResumeWorkspace $workspace,
+        private readonly PresentOpportunities $opportunities,
     ) {}
 
     /**
@@ -64,7 +67,7 @@ final class PresentHome
 
         $jobs = $profile->jobPostings()
             ->where('status', '!=', JobPostingLifecycleStatus::Closed->value)
-            ->get(['id', 'company', 'title', 'created_at'])
+            ->get(['id', 'company', 'title', 'created_at', 'disposition'])
             ->keyBy('id');
 
         if ($jobs->isEmpty()) {
@@ -80,15 +83,25 @@ final class PresentHome
             ->keyBy('job_posting_id');
 
         $stages = collect($triage)->countBy('stage');
-        $finals = $resumes->filter(fn (array $r) => $r['final'] !== null);
-        $working = $resumes->filter(fn (array $r) => $r['final'] === null);
+        $dispositions = $jobs->countBy(fn (JobPosting $job) => $job->disposition->value);
+
+        // Opportunities are the pursued jobs (closed postings included: pursuing one is the user's decision, and it is
+        // listed on Opportunities either way). The resume counts are over those jobs only, so they match what
+        // Opportunities shows; resume work on jobs nobody has pursued is reported separately, never folded in.
+        $pursuedIds = $profile->jobPostings()->where('disposition', JobDisposition::Pursued->value)->pluck('id');
+        $resumeStates = collect($this->jobResumes->stateByJob($pursuedIds));
+        $toReview = count($this->opportunities->review());
 
         $overview = [
-            'opportunities' => $jobs->count(),
+            'jobs' => $jobs->count(),
+            'awaiting' => (int) $dispositions->get(JobDisposition::New->value, 0),
+            'shortlisted' => (int) $dispositions->get(JobDisposition::Shortlisted->value, 0),
+            'pursued' => $pursuedIds->count(),
             'not_analyzed' => (int) $stages->get('raw', 0),
             'in_flight' => (int) ($stages->get('analyzing', 0) + $stages->get('matching', 0)),
-            'resumes_in_progress' => $working->count(),
-            'resumes_final' => $finals->count(),
+            'resumes_in_progress' => $resumeStates->filter(fn (string $s) => $s === 'in-progress')->count(),
+            'resumes_final' => $resumeStates->filter(fn (string $s) => $s === 'final')->count(),
+            'existing_work_to_review' => $toReview,
         ];
 
         $rows = $this->rows($jobs->all(), $triage, $resumes->all(), $pending->all());
@@ -96,7 +109,7 @@ final class PresentHome
         return [
             'has_profile' => true,
             'overview' => $overview,
-            'attention' => $this->attention($rows, $stages->all()),
+            'attention' => $this->attention($rows, $stages->all(), $toReview),
             'continue' => $this->continue($rows),
             'quick_access' => $this->quickAccess($profile->id),
         ];
@@ -222,9 +235,10 @@ final class PresentHome
      *
      * @param  list<array<string, mixed>>  $rows
      * @param  array<string, int>  $stages
+     * @param  int  $toReview  jobs with resume or inspection work nobody has pursued
      * @return array{total: int, items: list<array<string, mixed>>}
      */
-    private function attention(array $rows, array $stages): array
+    private function attention(array $rows, array $stages, int $toReview): array
     {
         $items = [];
 
@@ -260,6 +274,10 @@ final class PresentHome
             if ($reasons !== []) {
                 $items[] = $this->item($row['job'], 'resume', ucfirst(implode(', ', $reasons)).'.', 'Open resume', $variant->id);
             }
+        }
+
+        if ($toReview > 0) {
+            $items[] = ['key' => 'review', 'kind' => 'review', 'title' => $toReview === 1 ? '1 job has resume or inspection work but is not pursued' : "{$toReview} jobs have resume or inspection work but are not pursued", 'company' => null, 'message' => 'Nothing is changed until you choose: pursue the ones you are really going after.', 'action' => 'Review existing work', 'job_id' => null, 'resume_variant_id' => null, 'filter' => null];
         }
 
         $failed = (int) ($stages['analysis-failed'] ?? 0) + (int) ($stages['match-failed'] ?? 0);
@@ -302,7 +320,7 @@ final class PresentHome
     private function empty(array $quickAccess = []): array
     {
         return [
-            'overview' => ['opportunities' => 0, 'not_analyzed' => 0, 'in_flight' => 0, 'resumes_in_progress' => 0, 'resumes_final' => 0],
+            'overview' => ['jobs' => 0, 'awaiting' => 0, 'shortlisted' => 0, 'pursued' => 0, 'not_analyzed' => 0, 'in_flight' => 0, 'resumes_in_progress' => 0, 'resumes_final' => 0, 'existing_work_to_review' => 0],
             'attention' => ['total' => 0, 'items' => []],
             'continue' => [],
             'quick_access' => $quickAccess + ['resume_profiles' => 0],
