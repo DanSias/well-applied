@@ -6,7 +6,9 @@ import {
     pruneSelection,
     toggleAllSelection,
     toggleSelection,
+    belongsInView,
     bulkDecisionsFor,
+    isPlainClick,
     canUndoDecision,
     decisionSummaryText,
     DECISION_MAX_ITEMS,
@@ -224,5 +226,70 @@ describe('job decision views and results', () => {
             'dismissed',
             'new',
         ]);
+    });
+});
+
+describe('the review drawer URL', () => {
+    it('adds the open job to the list URL without disturbing search, filters or paging', () => {
+        const list = {
+            ...base,
+            q: 'staff',
+            triage: 'raw',
+            disposition: 'all',
+            per_page: 50,
+            page: 3,
+        };
+
+        expect(buildListParams({ ...list, job: 42 })).toEqual({
+            q: 'staff',
+            triage: 'raw',
+            disposition: 'all',
+            per_page: 50,
+            page: 3,
+            job: 42,
+        });
+        // Closing is the same list without the job: nothing else changes, and nothing resets to page 1.
+        expect(buildListParams({ ...list, job: null })).toEqual({
+            q: 'staff',
+            triage: 'raw',
+            disposition: 'all',
+            per_page: 50,
+            page: 3,
+        });
+        expect(buildListParams(base)).toEqual({});
+    });
+
+    it('a list change drops the job, so a new filter never carries a stale drawer', () => {
+        const next = nextListState(
+            { ...base, job: 42 },
+            { job: null, triage: 'failed' },
+        );
+
+        expect(buildListParams(next)).toEqual({ triage: 'failed' });
+    });
+
+    it('keeps a job in the drawer only while it still belongs in the view', () => {
+        expect(belongsInView('all', 'dismissed')).toBe(true);
+        expect(belongsInView('inbox', 'new')).toBe(true);
+        expect(belongsInView('inbox', 'shortlisted')).toBe(false);
+        expect(belongsInView('shortlist', 'shortlisted')).toBe(true);
+        expect(belongsInView('shortlist', 'pursued')).toBe(false);
+        expect(belongsInView('dismissed', 'new')).toBe(false);
+    });
+
+    it('opens the drawer only on a plain click, leaving new-tab and new-window clicks to the link', () => {
+        const click = {
+            button: 0,
+            metaKey: false,
+            ctrlKey: false,
+            shiftKey: false,
+            altKey: false,
+        };
+
+        expect(isPlainClick(click)).toBe(true);
+        expect(isPlainClick({ ...click, metaKey: true })).toBe(false);
+        expect(isPlainClick({ ...click, ctrlKey: true })).toBe(false);
+        expect(isPlainClick({ ...click, shiftKey: true })).toBe(false);
+        expect(isPlainClick({ ...click, button: 1 })).toBe(false);
     });
 });

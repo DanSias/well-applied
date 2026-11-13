@@ -148,3 +148,31 @@
     color: var(--color-fg-muted);
     overflow-wrap: anywhere;
 }
+
+/* The job review drawer: no page scroll behind it, and a short slide-in unless motion is reduced. */
+body:has(dialog.job-drawer[open]) {
+    overflow: hidden;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    dialog.job-drawer[open] {
+        animation: job-drawer-in 0.18s ease-out;
+    }
+
+    dialog.job-drawer[open]::backdrop {
+        animation: job-drawer-fade 0.18s ease-out;
+    }
+}
+
+@keyframes job-drawer-in {
+    from {
+        transform: translateX(1.5rem);
+        opacity: 0;
+    }
+}
+
+@keyframes job-drawer-fade {
+    from {
+        opacity: 0;
+    }
+}

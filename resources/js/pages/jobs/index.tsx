@@ -1,4 +1,4 @@
-import { Head, Link, router, useForm, usePoll } from '@inertiajs/react';
+import { Head, router, useForm, usePoll } from '@inertiajs/react';
 import {
     Fragment,
     useCallback,
@@ -20,6 +20,7 @@ import {
     DispositionBadge,
     type DecideFn,
 } from '@/components/job-decisions';
+import { JobDrawer, type DrawerState } from '@/components/job-drawer';
 import { type MenuItem } from '@/components/overflow-menu';
 import { Button, ButtonLink } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -33,6 +34,8 @@ import AppShell from '@/layouts/app-shell';
 import {
     BATCH_MAX_ITEMS,
     DECISION_MAX_ITEMS,
+    belongsInView,
+    isPlainClick,
     bulkDecisionsFor,
     buildListParams,
     nextListState,
@@ -41,13 +44,10 @@ import {
     toggleSelection,
 } from '@/lib/opportunities-list';
 import { formatCompensation } from '@/lib/job-display';
+import { notify } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { show as applicationsShow } from '@/routes/applications';
-import {
-    index as jobsIndex,
-    create as createJob,
-    show as showJob,
-} from '@/routes/jobs';
+import { index as jobsIndex, create as createJob } from '@/routes/jobs';
 import { store as inspectStore } from '@/routes/jobs/applications';
 import {
     analyze as batchAnalyze,
@@ -166,41 +166,42 @@ function FilterGroup({
 }
 
 /**
- * One job, as a compact inbox entry. The title link is stretched over the row (so any click on the row opens the job)
- * and the checkbox and actions sit above it, independent of that link.
+ * One job, as a compact inbox entry. Only the title opens the drawer (the rest of the row is inert, so a stray click
+ * never opens or decides anything); the row just highlights on hover and keyboard focus to show which job is targeted.
  *
- * First line: checkbox, title and company, and the quick actions. Second line: location, source, remote status, pay,
- * and the status badges inline. Less frequent actions live in the overflow menu rather than a permanent row of buttons.
+ * First line: title (strongest), company (quieter, inline) and the actions. Second line: what decides relevance first
+ * (location, remote status, pay), then the status badges, then the low-priority source and capture date. Pursue is
+ * directly visible; the rest of the actions sit in the overflow menu.
  */
 function JobRow({
     job,
     selected,
     checkboxDisabled,
     decisionsDisabled,
-    dismissing,
+    drawerHref,
+    onOpen,
     onToggle,
     onDecide,
-    onStartDismiss,
-    onCancelDismiss,
 }: {
     job: JobPostingSummary;
     selected: boolean;
     checkboxDisabled: boolean;
     decisionsDisabled: boolean;
-    dismissing: boolean;
+    /** The list URL with this job open in the drawer: what the title links to, and what a new tab loads. */
+    drawerHref: string;
+    onOpen: (event: React.MouseEvent<HTMLAnchorElement>) => void;
     onToggle: (checked: boolean) => void;
     onDecide: DecideFn;
-    onStartDismiss: () => void;
-    onCancelDismiss: () => void;
 }) {
-    const meta = [
+    const scan = [
         job.location,
-        job.discovery.source === 'manual'
-            ? `Captured ${job.captured_at}`
-            : `via ${discoverySourceLabel(job.discovery.source)}`,
         job.discovery.remote_status,
         formatCompensation(job.discovery),
     ].filter((item): item is string => Boolean(item));
+    const origin =
+        job.discovery.source === 'manual'
+            ? `Captured ${job.captured_at}`
+            : `via ${discoverySourceLabel(job.discovery.source)} · ${job.captured_at}`;
     const inspection = job.inspection;
     const showInspection =
         inspection.state !== 'not_inspected' ||
@@ -234,7 +235,8 @@ function JobRow({
             data-selected={selected || undefined}
             className={cn(
                 'group relative grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-1.5 px-4 py-2.5 transition-colors sm:grid-cols-[auto_minmax(0,1fr)_auto]',
-                'has-[a.row-link:focus-visible]:ring-focus has-[a.row-link:focus-visible]:ring-2 has-[a.row-link:focus-visible]:ring-inset',
+                'hover:before:bg-line-strong focus-within:before:bg-accent before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-transparent before:transition-colors',
+                'focus-within:bg-raised/70',
                 selected
                     ? 'bg-accent-soft/60 hover:bg-accent-soft'
                     : 'hover:bg-raised/70',
@@ -257,23 +259,30 @@ function JobRow({
 
             <div className="min-w-0">
                 <p className="text-sm leading-snug break-words">
-                    <Link
-                        href={showJob.url(job.id)}
-                        className="row-link text-fg font-medium after:absolute after:inset-0 focus-visible:outline-none"
+                    <a
+                        href={drawerHref}
+                        data-job-id={job.id}
+                        onClick={onOpen}
+                        className="row-link text-fg focus-visible:ring-focus rounded-sm font-semibold hover:underline focus-visible:ring-2 focus-visible:outline-none"
                     >
                         {job.title}
-                    </Link>
-                    <span className="text-fg-muted"> · {job.company}</span>
+                    </a>
+                    <span className="text-fg-muted font-normal">
+                        {' '}
+                        · {job.company}
+                    </span>
                 </p>
                 <div className="text-fg-subtle mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs leading-relaxed">
-                    <span className="break-words">
-                        {meta.map((item, i) => (
-                            <Fragment key={i}>
-                                {i > 0 && ' · '}
-                                {item}
-                            </Fragment>
-                        ))}
-                    </span>
+                    {scan.length > 0 && (
+                        <span className="text-fg-muted break-words">
+                            {scan.map((item, i) => (
+                                <Fragment key={i}>
+                                    {i > 0 && ' · '}
+                                    {item}
+                                </Fragment>
+                            ))}
+                        </span>
+                    )}
                     <DispositionBadge disposition={job.disposition} />
                     <TriageStageBadge value={job.triage.stage} />
                     {job.discovery.description_completeness === 'preview' && (
@@ -287,6 +296,9 @@ function JobRow({
                     {job.triage.coverage !== null && (
                         <TriageCoverageGroup coverage={job.triage.coverage} />
                     )}
+                    <span className="text-fg-subtle/80 break-words">
+                        {origin}
+                    </span>
                 </div>
             </div>
 
@@ -296,32 +308,35 @@ function JobRow({
                     jobLabel={`${job.title} at ${job.company}`}
                     disabled={decisionsDisabled}
                     onDecide={onDecide}
-                    onStartDismiss={onStartDismiss}
                     extraItems={inspectItem}
                 />
             </div>
 
-            {dismissing && (
-                <div className="border-line relative z-10 col-span-full border-t pt-2.5">
-                    <DismissStrip
-                        heading="Dismiss because…"
-                        disabled={decisionsDisabled}
-                        onPick={(reason, note) =>
-                            onDecide('dismissed', { reason, note })
-                        }
-                        onCancel={onCancelDismiss}
-                    />
-                </div>
-            )}
         </li>
     );
 }
+
+/**
+ * Drawer bookkeeping that has to outlive the page component: going Back or Forward makes Inertia restore the page from
+ * history and remount it, which would reset anything kept in component state or refs.
+ */
+const drawerSession = {
+    /** The drawer was seen open, so a later render without it is a close. */
+    active: false,
+    /** The title that opened it, found again by id on close (the element itself is replaced by the remount). */
+    triggerId: null as number | null,
+    /** Opened from this list in this session: closing is Back, which also keeps the history tidy. */
+    openedByPush: false,
+    /** A decision was made in the drawer, so the list the browser returns to is stale. */
+    dirty: false,
+};
 
 export default function JobsIndex({
     jobs,
     filters,
     pagination,
     disposition_counts,
+    selected_job,
 }: JobsIndexProps) {
     const [q, setQ] = useState(filters.q);
     const searchInputRef = useRef<HTMLInputElement>(null);
@@ -443,6 +458,140 @@ export default function JobsIndex({
     // app-wide toast; this page only keeps which row is asking for a dismissal reason.
     const decisions = useJobDecisions();
     const decisionPending = decisions.pending;
+
+    // The review drawer. Its job is in the URL (`?job=ID`), so opening it adds a history entry (Back closes it, Forward
+    // reopens it) and a reload or a shared link restores it. Only the drawer's own props are fetched when it opens, so the
+    // list, its filters, its page and its scroll position are left exactly as they were.
+    const [pendingId, setPendingId] = useState<number | null>(null);
+    const openRequest = useRef(0);
+    const openId = pendingId ?? filters.job;
+    const selected =
+        selected_job !== null && selected_job.id === openId
+            ? selected_job
+            : null;
+    const drawerState: DrawerState =
+        selected !== null
+            ? 'ready'
+            : pendingId !== null
+              ? 'loading'
+              : 'unavailable';
+    const listState = (job: number | null = null) => ({
+        q: filters.q,
+        status: filters.status,
+        triage: filters.triage,
+        resume: filters.resume,
+        disposition: filters.disposition,
+        per_page: pagination.per_page,
+        page: pagination.page,
+        job,
+    });
+    const drawerHref = (id: number) =>
+        jobsIndex.url({ query: buildListParams(listState(id)) });
+
+    const openJob = (id: number) => {
+        const request = ++openRequest.current;
+        drawerSession.triggerId = id;
+        drawerSession.openedByPush = true;
+        setPendingId(id);
+        // A newer request cancels this one; only the latest may clear the loading state.
+        router.get(jobsIndex.url(), buildListParams(listState(id)), {
+            only: ['filters', 'selected_job'],
+            preserveState: true,
+            preserveScroll: true,
+            replace: false,
+            onNetworkError: () => {
+                notify.error("Couldn't load that job", {
+                    description: 'Check your connection and try again.',
+                });
+            },
+            onFinish: () => {
+                if (openRequest.current === request) {
+                    setPendingId(null);
+                }
+            },
+        });
+    };
+
+    const closeDrawer = () => {
+        if (pendingId !== null) {
+            // Still loading: nothing was added to the history yet, so just stop.
+            openRequest.current++;
+            drawerSession.openedByPush = false;
+            router.cancelAll();
+            setPendingId(null);
+
+            return;
+        }
+
+        if (drawerSession.openedByPush) {
+            // Opened from this list: going back is exactly closing it, and keeps the list as it was.
+            drawerSession.openedByPush = false;
+            window.history.back();
+
+            return;
+        }
+
+        // Opened by a direct link or a reload: there is no earlier list entry to return to, so replace the URL.
+        router.get(jobsIndex.url(), buildListParams(listState(null)), {
+            only: [
+                'filters',
+                'selected_job',
+                'jobs',
+                'pagination',
+                'disposition_counts',
+            ],
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+        });
+    };
+
+    // After the drawer closes: give focus back to the title that opened it, and refresh the list if a decision was made
+    // in the drawer (the entry the browser returns to was saved before it).
+    useEffect(() => {
+        if (openId !== null) {
+            drawerSession.active = true;
+
+            return;
+        }
+
+        if (!drawerSession.active) {
+            return;
+        }
+
+        drawerSession.active = false;
+        drawerSession.openedByPush = false;
+
+        if (drawerSession.dirty) {
+            drawerSession.dirty = false;
+            router.reload({
+                only: ['jobs', 'pagination', 'disposition_counts'],
+            });
+        }
+
+        const id = drawerSession.triggerId;
+
+        window.setTimeout(() => {
+            document
+                .querySelector<HTMLElement>(`a.row-link[data-job-id="${id}"]`)
+                ?.focus();
+        }, 60);
+    }, [openId]);
+
+    const decideInDrawer: DecideFn = (to, options) => {
+        if (selected === null) {
+            return;
+        }
+
+        decisions.decide(selected.id, to, options, () => {
+            drawerSession.dirty = true;
+
+            // A job that has left this view closes the drawer, rather than leaving it open on something that moved.
+            if (!belongsInView(filters.disposition, to)) {
+                closeDrawer();
+            }
+        });
+    };
     const [dismissing, setDismissing] = useState<number | 'selection' | null>(
         null,
     );
@@ -995,13 +1144,19 @@ export default function JobsIndex({
                                             DECISION_MAX_ITEMS)
                                 }
                                 decisionsDisabled={decisionPending}
-                                dismissing={dismissing === job.id}
+                                drawerHref={drawerHref(job.id)}
+                                onOpen={(event) => {
+                                    if (!isPlainClick(event)) {
+                                        return;
+                                    }
+
+                                    event.preventDefault();
+                                    openJob(job.id);
+                                }}
                                 onToggle={(checked) =>
                                     toggleJob(job.id, checked)
                                 }
                                 onDecide={decideOne(job)}
-                                onStartDismiss={() => setDismissing(job.id)}
-                                onCancelDismiss={() => setDismissing(null)}
                             />
                         ))}
                     </ul>
@@ -1032,6 +1187,16 @@ export default function JobsIndex({
                         onPage={goToPage}
                     />
                 </div>
+            )}
+            {openId !== null && (
+                <JobDrawer
+                    state={drawerState}
+                    job={selected}
+                    fallback={jobs.find((job) => job.id === openId) ?? null}
+                    decisionsDisabled={decisionPending}
+                    onDecide={decideInDrawer}
+                    onClose={closeDrawer}
+                />
             )}
         </AppShell>
     );

@@ -5,16 +5,25 @@ import { Toaster as Sonner } from 'sonner';
  * the bottom right, and Sonner centers them across the bottom on narrow screens. They pause while hovered or focused,
  * stay out of the document flow, and honor reduced motion. Colors come from the design tokens.
  */
-export function Toaster() {
+export function Toaster({
+    id,
+    inset,
+}: {
+    /** Names a second toaster (inside a modal surface); toasts sent to that id show there instead. */
+    id?: string;
+    /** Keep clear of a sticky footer: extra distance from the bottom edge, in pixels. */
+    inset?: number;
+} = {}) {
     return (
         <Sonner
+            id={id}
             theme="dark"
             position="bottom-right"
             richColors
             closeButton
             visibleToasts={3}
-            offset={16}
-            mobileOffset={12}
+            offset={inset === undefined ? 16 : { right: 16, bottom: inset }}
+            mobileOffset={inset === undefined ? 12 : { left: 12, right: 12, bottom: inset }}
             style={
                 {
                     '--normal-bg': 'var(--color-raised)',

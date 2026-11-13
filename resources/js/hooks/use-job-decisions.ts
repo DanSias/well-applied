@@ -51,12 +51,21 @@ export function useJobDecisions() {
 
     return {
         pending,
-        decide: (jobId: number, to: JobDisposition, options?: Options) =>
-            post(decisionStore.url({ jobPosting: jobId }), {
-                disposition: to,
-                reason: options?.reason,
-                note: options?.note,
-            }),
+        decide: (
+            jobId: number,
+            to: JobDisposition,
+            options?: Options,
+            onSuccess?: () => void,
+        ) =>
+            post(
+                decisionStore.url({ jobPosting: jobId }),
+                {
+                    disposition: to,
+                    reason: options?.reason,
+                    note: options?.note,
+                },
+                onSuccess,
+            ),
         decideMany: (
             jobIds: number[],
             to: JobDisposition,

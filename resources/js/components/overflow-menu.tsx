@@ -1,5 +1,12 @@
 import { Link } from '@inertiajs/react';
-import { useEffect, useRef, useState } from 'react';
+import {
+    useCallback,
+    useEffect,
+    useLayoutEffect,
+    useRef,
+    useState,
+} from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
 
 export type MenuItem = {
@@ -9,13 +16,21 @@ export type MenuItem = {
     onSelect?: () => void;
 };
 
-const ITEM_HEIGHT = 36;
+const GAP = 4;
+const EDGE = 8;
 
 /**
- * A compact "more actions" menu for the less frequent actions on a row. The menu is positioned against the viewport
- * (so a list that clips its overflow cannot cut it off), flips upward near the bottom edge, and closes on Escape, on an
- * outside click, on scroll and after a choice. Opening moves focus into the menu; arrows move between items; closing
- * returns focus to the button. A real button with aria-haspopup, so it works with touch and keyboard alike.
+ * A compact "more actions" menu for the less frequent actions on a row.
+ *
+ * The menu is rendered in a portal on <body> and positioned against the viewport. It used to render inside the row's
+ * action cluster, which is `relative z-10` and therefore its own stacking context: the menu's own z-index only ranked
+ * inside that cluster, so the next row's cluster (same z-index, later in the DOM) painted over it. A portal takes it out
+ * of every row and list container, so nothing can stack over or clip it and no oversized z-index is needed.
+ *
+ * It measures itself to flip above the trigger near the bottom edge and to stay inside the viewport horizontally, follows
+ * the trigger while an ancestor scrolls (closing if the trigger scrolls out of view), and closes on Escape, on an outside
+ * click and after a choice. Opening moves focus into the menu; arrows, Home and End move between items; closing returns
+ * focus to the button.
  */
 export function OverflowMenu({
     label,
@@ -26,45 +41,55 @@ export function OverflowMenu({
     items: MenuItem[];
     disabled?: boolean;
 }) {
-    const [position, setPosition] = useState<{
-        right: number;
-        top?: number;
-        bottom?: number;
-    } | null>(null);
+    const [open, setOpen] = useState(false);
     const trigger = useRef<HTMLButtonElement>(null);
     const menu = useRef<HTMLDivElement>(null);
-    const open = position !== null;
 
-    const close = (returnFocus = true) => {
-        setPosition(null);
+    const close = useCallback((returnFocus = true) => {
+        setOpen(false);
 
         if (returnFocus) {
             trigger.current?.focus();
         }
-    };
+    }, []);
 
-    const toggle = () => {
-        if (open) {
-            close();
+    const place = useCallback(() => {
+        const button = trigger.current?.getBoundingClientRect();
+        const box = menu.current;
+
+        if (!button || !box) {
+            return;
+        }
+
+        if (button.bottom < 0 || button.top > window.innerHeight) {
+            close(false);
 
             return;
         }
 
-        const rect = trigger.current?.getBoundingClientRect();
-
-        if (!rect) {
-            return;
-        }
-
-        const needed = items.length * ITEM_HEIGHT + 12;
-        const right = Math.max(8, window.innerWidth - rect.right);
-
-        setPosition(
-            rect.bottom + needed > window.innerHeight && rect.top > needed
-                ? { right, bottom: window.innerHeight - rect.top + 4 }
-                : { right, top: rect.bottom + 4 },
+        const { width, height } = box.getBoundingClientRect();
+        const below = window.innerHeight - button.bottom - GAP - EDGE;
+        const above = button.top - GAP - EDGE;
+        const top =
+            height <= below || below >= above
+                ? button.bottom + GAP
+                : button.top - GAP - height;
+        const left = Math.min(
+            Math.max(EDGE, button.right - width),
+            window.innerWidth - width - EDGE,
         );
-    };
+
+        box.style.top = `${Math.max(EDGE, top)}px`;
+        box.style.left = `${left}px`;
+        box.style.maxHeight = `${Math.max(120, window.innerHeight - 2 * EDGE)}px`;
+        box.style.visibility = 'visible';
+    }, [close]);
+
+    useLayoutEffect(() => {
+        if (open) {
+            place();
+        }
+    }, [open, place]);
 
     useEffect(() => {
         if (!open) {
@@ -83,18 +108,17 @@ export function OverflowMenu({
                 close(false);
             }
         };
-        const dismiss = () => close(false);
 
         document.addEventListener('pointerdown', onPointerDown);
-        window.addEventListener('scroll', dismiss, true);
-        window.addEventListener('resize', dismiss);
+        window.addEventListener('scroll', place, true);
+        window.addEventListener('resize', place);
 
         return () => {
             document.removeEventListener('pointerdown', onPointerDown);
-            window.removeEventListener('scroll', dismiss, true);
-            window.removeEventListener('resize', dismiss);
+            window.removeEventListener('scroll', place, true);
+            window.removeEventListener('resize', place);
         };
-    }, [open]);
+    }, [open, close, place]);
 
     const onKeyDown = (event: React.KeyboardEvent) => {
         const entries = [
@@ -114,6 +138,12 @@ export function OverflowMenu({
         } else if (event.key === 'ArrowUp') {
             event.preventDefault();
             entries[(index - 1 + entries.length) % entries.length]?.focus();
+        } else if (event.key === 'Home') {
+            event.preventDefault();
+            entries[0]?.focus();
+        } else if (event.key === 'End') {
+            event.preventDefault();
+            entries[entries.length - 1]?.focus();
         } else if (event.key === 'Tab') {
             close(false);
         }
@@ -131,9 +161,9 @@ export function OverflowMenu({
                 aria-label={label}
                 aria-haspopup="menu"
                 aria-expanded={open}
-                onClick={toggle}
+                onClick={() => (open ? close() : setOpen(true))}
                 className={cn(
-                    'rounded-control text-fg-muted hover:bg-raised hover:text-fg inline-flex h-8 w-8 items-center justify-center transition-colors disabled:pointer-events-none disabled:opacity-45',
+                    'rounded-control text-fg-muted hover:bg-raised hover:text-fg focus-visible:ring-focus inline-flex h-8 w-8 items-center justify-center transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-45',
                     open && 'bg-raised text-fg',
                 )}
             >
@@ -148,47 +178,45 @@ export function OverflowMenu({
                     <circle cx="13" cy="8" r="1.4" />
                 </svg>
             </button>
-            {open && (
-                <div
-                    ref={menu}
-                    role="menu"
-                    aria-label={label}
-                    onKeyDown={onKeyDown}
-                    style={{
-                        right: position.right,
-                        top: position.top,
-                        bottom: position.bottom,
-                    }}
-                    className="border-line-strong bg-raised shadow-card rounded-card fixed z-50 min-w-48 border p-1"
-                >
-                    {items.map((item) =>
-                        item.href !== undefined ? (
-                            <Link
-                                key={item.label}
-                                role="menuitem"
-                                href={item.href}
-                                className={itemClass}
-                                onClick={() => close(false)}
-                            >
-                                {item.label}
-                            </Link>
-                        ) : (
-                            <button
-                                key={item.label}
-                                type="button"
-                                role="menuitem"
-                                className={itemClass}
-                                onClick={() => {
-                                    close(false);
-                                    item.onSelect?.();
-                                }}
-                            >
-                                {item.label}
-                            </button>
-                        ),
-                    )}
-                </div>
-            )}
+            {open &&
+                createPortal(
+                    <div
+                        ref={menu}
+                        role="menu"
+                        aria-label={label}
+                        onKeyDown={onKeyDown}
+                        style={{ visibility: 'hidden' }}
+                        className="border-line-strong bg-raised shadow-card rounded-card fixed top-0 left-0 z-50 min-w-48 overflow-y-auto border p-1"
+                    >
+                        {items.map((item) =>
+                            item.href !== undefined ? (
+                                <Link
+                                    key={item.label}
+                                    role="menuitem"
+                                    href={item.href}
+                                    className={itemClass}
+                                    onClick={() => close(false)}
+                                >
+                                    {item.label}
+                                </Link>
+                            ) : (
+                                <button
+                                    key={item.label}
+                                    type="button"
+                                    role="menuitem"
+                                    className={itemClass}
+                                    onClick={() => {
+                                        close(false);
+                                        item.onSelect?.();
+                                    }}
+                                >
+                                    {item.label}
+                                </button>
+                            ),
+                        )}
+                    </div>,
+                    document.body,
+                )}
         </>
     );
 }

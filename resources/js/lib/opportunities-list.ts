@@ -15,6 +15,8 @@ export type ListState = {
     triage: string;
     resume: string;
     disposition: string;
+    /** The job open in the review drawer, if any. */
+    job?: number | null;
     per_page: number;
     page: number;
 };
@@ -48,6 +50,10 @@ export function buildListParams(
 
     if (state.resume !== 'all') {
         params.resume = state.resume;
+    }
+
+    if (state.job !== undefined && state.job !== null) {
+        params.job = state.job;
     }
 
     if (state.per_page !== DEFAULT_PER_PAGE) {
@@ -192,5 +198,35 @@ export function bulkDecisionsFor(
                 (view === 'shortlist' && d === 'shortlisted') ||
                 (view === 'dismissed' && d === 'dismissed')
             ),
+    );
+}
+
+/**
+ * Whether a job in this disposition still belongs in a Jobs view. After a decision made in the drawer, a job that no
+ * longer belongs closes the drawer (rather than leaving it open on a job that has left the list).
+ */
+export function belongsInView(view: string, disposition: string): boolean {
+    return (
+        view === 'all' ||
+        (view === 'inbox' && disposition === 'new') ||
+        (view === 'shortlist' && disposition === 'shortlisted') ||
+        (view === 'dismissed' && disposition === 'dismissed')
+    );
+}
+
+/** Plain left click only: a modified click (new tab, new window) should keep its normal link behavior. */
+export function isPlainClick(event: {
+    button: number;
+    metaKey: boolean;
+    ctrlKey: boolean;
+    shiftKey: boolean;
+    altKey: boolean;
+}): boolean {
+    return (
+        event.button === 0 &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.shiftKey &&
+        !event.altKey
     );
 }

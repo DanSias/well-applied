@@ -84,6 +84,20 @@ export type JobPostingSummary = {
     disposition: JobDispositionSummary;
 };
 
+/** The latest analysis in brief, for the review drawer; the full analysis lives on the job's own page. */
+export type JobAnalysisBrief = {
+    role_summary: string;
+    seniority: string | null;
+    requirements: string[];
+    technologies: string[];
+};
+
+/** A job as the review drawer shows it: the list row's summary plus the description and analysis the list leaves out. */
+export type SelectedJob = JobPostingSummary & {
+    description: string;
+    analysis: JobAnalysisBrief | null;
+};
+
 export type JobDisposition = 'new' | 'shortlisted' | 'dismissed' | 'pursued';
 
 /** A job's decision state, with the reason when it was dismissed. */
@@ -162,6 +176,8 @@ export type JobsIndexFilters = {
     triage: OpportunityTriageFilter;
     resume: OpportunityResumeFilter;
     disposition: JobDispositionFilter;
+    /** The job requested for the drawer (`?job=`), even if it could not be loaded. */
+    job: number | null;
 };
 
 /** Resume work per opportunity: a resume exists but none is final, or one is marked final. */
@@ -182,6 +198,8 @@ export type JobsIndexProps = {
     filters: JobsIndexFilters;
     pagination: JobsIndexPagination;
     disposition_counts: Record<JobDispositionFilter, number>;
+    /** Loaded on demand for the drawer; null when none is open or the id is not one of this profile's jobs. */
+    selected_job: SelectedJob | null;
 };
 
 export type JobShowProps = {

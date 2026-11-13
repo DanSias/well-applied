@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { DismissPopover } from '@/components/dismiss-popover';
 import { OverflowMenu, type MenuItem } from '@/components/overflow-menu';
 import { TextInput } from '@/components/ui/field';
 import type {
@@ -51,32 +52,27 @@ export function DispositionBadge({
 }
 
 /**
- * The few decisions that make sense for a job where it stands. Dismissing opens the reason strip instead of deciding
- * at once; everything else is one click.
+ * The few decisions that make sense for a job where it stands. Dismissing opens a small reason popover; everything
+ * else is one click.
  */
 export function DecisionActions({
     disposition,
     jobLabel,
     disabled,
     onDecide,
-    onStartDismiss,
 }: {
     disposition: JobDisposition;
     jobLabel: string;
     disabled: boolean;
     onDecide: DecideFn;
-    onStartDismiss: () => void;
 }) {
     const dismiss = (
-        <Button
-            variant="ghost"
-            size="sm"
+        <DismissPopover
+            jobLabel={jobLabel}
             disabled={disabled}
-            aria-label={`Dismiss ${jobLabel}`}
-            onClick={onStartDismiss}
-        >
-            Dismiss
-        </Button>
+            onDecide={onDecide}
+            withLabel
+        />
     );
     const restore = (
         <Button
@@ -194,35 +190,42 @@ export function DismissStrip({
 }
 
 /**
- * The actions on a compact list row. The quick ones stay visible as real buttons (Shortlist and Dismiss on an Inbox
- * row, so many jobs can be triaged fast, with Pursue as the next step on a shortlisted one); the rarer ones sit in the
- * overflow menu, with any extras the row supplies (such as inspecting the application form). Nothing is hover-only.
+ * The actions on a compact list row. Pursue is the one prominent action (the next step toward a resume) wherever the
+ * transition rules allow it; Shortlist sits beside it on an Inbox row as a quieter secondary. Everything else, Dismiss
+ * is a small X beside it that opens a reason popover; the rest live in the overflow menu together with any extras the row supplies (such as inspecting the application
+ * form). Dismissed jobs offer only Restore to Inbox: they cannot be pursued directly. Nothing is hover-only.
  */
 export function CompactRowActions({
     disposition,
     jobLabel,
     disabled,
     onDecide,
-    onStartDismiss,
     extraItems,
 }: {
     disposition: JobDisposition;
     jobLabel: string;
     disabled: boolean;
     onDecide: DecideFn;
-    onStartDismiss: () => void;
     extraItems: MenuItem[];
 }) {
-    const dismiss = (
+    const pursue = (
         <Button
             variant="ghost"
             size="sm"
+            className="bg-accent-soft text-accent ring-accent/25 hover:bg-accent-soft hover:text-accent hover:ring-accent/50 ring-1 ring-inset"
             disabled={disabled}
-            aria-label={`Dismiss ${jobLabel}`}
-            onClick={onStartDismiss}
+            aria-label={`Pursue ${jobLabel}`}
+            onClick={() => onDecide('pursued')}
         >
-            Dismiss
+            Pursue
         </Button>
+    );
+    const dismiss = (
+        <DismissPopover
+            jobLabel={jobLabel}
+            disabled={disabled}
+            onDecide={onDecide}
+        />
     );
     const menu = (items: MenuItem[]) =>
         items.length > 0 ? (
@@ -238,6 +241,7 @@ export function CompactRowActions({
             return (
                 <>
                     <Button
+                        variant="ghost"
                         size="sm"
                         disabled={disabled}
                         aria-label={`Shortlist ${jobLabel}`}
@@ -245,27 +249,15 @@ export function CompactRowActions({
                     >
                         Shortlist
                     </Button>
+                    {pursue}
                     {dismiss}
-                    {menu([
-                        {
-                            label: 'Pursue',
-                            onSelect: () => onDecide('pursued'),
-                        },
-                        ...extraItems,
-                    ])}
+                    {menu(extraItems)}
                 </>
             );
         case 'shortlisted':
             return (
                 <>
-                    <Button
-                        size="sm"
-                        disabled={disabled}
-                        aria-label={`Pursue ${jobLabel}`}
-                        onClick={() => onDecide('pursued')}
-                    >
-                        Pursue
-                    </Button>
+                    {pursue}
                     {dismiss}
                     {menu([
                         {
@@ -280,6 +272,7 @@ export function CompactRowActions({
             return (
                 <>
                     <Button
+                        variant="secondary"
                         size="sm"
                         disabled={disabled}
                         aria-label={`Restore ${jobLabel} to Inbox`}
@@ -291,6 +284,22 @@ export function CompactRowActions({
                 </>
             );
         default:
-            return menu(extraItems);
+            // Pursued: the state shows in the badge; the rest of the management is moving it back, or the extras.
+            return (
+                <>
+                    {dismiss}
+                    {menu([
+                {
+                    label: 'Move back to Shortlist',
+                    onSelect: () => onDecide('shortlisted'),
+                },
+                {
+                    label: 'Restore to Inbox',
+                    onSelect: () => onDecide('new'),
+                },
+                ...extraItems,
+            ])}
+                </>
+            );
     }
 }

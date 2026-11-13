@@ -25,11 +25,22 @@ export type NotifyOptions = {
 
 type Kind = keyof typeof TOAST_DURATION_MS;
 
+/**
+ * Where new toasts go. Normally the app-wide toaster; while a modal surface (the job drawer) is open, that toaster is
+ * behind it and inert, so the surface registers its own and toasts follow it: an Undo has to stay clickable.
+ */
+let target: string | undefined;
+
+export function setToastTarget(id: string | undefined) {
+    target = id;
+}
+
 function show(kind: Kind, title: string, options: NotifyOptions = {}) {
     return toast[kind](title, {
         description: options.description,
         action: options.action,
         id: options.id,
+        toasterId: target,
         duration: TOAST_DURATION_MS[kind],
     });
 }

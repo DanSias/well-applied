@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\DismissalReason;
 use App\Enums\GenerationStatus;
 use App\Enums\GenerationType;
+use App\Enums\JobAnalysisFindingCategory;
 use App\Enums\JobDisposition;
 use App\Http\Requests\StoreJobPostingRequest;
 use App\Models\GenerationAttempt;
@@ -45,6 +46,9 @@ class JobPostingController extends Controller
         $perPage = $this->perPage($request);
         // The decision view: the inbox (jobs nobody has decided on) unless another is asked for. Anything unrecognized is the inbox.
         $disposition = in_array($request->query('disposition'), ['inbox', 'shortlist', 'dismissed', 'all'], true) ? (string) $request->query('disposition') : 'inbox';
+
+        // The job open in the review drawer, if any (`?job=ID`). Only its id is read here; the detail is loaded lazily below.
+        $selectedId = ctype_digit((string) $request->query('job')) ? (int) $request->query('job') : null;
 
         $query = CurrentCareerProfile::resolve()->jobPostings()->latest()->orderByDesc('id');
 
@@ -103,8 +107,11 @@ class JobPostingController extends Controller
             // `triage` is normalized so the echoed filter always reflects
             // what was actually applied — an invalid value degrades to
             // `all` in both behavior and props.
-            'filters' => ['q' => $search, 'status' => $status, 'triage' => $triageStages === null ? 'all' : $triage, 'resume' => $resume, 'disposition' => $disposition],
+            'filters' => ['q' => $search, 'status' => $status, 'triage' => $triageStages === null ? 'all' : $triage, 'resume' => $resume, 'disposition' => $disposition, 'job' => $selectedId],
             'disposition_counts' => $this->dispositionCounts(),
+            // The drawer's job, fetched on demand and never with the list: the full description would multiply the page
+            // payload by the page size. Null when no job is open, or when the id is not one of this profile's jobs.
+            'selected_job' => fn () => $selectedId === null ? null : $this->selectedJob($selectedId, $summarizer, $triageStates),
             // Normalized the same way: an out-of-range page or an
             // unsupported page size degrades to a valid one and is echoed.
             'pagination' => [
@@ -117,6 +124,38 @@ class JobPostingController extends Controller
                 'per_page_options' => self::PER_PAGE_OPTIONS,
             ],
         ]);
+    }
+
+    /**
+     * One job for the review drawer: the same summary the list row shows (so the drawer and the list always agree on
+     * disposition, stage and inspection), plus what the list leaves out: the verbatim description and the latest
+     * analysis in brief. Everything else about the job stays on its own page.
+     *
+     * @param  array<int, array<string, mixed>>  $listTriage
+     * @return array<string, mixed>|null
+     */
+    private function selectedJob(int $id, SummarizeInspectionStates $inspection, array $listTriage): ?array
+    {
+        $job = CurrentCareerProfile::resolve()->jobPostings()->find($id);
+
+        if ($job === null) {
+            return null;
+        }
+
+        $ids = collect([$job->id]);
+        $triage = $listTriage[$job->id] ?? app(SummarizeTriageStates::class)->forJobPostings($ids)[$job->id];
+        $analysis = $job->jobAnalyses()->latest('generated_at')->latest('id')->first();
+        $findings = $analysis?->findings()->orderBy('id')->get(['category', 'statement', 'label']);
+
+        return $this->transformSummary($job, $inspection->forJobPostings($ids)[$job->id], $triage) + [
+            'description' => $job->description,
+            'analysis' => $analysis === null ? null : [
+                'role_summary' => $analysis->role_summary,
+                'seniority' => $analysis->overall_seniority?->value,
+                'requirements' => $findings->filter(fn ($f) => $f->category === JobAnalysisFindingCategory::RequiredQualification)->pluck('statement')->take(8)->values()->all(),
+                'technologies' => $findings->filter(fn ($f) => $f->category === JobAnalysisFindingCategory::Technology)->map(fn ($f) => $f->label ?? $f->statement)->unique()->take(14)->values()->all(),
+            ],
+        ];
     }
 
     /**
