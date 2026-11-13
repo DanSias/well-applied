@@ -39,7 +39,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
                 <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2 sm:gap-4 sm:px-6">
                     <Link
                         href={home.url()}
-                        className="text-fg rounded-control flex shrink-0 items-center gap-2 text-sm font-semibold tracking-tight whitespace-nowrap"
+                        className="text-fg rounded-control hover:bg-raised/60 focus-visible:ring-focus -mx-1.5 flex shrink-0 items-center gap-2 px-1.5 py-1 text-sm font-semibold tracking-tight whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:outline-none"
                     >
                         <span
                             aria-hidden="true"
