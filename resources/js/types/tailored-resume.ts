@@ -10,6 +10,8 @@ export type TailoredResumeState =
     | 'running'
     | 'ready'
     | 'failed'
+    /** The worker stopped or restarted: nothing is running and nothing will, until it is continued. */
+    | 'interrupted'
     | 'needs_clarification';
 
 export type TailoredResumeStageKey = 'analysis' | 'match' | 'resume' | 'pdf';
@@ -17,7 +19,14 @@ export type TailoredResumeStageKey = 'analysis' | 'match' | 'resume' | 'pdf';
 export type TailoredResumeStage = {
     key: TailoredResumeStageKey;
     label: string;
-    status: 'pending' | 'queued' | 'running' | 'done' | 'reused' | 'failed';
+    status:
+        | 'pending'
+        | 'queued'
+        | 'running'
+        | 'done'
+        | 'reused'
+        | 'failed'
+        | 'interrupted';
     phase: string | null;
     duration_ms: number | null;
 };
@@ -153,6 +162,8 @@ export type TailoredResumeStatus = {
         quality?: LayoutQuality | null;
     } | null;
     waiting_for_worker: boolean;
+    /** Set when state is `interrupted`: where it stopped and when it last showed any sign of life. */
+    interruption: { stage_label: string | null; since: string | null } | null;
     clarification: Clarification | null;
     evidence_changed: boolean;
     profile_resume: {

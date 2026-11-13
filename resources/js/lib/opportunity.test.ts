@@ -247,6 +247,12 @@ describe('workspaceNext and the pipeline', () => {
         ).toMatch(/failed/);
         expect(
             workspaceNext(
+                { next: 'processing', resume: none },
+                { state: 'interrupted', needs_confirmation: false },
+            ).hint,
+        ).toMatch(/stopped/);
+        expect(
+            workspaceNext(
                 {
                     next: 'continue_resume',
                     resume: { ...none, current_variant_id: 3 },
