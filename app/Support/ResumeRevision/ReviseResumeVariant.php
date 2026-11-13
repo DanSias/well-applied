@@ -10,6 +10,7 @@ use App\Models\JobPosting;
 use App\Models\ResumeVariant;
 use App\Models\ResumeVariantExperienceBullet;
 use App\Models\ResumeVariantExperienceRole;
+use App\Models\ResumeVariantSkillSelection;
 use App\Models\Role;
 use App\Support\JobTailoring\JobRelevance;
 use App\Support\JobTailoring\ProfileJobAdapter;
@@ -286,10 +287,11 @@ final class ReviseResumeVariant
         }
 
         // ---- Judge the text that changed, by the rules generation uses
-        $summaryKeys = array_values(array_unique(array_merge(
-            $base->summaryEvidence->map(fn ($e) => $e->careerFact->key)->all(),
-            ...array_map(fn (array $r) => array_merge(...array_column($r['items'], 'keys')), array_values($newRoles)),
-        )));
+        // The facts behind this document, not the ones a parent once rested on: a rewritten summary is judged against, and
+        // records as its evidence, only what is still on the resume (see summaryEvidence()).
+        $documentKeys = array_values(array_unique(array_merge([], ...array_map(fn (array $r) => array_merge([], ...array_column($r['items'], 'keys')), array_values($newRoles)))));
+        $parentSummaryKeys = $base->summaryEvidence->map(fn ($e) => $e->careerFact->key)->all();
+        $summaryKeys = $summaryChanged ? $this->summaryEvidence($summary, $documentKeys, $parentSummaryKeys, $facts) : $parentSummaryKeys;
         $byLocation = ['summary' => $summaryKeys];
 
         foreach ($newRoles as $roleId => $entry) {
@@ -332,7 +334,7 @@ final class ReviseResumeVariant
             throw new ResumeRevisionException($errors);
         }
 
-        return DB::transaction(function () use ($posting, $base, $profile, $facts, $newRoles, $summary, $summaryChanged, $keepSkills, $baseSkills, $edits, $findingsByLocation, $effective, $synthesis) {
+        return DB::transaction(function () use ($posting, $base, $profile, $facts, $newRoles, $summary, $summaryChanged, $summaryKeys, $documentKeys, $parentSummaryKeys, $keepSkills, $baseSkills, $edits, $findingsByLocation, $effective, $synthesis) {
             $factIds = CareerFact::query()->where('career_profile_id', $profile->id)->pluck('id', 'key')->all();
 
             // The job's requirements, re-read deterministically so new bullets carry the requirement they answer.
@@ -398,23 +400,8 @@ final class ReviseResumeVariant
                 $experience[$roleRow->role_id] = $groups;
             }
 
-            // The summary keeps its evidence. When an edited summary names a project, that project's build fact (already behind a
-            // bullet) backs it too, so the summary is not left resting on facts that do not describe what it now says.
-            $summaryKeys = $base->summaryEvidence->map(fn ($e) => $e->careerFact->key)->all();
-
-            if ($summaryChanged) {
-                $sizes = $this->composition->claimGroupSizes($profile);
-
-                foreach (array_unique(array_merge(...array_map(fn (array $r) => array_merge(...array_column($r['items'], 'keys')), array_values($newRoles)))) as $key) {
-                    $project = trim(explode(':', (string) ($facts[$key]['attribution']['project'] ?? ''))[0]);
-
-                    if ($project !== '' && ! in_array($key, $summaryKeys, true) && preg_match('/\b'.preg_quote($project, '/').'\b/i', $summary) === 1 && $this->composition->isConcreteBuild($key, $facts, $sizes)) {
-                        $summaryKeys[] = $key;
-                        $edits[] = ['type' => 'summary_evidence_added', 'fact_keys' => [$key]];
-                    }
-                }
-            }
-
+            // The summary's evidence was settled before the text was judged: unchanged with an unchanged summary, otherwise the
+            // facts still on this document (plus any earlier summary-only fact the new text still states).
             foreach ($summaryKeys as $key) {
                 $variant->summaryEvidence()->create(['career_fact_id' => $factIds[$key]]);
             }
@@ -440,8 +427,15 @@ final class ReviseResumeVariant
                 }
             }
 
+            $summaryFound = $findingsByLocation['summary'] ?? [];
+            $summaryRestricted = array_values(array_filter($summaryKeys, fn (string $k) => ($facts[$k]['visibility'] ?? '') === 'restricted' && $this->statesFact($summary, (string) ($facts[$k]['statement'] ?? ''), true)));
+
+            if ($summaryChanged && $summaryRestricted !== []) {
+                $summaryFound[] = $this->restrictedSupport($summaryRestricted);
+            }
+
             $summaryItem = $summaryChanged
-                ? $this->summaryItem($summary, $findingsByLocation['summary'] ?? [])
+                ? $this->summaryItem($summary, $summaryFound)
                 : ($baseItems->firstWhere('location', 'summary') ?? $this->summaryItem($summary, []));
             $omitted = $baseItems->where('status', 'omitted')->map(fn (array $i) => [...$i, 'label' => $i['label'].' (in the original)'])->values()->all();
             $items = [$summaryItem, ...$reportItems, ...$omitted];
@@ -449,11 +443,14 @@ final class ReviseResumeVariant
 
             // Requirements each bullet answers, and the composition checks, follow the revised content.
             $raw = $base->selection_raw_response;
+            // What the revision's own rows say, so the stored response never describes a parent's summary evidence or skills.
+            $raw['summary_evidence'] = $summaryKeys;
+            $raw['skills'] = array_map(fn (int $skillId, int $order) => ['skill_id' => $skillId, 'order' => $order], $keepSkills, array_keys($keepSkills));
             $raw['experience'] = array_map(fn (array $r) => [...$r, 'bullet_groups' => $experience[$r['role_id']] ?? $r['bullet_groups']], (array) ($raw['experience'] ?? []));
             $snapshot = $base->selection_input_snapshot;
             $content = ['experience' => array_map(fn (array $r) => ['role_id' => $r['role_id'], 'bullet_groups' => $r['bullet_groups']], $raw['experience']), 'summary_evidence' => $summaryKeys];
             $snapshot['tailoring']['composition'] = $this->composition->forJob($content, $facts, $profile, $adapted, $relevance, $base->jobAnalysis);
-            $snapshot['revision'] = ['parent_variant_id' => $base->id];
+            $snapshot['revision'] = ['parent_variant_id' => $base->id, 'provenance' => $this->provenance($base, $summaryKeys, $documentKeys, $parentSummaryKeys, $keepSkills, $baseSkills, $facts)];
 
             $document = $this->documents->generate($variant->fresh());
 
@@ -493,13 +490,20 @@ final class ReviseResumeVariant
     {
         $label = "{$role->employer_name}, {$role->display_title}, bullet ".($index + 1);
 
+        $restricted = array_values(array_filter($it['keys'], fn (string $key) => ($facts[$key]['visibility'] ?? '') === 'restricted'));
+
         // A bullet that was not touched keeps what generation concluded about it.
         if (! $it['new'] && ! $it['changed']) {
             $old = $baseItems->first(fn (array $i) => $i['location'] === 'experience' && $i['role_id'] === $role->role_id && $i['bullet_group_index'] === $it['source']->display_order - 1 && $i['status'] !== 'omitted');
 
-            if ($old !== null) {
+            if ($old !== null && ($restricted === [] || in_array('restricted_support', array_column($old['findings'] ?? [], 'kind'), true))) {
                 return [...$old, 'label' => $label, 'bullet_group_index' => $index];
             }
+        }
+
+        // Restricted evidence behind a bullet is never shown as approved without a word: the bullet is held for review.
+        if ($restricted !== []) {
+            $found[] = $this->restrictedSupport($restricted);
         }
 
         $flagged = array_values(array_filter($found, fn (array $f) => $f['severity'] !== 'block'));
@@ -526,6 +530,104 @@ final class ReviseResumeVariant
             'needs_verification' => $flagged !== [], 'text' => $flagged === [] ? null : $summary,
             'findings' => array_map(fn (array $f) => ['kind' => $f['kind'], 'severity' => $f['severity'], 'detail' => $f['detail'], 'message' => $f['message']], $flagged),
             'action' => null, 'evidence' => [],
+        ];
+    }
+
+    /**
+     * The facts a revised summary rests on: every fact behind a bullet still on the resume, plus an earlier summary-only
+     * fact (one no bullet cites) only if the new text still states it. A fact that backed the old summary but is neither on
+     * the resume nor stated by the new text is history, not support, so it neither authorizes the new summary nor is
+     * recorded as its evidence.
+     *
+     * @param  array<int, string>  $documentKeys
+     * @param  array<int, string>  $parentSummaryKeys
+     * @param  array<string, array<string, mixed>>  $facts
+     * @return array<int, string>
+     */
+    private function summaryEvidence(string $summary, array $documentKeys, array $parentSummaryKeys, array $facts): array
+    {
+        $stillStated = array_filter(
+            array_diff($parentSummaryKeys, $documentKeys),
+            fn (string $key) => isset($facts[$key]) && $this->statesFact($summary, (string) $facts[$key]['statement'], ($facts[$key]['visibility'] ?? '') === 'restricted'),
+        );
+
+        return array_values(array_unique([...$documentKeys, ...$stillStated]));
+    }
+
+    /**
+     * Whether text draws on a fact: it restates at least two, and at least two fifths, of the fact's distinctive words, or a figure it states. A figure
+     * only counts for a fact that is not Restricted, because a Restricted-only figure may never be published.
+     */
+    private function statesFact(string $text, string $statement, bool $restricted): bool
+    {
+        $words = array_unique(array_filter(preg_split('/[^a-z0-9]+/', strtolower($statement)) ?: [], fn (string $w) => strlen($w) >= 6));
+        $present = array_filter($words, fn (string $w) => stripos($text, substr($w, 0, 6)) !== false);
+
+        // Two shared words are not enough: ordinary words ("applications", "developers") recur across unrelated facts, so a fact must be
+        // substantially restated, not just brushed against.
+        if ((count($present) >= 2 && count($present) / count($words) >= 0.4) || (count($words) === 1 && $present !== [])) {
+            return true;
+        }
+
+        if ($restricted) {
+            return false;
+        }
+
+        preg_match_all('/\d[\d,.]*%?/', $statement, $figures);
+
+        return array_filter($figures[0], fn (string $f) => strlen(rtrim($f, '.,')) >= 2 && str_contains($text, rtrim($f, '.,'))) !== [];
+    }
+
+    /**
+     * @param  array<int, string>  $keys
+     * @return array{kind: string, severity: string, detail: string, message: string}
+     */
+    private function restrictedSupport(array $keys): array
+    {
+        return ['kind' => 'restricted_support', 'severity' => 'review', 'detail' => implode(', ', $keys), 'message' => 'rests on Restricted evidence ['.implode(', ', $keys).']; a generalized claim is not clearance, so confirm each claim is also backed by Public evidence before sharing'];
+    }
+
+    /**
+     * What this revision's own rows rest on, kept apart from the parent's generation record that is copied unchanged:
+     * the current summary and bullet facts, which of them are Restricted, what the parent rested on that is no longer here,
+     * and whether each skill still shown has Public evidence behind it or only Restricted implementation detail.
+     *
+     * @param  array<int, string>  $summaryKeys
+     * @param  array<int, string>  $documentKeys
+     * @param  array<int, string>  $parentSummaryKeys
+     * @param  array<int, int>  $keepSkills
+     * @param  Collection<int, ResumeVariantSkillSelection>  $baseSkills
+     * @param  array<string, array<string, mixed>>  $facts
+     * @return array<string, mixed>
+     */
+    private function provenance(ResumeVariant $base, array $summaryKeys, array $documentKeys, array $parentSummaryKeys, array $keepSkills, $baseSkills, array $facts): array
+    {
+        $current = array_values(array_unique([...$summaryKeys, ...$documentKeys]));
+        $parentBulletKeys = $base->experienceRoles->flatMap(fn (ResumeVariantExperienceRole $r) => $r->bullets->flatMap(fn (ResumeVariantExperienceBullet $b) => $b->citations->map(fn ($c) => $c->careerFact->key)))->all();
+        $skills = [];
+
+        foreach ($keepSkills as $skillId) {
+            $visibilities = [];
+
+            foreach ($facts as $fact) {
+                if (in_array($skillId, array_column($fact['skills'] ?? [], 'id'), true)) {
+                    $visibilities[] = $fact['visibility'] ?? '';
+                }
+            }
+
+            $skills[] = [
+                'skill_id' => $skillId, 'name' => $baseSkills[$skillId]->name,
+                'support' => in_array('public', $visibilities, true) ? 'public' : (in_array('restricted', $visibilities, true) ? 'restricted_only' : 'unevidenced'),
+            ];
+        }
+
+        return [
+            'summary_fact_keys' => array_values($summaryKeys),
+            'bullet_fact_keys' => array_values($documentKeys),
+            'restricted_fact_keys' => array_values(array_filter($current, fn (string $k) => ($facts[$k]['visibility'] ?? '') === 'restricted')),
+            'dropped_fact_keys' => array_values(array_diff(array_unique([...$parentSummaryKeys, ...$parentBulletKeys]), $current)),
+            'skills' => $skills,
+            'generation_record' => 'wording_input_snapshot and wording_raw_response are the parent generation record, copied unchanged for history; they do not describe this document.',
         ];
     }
 }

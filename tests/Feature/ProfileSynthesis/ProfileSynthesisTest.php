@@ -1795,6 +1795,240 @@ it('does not change any data while rendering the list', function () {
     expect([ResumeProfileSynthesis::count(), $synthesis->fresh()->updated_at, EvidenceRevision::current($s['career'])])->toEqual($before);
 });
 
+// ---- Revision provenance: a revised variant records what the current document rests on, never its parent's leftovers.
+
+/**
+ * Everything a variant stores about its own evidence, so a test can prove a revision left the original exactly as it was.
+ *
+ * @return array<string, mixed>
+ */
+function evidenceFingerprint(ResumeVariant $variant): array
+{
+    $v = ResumeVariant::query()->with(['summaryEvidence.careerFact', 'skillSelections', 'experienceRoles.bullets.citations.careerFact'])->findOrFail($variant->id);
+
+    return [
+        'row' => $v->only(['summary', 'review_report', 'edit_log', 'selection_raw_response', 'selection_input_snapshot', 'wording_input_snapshot', 'wording_raw_response', 'parent_variant_id']),
+        'summary_evidence' => $v->summaryEvidence->map(fn ($e) => $e->careerFact->key)->sort()->values()->all(),
+        'skills' => $v->skillSelections->sortBy('display_order')->pluck('skill_id')->all(),
+        'bullets' => $v->experienceRoles->flatMap(fn ($r) => $r->bullets->map(fn ($b) => [$b->id, $b->text, $b->citations->map(fn ($c) => $c->careerFact->key)->sort()->values()->all()]))->all(),
+    ];
+}
+
+/** @return array<int, string> the fact keys cited by a variant's bullets */
+function bulletFactKeys(ResumeVariant $variant): array
+{
+    return ResumeVariant::query()->with('experienceRoles.bullets.citations.careerFact')->findOrFail($variant->id)
+        ->experienceRoles->flatMap(fn ($r) => $r->bullets->flatMap(fn ($b) => $b->citations->map(fn ($c) => $c->careerFact->key)))->unique()->values()->all();
+}
+
+/** @return array<int, string> the fact keys recorded as a variant's summary evidence */
+function summaryFactKeys(ResumeVariant $variant): array
+{
+    return ResumeVariant::query()->with('summaryEvidence.careerFact')->findOrFail($variant->id)->summaryEvidence->map(fn ($e) => $e->careerFact->key)->all();
+}
+
+it('records the facts behind the current document for a rewritten summary, a removed bullet and a replaced bullet, and keeps what the parent rested on only as history', function () {
+    [$s, , $variant] = writtenJobResume();
+    $roleId = $s['role']->id;
+    $variant->load('experienceRoles.bullets.citations.careerFact');
+    $parentBullets = bulletFactKeys($variant);
+    $parentSummary = summaryFactKeys($variant);
+    $original = evidenceFingerprint($variant);
+    $draft = unchangedDraft($variant);
+    $index = collect($draft['roles'])->search(fn ($r) => $r['role_id'] === $roleId);
+    $bullets = $draft['roles'][$index]['bullets'];
+
+    // Replace the first bullet with a fact the document did not rest on, and rewrite the summary without naming anything the old one did.
+    $replaced = $variant->experienceRoles->firstWhere('role_id', $roleId)->bullets->firstWhere('id', $bullets[0]['id']);
+    $replacedKeys = $replaced->citations->map(fn ($c) => $c->careerFact->key)->all();
+    $draft['roles'][$index]['bullets'][0] = ['fact_key' => 'wi-built', 'replaces' => $bullets[0]['id'], 'text' => CareerFact::where('key', 'wi-built')->value('statement')];
+    $draft['summary'] = 'Software engineer who ships workflow tooling for engineering teams.';
+
+    $revision = app(ReviseResumeVariant::class)->revise($s['posting'], $variant, $draft);
+    $revisionBullets = bulletFactKeys($revision);
+    $revisionSummary = summaryFactKeys($revision);
+    $provenance = ResumeVariant::find($revision->id)->selection_input_snapshot['revision']['provenance'];
+
+    // A replaced bullet's fact is gone from the document, from the summary's evidence and from what the stored response claims.
+    $gone = array_values(array_diff($replacedKeys, $revisionBullets));
+    expect($revisionBullets)->toContain('wi-built')
+        ->and($gone)->not->toBe([])
+        ->and(array_intersect($gone, $revisionSummary))->toBe([])
+        // Everything the summary now rests on is still on the resume (this summary states no earlier summary-only fact).
+        ->and(array_diff($revisionSummary, $revisionBullets))->toBe([])
+        ->and(ResumeVariant::find($revision->id)->selection_raw_response['summary_evidence'])->toEqualCanonicalizing($revisionSummary)
+        // What the parent rested on and the revision does not is reported as history, not support.
+        ->and($provenance['summary_fact_keys'])->toEqualCanonicalizing($revisionSummary)->and($provenance['bullet_fact_keys'])->toEqualCanonicalizing($revisionBullets)
+        ->and(array_values(array_intersect($provenance['dropped_fact_keys'], [...$parentBullets, ...$parentSummary])))->toEqualCanonicalizing($provenance['dropped_fact_keys'])
+        ->and($provenance['dropped_fact_keys'])->toContain(...$gone)
+        ->and($provenance['generation_record'])->toContain('parent generation record')
+        // The parent is exactly as it was.
+        ->and(evidenceFingerprint($variant))->toBe($original);
+});
+
+it('keeps an unchanged summary\'s evidence exactly when only bullets change, and records an earlier summary-only fact only while the new text states it', function () {
+    [$s, , $variant] = writtenJobResume();
+    $roleId = $s['role']->id;
+    $variant->load('experienceRoles.bullets');
+    $original = evidenceFingerprint($variant);
+    $draft = unchangedDraft($variant);
+    $index = collect($draft['roles'])->search(fn ($r) => $r['role_id'] === $roleId);
+    // Remove a bullet where the role has more than one; otherwise only the summary changes below.
+    $draft['roles'][$index]['bullets'] = array_slice($draft['roles'][$index]['bullets'], 0, max(1, count($draft['roles'][$index]['bullets']) - 1));
+
+    $trimmed = app(ReviseResumeVariant::class)->revise($s['posting'], $variant, $draft);
+
+    // The text the evidence was written for is unchanged, so the evidence is too.
+    expect(summaryFactKeys($trimmed))->toEqualCanonicalizing(summaryFactKeys($variant));
+
+    // A fact only the summary rested on (no bullet cites it) survives a rewrite only if the new text still states it.
+    $summaryOnly = array_values(array_diff(summaryFactKeys($variant), bulletFactKeys($trimmed)));
+    expect($summaryOnly)->not->toBe([]);
+    $stating = CareerFact::where('key', $summaryOnly[0])->value('statement');
+    $kept = app(ReviseResumeVariant::class)->revise($s['posting'], $trimmed, [...unchangedDraft($trimmed), 'summary' => 'Full-Stack Developer. '.rtrim($stating, '.').'.']);
+    $silent = app(ReviseResumeVariant::class)->revise($s['posting'], $trimmed, [...unchangedDraft($trimmed), 'summary' => 'Software engineer who ships internal tools.']);
+
+    expect(summaryFactKeys($kept))->toContain($summaryOnly[0])->and(summaryFactKeys($silent))->not->toContain($summaryOnly[0])
+        ->and(ResumeVariant::find($silent->id)->selection_input_snapshot['revision']['provenance']['dropped_fact_keys'])->toContain($summaryOnly[0]);
+
+    expect(evidenceFingerprint($variant))->toBe($original);
+});
+
+it('records every fact of a multi-fact bullet as that bullet\'s citations and on the document, and nowhere once the bullet is gone', function () {
+    [$s, , $variant] = writtenJobResume();
+    $roleId = $s['role']->id;
+    $mk = fn (string $key, string $statement) => CareerFact::factory()->create([
+        'career_profile_id' => $s['career']->id, 'key' => $key, 'statement' => $statement, 'visibility' => Visibility::Public, 'verification' => Verification::Verified,
+        'fact_type' => CareerFactType::Bullet, 'attributable_type' => 'project', 'attributable_id' => $s['projects']['flagship']->id,
+    ]);
+    $mk('wi-delivered', 'Delivered the workflow dashboard to the Product Management team.');
+    $mk('wi-normalized', 'Normalized tickets and requests into one unified model.');
+    $draft = unchangedDraft($variant);
+    $index = collect($draft['roles'])->search(fn ($r) => $r['role_id'] === $roleId);
+    $draft['roles'][$index]['bullets'][] = ['fact_keys' => ['wi-delivered', 'wi-normalized'], 'text' => 'Delivered the workflow dashboard to the Product Management team, with tickets and requests normalized into one unified model.'];
+    $draft['summary'] = 'Software engineer who delivered a workflow dashboard to the Product Management team, with tickets and requests normalized into one unified model.';
+
+    $with = app(ReviseResumeVariant::class)->revise($s['posting'], $variant, $draft);
+    $withProvenance = ResumeVariant::find($with->id)->selection_input_snapshot['revision']['provenance'];
+
+    expect(bulletFactKeys($with))->toContain('wi-delivered', 'wi-normalized')
+        ->and(summaryFactKeys($with))->toContain('wi-delivered', 'wi-normalized')
+        ->and($withProvenance['bullet_fact_keys'])->toContain('wi-delivered', 'wi-normalized');
+
+    // Remove the bullet again: neither fact is cited, recorded for the summary, or claimed by the stored response.
+    $back = unchangedDraft($with->fresh());
+
+    foreach ($back['roles'] as $i => $role) {
+        $back['roles'][$i]['bullets'] = array_values(array_filter($role['bullets'], fn ($b) => ! str_starts_with($b['text'], 'Delivered the workflow dashboard')));
+    }
+
+    $without = app(ReviseResumeVariant::class)->revise($s['posting'], $with->fresh(), [...$back, 'summary' => 'Software engineer who ships workflow tooling.']);
+    $withoutProvenance = ResumeVariant::find($without->id)->selection_input_snapshot['revision']['provenance'];
+
+    expect(bulletFactKeys($without))->not->toContain('wi-delivered', 'wi-normalized')
+        ->and(summaryFactKeys($without))->not->toContain('wi-delivered', 'wi-normalized')
+        ->and($withoutProvenance['dropped_fact_keys'])->toContain('wi-delivered', 'wi-normalized')
+        ->and(bulletFactKeys($with))->toContain('wi-delivered', 'wi-normalized');
+});
+
+it('holds a bullet or summary that rests on Restricted evidence for review, and clears the flag when it is replaced by a Public fact', function () {
+    [$s, , $variant] = writtenJobResume();
+    $roleId = $s['role']->id;
+    $mk = fn (string $key, string $statement, Visibility $v) => CareerFact::factory()->create([
+        'career_profile_id' => $s['career']->id, 'key' => $key, 'statement' => $statement, 'visibility' => $v, 'verification' => Verification::Verified,
+        'fact_type' => CareerFactType::Bullet, 'attributable_type' => 'role', 'attributable_id' => $s['role']->id,
+    ]);
+    $mk('sql-restricted', 'Optimized reporting queries using database-side aggregation to calculate totals instead of processing individual records in application code.', Visibility::Restricted);
+    $mk('sql-public', 'Built reporting dashboards backed by relational database queries for internal teams.', Visibility::Public);
+    $draft = unchangedDraft($variant);
+    $index = collect($draft['roles'])->search(fn ($r) => $r['role_id'] === $roleId);
+    $draft['roles'][$index]['bullets'][] = ['fact_key' => 'sql-restricted', 'text' => 'Optimized reporting queries using database-side aggregation to calculate totals instead of processing individual records in application code.'];
+
+    $restricted = app(ReviseResumeVariant::class)->revise($s['posting'], $variant, $draft);
+    $report = collect(ResumeVariant::find($restricted->id)->review_report['items']);
+    $flagged = $report->first(fn ($i) => collect($i['findings'])->contains(fn ($f) => $f['kind'] === 'restricted_support' && str_contains($f['detail'], 'sql-restricted')));
+    $provenance = ResumeVariant::find($restricted->id)->selection_input_snapshot['revision']['provenance'];
+
+    // Generalized wording does not make Restricted evidence approved: the bullet is held, and the document says it rests on it.
+    expect($flagged)->not->toBeNull()->and($flagged['status'])->toBe('review')->and($flagged['needs_verification'])->toBeTrue()
+        ->and($flagged['findings'][0]['detail'])->toContain('sql-restricted')
+        ->and($provenance['restricted_fact_keys'])->toContain('sql-restricted');
+
+    // Replace it with the Public fact: nothing is held, and the Restricted fact is history.
+    $latest = ResumeVariant::with('experienceRoles.bullets')->find($restricted->id);
+    $swap = unchangedDraft($latest);
+    $swapIndex = collect($swap['roles'])->search(fn ($r) => $r['role_id'] === $roleId);
+    $position = collect($swap['roles'][$swapIndex]['bullets'])->search(fn ($b) => str_contains($b['text'], 'database-side aggregation'));
+    $swap['roles'][$swapIndex]['bullets'][$position] = ['fact_key' => 'sql-public', 'replaces' => $swap['roles'][$swapIndex]['bullets'][$position]['id'], 'text' => 'Built reporting dashboards backed by relational database queries for internal teams.'];
+    $public = app(ReviseResumeVariant::class)->revise($s['posting'], $latest, $swap);
+    $publicProvenance = ResumeVariant::find($public->id)->selection_input_snapshot['revision']['provenance'];
+
+    expect(collect(ResumeVariant::find($public->id)->review_report['items'])->filter(fn ($i) => collect($i['findings'])->contains(fn ($f) => $f['kind'] === 'restricted_support' && str_contains($f['detail'], 'sql-restricted'))))->toBeEmpty()
+        ->and(bulletFactKeys($public))->toContain('sql-public')->not->toContain('sql-restricted')
+        ->and($publicProvenance['restricted_fact_keys'])->not->toContain('sql-restricted')
+        ->and($publicProvenance['dropped_fact_keys'])->toContain('sql-restricted')
+        ->and(summaryFactKeys($public))->not->toContain('sql-restricted')
+        // The variant that cited the Restricted fact is still exactly what it was.
+        ->and(bulletFactKeys($restricted))->toContain('sql-restricted');
+});
+
+it('tells a skill with Public evidence from one backed only by Restricted implementation detail, and never adds or removes one by itself', function () {
+    [$s, , $variant] = writtenJobResume();
+    $career = $s['career'];
+    $mk = fn (string $key, Visibility $v, string $name) => tap(CareerFact::factory()->create([
+        'career_profile_id' => $career->id, 'key' => $key, 'statement' => "Used {$name} at work.", 'visibility' => $v, 'verification' => Verification::Verified,
+        'fact_type' => CareerFactType::Bullet, 'attributable_type' => 'role', 'attributable_id' => $s['role']->id,
+    ]), fn (CareerFact $f) => $f->skills()->attach(Skill::factory()->create(['career_profile_id' => $career->id, 'name' => $name, 'slug' => strtolower($name)])->id));
+    $mk('cloud-restricted', Visibility::Restricted, 'AWS');
+    $mk('queue-public', Visibility::Public, 'RabbitMQ');
+    // A skill with both kinds of evidence is public: the Public fact stands on its own.
+    $both = Skill::factory()->create(['career_profile_id' => $career->id, 'name' => 'Terraform', 'slug' => 'terraform']);
+    foreach (['both-restricted' => Visibility::Restricted, 'both-public' => Visibility::Public] as $key => $v) {
+        CareerFact::factory()->create([
+            'career_profile_id' => $career->id, 'key' => $key, 'statement' => 'Used Terraform at work.', 'visibility' => $v, 'verification' => Verification::Verified,
+            'fact_type' => CareerFactType::Bullet, 'attributable_type' => 'role', 'attributable_id' => $s['role']->id,
+        ])->skills()->attach($both->id);
+    }
+    // These skills are on the resume (variants are immutable, so they are added to the parent's own rows as generation would have).
+    foreach (['AWS', 'RabbitMQ', 'Terraform'] as $name) {
+        $skill = Skill::where('career_profile_id', $career->id)->where('name', $name)->first();
+        $variant->skillSelections()->create(['skill_id' => $skill->id, 'name' => $skill->name, 'category' => $skill->category->value, 'display_order' => 90 + $skill->id]);
+    }
+
+    $revision = app(ReviseResumeVariant::class)->revise($s['posting'], $variant->fresh(), unchangedDraft($variant->fresh()));
+    $support = collect(ResumeVariant::find($revision->id)->selection_input_snapshot['revision']['provenance']['skills'])->pluck('support', 'name');
+
+    expect($support['AWS'])->toBe('restricted_only')->and($support['RabbitMQ'])->toBe('public')->and($support['Terraform'])->toBe('public')
+        // A skill the evidence legitimately supports in public stays; nothing is dropped or added silently.
+        ->and($support['TypeScript'])->toBe('public')
+        ->and($revision->skillSelections->pluck('name')->sort()->values()->all())->toBe($variant->fresh()->skillSelections->pluck('name')->sort()->values()->all())
+        ->and(ResumeVariant::find($revision->id)->selection_raw_response['skills'])->toHaveCount($revision->skillSelections->count());
+
+    // Removing a skill removes it from the stored response as well, and the original keeps it.
+    $skills = array_values(array_diff($variant->fresh()->skillSelections->pluck('skill_id')->all(), [Skill::where('name', 'AWS')->value('id')]));
+    $smaller = app(ReviseResumeVariant::class)->revise($s['posting'], $revision->fresh(), [...unchangedDraft($revision->fresh()), 'skills' => $skills]);
+
+    expect($smaller->skillSelections->pluck('name')->all())->not->toContain('AWS')
+        ->and(collect(ResumeVariant::find($smaller->id)->selection_input_snapshot['revision']['provenance']['skills'])->pluck('name')->all())->not->toContain('AWS')
+        ->and($revision->fresh()->skillSelections->pluck('name')->all())->toContain('AWS');
+});
+
+it('copies the generation record unchanged and labels it as history, leaving every earlier variant byte for byte as it was', function () {
+    [$s, , $variant] = writtenJobResume();
+    $original = evidenceFingerprint($variant);
+    $first = app(ReviseResumeVariant::class)->revise($s['posting'], $variant, [...unchangedDraft($variant), 'summary' => 'Software engineer who ships workflow tooling.']);
+    $afterFirst = evidenceFingerprint($first);
+    $second = app(ReviseResumeVariant::class)->revise($s['posting'], $first->fresh(), [...unchangedDraft($first->fresh()), 'summary' => 'Full-Stack Developer who owns applications end to end.']);
+
+    // Neither the generated variant nor the first revision changed when a later one was saved.
+    expect(evidenceFingerprint($variant))->toBe($original)->and(evidenceFingerprint($first))->toBe($afterFirst)
+        // The generation record (what the model saw and returned) is carried forward as it was, and labeled as the parent's.
+        ->and(ResumeVariant::find($second->id)->wording_input_snapshot)->toBe($variant->fresh()->wording_input_snapshot)
+        ->and(ResumeVariant::find($second->id)->wording_raw_response)->toBe($variant->fresh()->wording_raw_response)
+        ->and(ResumeVariant::find($second->id)->selection_input_snapshot['revision']['parent_variant_id'])->toBe($first->id)
+        ->and(ResumeVariant::find($second->id)->selection_input_snapshot['revision']['provenance']['generation_record'])->toContain('history');
+});
+
 // ---- The job page's Download PDF is the job's current resume, resolved when it is used.
 
 /**
