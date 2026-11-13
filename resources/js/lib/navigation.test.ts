@@ -32,33 +32,18 @@ describe('primary navigation', () => {
 });
 
 describe('active primary destination', () => {
-    it.each([
-        ['/', 'home'],
-        ['/?tab=x', 'home'],
-        ['/jobs', 'jobs'],
-        ['/jobs?disposition=shortlist&page=2', 'jobs'],
-        ['/jobs/12', 'jobs'],
-        ['/jobs/create', 'jobs'],
-        ['/opportunities', 'opportunities'],
-        ['/opportunities?resume=final', 'opportunities'],
-        ['/opportunities/4', 'opportunities'],
-        ['/applications', 'applications'],
-        ['/applications?x=1', 'applications'],
-    ])('%s belongs to %s', (url, key) => {
-        expect(activePrimary(url)).toBe(key);
-    });
+    it.each([['home'], ['jobs'], ['opportunities'], ['applications']])(
+        'lights %s when the server says so',
+        (section) => {
+            expect(activePrimary(section)).toBe(section);
+        },
+    );
 
-    it('treats an inspection record as part of Opportunities, not Applications', () => {
-        expect(activePrimary('/applications/17')).toBe('opportunities');
-    });
-
-    it('has no primary destination for the profile menu pages', () => {
-        expect(activePrimary('/career-data')).toBeNull();
-        expect(activePrimary('/resume-profiles/engineering')).toBeNull();
-    });
-
-    it('does not confuse a prefix that merely looks similar', () => {
-        expect(activePrimary('/jobsearch')).toBe('jobs');
+    it('lights nothing for the profile menu, an unknown section, or none', () => {
+        expect(activePrimary('profile')).toBeNull();
+        expect(activePrimary('nonsense')).toBeNull();
+        expect(activePrimary(null)).toBeNull();
+        expect(activePrimary(undefined)).toBeNull();
     });
 });
 

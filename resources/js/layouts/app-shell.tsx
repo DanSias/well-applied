@@ -14,8 +14,11 @@ import { home } from '@/routes';
  * here once.
  */
 export default function AppShell({ children }: { children: ReactNode }) {
-    const { url, props } = usePage<{ profile?: { name: string | null } }>();
-    const active = activePrimary(url);
+    const { url, props } = usePage<{
+        profile?: { name: string | null };
+        nav?: { section: string | null };
+    }>();
+    const active = activePrimary(props.nav?.section);
     const workerStatus = useWorkerStatusPolling();
 
     return (

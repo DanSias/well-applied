@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Support\CurrentCareerProfile;
+use App\Support\Navigation\NavigationContext;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -44,6 +45,8 @@ class HandleInertiaRequests extends Middleware
             ],
             // The career profile in use (there is no sign-in): what the header's profile menu is named for. Lazy, so a
             // request that never renders a page does not look it up.
+            // Which header section the page belongs to, from the route and the job's state (see NavigationContext).
+            'nav' => fn () => NavigationContext::for($request),
             'profile' => fn () => ['name' => CurrentCareerProfile::tryResolve()?->name],
         ];
     }

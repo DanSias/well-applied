@@ -37,33 +37,15 @@ export const PROFILE_MENU: {
 const pathOf = (url: string) => url.split(/[?#]/)[0].replace(/(.)\/$/, '$1');
 
 /**
- * Which primary destination a page belongs to, for both index and detail pages. `/applications` is the list of
- * applications the person recorded; `/applications/{id}` is a browser inspection record, reached from an opportunity, so
- * it belongs to Opportunities. Pages of the profile menu belong to no primary destination.
+ * The header section the server says this page belongs to (the shared prop `nav.section`, decided from the route and, for
+ * a page about one job, the job's state: see App\Support\Navigation\NavigationContext). It is not worked out from the
+ * address, so a pursued job's analysis or resume page keeps Opportunities lit. `profile` and anything unknown light no
+ * primary item.
  */
-export function activePrimary(url: string): PrimaryKey | null {
-    const path = pathOf(url);
-
-    if (path === '/') {
-        return 'home';
-    }
-
-    if (path === '/applications') {
-        return 'applications';
-    }
-
-    if (
-        path.startsWith('/applications/') ||
-        path.startsWith('/opportunities')
-    ) {
-        return 'opportunities';
-    }
-
-    if (path.startsWith('/jobs')) {
-        return 'jobs';
-    }
-
-    return null;
+export function activePrimary(
+    section: string | null | undefined,
+): PrimaryKey | null {
+    return PRIMARY_NAV.find((item) => item.key === section)?.key ?? null;
 }
 
 /** The profile-menu destination the page belongs to, if any (so the menu can show where you are). */
