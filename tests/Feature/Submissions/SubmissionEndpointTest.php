@@ -16,6 +16,7 @@ use App\Models\WorkflowRun;
 use App\Support\ResumeDocument\GenerateResumeDocument;
 use App\Support\ResumeDocument\ResumePdfStore;
 use App\Support\Submissions\RecordSubmissionEvent;
+use App\Support\Submissions\SubmittedResumeSnapshot;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -443,5 +444,26 @@ describe('the calendar date a person entered', function () {
         $this->get('/applications')->assertOk();
 
         expect($old->fresh()->submitted_on)->toBeNull()->and($old->fresh()->submitted_at->format('Y-m-d H:i:s'))->toBe('2026-11-10 05:00:00');
+    });
+});
+
+describe('the size of an uploaded PDF', function () {
+    it('tells the form the limit the server can really take, never more than 10 MB', function () {
+        $job = epJob();
+        $limit = SubmittedResumeSnapshot::maxUploadBytes();
+
+        expect($limit)->toBeLessThanOrEqual(10 * 1024 * 1024)->and($limit)->toBeGreaterThan(0);
+        $this->get(route('opportunities.show', $job))->assertInertia(fn (Assert $page) => $page->where('application.form.max_pdf_bytes', $limit));
+    });
+
+    it('explains, with the number, a file PHP itself refused as too large', function () {
+        $path = tempnam(sys_get_temp_dir(), 'pdf');
+        file_put_contents($path, EP_PDF);
+        $refused = new UploadedFile($path, 'cv.pdf', 'application/pdf', UPLOAD_ERR_INI_SIZE, true);
+
+        epPost($this, epJob(), ['resume_choice' => 'external', 'pdf' => $refused])->assertSessionHasErrors('pdf');
+
+        expect(session('errors')->first('pdf'))->toContain('larger than this server accepts')->and(Submission::count())->toBe(0);
+        @unlink($path);
     });
 });

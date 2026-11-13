@@ -38,6 +38,8 @@ final class PresentSubmissions
             'records' => $submissions->map(fn (Submission $s) => $this->record($s, $labels->get($s->resume_variant_id)))->all(),
             'form' => [
                 'application_url' => $job->source_url,
+                // What an upload may really be, which can be less than the snapshot limit on a server set to accept less.
+                'max_pdf_bytes' => SubmittedResumeSnapshot::maxUploadBytes(),
                 'resumes' => $this->resumeOptions($job, $history),
             ],
         ];

@@ -8,6 +8,7 @@ import {
     browserTimezone,
     buildPayload,
     createSubmitGuard,
+    formatMegabytes,
     initialForm,
     mapServerErrors,
     newIdempotencyKey,
@@ -108,7 +109,12 @@ export function SubmissionDrawer({
             return;
         }
 
-        const problems = validateSubmission(form, timezone);
+        const problems = validateSubmission(
+            form,
+            timezone,
+            new Date(),
+            section.max_pdf_bytes,
+        );
 
         if (Object.keys(problems).length > 0) {
             setErrors(problems);
@@ -333,8 +339,10 @@ export function SubmissionDrawer({
                                 className="text-fg-muted block w-full max-w-full text-sm"
                             />
                             <p className="text-fg-subtle mt-1 text-xs">
-                                PDF, up to 10 MB. Kept privately on this
-                                computer as the record of what you submitted.
+                                PDF, up to{' '}
+                                {formatMegabytes(section.max_pdf_bytes)}. Kept
+                                privately on this computer as the record of what
+                                you submitted.
                             </p>
                         </div>
                     )}

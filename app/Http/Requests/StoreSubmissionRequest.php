@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Support\Navigation\ReturnTo;
+use App\Support\Submissions\SubmittedResumeSnapshot;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -51,6 +52,8 @@ class StoreSubmissionRequest extends FormRequest
             'resume_confirmed.accepted_if' => 'Confirm that this is the document you actually submitted.',
             'resume_variant_id.required_if' => 'Choose which resume you used.',
             'pdf.required_if' => 'Choose the PDF you submitted.',
+            // PHP refuses a file over its own upload limit before any rule runs; say so, with the number.
+            'pdf.uploaded' => 'That file is larger than this server accepts ('.round(SubmittedResumeSnapshot::maxUploadBytes() / 1048576, 1).' MB).',
         ];
     }
 }

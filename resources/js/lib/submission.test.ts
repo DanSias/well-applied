@@ -3,6 +3,7 @@ import {
     applicationRow,
     buildPayload,
     createSubmitGuard,
+    formatMegabytes,
     formatCalendarDate,
     initialForm,
     mapServerErrors,
@@ -19,6 +20,7 @@ const NY = 'America/New_York';
 const section: ApplicationSection['form'] = {
     application_url: 'https://example.com/apply',
     resumes: [],
+    max_pdf_bytes: 10 * 1024 * 1024,
 };
 // 02:30 UTC on Nov 14 is still Nov 13 in New York, and already Nov 14 in Tokyo.
 const lateNight = new Date('2026-11-14T02:30:00Z');
@@ -101,8 +103,15 @@ describe('initial form', () => {
         expect(f.resumeVariantId).toBeNull();
         expect(f.resumeConfirmed).toBe(false);
         expect(
-            initialForm({ application_url: null, resumes: [] }, NY, false)
-                .applicationUrl,
+            initialForm(
+                {
+                    application_url: null,
+                    resumes: [],
+                    max_pdf_bytes: 10 * 1024 * 1024,
+                },
+                NY,
+                false,
+            ).applicationUrl,
         ).toBe('');
     });
 });
@@ -236,6 +245,38 @@ describe('validation', () => {
                 lateNight,
             ),
         ).toEqual({});
+    });
+});
+
+describe('the PDF size limit', () => {
+    const big = {
+        name: 'cv.pdf',
+        size: 3 * 1024 * 1024,
+        type: 'application/pdf',
+    };
+
+    it('uses the limit the server reports, which can be below 10 MB', () => {
+        expect(
+            validateSubmission(
+                form({ resumeKind: 'external', pdf: big }),
+                NY,
+                lateNight,
+                2 * 1024 * 1024,
+            ).pdf,
+        ).toBe('That PDF is larger than 2 MB.');
+        expect(
+            validateSubmission(
+                form({ resumeKind: 'external', pdf: big }),
+                NY,
+                lateNight,
+            ),
+        ).toEqual({});
+    });
+
+    it('names a limit the way a person reads it', () => {
+        expect(formatMegabytes(10 * 1024 * 1024)).toBe('10 MB');
+        expect(formatMegabytes(2 * 1024 * 1024)).toBe('2 MB');
+        expect(formatMegabytes(1.5 * 1024 * 1024)).toBe('1.5 MB');
     });
 });
 

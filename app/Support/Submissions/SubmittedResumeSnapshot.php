@@ -24,7 +24,7 @@ final class SubmittedResumeSnapshot
 {
     public const DISK = 'local';
 
-    private const MAX_BYTES = 10 * 1024 * 1024;
+    public const MAX_BYTES = 10 * 1024 * 1024;
 
     public function __construct(
         private readonly GenerateResumeDocument $documents,
@@ -37,6 +37,26 @@ final class SubmittedResumeSnapshot
     public function servedPdf(ResumeVariant $variant): ?string
     {
         return $this->store->get($this->documents->generate($variant));
+    }
+
+    /**
+     * The largest PDF that can actually be received: the snapshot limit, or less when PHP is configured to accept smaller
+     * uploads (upload_max_filesize, post_max_size). The form must promise the smaller number, or a file under the stated
+     * limit fails with "failed to upload" before any rule can say why.
+     */
+    public static function maxUploadBytes(): int
+    {
+        $limits = [self::MAX_BYTES];
+
+        foreach (['upload_max_filesize', 'post_max_size'] as $setting) {
+            $bytes = ini_parse_quantity((string) ini_get($setting));
+
+            if ($bytes > 0) {
+                $limits[] = $bytes;
+            }
+        }
+
+        return min($limits);
     }
 
     /** Whether a served PDF is cached for this variant (so a snapshot of it could be kept). Never renders one. */

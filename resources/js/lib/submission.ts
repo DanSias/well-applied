@@ -46,7 +46,12 @@ export type ResumeOption = {
 
 export type ApplicationSection = {
     records: SubmissionRecord[];
-    form: { application_url: string | null; resumes: ResumeOption[] };
+    form: {
+        application_url: string | null;
+        resumes: ResumeOption[];
+        /** The largest PDF the server will take: 10 MB, or less when PHP is set to accept smaller uploads. */
+        max_pdf_bytes: number;
+    };
 };
 
 /** The person's own timezone, named explicitly so the server never has to guess which day "today" was for them. */
@@ -131,6 +136,13 @@ export type SubmissionForm = {
 
 export const MAX_PDF_BYTES = 10 * 1024 * 1024;
 
+/** "10 MB", "2 MB", "1.5 MB": the limit as a person reads it. */
+export function formatMegabytes(bytes: number): string {
+    const mb = Math.round((bytes / (1024 * 1024)) * 10) / 10;
+
+    return `${mb} MB`;
+}
+
 export function initialForm(
     section: ApplicationSection['form'],
     timezone: string,
@@ -168,6 +180,7 @@ export function validateSubmission(
     form: SubmissionForm,
     timezone: string,
     now: Date = new Date(),
+    maxPdfBytes: number = MAX_PDF_BYTES,
 ): SubmissionErrors {
     const errors: SubmissionErrors = {};
 
@@ -194,8 +207,8 @@ export function validateSubmission(
             !form.pdf.name.toLowerCase().endsWith('.pdf')
         ) {
             errors.pdf = 'That file is not a PDF.';
-        } else if (form.pdf.size > MAX_PDF_BYTES) {
-            errors.pdf = 'That PDF is larger than 10 MB.';
+        } else if (form.pdf.size > maxPdfBytes) {
+            errors.pdf = `That PDF is larger than ${formatMegabytes(maxPdfBytes)}.`;
         }
     }
 
