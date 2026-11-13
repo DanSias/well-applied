@@ -4,7 +4,6 @@ import { WaitingForWorkerNotice } from '@/components/worker-status-badge';
 import { useApplicationInspectionPolling } from '@/hooks/use-application-inspection-polling';
 import { useWorkerStatusPolling } from '@/hooks/use-worker-status-polling';
 import AppShell from '@/layouts/app-shell';
-import { show as jobsShow } from '@/routes/jobs';
 import { store as inspectStore } from '@/routes/jobs/applications';
 import type {
     ApplicationQuestionView,
@@ -248,7 +247,7 @@ export default function ApplicationShow({
             />
 
             <Link
-                href={jobsShow.url({ jobPosting: application.job_posting.id })}
+                href={application.job_posting.home_url}
                 className="text-sm font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
             >
                 ← Back to job

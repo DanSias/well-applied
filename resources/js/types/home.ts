@@ -20,6 +20,8 @@ export type HomeAttentionItem = {
     message: string;
     action: string;
     job_id: number | null;
+    /** The job's default destination (its Opportunity workspace when pursued); null for summary items. */
+    job_url: string | null;
     resume_variant_id: number | null;
     /** Triage filter to open on the Opportunities page (summary items). */
     filter: 'raw' | 'failed' | null;
@@ -27,6 +29,7 @@ export type HomeAttentionItem = {
 
 export type HomeContinueItem = {
     job_id: number;
+    job_url: string;
     title: string;
     company: string;
     status: { label: string; tone: Tone };

@@ -15,7 +15,10 @@ import { useWorkerStatusPolling } from '@/hooks/use-worker-status-polling';
 import AppShell from '@/layouts/app-shell';
 import { show as applicationsShow } from '@/routes/applications';
 import { index as jobsIndex } from '@/routes/jobs';
-import { index as opportunitiesIndex } from '@/routes/opportunities';
+import {
+    index as opportunitiesIndex,
+    show as opportunitiesShow,
+} from '@/routes/opportunities';
 import {
     show as analysesShow,
     store as analysesStore,
@@ -206,6 +209,14 @@ export default function JobsShow({
                         ? '← Back to Opportunities'
                         : '← Back to Jobs'}
                 </Link>
+                {job.disposition.value === 'pursued' && (
+                    <Link
+                        href={opportunitiesShow.url(job.id)}
+                        className="text-sm font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+                    >
+                        Opportunity workspace
+                    </Link>
+                )}
                 {job.disposition.value === 'pursued' && (
                     <Link
                         href={jobsIndex.url()}

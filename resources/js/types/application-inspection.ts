@@ -54,6 +54,8 @@ export type ApplicationDetail = {
         company: string;
         title: string;
         source_url: string | null;
+        /** Where "back to the job" leads: the Opportunity workspace for a pursued job, the job page otherwise. */
+        home_url: string;
     };
 };
 

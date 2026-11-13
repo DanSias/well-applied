@@ -19,6 +19,7 @@ use App\Models\ResumeVariantTargetTermUsage;
 use App\Models\Skill;
 use App\Support\GenerationAttempt\QueueGenerationAttempt;
 use App\Support\JobMatch\CareerFactAttribution;
+use App\Support\Navigation\JobHome;
 use App\Support\ReadinessReview\PresentReadiness;
 use App\Support\ResumeRevision\PresentResumeWorkspace;
 use Illuminate\Database\Eloquent\Collection;
@@ -82,6 +83,7 @@ class ResumeVariantController extends Controller
                 'id' => $jobPosting->id,
                 'company' => $jobPosting->company,
                 'title' => $jobPosting->title,
+                'home_url' => JobHome::url($jobPosting),
             ],
             'analysis' => ['id' => $jobAnalysis->id],
             'match' => ['id' => $jobMatch->id],
@@ -132,7 +134,7 @@ class ResumeVariantController extends Controller
         $describe = fn (string $key) => ['key' => $key, 'statement' => $factStatements[$key]->statement ?? $key];
 
         return Inertia::render('jobs/resumes/workspace', [
-            'job' => ['id' => $jobPosting->id, 'company' => $jobPosting->company, 'title' => $jobPosting->title, 'pursued' => $jobPosting->disposition === JobDisposition::Pursued],
+            'job' => ['id' => $jobPosting->id, 'company' => $jobPosting->company, 'title' => $jobPosting->title, 'pursued' => $jobPosting->disposition === JobDisposition::Pursued, 'home_url' => JobHome::url($jobPosting)],
             'analysis' => ['id' => $resumeVariant->job_analysis_id],
             'match' => null,
             'resume' => $resume,

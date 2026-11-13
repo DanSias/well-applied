@@ -6,6 +6,7 @@ use App\Models\Application;
 use App\Models\JobPosting;
 use App\Support\ApplicationInspection\DispatchApplicationInspection;
 use App\Support\ApplicationInspection\PresentApplicationInspection;
+use App\Support\Navigation\JobHome;
 use App\Support\Navigation\ReturnTo;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -58,6 +59,7 @@ class ApplicationController extends Controller
                     'company' => $application->jobPosting->company,
                     'title' => $application->jobPosting->title,
                     'source_url' => $application->jobPosting->source_url,
+                    'home_url' => JobHome::url($application->jobPosting),
                 ],
             ],
             'inspection' => $presenter->present($application),

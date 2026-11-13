@@ -510,9 +510,10 @@ export default function ResumeWorkspace({
 
             <Link
                 href={
-                    job.pursued
+                    job.home_url ??
+                    (job.pursued
                         ? opportunityShow.url({ jobPosting: job.id })
-                        : jobShow.url({ jobPosting: job.id })
+                        : jobShow.url({ jobPosting: job.id }))
                 }
                 className="rounded-control text-fg-muted hover:text-fg inline-flex max-w-full items-center gap-1 text-sm"
             >

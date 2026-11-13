@@ -15,6 +15,7 @@ use App\Models\ResumeProfile;
 use App\Models\ResumeProfileSynthesis;
 use App\Models\ResumeVariant;
 use App\Support\JobDecisions\RecordJobDecision;
+use App\Support\Navigation\JobHome;
 use App\Support\TailoredResume\TailoredResumePipeline;
 use Illuminate\Support\Facades\Queue;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -268,5 +269,92 @@ describe('the recommended next step', function () {
         $this->get(route('opportunities.show', $job))->assertInertia(fn (Assert $page) => $page
             ->where('tailored_resume.state', 'idle')
             ->where('tailored_resume.needs_confirmation', true));
+    });
+});
+
+describe('opportunity-aware navigation', function () {
+    it('has one rule: a pursued job opens its workspace, any other opens its job page', function (JobDisposition $disposition, string $route) {
+        $job = wsJob($disposition);
+
+        expect(JobHome::url($job))->toBe(route($route, $job));
+    })->with([
+        [JobDisposition::Pursued, 'opportunities.show'],
+        [JobDisposition::New, 'jobs.show'],
+        [JobDisposition::Shortlisted, 'jobs.show'],
+        [JobDisposition::Dismissed, 'jobs.show'],
+    ]);
+
+    it('sends the analysis, match, resume and inspection pages back to the workspace for a pursued job', function () {
+        $job = wsJob(attributes: ['source_url' => 'https://example.com/apply']);
+        $variant = wsResume($job);
+        $analysis = $job->jobAnalyses()->first();
+        $match = $analysis->jobMatches()->first();
+        $application = Application::factory()->create(['job_posting_id' => $job->id]);
+        $home = route('opportunities.show', $job);
+
+        $this->get(route('jobs.analyses.show', [$job, $analysis]))->assertInertia(fn (Assert $page) => $page->where('job.home_url', $home));
+        $this->get(route('jobs.analyses.matches.show', [$job, $analysis, $match]))->assertInertia(fn (Assert $page) => $page->where('job.home_url', $home));
+        $this->get(route('applications.show', $application))->assertInertia(fn (Assert $page) => $page->where('application.job_posting.home_url', $home));
+        $this->get(route('jobs.profile-resumes.show', [$job, $variant]))->assertInertia(fn (Assert $page) => $page->where('job.home_url', $home));
+    });
+
+    it('keeps those pages pointing at the job page for a job that is not pursued', function () {
+        $job = wsJob(JobDisposition::Shortlisted, ['source_url' => 'https://example.com/apply']);
+        wsResume($job);
+        $analysis = $job->jobAnalyses()->first();
+        $match = $analysis->jobMatches()->first();
+        $application = Application::factory()->create(['job_posting_id' => $job->id]);
+        $home = route('jobs.show', $job);
+
+        $this->get(route('jobs.analyses.show', [$job, $analysis]))->assertInertia(fn (Assert $page) => $page->where('job.home_url', $home));
+        $this->get(route('jobs.analyses.matches.show', [$job, $analysis, $match]))->assertInertia(fn (Assert $page) => $page->where('job.home_url', $home));
+        $this->get(route('applications.show', $application))->assertInertia(fn (Assert $page) => $page->where('application.job_posting.home_url', $home));
+    });
+
+    it('follows a job that changes disposition, with no redirect loop', function () {
+        $job = wsJob();
+        $analysis = JobAnalysis::factory()->for($job, 'jobPosting')->create();
+
+        $this->get(route('jobs.analyses.show', [$job, $analysis]))->assertInertia(fn (Assert $page) => $page->where('job.home_url', route('opportunities.show', $job)));
+
+        $this->post(route('jobs.decision.store', $job), ['disposition' => 'shortlisted']);
+
+        $this->get(route('jobs.analyses.show', [$job, $analysis]))->assertInertia(fn (Assert $page) => $page->where('job.home_url', route('jobs.show', $job)));
+        $this->get(route('opportunities.show', $job))->assertRedirect(route('jobs.show', $job));
+        $this->get(route('jobs.show', $job))->assertOk();
+    });
+
+    it('leads the Overview to the workspace for pursued jobs', function () {
+        $job = wsJob();
+        wsResume($job);
+
+        $props = $this->get('/')->viewData('page')['props'];
+        $row = collect($props['continue'])->firstWhere('job_id', $job->id);
+
+        expect($row['job_url'])->toBe(route('opportunities.show', $job));
+
+        foreach ($props['attention']['items'] as $item) {
+            expect($item)->toHaveKey('job_url');
+
+            if ($item['job_id'] !== null) {
+                expect($item['job_url'])->toBe(JobPosting::find($item['job_id'])->disposition === JobDisposition::Pursued ? route('opportunities.show', $item['job_id']) : route('jobs.show', $item['job_id']));
+            }
+        }
+    });
+
+    it('opens the workspace from the Jobs drawer for a pursued job, and the job page otherwise', function () {
+        $pursued = wsJob();
+        $inbox = wsJob(JobDisposition::New);
+
+        $this->get("/jobs?disposition=all&job={$pursued->id}")->assertInertia(fn (Assert $page) => $page->where('selected_job.home_url', route('opportunities.show', $pursued)));
+        $this->get("/jobs?job={$inbox->id}")->assertInertia(fn (Assert $page) => $page->where('selected_job.home_url', route('jobs.show', $inbox)));
+    });
+
+    it('never redirects a pursued job away from /jobs/{id}, and leaves the default of its actions alone', function () {
+        Queue::fake();
+        $job = wsJob();
+
+        $this->get(route('jobs.show', $job))->assertOk();
+        $this->post(route('jobs.tailored-resume.store', $job))->assertRedirect(route('jobs.show', $job));
     });
 });

@@ -2,7 +2,6 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import { GenerationStatus } from '@/components/generation-status';
 import { useGenerationAttemptPolling } from '@/hooks/use-generation-attempt-polling';
 import AppShell from '@/layouts/app-shell';
-import { show as jobsShow } from '@/routes/jobs';
 import {
     show as matchesShow,
     store as matchesStore,
@@ -179,7 +178,7 @@ export default function JobAnalysesShow({
             <Head title={`Analysis — ${job.title} at ${job.company}`} />
 
             <Link
-                href={jobsShow.url({ jobPosting: job.id })}
+                href={job.home_url}
                 className="text-sm font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
             >
                 ← Back to {job.title} at {job.company}

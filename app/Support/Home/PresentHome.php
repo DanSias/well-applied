@@ -12,6 +12,7 @@ use App\Models\JobResumeSelection;
 use App\Models\ResumeProfile;
 use App\Models\ResumeVariant;
 use App\Support\CurrentCareerProfile;
+use App\Support\Navigation\JobHome;
 use App\Support\Opportunities\PresentOpportunities;
 use App\Support\OpportunityTriage\SummarizeTriageStates;
 use App\Support\ReadinessReview\PresentReadiness;
@@ -217,6 +218,7 @@ final class PresentHome
 
             $out[] = [
                 'job_id' => $job->id,
+                'job_url' => JobHome::url($job),
                 'title' => $job->title,
                 'company' => $job->company,
                 'status' => $status,
@@ -277,19 +279,19 @@ final class PresentHome
         }
 
         if ($toReview > 0) {
-            $items[] = ['key' => 'review', 'kind' => 'review', 'title' => $toReview === 1 ? '1 job has resume or inspection work but is not pursued' : "{$toReview} jobs have resume or inspection work but are not pursued", 'company' => null, 'message' => 'Nothing is changed until you choose: pursue the ones you are really going after.', 'action' => 'Review existing work', 'job_id' => null, 'resume_variant_id' => null, 'filter' => null];
+            $items[] = ['key' => 'review', 'kind' => 'review', 'title' => $toReview === 1 ? '1 job has resume or inspection work but is not pursued' : "{$toReview} jobs have resume or inspection work but are not pursued", 'company' => null, 'message' => 'Nothing is changed until you choose: pursue the ones you are really going after.', 'action' => 'Review existing work', 'job_id' => null, 'job_url' => null, 'resume_variant_id' => null, 'filter' => null];
         }
 
         $failed = (int) ($stages['analysis-failed'] ?? 0) + (int) ($stages['match-failed'] ?? 0);
 
         if ($failed > 0) {
-            $items[] = ['key' => 'failed', 'kind' => 'summary', 'title' => $failed === 1 ? '1 job failed analysis or matching' : "{$failed} jobs failed analysis or matching", 'company' => null, 'message' => 'Open them to see why and retry.', 'action' => 'Review failures', 'job_id' => null, 'resume_variant_id' => null, 'filter' => 'failed'];
+            $items[] = ['key' => 'failed', 'kind' => 'summary', 'title' => $failed === 1 ? '1 job failed analysis or matching' : "{$failed} jobs failed analysis or matching", 'company' => null, 'message' => 'Open them to see why and retry.', 'action' => 'Review failures', 'job_id' => null, 'job_url' => null, 'resume_variant_id' => null, 'filter' => 'failed'];
         }
 
         $raw = (int) ($stages['raw'] ?? 0);
 
         if ($raw > 0) {
-            $items[] = ['key' => 'raw', 'kind' => 'summary', 'title' => $raw === 1 ? '1 job is not analyzed yet' : "{$raw} jobs are not analyzed yet", 'company' => null, 'message' => 'Analysis is the first step toward matching and a tailored resume.', 'action' => 'Triage jobs', 'job_id' => null, 'resume_variant_id' => null, 'filter' => 'raw'];
+            $items[] = ['key' => 'raw', 'kind' => 'summary', 'title' => $raw === 1 ? '1 job is not analyzed yet' : "{$raw} jobs are not analyzed yet", 'company' => null, 'message' => 'Analysis is the first step toward matching and a tailored resume.', 'action' => 'Triage jobs', 'job_id' => null, 'job_url' => null, 'resume_variant_id' => null, 'filter' => 'raw'];
         }
 
         return ['total' => count($items), 'items' => array_slice($items, 0, self::ATTENTION_LIMIT)];
@@ -300,7 +302,7 @@ final class PresentHome
      */
     private function item(JobPosting $job, string $kind, string $message, string $action, ?int $variantId = null): array
     {
-        return ['key' => "{$kind}-{$job->id}", 'kind' => $kind, 'title' => $job->title, 'company' => $job->company, 'message' => $message, 'action' => $action, 'job_id' => $job->id, 'resume_variant_id' => $variantId, 'filter' => null];
+        return ['key' => "{$kind}-{$job->id}", 'kind' => $kind, 'title' => $job->title, 'company' => $job->company, 'message' => $message, 'action' => $action, 'job_id' => $job->id, 'job_url' => JobHome::url($job), 'resume_variant_id' => $variantId, 'filter' => null];
     }
 
     /**

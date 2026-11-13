@@ -2,7 +2,6 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import { GenerationStatus } from '@/components/generation-status';
 import { useGenerationAttemptPolling } from '@/hooks/use-generation-attempt-polling';
 import AppShell from '@/layouts/app-shell';
-import { show as jobsShow } from '@/routes/jobs';
 import { show as analysesShow } from '@/routes/jobs/analyses';
 import {
     show as resumeShow,

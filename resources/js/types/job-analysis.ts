@@ -46,6 +46,8 @@ export type JobAnalysisJobContext = {
     id: number;
     company: string;
     title: string;
+    /** Where "back to this job" leads: the Opportunity workspace for a pursued job, the job page otherwise. */
+    home_url: string;
 };
 
 export type JobAnalysisShowProps = {

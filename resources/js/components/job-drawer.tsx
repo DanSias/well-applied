@@ -185,33 +185,35 @@ export function JobDrawer({
             onClose={onClose}
             header={
                 state === 'ready' && job ? (
-<div className="border-line border-b px-5 py-3">
-                    {meta.length > 0 && (
-                        <p className="text-fg-subtle text-xs leading-relaxed break-words">
-                            {meta.join(' · ')}
-                        </p>
-                    )}
-                    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
-                        <DispositionBadge disposition={job.disposition} />
-                        <TriageStageBadge value={job.triage.stage} />
-                        {(job.inspection.state !== 'not_inspected' ||
-                            job.inspection.latest_attempt_failed) && (
-                            <InspectionStateBadge summary={job.inspection} />
+                    <div className="border-line border-b px-5 py-3">
+                        {meta.length > 0 && (
+                            <p className="text-fg-subtle text-xs leading-relaxed break-words">
+                                {meta.join(' · ')}
+                            </p>
                         )}
-                        {job.source_url !== null && (
-                            <ButtonAnchor
-                                variant="ghost"
-                                size="sm"
-                                href={job.source_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="-my-1"
-                            >
-                                Original posting ↗
-                            </ButtonAnchor>
-                        )}
+                        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                            <DispositionBadge disposition={job.disposition} />
+                            <TriageStageBadge value={job.triage.stage} />
+                            {(job.inspection.state !== 'not_inspected' ||
+                                job.inspection.latest_attempt_failed) && (
+                                <InspectionStateBadge
+                                    summary={job.inspection}
+                                />
+                            )}
+                            {job.source_url !== null && (
+                                <ButtonAnchor
+                                    variant="ghost"
+                                    size="sm"
+                                    href={job.source_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="-my-1"
+                                >
+                                    Original posting ↗
+                                </ButtonAnchor>
+                            )}
+                        </div>
                     </div>
-                </div>
                 ) : undefined
             }
             footer={
@@ -227,7 +229,7 @@ export function JobDrawer({
                     {id !== null && (
                         <ButtonLink
                             className="sm:ml-auto"
-                            href={showJob.url(id)}
+                            href={job?.home_url ?? showJob.url(id)}
                         >
                             Open full workspace
                         </ButtonLink>
@@ -235,19 +237,19 @@ export function JobDrawer({
                 </div>
             }
         >
-                {state === 'loading' && <Loading />}
-                {state === 'unavailable' && (
-                    <div role="alert" className="text-fg-muted text-sm">
-                        <p className="text-fg font-medium">
-                            This job is no longer available.
-                        </p>
-                        <p className="mt-1">
-                            It may have been removed, or the link is not one of
-                            your jobs.
-                        </p>
-                    </div>
-                )}
-                {state === 'ready' && job && <JobBody job={job} />}
+            {state === 'loading' && <Loading />}
+            {state === 'unavailable' && (
+                <div role="alert" className="text-fg-muted text-sm">
+                    <p className="text-fg font-medium">
+                        This job is no longer available.
+                    </p>
+                    <p className="mt-1">
+                        It may have been removed, or the link is not one of your
+                        jobs.
+                    </p>
+                </div>
+            )}
+            {state === 'ready' && job && <JobBody job={job} />}
         </Drawer>
     );
 }

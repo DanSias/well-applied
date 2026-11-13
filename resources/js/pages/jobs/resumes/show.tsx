@@ -170,7 +170,7 @@ export default function ResumeVariantShow({
             <Link
                 href={
                     match === null
-                        ? jobShow.url({ jobPosting: job.id })
+                        ? (job.home_url ?? jobShow.url({ jobPosting: job.id }))
                         : matchesShow.url({
                               jobPosting: job.id,
                               jobAnalysis: analysis.id,

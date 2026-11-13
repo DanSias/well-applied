@@ -14,6 +14,7 @@ use App\Models\JobPosting;
 use App\Support\CurrentCareerProfile;
 use App\Support\GenerationAttempt\PresentGenerationAttempt;
 use App\Support\GenerationAttempt\QueueGenerationAttempt;
+use App\Support\Navigation\JobHome;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -72,6 +73,7 @@ class JobAnalysisController extends Controller
                 'id' => $jobPosting->id,
                 'company' => $jobPosting->company,
                 'title' => $jobPosting->title,
+                'home_url' => JobHome::url($jobPosting),
             ],
             'analysis' => $this->transformAnalysis($jobAnalysis, $presenter),
         ]);

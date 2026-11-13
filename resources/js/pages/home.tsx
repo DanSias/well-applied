@@ -26,6 +26,7 @@ function destination(
     jobId: number | null,
     variantId: number | null,
     filter: string | null = null,
+    jobUrl: string | null = null,
 ): string {
     if (jobId === null) {
         return jobsIndex.url({
@@ -36,7 +37,7 @@ function destination(
     }
 
     return variantId === null
-        ? jobShow.url({ jobPosting: jobId })
+        ? (jobUrl ?? jobShow.url({ jobPosting: jobId }))
         : workspaceShow.url({ jobPosting: jobId, resumeVariant: variantId });
 }
 
@@ -44,7 +45,12 @@ function destination(
 function attentionHref(item: HomeAttentionItem): string {
     return item.kind === 'review'
         ? opportunitiesIndex.url()
-        : destination(item.job_id, item.resume_variant_id, item.filter);
+        : destination(
+              item.job_id,
+              item.resume_variant_id,
+              item.filter,
+              item.job_url,
+          );
 }
 
 function Stat({
@@ -132,7 +138,12 @@ function ContinueRow({ item }: { item: HomeContinueItem }) {
             </div>
             <ButtonLink
                 size="sm"
-                href={destination(item.job_id, item.resume_variant_id)}
+                href={destination(
+                    item.job_id,
+                    item.resume_variant_id,
+                    null,
+                    item.job_url,
+                )}
             >
                 {item.action}
             </ButtonLink>
@@ -194,7 +205,12 @@ export default function Home({
                         ? 'Continue resume'
                         : latest.action,
                 job: latest.title,
-                href: destination(latest.job_id, latest.resume_variant_id),
+                href: destination(
+                    latest.job_id,
+                    latest.resume_variant_id,
+                    null,
+                    latest.job_url,
+                ),
             }
           : { label: 'Add a job', job: null, href: jobsCreate.url() };
     const empty = overview.jobs === 0;

@@ -15,6 +15,7 @@ use App\Models\ResumeVariant;
 use App\Support\GenerationAttempt\PresentGenerationAttempt;
 use App\Support\GenerationAttempt\QueueGenerationAttempt;
 use App\Support\JobMatch\CareerFactAttribution;
+use App\Support\Navigation\JobHome;
 use App\Support\ResumeVariant\DiscoveryPreflight;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
@@ -68,6 +69,7 @@ class JobMatchController extends Controller
                 'id' => $jobPosting->id,
                 'company' => $jobPosting->company,
                 'title' => $jobPosting->title,
+                'home_url' => JobHome::url($jobPosting),
             ],
             'analysis' => [
                 'id' => $jobAnalysis->id,

@@ -95,6 +95,8 @@ export type JobAnalysisBrief = {
 /** A job as the review drawer shows it: the list row's summary plus the description and analysis the list leaves out. */
 export type SelectedJob = JobPostingSummary & {
     description: string;
+    /** Where "open this job" leads: the Opportunity workspace for a pursued job, the job page otherwise. */
+    home_url: string;
     analysis: JobAnalysisBrief | null;
 };
 

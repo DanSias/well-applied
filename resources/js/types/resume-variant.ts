@@ -72,6 +72,8 @@ export type ResumeVariantDetail = {
 export type ResumeVariantJobContext = {
     /** The job is pursued, so its home is the Opportunity workspace rather than the job page. */
     pursued?: boolean;
+    /** Where "back to the job" leads: the Opportunity workspace for a pursued job, the job page otherwise. */
+    home_url?: string;
     id: number;
     company: string;
     title: string;
