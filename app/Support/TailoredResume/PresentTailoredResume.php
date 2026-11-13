@@ -12,6 +12,7 @@ use App\Models\ResumeSelectionCheckpoint;
 use App\Models\ResumeVariant;
 use App\Support\Clarification\ClarificationGate;
 use App\Support\Clarification\PresentClarification;
+use App\Support\GenerationAttempt\StaleGenerations;
 use App\Support\ResumeDocument\AssessResumeLayout;
 use App\Support\ResumeRevision\JobResumes;
 use Illuminate\Support\Collection;
@@ -40,6 +41,7 @@ final class PresentTailoredResume
         private readonly PresentClarification $clarification,
         private readonly JobResumes $jobResumes,
         private readonly AssessResumeLayout $layoutReview,
+        private readonly StaleGenerations $stale,
     ) {}
 
     /**
@@ -99,6 +101,7 @@ final class PresentTailoredResume
         $stages = [];
         $current = null;
         $failure = null;
+        $interrupted = null;
 
         foreach ($definitions as $key => $definition) {
             $attempt = $attempts->where('generation_type', $definition['type'])->last();
@@ -109,13 +112,21 @@ final class PresentTailoredResume
                 'pdf' => $valid['pdf_ready'],
             };
 
+            // A queued or running attempt that has been silent past the queue's lease is not working: its worker stopped or
+            // restarted. It is shown as interrupted, never as running, whether or not it has been recorded as such yet.
             $status = match (true) {
+                $attempt !== null && $this->stale->isStale($attempt) => 'interrupted',
                 $attempt?->status === GenerationStatus::Running => 'running',
                 $attempt?->status === GenerationStatus::Queued => 'queued',
                 $satisfied => $attempt?->status === GenerationStatus::Succeeded ? 'done' : 'reused',
+                $attempt !== null && $this->stale->wasInterrupted($attempt) => 'interrupted',
                 $attempt?->status === GenerationStatus::Failed => 'failed',
                 default => 'pending',
             };
+
+            if ($status === 'interrupted' && $interrupted === null) {
+                $interrupted = $definition['label'];
+            }
 
             if ($status === 'failed' && $failure === null) {
                 $failure = [
@@ -155,17 +166,31 @@ final class PresentTailoredResume
         // no longer current. Offer a fresh run instead of an endless spinner.
         $stale = $pending === null && $current === null && $failure === null && ! $allDone && $valid['evidence_stale'];
 
+        // Nothing is queued or running, yet the run is unfinished and no stage failed: the next stage was never queued (the
+        // worker stopped between one stage finishing and the next). That is a stall, not progress, once it has outlasted the
+        // few moments the hand-over legitimately takes.
+        $lastActivity = $attempts->map(fn ($a) => $a->finished_at ?? $a->updated_at)->filter()->sortDesc()->first();
+        $stalled = ! $allDone && $current === null && $failure === null && $interrupted === null && $pending === null && ! $stale
+            && $lastActivity !== null && $lastActivity->diffInSeconds(now()) > StaleGenerations::STALL_GRACE_SECONDS;
+
         [$state, $label] = match (true) {
             $pending !== null => ['needs_clarification', 'A few questions could improve this resume'],
             $stale => ['idle', 'Career evidence changed since the last run. Generate again to include it.'],
             $failure !== null && $current === null => ['failed', 'Failed'],
+            $interrupted !== null && $current === null => ['interrupted', 'Interrupted'],
+            $stalled => ['interrupted', 'Stopped before the next step'],
             $allDone => ['ready', 'Ready for review'],
             $current !== null => ['running', self::STAGES[$current]['label']],
             default => ['running', 'Preparing job'],
         };
 
         $first = $attempts->min('queued_at');
-        $end = in_array($state, ['ready', 'failed'], true) ? $attempts->max('finished_at') : now();
+        // A finished or stopped run's time stops where it stopped; only a run that is really going keeps counting.
+        $end = match ($state) {
+            'ready', 'failed' => $attempts->max('finished_at'),
+            'interrupted' => $lastActivity,
+            default => now(),
+        };
         $elapsed = $first === null ? null : max(0, (int) $first->diffInSeconds($end ?? now()));
 
         $variant = $allDone ? $valid['variant'] : null;
@@ -195,6 +220,7 @@ final class PresentTailoredResume
             'waiting_for_worker' => $current !== null && collect($stages)->firstWhere('key', $current)['status'] === 'queued',
             'clarification' => $pending === null ? null : [...$this->clarification->present($pending), 'resume_ready' => $allDone],
             'evidence_changed' => $stale,
+            'interruption' => $state === 'interrupted' ? ['stage_label' => $interrupted, 'since' => $lastActivity?->toIso8601String()] : null,
         ]);
     }
 
@@ -275,6 +301,7 @@ final class PresentTailoredResume
             'clarification' => null,
             'evidence_changed' => false,
             'profile_resume' => null,
+            'interruption' => null,
             ...$extra,
         ];
     }

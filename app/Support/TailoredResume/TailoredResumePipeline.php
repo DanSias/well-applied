@@ -17,6 +17,7 @@ use App\Support\Clarification\ClarificationGate;
 use App\Support\Clarification\EvidenceRevision;
 use App\Support\CurrentCareerProfile;
 use App\Support\GenerationAttempt\QueueGenerationAttempt;
+use App\Support\GenerationAttempt\StaleGenerations;
 use App\Support\JobAnalysis\Prompts\JobAnalysisPromptV4;
 use App\Support\JobMatch\Prompts\JobMatchPromptV3;
 use App\Support\ResumeDocument\GenerateResumeDocument;
@@ -70,6 +71,7 @@ final class TailoredResumePipeline
         private readonly GenerateResumeDocument $documents,
         private readonly ResumePdfStore $pdfStore,
         private readonly ClarificationGate $clarification,
+        private readonly StaleGenerations $stale,
     ) {}
 
     /**
@@ -91,6 +93,8 @@ final class TailoredResumePipeline
                 'allow_incomplete_description' => 'The description may be incomplete. Missing requirements or responsibilities can affect analysis. Confirm to generate anyway.',
             ]);
         }
+
+        $this->stale->recover($this->attemptsFor($posting));
 
         $active = $this->activeRun($posting);
         $runId = $active !== null
@@ -129,6 +133,9 @@ final class TailoredResumePipeline
     public function advance(JobPosting $posting, string $runId, bool $regenerate = false, ?int $synthesisId = null): void
     {
         $regenerate = $regenerate || $this->runIsRegenerating($posting, $runId);
+
+        // An attempt whose worker is gone is not "in flight": record it as interrupted so it cannot block the next claim.
+        $this->stale->recover($this->attemptsFor($posting));
 
         if ($this->activeAttempts($posting)->isNotEmpty()) {
             return;
