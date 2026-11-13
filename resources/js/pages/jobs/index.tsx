@@ -6,7 +6,15 @@ import {
     usePage,
     usePoll,
 } from '@inertiajs/react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+    Fragment,
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
+import type { ReactNode } from 'react';
 import {
     DescriptionCompletenessBadge,
     InspectionStateBadge,
@@ -48,6 +56,7 @@ import type {
     JobPostingDiscoveryMetadata,
     JobPostingSummary,
     JobsIndexProps,
+    OpportunityResumeFilter,
     OpportunityTriageFilter,
 } from '@/types/job-posting';
 
@@ -76,11 +85,12 @@ function formatCompensation(
     const min = discovery.compensation_min?.toLocaleString();
     const max = discovery.compensation_max?.toLocaleString();
 
+    // Non-breaking spaces keep "USD 120,000–150,000" together on one line.
     if (min && max) {
-        return `${currency} ${min}–${max}`.trim();
+        return `${currency}\u00a0${min}\u2060–\u2060${max}`.trim();
     }
 
-    return `${currency} ${min ?? max}`.trim();
+    return `${currency}\u00a0${min ?? max}`.trim();
 }
 
 const STATUS_TABS: {
@@ -97,12 +107,50 @@ const TRIAGE_STAGES: {
     label: string;
 }[] = [
     { value: 'all', label: 'All stages' },
-    { value: 'raw', label: 'Raw' },
+    { value: 'raw', label: 'Not analyzed' },
     { value: 'in-progress', label: 'In progress' },
     { value: 'analyzed', label: 'Analyzed' },
     { value: 'matched', label: 'Matched' },
     { value: 'failed', label: 'Failed' },
 ];
+
+const RESUME_TABS: { value: OpportunityResumeFilter; label: string }[] = [
+    { value: 'all', label: 'All' },
+    { value: 'in-progress', label: 'In progress' },
+    { value: 'final', label: 'Final' },
+];
+
+/** What the active filters mean in words, for the empty state. */
+function describeFilters(filters: JobsIndexProps['filters']): string {
+    const parts: string[] = [];
+    const stage = TRIAGE_STAGES.find((s) => s.value === filters.triage);
+
+    if (filters.resume === 'in-progress') {
+        parts.push('a resume in progress (none marked final)');
+    } else if (filters.resume === 'final') {
+        parts.push('a final resume chosen');
+    }
+
+    if (stage !== undefined && stage.value !== 'all') {
+        parts.push(`the stage “${stage.label}”`);
+    }
+
+    if (filters.status !== 'all') {
+        parts.push(
+            filters.status === 'inspected'
+                ? 'an inspected application'
+                : 'no application inspected yet',
+        );
+    }
+
+    if (filters.q !== '') {
+        parts.push(`“${filters.q}” in the title or company`);
+    }
+
+    return parts.length > 0
+        ? `No opportunities have ${parts.join(' and ')}.`
+        : 'No opportunities match this search/filter.';
+}
 
 /** Pause between the last keystroke and the search hitting the server. */
 const SEARCH_DEBOUNCE_MS = 300;
@@ -158,6 +206,22 @@ function batchReasonLines(result: BatchResult): string[] {
         );
     });
     return lines;
+}
+
+/** A small caption beside one filter row, so the groups read as separate filters. */
+function FilterGroup({
+    label,
+    children,
+}: {
+    label: string;
+    children: ReactNode;
+}) {
+    return (
+        <div className="flex max-w-full min-w-0 items-center gap-2">
+            <span className="text-fg-subtle text-xs font-medium">{label}</span>
+            {children}
+        </div>
+    );
 }
 
 function InspectAction({ job }: { job: JobPostingSummary }) {
@@ -223,7 +287,7 @@ function OpportunityRow({
             : `Discovered via ${discoverySourceLabel(job.discovery.source)}`,
         job.discovery.remote_status,
         formatCompensation(job.discovery),
-    ].filter(Boolean);
+    ].filter((item): item is string => Boolean(item));
     const inspection = job.inspection;
     const showInspection =
         inspection.state !== 'not_inspected' ||
@@ -233,7 +297,7 @@ function OpportunityRow({
         <li
             data-selected={selected || undefined}
             className={cn(
-                'group relative grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-2 px-4 py-3 transition-colors sm:grid-cols-[auto_minmax(0,1fr)_auto]',
+                'group relative grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-2 px-4 py-3 transition-colors md:grid-cols-[auto_minmax(0,1fr)_auto]',
                 'has-[a.row-link:focus-visible]:ring-focus has-[a.row-link:focus-visible]:ring-2 has-[a.row-link:focus-visible]:ring-inset',
                 selected
                     ? 'bg-accent-soft/60 hover:bg-accent-soft'
@@ -246,7 +310,7 @@ function OpportunityRow({
                     className="bg-accent absolute inset-y-0 left-0 w-0.5"
                 />
             )}
-            <label className="relative z-10 -m-2 flex cursor-pointer p-2">
+            <label className="relative z-10 -mx-2 -mt-1.5 -mb-2 flex cursor-pointer p-2 pt-2.5">
                 <Checkbox
                     checked={selected}
                     disabled={checkboxDisabled}
@@ -266,7 +330,12 @@ function OpportunityRow({
                     <span className="text-fg-muted"> · {job.company}</span>
                 </p>
                 <p className="text-fg-subtle mt-0.5 text-xs leading-relaxed break-words">
-                    {meta.join(' · ')}
+                    {meta.map((item, i) => (
+                        <Fragment key={i}>
+                            {i > 0 && ' · '}
+                            {item}
+                        </Fragment>
+                    ))}
                 </p>
                 {job.triage.coverage !== null && (
                     <p className="text-fg-subtle mt-1 text-xs">
@@ -275,7 +344,7 @@ function OpportunityRow({
                 )}
             </div>
 
-            <div className="relative z-10 col-start-2 flex flex-wrap items-center gap-x-2 gap-y-1.5 sm:col-start-3 sm:row-start-1 sm:justify-end">
+            <div className="relative z-10 col-start-2 flex flex-wrap items-center gap-x-2 gap-y-1.5 md:col-start-3 md:row-start-1 md:justify-end">
                 <TriageStageBadge value={job.triage.stage} />
                 {job.discovery.description_completeness === 'preview' && (
                     <DescriptionCompletenessBadge
@@ -331,6 +400,7 @@ export default function JobsIndex({
             q: string;
             status: string;
             triage: string;
+            resume: string;
             page: number;
             per_page: number;
         }>,
@@ -343,6 +413,7 @@ export default function JobsIndex({
                 q,
                 status: filters.status,
                 triage: filters.triage,
+                resume: filters.resume,
                 per_page: pagination.per_page,
                 page: pagination.page,
             },
@@ -360,6 +431,7 @@ export default function JobsIndex({
         q?: string;
         status?: string;
         triage?: string;
+        resume?: string;
     }) => navigate(next);
 
     const scheduleSearch = (value: string) => {
@@ -634,7 +706,8 @@ export default function JobsIndex({
     const filtersActive =
         filters.q !== '' ||
         filters.status !== 'all' ||
-        filters.triage !== 'all';
+        filters.triage !== 'all' ||
+        filters.resume !== 'all';
 
     return (
         <AppShell>
@@ -642,7 +715,7 @@ export default function JobsIndex({
 
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                    <h1 className="text-fg text-2xl font-semibold tracking-tight">
+                    <h1 className="text-fg text-xl font-semibold tracking-tight sm:text-2xl">
                         Opportunities
                     </h1>
                     <p
@@ -662,7 +735,7 @@ export default function JobsIndex({
             </div>
 
             <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-3">
-                <div className="relative w-full sm:w-72">
+                <div className="relative w-full lg:w-72">
                     <TextInput
                         ref={searchInputRef}
                         type="text"
@@ -689,18 +762,30 @@ export default function JobsIndex({
                     )}
                 </div>
 
-                <SegmentedControl
-                    label="Inspection status"
-                    items={STATUS_TABS}
-                    value={filters.status}
-                    onChange={(status) => applyFilters({ status })}
-                />
-                <SegmentedControl
-                    label="Triage stage"
-                    items={TRIAGE_STAGES}
-                    value={filters.triage}
-                    onChange={(triage) => applyFilters({ triage })}
-                />
+                <FilterGroup label="Stage">
+                    <SegmentedControl
+                        label="Triage stage"
+                        items={TRIAGE_STAGES}
+                        value={filters.triage}
+                        onChange={(triage) => applyFilters({ triage })}
+                    />
+                </FilterGroup>
+                <FilterGroup label="Resume">
+                    <SegmentedControl
+                        label="Resume status"
+                        items={RESUME_TABS}
+                        value={filters.resume}
+                        onChange={(resume) => applyFilters({ resume })}
+                    />
+                </FilterGroup>
+                <FilterGroup label="Inspection">
+                    <SegmentedControl
+                        label="Inspection status"
+                        items={STATUS_TABS}
+                        value={filters.status}
+                        onChange={(status) => applyFilters({ status })}
+                    />
+                </FilterGroup>
             </div>
 
             {batchResult !== undefined && !batchResultDismissed && (
@@ -737,7 +822,7 @@ export default function JobsIndex({
                 <Card className="mt-5 border-dashed p-10 text-center">
                     <p className="text-fg-muted text-sm">
                         {filtersActive
-                            ? 'No opportunities match this search/filter.'
+                            ? describeFilters(filters)
                             : 'No jobs captured yet.'}
                     </p>
                     {filtersActive ? (
@@ -750,6 +835,7 @@ export default function JobsIndex({
                                     q: '',
                                     status: 'all',
                                     triage: 'all',
+                                    resume: 'all',
                                 });
                             }}
                         >
@@ -773,7 +859,7 @@ export default function JobsIndex({
                         loading && 'opacity-60',
                     )}
                 >
-                    <div className="border-line bg-sunken/40 flex min-h-14 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b px-4 py-2">
+                    <div className="border-line bg-sunken/40 flex min-h-12 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b px-4 py-2">
                         <label
                             className={cn(
                                 'flex items-center gap-3 text-sm',
@@ -830,14 +916,25 @@ export default function JobsIndex({
                             </div>
                         ) : tooManyToSelectAll ? (
                             <p className="text-fg-subtle text-xs">
-                                Select all is limited to {BATCH_MAX_ITEMS} rows.
-                                Pick rows individually, or show 25 or 50 per
-                                page.
+                                <span className="sm:hidden">
+                                    Batch limit: {BATCH_MAX_ITEMS}. Pick rows
+                                    one by one.
+                                </span>
+                                <span className="hidden sm:inline">
+                                    Select all is limited to {BATCH_MAX_ITEMS}{' '}
+                                    rows. Pick rows individually, or show 25 or
+                                    50 per page.
+                                </span>
                             </p>
                         ) : (
                             <p className="text-fg-subtle text-xs">
-                                Select rows to analyze or match them in a batch
-                                (up to {BATCH_MAX_ITEMS}).
+                                <span className="sm:hidden">
+                                    Batch limit: {BATCH_MAX_ITEMS}
+                                </span>
+                                <span className="hidden sm:inline">
+                                    Select rows to analyze or match them in a
+                                    batch (up to {BATCH_MAX_ITEMS}).
+                                </span>
                             </p>
                         )}
                     </div>

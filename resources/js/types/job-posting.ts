@@ -123,7 +123,11 @@ export type JobsIndexFilters = {
     q: string;
     status: 'all' | 'not_inspected' | 'inspected';
     triage: OpportunityTriageFilter;
+    resume: OpportunityResumeFilter;
 };
+
+/** Resume work per opportunity: a resume exists but none is final, or one is marked final. */
+export type OpportunityResumeFilter = 'all' | 'in-progress' | 'final';
 
 export type JobsIndexPagination = {
     page: number;

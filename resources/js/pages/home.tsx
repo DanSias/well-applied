@@ -40,23 +40,39 @@ function Stat({
     value,
     hint,
     href,
+    hintHref,
 }: {
     label: string;
     value: number;
     hint?: string;
     href: string;
+    /** When set, the hint is its own link (e.g. "166 not analyzed" opens that queue). */
+    hintHref?: string;
 }) {
     return (
-        <Link
-            href={href}
-            className="bg-surface hover:bg-raised block px-4 py-3 transition-colors"
-        >
-            <p className="text-fg-subtle text-xs font-medium">{label}</p>
-            <p className="text-fg mt-0.5 text-2xl leading-tight font-semibold tracking-tight tabular-nums">
-                {value}
-            </p>
-            <p className="text-fg-subtle mt-0.5 text-xs">{hint}</p>
-        </Link>
+        <div className="bg-surface hover:bg-raised px-4 py-3 transition-colors">
+            <Link
+                href={href}
+                className="rounded-control focus-visible:ring-focus block focus-visible:ring-2 focus-visible:outline-none"
+            >
+                <span className="text-fg-subtle block text-xs font-medium">
+                    {label}
+                </span>
+                <span className="text-fg mt-0.5 block text-2xl leading-tight font-semibold tracking-tight tabular-nums">
+                    {value}
+                </span>
+            </Link>
+            {hintHref ? (
+                <Link
+                    href={hintHref}
+                    className="text-accent-text hover:text-fg mt-0.5 inline-block text-xs underline-offset-2 hover:underline"
+                >
+                    {hint}
+                </Link>
+            ) : (
+                <p className="text-fg-subtle mt-0.5 text-xs">{hint}</p>
+            )}
+        </div>
     );
 }
 
@@ -249,6 +265,13 @@ export default function Home({
                                     : 'All analyzed'
                             }
                             href={jobsIndex.url()}
+                            hintHref={
+                                overview.not_analyzed > 0
+                                    ? jobsIndex.url({
+                                          query: { triage: 'raw' },
+                                      })
+                                    : undefined
+                            }
                         />
                         <Stat
                             label="Processing now"
@@ -262,13 +285,17 @@ export default function Home({
                             label="Resumes in progress"
                             value={overview.resumes_in_progress}
                             hint="Not marked final"
-                            href={jobsIndex.url()}
+                            href={jobsIndex.url({
+                                query: { resume: 'in-progress' },
+                            })}
                         />
                         <Stat
                             label="Final resumes"
                             value={overview.resumes_final}
                             hint="Ready to apply with"
-                            href={jobsIndex.url()}
+                            href={jobsIndex.url({
+                                query: { resume: 'final' },
+                            })}
                         />
                     </Card>
 

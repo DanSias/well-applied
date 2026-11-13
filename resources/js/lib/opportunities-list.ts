@@ -11,6 +11,7 @@ export type ListState = {
     q: string;
     status: string;
     triage: string;
+    resume: string;
     per_page: number;
     page: number;
 };
@@ -35,6 +36,10 @@ export function buildListParams(
 
     if (state.triage !== 'all') {
         params.triage = state.triage;
+    }
+
+    if (state.resume !== 'all') {
+        params.resume = state.resume;
     }
 
     if (state.per_page !== DEFAULT_PER_PAGE) {

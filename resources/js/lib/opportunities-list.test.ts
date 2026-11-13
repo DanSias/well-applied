@@ -13,6 +13,7 @@ const base: ListState = {
     q: '',
     status: 'all',
     triage: 'all',
+    resume: 'all',
     per_page: 25,
     page: 1,
 };
@@ -30,6 +31,7 @@ describe('list URL state', () => {
                 q: 'acme',
                 status: 'inspected',
                 triage: 'raw',
+                resume: 'in-progress',
                 per_page: 50,
                 page: 3,
             }),
@@ -37,6 +39,7 @@ describe('list URL state', () => {
             q: 'acme',
             status: 'inspected',
             triage: 'raw',
+            resume: 'in-progress',
             per_page: 50,
             page: 3,
         });

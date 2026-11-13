@@ -186,7 +186,7 @@ const TRIAGE_STAGE_STYLES: Record<OpportunityTriageStage, string> = {
 };
 
 const TRIAGE_STAGE_LABELS: Record<OpportunityTriageStage, string> = {
-    raw: 'Raw',
+    raw: 'Not analyzed',
     analyzing: 'Analyzing',
     'analysis-failed': 'Analysis failed',
     analyzed: 'Analyzed',
