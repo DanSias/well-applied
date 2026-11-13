@@ -145,10 +145,13 @@ export function TailoredResumePanel({
     jobId,
     initial,
     profiles = [],
+    returnTo,
 }: {
     jobId: number;
     initial: TailoredResumeStatus;
     profiles?: TailoringProfile[];
+    /** Where generating and continuing return to (the Opportunity workspace); the job page when absent. */
+    returnTo?: 'opportunity';
 }) {
     const { status, refresh } = useTailoredResumeStatus(jobId, initial);
     const elapsed = useLiveElapsed(status);
@@ -180,6 +183,7 @@ export function TailoredResumePanel({
             {
                 allow_incomplete_description: options.allowIncomplete ?? false,
                 regenerate: options.regenerate ?? false,
+                ...(returnTo ? { return_to: returnTo } : {}),
                 ...(selected && !selected.stale
                     ? { resume_profile_synthesis_id: selected.id }
                     : {}),
@@ -359,6 +363,7 @@ export function TailoredResumePanel({
                 <ClarificationPanel
                     jobId={jobId}
                     clarification={status.clarification}
+                    returnTo={returnTo}
                 />
             )}
 

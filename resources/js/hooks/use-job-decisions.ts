@@ -5,7 +5,12 @@ import { store as decisionStore } from '@/routes/jobs/decision';
 import { decision as batchDecision } from '@/routes/jobs/batch';
 import type { DismissalReason, JobDisposition } from '@/types/job-posting';
 
-type Options = { reason?: DismissalReason; note?: string };
+type Options = {
+    reason?: DismissalReason;
+    note?: string;
+    /** Where the server sends the page afterwards (a fixed key, see App\Support\Navigation\ReturnTo); single decisions only. */
+    returnTo?: 'job' | 'opportunity';
+};
 
 /**
  * Decide on one job or a selection from any page, through the same endpoints. The outcome is not shown here: the
@@ -63,6 +68,7 @@ export function useJobDecisions() {
                     disposition: to,
                     reason: options?.reason,
                     note: options?.note,
+                    return_to: options?.returnTo,
                 },
                 onSuccess,
             ),

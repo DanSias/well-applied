@@ -22,6 +22,25 @@ import type {
 
 export type InspectionDrawerState = 'loading' | 'ready' | 'unavailable';
 
+/**
+ * Where the drawer lives, which decides what a started inspection returns to and which props a finished run refreshes:
+ * the Opportunities list (`return_to=opportunities` plus its resume filter) or one Opportunity's workspace.
+ */
+export type InspectionDestination = {
+    post: Record<string, string>;
+    refresh: string[];
+};
+
+export const listDestination = (resume: string): InspectionDestination => ({
+    post: { return_to: 'opportunities', resume },
+    refresh: ['opportunities'],
+});
+
+export const workspaceDestination: InspectionDestination = {
+    post: { return_to: 'opportunity' },
+    refresh: ['opportunity'],
+};
+
 const OPTIONS_COLLAPSE_THRESHOLD = 6;
 
 function Question({ question }: { question: ApplicationQuestionView }) {
@@ -98,11 +117,11 @@ function Fact({
  */
 function InspectionBody({
     job,
-    resume,
+    destination,
     initial,
 }: {
     job: InspectionJob;
-    resume: string;
+    destination: InspectionDestination;
     initial: ApplicationInspectionState | null;
 }) {
     const polled = useApplicationInspectionPolling(
@@ -126,7 +145,7 @@ function InspectionBody({
     const wasActive = useRef(view.active);
     useEffect(() => {
         if (wasActive.current && !view.active) {
-            router.reload({ only: ['opportunities'] });
+            router.reload({ only: destination.refresh });
             notify.info(`Inspection finished: ${view.headline.label}`);
         }
 
@@ -147,9 +166,9 @@ function InspectionBody({
         setStarting(true);
         router.post(
             inspectStore.url({ jobPosting: job.id }),
-            { return_to: 'opportunities', resume },
+            destination.post,
             {
-                only: ['inspection_job', 'opportunities', 'filters'],
+                only: ['inspection_job', ...destination.refresh, 'filters'],
                 preserveScroll: true,
                 preserveState: true,
                 showProgress: false,
@@ -342,13 +361,13 @@ export function InspectionDrawer({
     state,
     job,
     fallback,
-    resume,
+    destination,
     onClose,
 }: {
     state: InspectionDrawerState;
     job: InspectionJob | null;
     fallback: { title: string; company: string } | null;
-    resume: string;
+    destination: InspectionDestination;
     onClose: () => void;
 }) {
     return (
@@ -384,7 +403,7 @@ export function InspectionDrawer({
                 <InspectionBody
                     key={`${job.id}:${job.application_id}`}
                     job={job}
-                    resume={resume}
+                    destination={destination}
                     initial={job.inspection}
                 />
             )}

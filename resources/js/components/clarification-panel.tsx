@@ -584,9 +584,11 @@ export function QuestionCard({
 export function ClarificationPanel({
     jobId,
     clarification,
+    returnTo,
 }: {
     jobId: number;
     clarification: Clarification;
+    returnTo?: 'opportunity';
 }) {
     const [busy, setBusy] = useState(false);
     const answered = clarification.questions.some((q) => q.status !== 'open');
@@ -594,13 +596,12 @@ export function ClarificationPanel({
         (q) => q.proposal?.status === 'proposed',
     ).length;
 
-    const post = (url: string) => {
+    const post = (url: string, data: Record<string, string> = {}) => {
         setBusy(true);
-        router.post(
-            url,
-            {},
-            { preserveScroll: true, onFinish: () => setBusy(false) },
-        );
+        router.post(url, data, {
+            preserveScroll: true,
+            onFinish: () => setBusy(false),
+        });
     };
 
     return (
@@ -640,7 +641,10 @@ export function ClarificationPanel({
                     type="button"
                     disabled={busy}
                     onClick={() =>
-                        post(continueGeneration.url({ jobPosting: jobId }))
+                        post(
+                            continueGeneration.url({ jobPosting: jobId }),
+                            returnTo ? { return_to: returnTo } : {},
+                        )
                     }
                     className={primary}
                 >

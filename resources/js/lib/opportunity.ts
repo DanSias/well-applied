@@ -161,3 +161,62 @@ export function existingWorkSummary(work: ExistingWork): string {
 
     return parts.join(' · ');
 }
+
+/** What the Opportunity workspace adds to a list row: the posting text and a short pointer to the latest analysis. */
+export type OpportunityDetail = Opportunity & {
+    description: string;
+    description_completeness: 'complete' | 'preview' | 'unknown';
+    captured_at: string | null;
+};
+
+export type AnalysisPointer = {
+    id: number;
+    generated_at: string;
+    seniority: string | null;
+    role_summary: string;
+    findings_count: number;
+    match: { id: number; generated_at: string; findings_count: number } | null;
+} | null;
+
+/**
+ * The workspace's one prominent next step: the same choice the list makes (nextAction), shown in place. A step that
+ * leads to a resume in the resume workspace links there; every other step happens in the Resume section of this very
+ * page (starting or following the pipeline, answering its questions), so it points at that section and says what it
+ * does, instead of leading away to the job page.
+ */
+export type WorkspaceNext =
+    | { kind: 'link'; label: string; hint: string; variantId: number }
+    | { kind: 'section'; label: string; hint: string };
+
+export function workspaceNext(
+    op: Pick<Opportunity, 'next' | 'resume'>,
+): WorkspaceNext {
+    const next = nextAction(op);
+
+    if (next.to === 'resume' && next.variantId !== null) {
+        return {
+            kind: 'link',
+            label: next.label,
+            variantId: next.variantId,
+            hint:
+                op.next === 'review_final'
+                    ? 'Your final resume is chosen. Check it once more before you apply.'
+                    : 'Pick up where you left off in the resume workspace.',
+        };
+    }
+
+    const hints: Record<string, string> = {
+        answer_questions:
+            'A few questions could improve the resume. Answer them, or generate now.',
+        processing: 'The job is being prepared. Progress is shown below.',
+        analyze:
+            'Starts the tailored resume pipeline, which analyzes the job first.',
+        prepare_resume: 'Starts the tailored resume pipeline for this job.',
+    };
+
+    return {
+        kind: 'section',
+        label: next.label,
+        hint: hints[op.next] ?? 'Continue with the resume below.',
+    };
+}

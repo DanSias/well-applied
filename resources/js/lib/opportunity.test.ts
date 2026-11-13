@@ -6,6 +6,7 @@ import {
     nextAction,
     resumeStateLabel,
     resumeStateTone,
+    workspaceNext,
     type ExistingWork,
 } from './opportunity';
 
@@ -149,5 +150,52 @@ describe('compensation', () => {
         expect(formatCompensation({ ...none, compensation_max: 90000 })).toBe(
             '90,000',
         );
+    });
+});
+
+describe('workspaceNext', () => {
+    const resume = (current: number | null, final: number | null) => ({
+        state: 'none' as const,
+        versions: 0,
+        current_variant_id: current,
+        final_variant_id: final,
+    });
+
+    it('links to the resume workspace when there is a resume to open', () => {
+        expect(
+            workspaceNext({ next: 'continue_resume', resume: resume(4, null) }),
+        ).toMatchObject({
+            kind: 'link',
+            label: 'Continue resume',
+            variantId: 4,
+        });
+        expect(
+            workspaceNext({ next: 'review_final', resume: resume(7, 7) }),
+        ).toMatchObject({ kind: 'link', variantId: 7 });
+    });
+
+    it('points at the resume section for steps that happen on the workspace itself', () => {
+        for (const next of [
+            'analyze',
+            'prepare_resume',
+            'answer_questions',
+            'processing',
+        ] as const) {
+            const step = workspaceNext({ next, resume: resume(null, null) });
+
+            expect(step.kind).toBe('section');
+            expect(step.label).toBe(
+                nextAction({ next, resume: resume(null, null) }).label,
+            );
+        }
+    });
+
+    it('falls back to the section when a resume step has no variant to open', () => {
+        expect(
+            workspaceNext({
+                next: 'continue_resume',
+                resume: resume(null, null),
+            }).kind,
+        ).toBe('section');
     });
 });

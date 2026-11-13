@@ -5,6 +5,7 @@ import { DispositionBadge } from '@/components/job-decisions';
 import { Badge } from '@/components/ui/badge';
 import {
     InspectionDrawer,
+    listDestination,
     type InspectionDrawerState,
 } from '@/components/inspection-drawer';
 import { OverflowMenu } from '@/components/overflow-menu';
@@ -28,7 +29,10 @@ import {
 } from '@/lib/opportunity';
 import { index as jobsIndex, show as showJob } from '@/routes/jobs';
 import { show as workspaceShow } from '@/routes/jobs/profile-resumes';
-import { index as opportunitiesIndex } from '@/routes/opportunities';
+import {
+    index as opportunitiesIndex,
+    show as opportunityShow,
+} from '@/routes/opportunities';
 import type { InspectionJob } from '@/types/application-inspection';
 
 type Props = {
@@ -68,7 +72,7 @@ function OpportunityRow({
                   jobPosting: op.id,
                   resumeVariant: next.variantId,
               })
-            : showJob.url(op.id);
+            : opportunityShow.url(op.id);
     const meta = [op.location, op.remote_status, formatCompensation(op)].filter(
         (item): item is string => Boolean(item),
     );
@@ -84,7 +88,7 @@ function OpportunityRow({
             <div className="min-w-0">
                 <p className="text-sm leading-snug break-words">
                     <Link
-                        href={showJob.url(op.id)}
+                        href={opportunityShow.url(op.id)}
                         className="text-fg focus-visible:ring-focus rounded-sm font-semibold hover:underline focus-visible:ring-2 focus-visible:outline-none"
                     >
                         {op.title}
@@ -466,7 +470,7 @@ export default function OpportunitiesIndex({
                     fallback={
                         opportunities.find((op) => op.id === openId) ?? null
                     }
-                    resume={filters.resume}
+                    destination={listDestination(filters.resume)}
                     onClose={closeInspection}
                 />
             )}
