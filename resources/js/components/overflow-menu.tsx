@@ -6,6 +6,7 @@ import {
     useRef,
     useState,
 } from 'react';
+import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
 
@@ -13,6 +14,8 @@ export type MenuItem = {
     label: string;
     /** Navigate (an Inertia link) instead of running `onSelect`. */
     href?: string;
+    /** The page you are on: marked for assistive technology and set apart visually. */
+    current?: boolean;
     /** `href` leaves the app: a plain link that opens in a new tab, not an Inertia visit. */
     external?: boolean;
     onSelect?: () => void;
@@ -38,10 +41,18 @@ export function OverflowMenu({
     label,
     items,
     disabled = false,
+    triggerContent,
+    triggerClassName,
+    roundTrigger = false,
 }: {
     label: string;
     items: MenuItem[];
     disabled?: boolean;
+    /** What the button shows instead of the three dots (an avatar, say). */
+    triggerContent?: ReactNode;
+    triggerClassName?: string;
+    /** A round button with a ring (an avatar) instead of the quiet square one. */
+    roundTrigger?: boolean;
 }) {
     const [open, setOpen] = useState(false);
     const trigger = useRef<HTMLButtonElement>(null);
@@ -166,19 +177,23 @@ export function OverflowMenu({
                 onClick={() => (open ? close() : setOpen(true))}
                 className={cn(
                     'rounded-control text-fg-muted hover:bg-raised hover:text-fg focus-visible:ring-focus inline-flex h-8 w-8 items-center justify-center transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-45',
+                    roundTrigger && 'rounded-full ring-1 ring-inset',
                     open && 'bg-raised text-fg',
+                    triggerClassName,
                 )}
             >
-                <svg
-                    aria-hidden="true"
-                    viewBox="0 0 16 16"
-                    className="h-4 w-4"
-                    fill="currentColor"
-                >
-                    <circle cx="3" cy="8" r="1.4" />
-                    <circle cx="8" cy="8" r="1.4" />
-                    <circle cx="13" cy="8" r="1.4" />
-                </svg>
+                {triggerContent ?? (
+                    <svg
+                        aria-hidden="true"
+                        viewBox="0 0 16 16"
+                        className="h-4 w-4"
+                        fill="currentColor"
+                    >
+                        <circle cx="3" cy="8" r="1.4" />
+                        <circle cx="8" cy="8" r="1.4" />
+                        <circle cx="13" cy="8" r="1.4" />
+                    </svg>
+                )}
             </button>
             {open &&
                 createPortal(
@@ -208,10 +223,22 @@ export function OverflowMenu({
                                     key={item.label}
                                     role="menuitem"
                                     href={item.href}
-                                    className={itemClass}
+                                    aria-current={
+                                        item.current ? 'page' : undefined
+                                    }
+                                    className={cn(
+                                        itemClass,
+                                        item.current && 'font-medium',
+                                    )}
                                     onClick={() => close(false)}
                                 >
                                     {item.label}
+                                    {item.current && (
+                                        <span
+                                            aria-hidden="true"
+                                            className="bg-accent ml-auto h-1.5 w-1.5 rounded-full"
+                                        />
+                                    )}
                                 </Link>
                             ) : (
                                 <button

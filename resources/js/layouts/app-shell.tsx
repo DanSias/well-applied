@@ -1,41 +1,21 @@
 import { Link, usePage } from '@inertiajs/react';
 import type { ReactNode } from 'react';
+import { ProfileMenu } from '@/components/profile-menu';
 import { WorkerStatusBadge } from '@/components/worker-status-badge';
 import { useWorkerStatusPolling } from '@/hooks/use-worker-status-polling';
+import { PRIMARY_NAV, activePrimary } from '@/lib/navigation';
 import { cn } from '@/lib/utils';
-import { index as careerDataIndex } from '@/routes/career-data';
 import { home } from '@/routes';
-import { index as jobsIndex } from '@/routes/jobs';
-import { index as opportunitiesIndex } from '@/routes/opportunities';
-import { index as resumeProfilesIndex } from '@/routes/resume-profiles';
-
-const NAV_ITEMS = [
-    { label: 'Jobs', href: jobsIndex.url(), match: '/jobs' },
-    {
-        label: 'Opportunities',
-        href: opportunitiesIndex.url(),
-        match: '/opportunities',
-    },
-    {
-        label: 'Resume Profiles',
-        href: resumeProfilesIndex.url(),
-        match: '/resume-profiles',
-    },
-    {
-        label: 'Career Data',
-        href: careerDataIndex.url(),
-        match: '/career-data',
-    },
-];
 
 /**
- * App shell: a sticky header with the product name and primary navigation,
- * over a single content column. The Browser Inspector status sits quietly in
+ * App shell: a sticky header with the product name, the job-search navigation (Home, Jobs, Opportunities, Applications)
+ * and, at the right, the profile menu holding personal career information, over a single content column. The Browser Inspector status sits quietly in
  * the footer. Every screen renders inside it, so global chrome changes happen
  * here once.
  */
 export default function AppShell({ children }: { children: ReactNode }) {
-    const { url } = usePage();
+    const { url, props } = usePage<{ profile?: { name: string | null } }>();
+    const active = activePrimary(url);
     const workerStatus = useWorkerStatusPolling();
 
     return (
@@ -50,22 +30,25 @@ export default function AppShell({ children }: { children: ReactNode }) {
                             aria-hidden="true"
                             className="bg-accent h-2.5 w-2.5 rounded-[3px]"
                         />
-                        Well Applied
+                        <span className="hidden sm:inline">Well Applied</span>
+                        <span className="sr-only sm:hidden">
+                            Well Applied, home
+                        </span>
                     </Link>
                     <nav
                         aria-label="Primary"
                         className="-mx-1 flex min-w-0 items-center gap-0.5 overflow-x-auto px-1 text-sm sm:gap-1"
                     >
-                        {NAV_ITEMS.map((item) => {
-                            const isActive = url.startsWith(item.match);
+                        {PRIMARY_NAV.map((item) => {
+                            const isActive = active === item.key;
 
                             return (
                                 <Link
-                                    key={item.href}
+                                    key={item.key}
                                     href={item.href}
                                     aria-current={isActive ? 'page' : undefined}
                                     className={cn(
-                                        'rounded-control px-2 py-1.5 font-medium whitespace-nowrap transition-colors sm:px-2.5',
+                                        'rounded-control focus-visible:ring-focus px-2 py-1.5 font-medium whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:outline-none sm:px-2.5',
                                         isActive
                                             ? 'bg-raised text-fg'
                                             : 'text-fg-muted hover:bg-raised/60 hover:text-fg',
@@ -76,6 +59,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
                             );
                         })}
                     </nav>
+                    <div className="ml-auto shrink-0">
+                        <ProfileMenu name={props.profile?.name} url={url} />
+                    </div>
                 </div>
             </header>
             <main className="mx-auto max-w-6xl px-4 py-5 sm:px-6 sm:py-6">
