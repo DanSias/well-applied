@@ -22,6 +22,15 @@ change the job's disposition and requires no inspection record, resume or link.
 - `submitted_at` is the person's time (not in the future); `created_at` is when it was recorded.
 - Only `manual` is supported; `assisted` and `automated` are reserved.
 
+## The submitted PDF
+
+`ResumePdfStore` is a regenerable, content-addressed cache and cannot prove what was sent. `SubmittedResumeSnapshot` keeps
+the exact bytes instead, on the private `local` disk (never public) at `submissions/{id}/resume-{sha256}.pdf`, with the
+SHA-256 on the submission. Files are written once and never overwritten; a read-back is checked against the hash. The bytes
+come from the caller, or (with `snapshotServedPdf`) from the cached PDF for the resume, which is never rendered here: if it
+is not cached there is no snapshot. A submission with no PDF, or a PDF made elsewhere, is fine. If a person submits a file
+other than the one Well Applied served, only the bytes the caller supplies can prove it.
+
 ## Events and state
 
 `submission_events` is append-only (the model refuses updates and deletes). A mistake is corrected by a

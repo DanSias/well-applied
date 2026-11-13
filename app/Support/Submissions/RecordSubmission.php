@@ -22,6 +22,9 @@ use Illuminate\Support\Facades\DB;
  * - a job may have any number of submissions over time, but recording another while one is still active (not ended,
  *   not marked in error) needs `allowAnother: true`, so a double click or a forgotten earlier record never duplicates;
  * - the time is the one the person gives (not in the future), kept apart from the time of recording;
+ * - the exact PDF submitted may be kept, from bytes the caller supplies or, with `snapshotServedPdf`, from the PDF Well
+ *   Applied already has cached for the resume (never rendered here, and skipped, not invented, when it is not cached);
+ *   a submission with no PDF is fine, and a retry never writes a second file;
  * - nothing here changes the job's disposition, and nothing requires an inspection record, a resume or a link.
  */
 final class RecordSubmission
@@ -29,7 +32,10 @@ final class RecordSubmission
     /** Clock slack for a submitted-just-now time. */
     private const FUTURE_TOLERANCE_MINUTES = 5;
 
-    public function __construct(private readonly SummarizeSubmission $summaries) {}
+    public function __construct(
+        private readonly SummarizeSubmission $summaries,
+        private readonly SubmittedResumeSnapshot $snapshots,
+    ) {}
 
     /**
      * @throws SubmissionException
@@ -44,6 +50,8 @@ final class RecordSubmission
         ?Application $application = null,
         ?string $applicationUrl = null,
         ?string $notes = null,
+        ?string $pdfBytes = null,
+        bool $snapshotServedPdf = false,
     ): Submission {
         $jobId = $job instanceof JobPosting ? $job->id : $job;
         $idempotencyKey = $idempotencyKey === null || trim($idempotencyKey) === '' ? null : trim($idempotencyKey);
@@ -56,48 +64,77 @@ final class RecordSubmission
             throw new SubmissionException('The submission time cannot be in the future.', 'submitted_in_future');
         }
 
+        if ($pdfBytes !== null && $snapshotServedPdf) {
+            throw new SubmissionException('Give the PDF bytes or ask for the served PDF, not both.', 'snapshot_ambiguous');
+        }
+
+        if ($snapshotServedPdf && $resumeVariant === null) {
+            throw new SubmissionException('There is no Well Applied resume to take a PDF from.', 'snapshot_needs_resume');
+        }
+
         $applicationUrl = $this->url($applicationUrl);
         $notes = $notes === null || trim($notes) === '' ? null : mb_substr(trim($notes), 0, 5000);
 
-        return DB::transaction(function () use ($jobId, $submittedAt, $idempotencyKey, $allowAnother, $method, $resumeVariant, $application, $applicationUrl, $notes) {
-            $posting = JobPosting::query()->lockForUpdate()->find($jobId)
-                ?? throw new SubmissionException('That job does not exist.', 'job_not_found');
+        $written = null;
 
-            if ($idempotencyKey !== null) {
-                $existing = Submission::query()->where('idempotency_key', $idempotencyKey)->first();
+        try {
+            return DB::transaction(function () use ($jobId, $submittedAt, $idempotencyKey, $allowAnother, $method, $resumeVariant, $application, $applicationUrl, $notes, $pdfBytes, $snapshotServedPdf, &$written) {
+                $posting = JobPosting::query()->lockForUpdate()->find($jobId)
+                    ?? throw new SubmissionException('That job does not exist.', 'job_not_found');
 
-                if ($existing !== null) {
-                    if ($existing->job_posting_id !== $posting->id) {
-                        throw new SubmissionException('That idempotency key was already used for a different job.', 'idempotency_key_reused');
+                if ($idempotencyKey !== null) {
+                    $existing = Submission::query()->where('idempotency_key', $idempotencyKey)->first();
+
+                    if ($existing !== null) {
+                        if ($existing->job_posting_id !== $posting->id) {
+                            throw new SubmissionException('That idempotency key was already used for a different job.', 'idempotency_key_reused');
+                        }
+
+                        return $existing;
                     }
-
-                    return $existing;
                 }
+
+                if ($resumeVariant !== null && $resumeVariant->jobAnalysis?->job_posting_id !== $posting->id) {
+                    throw new SubmissionException('That resume was not made for this job.', 'resume_not_for_job');
+                }
+
+                if ($application !== null && $application->job_posting_id !== $posting->id) {
+                    throw new SubmissionException('That inspection record belongs to a different job.', 'inspection_not_for_job');
+                }
+
+                if (! $allowAnother && $this->hasActiveSubmission($posting)) {
+                    throw new SubmissionException('An application to this job is already being tracked. Record another only if you really applied again.', 'active_submission_exists');
+                }
+
+                $submission = Submission::query()->create([
+                    'job_posting_id' => $posting->id,
+                    'application_id' => $application?->id,
+                    'resume_variant_id' => $resumeVariant?->id,
+                    'application_url' => $applicationUrl,
+                    'method' => $method,
+                    'submitted_at' => $submittedAt,
+                    'notes' => $notes,
+                    'idempotency_key' => $idempotencyKey,
+                ]);
+
+                $bytes = $pdfBytes ?? ($snapshotServedPdf ? $this->snapshots->servedPdf($resumeVariant) : null);
+
+                if ($bytes !== null) {
+                    $kept = $this->snapshots->write($submission, $bytes);
+                    $written = $kept['created'] ? $kept['path'] : null;
+                    $submission->forceFill(['submitted_pdf_path' => $kept['path'], 'submitted_pdf_sha256' => $kept['sha256']])->save();
+                }
+
+                return $submission;
+            });
+        } catch (\Throwable $e) {
+            // A file written for a recording that did not complete would be an orphan, with no row pointing at it.
+            if ($written !== null) {
+                $this->snapshots->discard($written);
             }
 
-            if ($resumeVariant !== null && $resumeVariant->jobAnalysis?->job_posting_id !== $posting->id) {
-                throw new SubmissionException('That resume was not made for this job.', 'resume_not_for_job');
-            }
-
-            if ($application !== null && $application->job_posting_id !== $posting->id) {
-                throw new SubmissionException('That inspection record belongs to a different job.', 'inspection_not_for_job');
-            }
-
-            if (! $allowAnother && $this->hasActiveSubmission($posting)) {
-                throw new SubmissionException('An application to this job is already being tracked. Record another only if you really applied again.', 'active_submission_exists');
-            }
-
-            return Submission::query()->create([
-                'job_posting_id' => $posting->id,
-                'application_id' => $application?->id,
-                'resume_variant_id' => $resumeVariant?->id,
-                'application_url' => $applicationUrl,
-                'method' => $method,
-                'submitted_at' => $submittedAt,
-                'notes' => $notes,
-                'idempotency_key' => $idempotencyKey,
-            ]);
-        });
+            throw $e;
+        }
     }
 
     private function hasActiveSubmission(JobPosting $posting): bool
