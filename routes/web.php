@@ -23,6 +23,7 @@ use App\Http\Controllers\ResumeRevisionController;
 use App\Http\Controllers\ResumeVariantController;
 use App\Http\Controllers\ResumeVariantPdfController;
 use App\Http\Controllers\ResumeVariantPreviewController;
+use App\Http\Controllers\SubmissionController;
 use App\Http\Controllers\TailoredResumeController;
 use App\Http\Middleware\AllowLongRunningGeneration;
 use Illuminate\Support\Facades\Route;
@@ -130,6 +131,9 @@ Route::get('/generation-attempts/{generationAttempt}', [GenerationAttemptControl
 // this workflow's AgentRun is eventually claimed and reported through.
 Route::post('/jobs/{jobPosting}/applications', [ApplicationController::class, 'store'])->name('jobs.applications.store');
 Route::get('/applications/{application}', [ApplicationController::class, 'show'])->name('applications.show');
+
+// Recording that a person submitted an application themselves (a Submission, not the inspection Application above).
+Route::post('/jobs/{jobPosting}/submissions', [SubmissionController::class, 'store'])->whereNumber('jobPosting')->name('jobs.submissions.store');
 Route::get('/applications/{application}/status', [ApplicationInspectionStatusController::class, 'show'])->name('applications.status');
 
 // Read-only worker presence feed for the nav-bar badge and

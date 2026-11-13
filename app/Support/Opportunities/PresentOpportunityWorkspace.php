@@ -4,6 +4,7 @@ namespace App\Support\Opportunities;
 
 use App\Models\JobAnalysis;
 use App\Models\JobPosting;
+use App\Support\Submissions\PresentSubmissions;
 use App\Support\TailoredResume\PresentTailoredResume;
 
 /**
@@ -19,6 +20,7 @@ final class PresentOpportunityWorkspace
         private readonly PresentOpportunities $opportunities,
         private readonly PresentTailoredResume $tailoredResume,
         private readonly PresentInspectionJob $inspectionJob,
+        private readonly PresentSubmissions $submissions,
     ) {}
 
     /**
@@ -36,6 +38,7 @@ final class PresentOpportunityWorkspace
             'resume_profiles' => $this->tailoredResume->profiles($job),
             'analysis' => $this->analysis($job),
             'inspection_job' => $this->inspectionJob->present($job),
+            'application' => $this->submissions->forWorkspace($job),
         ];
     }
 

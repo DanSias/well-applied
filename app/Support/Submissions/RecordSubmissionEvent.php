@@ -88,7 +88,7 @@ final class RecordSubmissionEvent
             return SubmissionEvent::query()->create([
                 'submission_id' => $locked->id,
                 'type' => $type,
-                'occurred_at' => $occurredAt,
+                'occurred_at' => $occurredAt->copy()->setTimezone(config('app.timezone')),
                 'source' => $source,
                 'note' => $note,
                 'evidence' => $evidence,

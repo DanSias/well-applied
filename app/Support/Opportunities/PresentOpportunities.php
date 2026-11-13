@@ -11,6 +11,7 @@ use App\Support\CurrentCareerProfile;
 use App\Support\JobDecisions\ReportJobsWithWork;
 use App\Support\OpportunityTriage\SummarizeTriageStates;
 use App\Support\ResumeRevision\JobResumes;
+use App\Support\Submissions\PresentSubmissions;
 use Illuminate\Support\Collection;
 
 /**
@@ -30,6 +31,7 @@ final class PresentOpportunities
         private readonly SummarizeTriageStates $triage,
         private readonly SummarizeInspectionStates $inspection,
         private readonly ReportJobsWithWork $existingWork,
+        private readonly PresentSubmissions $submissions,
     ) {}
 
     /**
@@ -46,9 +48,10 @@ final class PresentOpportunities
         $states = $this->resumes->stateByJob($ids);
         $triage = $this->triage->forJobPostings($ids);
         $inspection = $this->inspection->forJobPostings($ids);
+        $applied = $this->submissions->indicatorsByJob($ids);
         $pending = ClarificationSession::query()->whereIn('job_posting_id', $ids)->where('status', ClarificationSessionStatus::Pending)->pluck('job_posting_id')->flip();
 
-        $rows = $jobs->map(fn (JobPosting $job) => $this->row($job, $states, $triage, $inspection, $pending))->values()->all();
+        $rows = $jobs->map(fn (JobPosting $job) => $this->row($job, $states, $triage, $inspection, $pending, $applied))->values()->all();
 
         return [
             'opportunities' => array_values(array_filter($rows, fn (array $r) => $resume === 'all' || $r['resume']['state'] === $resume)),
@@ -73,7 +76,7 @@ final class PresentOpportunities
         $ids = collect([$job->id]);
         $pending = ClarificationSession::query()->where('job_posting_id', $job->id)->where('status', ClarificationSessionStatus::Pending)->pluck('job_posting_id')->flip();
 
-        return $this->row($job, $this->resumes->stateByJob($ids), $this->triage->forJobPostings($ids), $this->inspection->forJobPostings($ids), $pending);
+        return $this->row($job, $this->resumes->stateByJob($ids), $this->triage->forJobPostings($ids), $this->inspection->forJobPostings($ids), $pending, $this->submissions->indicatorsByJob($ids));
     }
 
     /**
@@ -81,9 +84,10 @@ final class PresentOpportunities
      * @param  array<int, array<string, mixed>>  $triage
      * @param  array<int, array<string, mixed>>  $inspection
      * @param  Collection<int, int>  $pending
+     * @param  array<int, array<string, mixed>>  $applied
      * @return array<string, mixed>
      */
-    private function row(JobPosting $job, array $states, array $triage, array $inspection, $pending): array
+    private function row(JobPosting $job, array $states, array $triage, array $inspection, $pending, array $applied): array
     {
         $state = $states[$job->id] ?? 'none';
         $current = $state === 'none' ? null : $this->resumes->current($job);
@@ -111,6 +115,8 @@ final class PresentOpportunities
                 'final_variant_id' => $final?->id,
             ],
             'inspection' => $inspection[$job->id],
+            // An application the person recorded themselves, or null; never the inspection above.
+            'submission' => $applied[$job->id] ?? null,
             'pending_questions' => $questions,
             'next' => $this->next($state, $stage, $questions),
         ];

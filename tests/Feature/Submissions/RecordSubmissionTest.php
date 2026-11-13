@@ -207,3 +207,17 @@ describe('more than one submission', function () {
         expect(Submission::count())->toBe(2);
     });
 });
+
+it('stores the same instant whatever timezone the time was given in', function () {
+    $job = JobPosting::factory()->create();
+    $newYork = Carbon::parse('2026-11-10 00:00:00', 'America/New_York');
+
+    $submission = recorder()->record($job, $newYork);
+
+    expect($submission->fresh()->submitted_at->utc()->format('Y-m-d H:i:s'))->toBe('2026-11-10 05:00:00')
+        ->and($submission->fresh()->submitted_at->equalTo($newYork))->toBeTrue();
+
+    $event = app(RecordSubmissionEvent::class)->record($submission, SubmissionEventType::ConfirmationReceived, Carbon::parse('2026-11-10 09:30:00', 'America/New_York'));
+
+    expect($event->fresh()->occurred_at->utc()->format('Y-m-d H:i:s'))->toBe('2026-11-10 14:30:00');
+});

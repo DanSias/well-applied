@@ -112,7 +112,8 @@ final class RecordSubmission
                     'resume_variant_id' => $resumeVariant?->id,
                     'application_url' => $applicationUrl,
                     'method' => $method,
-                    'submitted_at' => $submittedAt,
+                    // Eloquent writes the clock string as given, so a time in the person's zone must be moved to the app's first.
+                    'submitted_at' => $submittedAt->copy()->setTimezone(config('app.timezone')),
                     'notes' => $notes,
                     'idempotency_key' => $idempotencyKey,
                 ]);

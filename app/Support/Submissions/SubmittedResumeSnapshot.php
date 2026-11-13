@@ -39,6 +39,12 @@ final class SubmittedResumeSnapshot
         return $this->store->get($this->documents->generate($variant));
     }
 
+    /** Whether a served PDF is cached for this variant (so a snapshot of it could be kept). Never renders one. */
+    public function isServedPdfCached(ResumeVariant $variant): bool
+    {
+        return $this->servedPdf($variant) !== null;
+    }
+
     /**
      * Writes the bytes and returns where and what they are. Does not touch the submission row; see RecordSubmission.
      *
