@@ -13,6 +13,7 @@ import type {
 } from '@/types/tailored-resume';
 import { buttonClass } from '@/components/ui/button';
 import { fieldClass } from '@/components/ui/field';
+import { generateAction } from '@/lib/tailored-resume-action';
 import { cn } from '@/lib/utils';
 
 const STAGE_MARK: Record<TailoredResumeStage['status'], string> = {
@@ -22,6 +23,7 @@ const STAGE_MARK: Record<TailoredResumeStage['status'], string> = {
     done: '✓',
     reused: '✓',
     failed: '✕',
+    interrupted: '⏸',
 };
 
 function useLiveElapsed(status: TailoredResumeStatus): number | null {
@@ -118,7 +120,9 @@ function StageList({ stages }: { stages: TailoredResumeStage[] }) {
                             ? 'font-medium text-neutral-900 dark:text-neutral-100'
                             : stage.status === 'failed'
                               ? 'text-red-600 dark:text-red-400'
-                              : 'text-neutral-500 dark:text-neutral-400'
+                              : stage.status === 'interrupted'
+                                ? 'text-amber-700 dark:text-amber-300'
+                                : 'text-neutral-500 dark:text-neutral-400'
                     }
                 >
                     <span aria-hidden className="mr-2 inline-block w-4">
@@ -127,6 +131,7 @@ function StageList({ stages }: { stages: TailoredResumeStage[] }) {
                     {stage.label}
                     {stage.status === 'reused' && ' (reused existing result)'}
                     {stage.status === 'queued' && ' (waiting for worker)'}
+                    {stage.status === 'interrupted' && ' (interrupted)'}
                     {stage.phase && ` (${stage.phase})`}
                 </li>
             ))}
@@ -208,6 +213,8 @@ export function TailoredResumePanel({
         );
     };
 
+    const action = generateAction(status, processing);
+
     const click = (regenerate = false) => {
         if (status.needs_confirmation && !confirming) {
             setConfirming(true);
@@ -281,21 +288,16 @@ export function TailoredResumePanel({
                     )}
                 </div>
 
-                {status.state !== 'ready' &&
-                    status.state !== 'needs_clarification' && (
-                        <button
-                            type="button"
-                            disabled={processing || running}
-                            onClick={() => click()}
-                            className={buttonClass('primary', 'md')}
-                        >
-                            {running
-                                ? 'Generating…'
-                                : status.state === 'failed'
-                                  ? 'Retry'
-                                  : 'Generate Tailored Resume'}
-                        </button>
-                    )}
+                {action.show && (
+                    <button
+                        type="button"
+                        disabled={action.disabled}
+                        onClick={() => click()}
+                        className={buttonClass('primary', 'md')}
+                    >
+                        {action.label}
+                    </button>
+                )}
             </div>
 
             {confirming && !running && (
@@ -351,12 +353,29 @@ export function TailoredResumePanel({
                         {status.label}
                         {elapsed !== null && (
                             <span className="ml-2 font-normal text-neutral-500 tabular-nums dark:text-neutral-400">
-                                {formatElapsedTime(elapsed)} elapsed
+                                {formatElapsedTime(elapsed)}{' '}
+                                {status.state === 'interrupted'
+                                    ? 'before it stopped'
+                                    : 'elapsed'}
                             </span>
                         )}
                     </p>
                     <StageList stages={status.stages} />
                 </div>
+            )}
+
+            {status.state === 'interrupted' && (
+                <p
+                    role="alert"
+                    className="mt-3 text-sm text-amber-800 dark:text-amber-300"
+                >
+                    {status.interruption?.stage_label
+                        ? `Stopped while ${status.interruption.stage_label.toLowerCase()}. `
+                        : 'Stopped between steps. '}
+                    The worker stopped or restarted, so nothing is running now.
+                    Continue picks up from where it stopped; finished steps are
+                    kept and not repeated.
+                </p>
             )}
 
             {status.state === 'needs_clarification' && status.clarification && (

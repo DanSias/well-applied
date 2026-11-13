@@ -190,7 +190,13 @@ export type WorkspaceNext =
     | { kind: 'section'; label: string; hint: string };
 
 export type PipelineHint = {
-    state: 'idle' | 'running' | 'ready' | 'failed' | 'needs_clarification';
+    state:
+        | 'idle'
+        | 'running'
+        | 'ready'
+        | 'failed'
+        | 'interrupted'
+        | 'needs_clarification';
     needs_confirmation: boolean;
 };
 
@@ -227,7 +233,9 @@ export function workspaceNext(
             ? 'Generation is running. Progress is shown below.'
             : pipeline?.state === 'failed'
               ? 'The last attempt failed. Retry it below; finished stages are reused.'
-              : (hints[op.next] ?? 'Continue with the resume below.');
+              : pipeline?.state === 'interrupted'
+                ? 'Generation stopped when the worker did. Continue it below; finished stages are kept.'
+                : (hints[op.next] ?? 'Continue with the resume below.');
 
     return { kind: 'section', label: next.label, hint };
 }
