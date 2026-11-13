@@ -24,7 +24,7 @@ import {
 import { show as jobShow } from '@/routes/jobs';
 import {
     browserTimezone,
-    formatSubmittedDate,
+    formatCalendarDate,
     phaseTone,
     type ApplicationSection,
     type SubmissionRecord,
@@ -82,13 +82,7 @@ function Section({
 const day = (iso: string) => new Date(iso).toLocaleDateString();
 
 /** One recorded application: what the person told us, and where it stands now. */
-function SubmissionItem({
-    record,
-    timezone,
-}: {
-    record: SubmissionRecord;
-    timezone: string;
-}) {
+function SubmissionItem({ record }: { record: SubmissionRecord }) {
     const resume = record.resume
         ? `${record.resume.label ?? 'A Well Applied resume'}${record.pdf_kept ? ', copy of the PDF kept' : ', no copy of the PDF kept'}`
         : record.pdf_kept
@@ -98,7 +92,7 @@ function SubmissionItem({
     return (
         <li className="space-y-1 py-2.5 text-sm first:pt-0">
             <p className="text-fg font-medium">
-                Applied {formatSubmittedDate(record.submitted_at, timezone)}
+                Applied {formatCalendarDate(record.submitted_on)}
                 <span className="text-fg-subtle ml-2 text-xs font-normal">
                     {record.phase_label}
                 </span>
@@ -337,7 +331,6 @@ export default function OpportunityShow({
                                 <SubmissionItem
                                     key={record.id}
                                     record={record}
-                                    timezone={timezone}
                                 />
                             ))}
                         </ul>

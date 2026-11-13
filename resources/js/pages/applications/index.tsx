@@ -3,11 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/surface';
 import AppShell from '@/layouts/app-shell';
-import {
-    applicationRow,
-    browserTimezone,
-    type ApplicationListItem,
-} from '@/lib/submission';
+import { applicationRow, type ApplicationListItem } from '@/lib/submission';
 import { index as opportunitiesIndex } from '@/routes/opportunities';
 
 type Props = {
@@ -19,14 +15,12 @@ type Props = {
 /** One recorded application: the job, when you applied, where it stands, and the resume you named. Read-only. */
 function ApplicationRow({
     item,
-    timezone,
     muted = false,
 }: {
     item: ApplicationListItem;
-    timezone: string;
     muted?: boolean;
 }) {
-    const row = applicationRow(item, timezone);
+    const row = applicationRow(item);
 
     return (
         <li className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-1 px-4 py-2.5">
@@ -60,8 +54,6 @@ export default function ApplicationsIndex({
     in_error,
     counts,
 }: Props) {
-    const timezone = browserTimezone();
-
     return (
         <AppShell>
             <Head title="Applications" />
@@ -101,11 +93,7 @@ export default function ApplicationsIndex({
                 <Card className="mt-3 overflow-hidden">
                     <ul className="divide-line divide-y">
                         {applications.map((item) => (
-                            <ApplicationRow
-                                key={item.id}
-                                item={item}
-                                timezone={timezone}
-                            />
+                            <ApplicationRow key={item.id} item={item} />
                         ))}
                     </ul>
                 </Card>
@@ -122,7 +110,6 @@ export default function ApplicationsIndex({
                                 <ApplicationRow
                                     key={item.id}
                                     item={item}
-                                    timezone={timezone}
                                     muted
                                 />
                             ))}

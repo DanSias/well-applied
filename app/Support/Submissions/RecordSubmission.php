@@ -21,7 +21,8 @@ use Illuminate\Support\Facades\DB;
  *   reused for a different job is refused);
  * - a job may have any number of submissions over time, but recording another while one is still active (not ended,
  *   not marked in error) needs `allowAnother: true`, so a double click or a forgotten earlier record never duplicates;
- * - the time is the one the person gives (not in the future), kept apart from the time of recording;
+ * - the time is the one the person gives (not in the future), kept apart from the time of recording; a calendar date
+ *   they entered is also kept as that plain date (`submittedOn`), which is what is shown, so it never shifts with a timezone;
  * - the exact PDF submitted may be kept, from bytes the caller supplies or, with `snapshotServedPdf`, from the PDF Well
  *   Applied already has cached for the resume (never rendered here, and skipped, not invented, when it is not cached);
  *   a submission with no PDF is fine, and a retry never writes a second file;
@@ -52,6 +53,7 @@ final class RecordSubmission
         ?string $notes = null,
         ?string $pdfBytes = null,
         bool $snapshotServedPdf = false,
+        ?string $submittedOn = null,
     ): Submission {
         $jobId = $job instanceof JobPosting ? $job->id : $job;
         $idempotencyKey = $idempotencyKey === null || trim($idempotencyKey) === '' ? null : trim($idempotencyKey);
@@ -72,13 +74,14 @@ final class RecordSubmission
             throw new SubmissionException('There is no Well Applied resume to take a PDF from.', 'snapshot_needs_resume');
         }
 
+        $submittedOn = $this->calendarDate($submittedOn);
         $applicationUrl = $this->url($applicationUrl);
         $notes = $notes === null || trim($notes) === '' ? null : mb_substr(trim($notes), 0, 5000);
 
         $written = null;
 
         try {
-            return DB::transaction(function () use ($jobId, $submittedAt, $idempotencyKey, $allowAnother, $method, $resumeVariant, $application, $applicationUrl, $notes, $pdfBytes, $snapshotServedPdf, &$written) {
+            return DB::transaction(function () use ($jobId, $submittedAt, $idempotencyKey, $allowAnother, $method, $resumeVariant, $application, $applicationUrl, $notes, $pdfBytes, $snapshotServedPdf, $submittedOn, &$written) {
                 $posting = JobPosting::query()->lockForUpdate()->find($jobId)
                     ?? throw new SubmissionException('That job does not exist.', 'job_not_found');
 
@@ -114,6 +117,8 @@ final class RecordSubmission
                     'method' => $method,
                     // Eloquent writes the clock string as given, so a time in the person's zone must be moved to the app's first.
                     'submitted_at' => $submittedAt->copy()->setTimezone(config('app.timezone')),
+                    // The day the person entered, kept exactly: shown as written, never converted through a timezone.
+                    'submitted_on' => $submittedOn,
                     'notes' => $notes,
                     'idempotency_key' => $idempotencyKey,
                 ]);
@@ -141,6 +146,22 @@ final class RecordSubmission
     private function hasActiveSubmission(JobPosting $posting): bool
     {
         return $posting->submissions()->get()->contains(fn (Submission $s) => $this->summaries->forSubmission($s)->active);
+    }
+
+    /** A calendar date as Y-m-d, or null when none was given. */
+    private function calendarDate(?string $date): ?string
+    {
+        if ($date === null || trim($date) === '') {
+            return null;
+        }
+
+        $parsed = \DateTimeImmutable::createFromFormat('!Y-m-d', trim($date));
+
+        if ($parsed === false || $parsed->format('Y-m-d') !== trim($date)) {
+            throw new SubmissionException('The date must be a real calendar date.', 'submitted_on_invalid');
+        }
+
+        return $parsed->format('Y-m-d');
     }
 
     private function url(?string $url): ?string

@@ -58,6 +58,7 @@ class SubmissionController extends Controller
                 pdfBytes: $choice === 'external' ? (string) file_get_contents($request->file('pdf')->getRealPath()) : null,
                 // The PDF Well Applied already holds for that resume, or none: never rendered here to manufacture evidence.
                 snapshotServedPdf: $choice === 'well_applied',
+                submittedOn: (string) $request->input('submitted_on'),
             );
         } catch (SubmissionException $e) {
             throw ValidationException::withMessages([
@@ -73,7 +74,7 @@ class SubmissionController extends Controller
     private function field(string $reason): string
     {
         return match ($reason) {
-            'submitted_in_future' => 'submitted_on',
+            'submitted_in_future', 'submitted_on_invalid' => 'submitted_on',
             'url_invalid' => 'application_url',
             'resume_not_for_job' => 'resume_variant_id',
             'snapshot_not_pdf', 'snapshot_too_large' => 'pdf',

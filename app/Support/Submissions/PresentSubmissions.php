@@ -32,7 +32,7 @@ final class PresentSubmissions
     {
         $history = $this->resumes->history($job);
         $labels = collect($history)->pluck('label', 'id');
-        $submissions = $job->submissions()->with('events')->get()->sortByDesc(fn (Submission $s) => [$s->submitted_at->getTimestamp(), $s->id])->values();
+        $submissions = $job->submissions()->with('events')->get()->sortByDesc(fn (Submission $s) => [$s->displayDate(), $s->submitted_at->getTimestamp(), $s->id])->values();
 
         return [
             'records' => $submissions->map(fn (Submission $s) => $this->record($s, $labels->get($s->resume_variant_id)))->all(),
@@ -75,6 +75,7 @@ final class PresentSubmissions
                     'url' => JobHome::url($job),
                 ],
                 'submitted_at' => $submission->submitted_at->toIso8601String(),
+                'submitted_on' => $submission->displayDate(),
                 'method' => $submission->method->value,
                 'phase' => $summary->phase->value,
                 'phase_label' => $summary->phase->label(),
@@ -85,7 +86,7 @@ final class PresentSubmissions
                     : ($submission->submitted_pdf_sha256 !== null ? 'A PDF you uploaded' : null),
                 'pdf_kept' => $submission->submitted_pdf_sha256 !== null,
                 'application_url' => $submission->application_url,
-                '_order' => [$submission->submitted_at->getTimestamp(), $submission->id],
+                '_order' => [$submission->displayDate(), $submission->submitted_at->getTimestamp(), $submission->id],
             ];
         }
 
@@ -141,7 +142,7 @@ final class PresentSubmissions
         foreach ($byJob as $jobId => $submissions) {
             $rows = $submissions->map(fn (Submission $s) => [$s, $this->summaries->fromEvents($s->events)])
                 ->reject(fn (array $pair) => $pair[1]->recordedInError)
-                ->sortByDesc(fn (array $pair) => [$pair[1]->active, $pair[0]->submitted_at->getTimestamp(), $pair[0]->id]);
+                ->sortByDesc(fn (array $pair) => [$pair[1]->active, $pair[0]->displayDate(), $pair[0]->submitted_at->getTimestamp(), $pair[0]->id]);
 
             if ($rows->isEmpty()) {
                 continue;
@@ -154,6 +155,7 @@ final class PresentSubmissions
                 'label' => $summary->phase->label(),
                 'active' => $summary->active,
                 'submitted_at' => $submission->submitted_at->toIso8601String(),
+                'submitted_on' => $submission->displayDate(),
                 'count' => $rows->count(),
             ];
         }
@@ -171,6 +173,7 @@ final class PresentSubmissions
         return [
             'id' => $submission->id,
             'submitted_at' => $submission->submitted_at->toIso8601String(),
+            'submitted_on' => $submission->displayDate(),
             'recorded_at' => $submission->created_at?->toIso8601String(),
             'method' => $submission->method->value,
             'phase' => $summary->phase->value,

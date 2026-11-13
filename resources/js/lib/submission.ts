@@ -13,12 +13,15 @@ export type SubmissionIndicator = {
     label: string;
     active: boolean;
     submitted_at: string;
+    /** The calendar date (YYYY-MM-DD) to show: as entered, the same in every timezone. */
+    submitted_on: string;
     count: number;
 };
 
 export type SubmissionRecord = {
     id: number;
     submitted_at: string;
+    submitted_on: string;
     recorded_at: string | null;
     method: string;
     phase: string;
@@ -62,20 +65,19 @@ export function todayIn(timezone: string, now: Date = new Date()): string {
 }
 
 /**
- * A date only, never a time: a submission is recorded as the start of a day, so showing a clock time would claim
- * something nobody said. Rendered in the person's timezone, where it was recorded.
+ * A calendar date (YYYY-MM-DD) as words ("Nov 13, 2026"), formatted from its own parts and never through a timezone, so
+ * the day someone entered reads the same wherever and whenever it is viewed. A date only, never a time: nobody said one.
  */
-export function formatSubmittedDate(
-    iso: string,
-    timezone: string,
-    withYear = true,
-): string {
+export function formatCalendarDate(ymd: string, withYear = true): string {
+    const [year, month, day] = ymd.split('-').map(Number);
+
     return new Intl.DateTimeFormat('en-US', {
-        timeZone: timezone,
+        // The date was built in UTC and is read back in UTC: no zone ever shifts it.
+        timeZone: 'UTC',
         month: 'short',
         day: 'numeric',
         ...(withYear ? { year: 'numeric' } : {}),
-    }).format(new Date(iso));
+    }).format(new Date(Date.UTC(year, month - 1, day)));
 }
 
 const PHASE_TONE: Record<string, Tone> = {
@@ -95,10 +97,10 @@ export function phaseTone(phase: string): Tone {
 }
 
 /** The compact list-row indicator: "Not applied", "Applied · Nov 13", or the derived phase ("Confirmed", "Rejected"…). */
-export function submissionIndicator(
-    submission: SubmissionIndicator | null,
-    timezone: string,
-): { label: string; tone: Tone | null } {
+export function submissionIndicator(submission: SubmissionIndicator | null): {
+    label: string;
+    tone: Tone | null;
+} {
     if (submission === null) {
         return { label: 'Not applied', tone: null };
     }
@@ -106,7 +108,7 @@ export function submissionIndicator(
     return {
         label:
             submission.phase === 'submitted'
-                ? `Applied · ${formatSubmittedDate(submission.submitted_at, timezone, false)}`
+                ? `Applied · ${formatCalendarDate(submission.submitted_on, false)}`
                 : submission.label,
         tone: phaseTone(submission.phase),
     };
@@ -323,6 +325,7 @@ export type ApplicationListItem = {
         url: string;
     };
     submitted_at: string;
+    submitted_on: string;
     method: string;
     phase: string;
     phase_label: string;
@@ -340,14 +343,14 @@ export type ApplicationListItem = {
  * What a row says, in words: the date (never a time), the resume when known, which application of several it is, and
  * whether the job has left Opportunities. Nothing is invented: no resume means "no resume recorded".
  */
-export function applicationRow(item: ApplicationListItem, timezone: string) {
+export function applicationRow(item: ApplicationListItem) {
     return {
         title: item.job.title,
         company: item.job.company,
         href: item.job.url,
         status: item.phase_label,
         tone: phaseTone(item.phase),
-        date: formatSubmittedDate(item.submitted_at, timezone),
+        date: formatCalendarDate(item.submitted_on),
         resume: item.resume ?? 'No resume recorded',
         series:
             item.attempt !== null && item.attempts > 1

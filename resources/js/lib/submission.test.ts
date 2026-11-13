@@ -1,9 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
     applicationRow,
     buildPayload,
     createSubmitGuard,
-    formatSubmittedDate,
+    formatCalendarDate,
     initialForm,
     mapServerErrors,
     submissionIndicator,
@@ -38,11 +38,57 @@ describe('dates', () => {
     });
 
     it('shows a date only, never a time', () => {
-        const iso = '2026-11-10T05:00:00Z';
+        expect(formatCalendarDate('2026-11-10')).toBe('Nov 10, 2026');
+        expect(formatCalendarDate('2026-11-10', false)).toBe('Nov 10');
+        expect(formatCalendarDate('2026-11-10')).not.toMatch(/\d:\d/);
+    });
+});
 
-        expect(formatSubmittedDate(iso, NY)).toBe('Nov 10, 2026');
-        expect(formatSubmittedDate(iso, NY, false)).toBe('Nov 10');
-        expect(formatSubmittedDate(iso, NY)).not.toMatch(/\d:\d/);
+describe('a calendar date entered by a person', () => {
+    const originalTz = process.env.TZ;
+
+    afterEach(() => {
+        process.env.TZ = originalTz;
+    });
+
+    it('reads the same in every timezone it is viewed from', () => {
+        const seen = new Set<string>();
+
+        for (const tz of [
+            'Pacific/Honolulu',
+            'America/New_York',
+            'UTC',
+            'Europe/Berlin',
+            'Asia/Tokyo',
+            'Pacific/Kiritimati',
+        ]) {
+            process.env.TZ = tz;
+            seen.add(formatCalendarDate('2026-11-13'));
+            seen.add(formatCalendarDate('2026-11-13', false));
+        }
+
+        expect([...seen].sort()).toEqual(['Nov 13', 'Nov 13, 2026']);
+    });
+
+    it('is what goes wrong when the same day is stored as an instant and viewed elsewhere', () => {
+        // Recorded as the start of Nov 13 in New York, an instant of 05:00 UTC.
+        const instant = new Date('2026-11-13T05:00:00Z');
+        const shown = (timeZone: string) =>
+            new Intl.DateTimeFormat('en-US', {
+                timeZone,
+                month: 'short',
+                day: 'numeric',
+            }).format(instant);
+
+        expect(shown('America/New_York')).toBe('Nov 13');
+        expect(shown('Pacific/Honolulu')).toBe('Nov 12');
+        expect(formatCalendarDate('2026-11-13', false)).toBe('Nov 13');
+    });
+
+    it('handles month and year edges without drifting', () => {
+        expect(formatCalendarDate('2026-01-01')).toBe('Jan 1, 2026');
+        expect(formatCalendarDate('2025-12-31')).toBe('Dec 31, 2025');
+        expect(formatCalendarDate('2028-02-29')).toBe('Feb 29, 2028');
     });
 });
 
@@ -297,35 +343,32 @@ describe('list indicator', () => {
         label: 'Applied',
         active: true,
         submitted_at: '2026-11-13T05:00:00Z',
+        submitted_on: '2026-11-13',
         count: 1,
         ...over,
     });
 
     it('says Not applied when nothing was recorded, and does not count an inspection', () => {
-        expect(submissionIndicator(null, NY)).toEqual({
+        expect(submissionIndicator(null)).toEqual({
             label: 'Not applied',
             tone: null,
         });
     });
 
     it('shows Applied with the date, then the derived phase', () => {
-        expect(submissionIndicator(sub(), NY).label).toBe('Applied · Nov 13');
+        expect(submissionIndicator(sub()).label).toBe('Applied · Nov 13');
         expect(
-            submissionIndicator(
-                sub({ phase: 'confirmed', label: 'Confirmed' }),
-                NY,
-            ).label,
+            submissionIndicator(sub({ phase: 'confirmed', label: 'Confirmed' }))
+                .label,
         ).toBe('Confirmed');
         expect(
             submissionIndicator(
                 sub({ phase: 'interviewing', label: 'Interviewing' }),
-                NY,
             ).label,
         ).toBe('Interviewing');
         expect(
             submissionIndicator(
                 sub({ phase: 'rejected', label: 'Rejected', active: false }),
-                NY,
             ),
         ).toEqual({ label: 'Rejected', tone: 'neutral' });
     });
@@ -364,6 +407,7 @@ describe('applicationRow', () => {
             url: '/opportunities/7',
         },
         submitted_at: '2026-11-10T05:00:00Z',
+        submitted_on: '2026-11-10',
         method: 'manual',
         phase: 'submitted',
         phase_label: 'Applied',
@@ -378,7 +422,7 @@ describe('applicationRow', () => {
     });
 
     it('presents company, title, date, status and resume', () => {
-        expect(applicationRow(item(), NY)).toMatchObject({
+        expect(applicationRow(item())).toMatchObject({
             title: 'Staff Engineer',
             company: 'Acme',
             href: '/opportunities/7',
@@ -402,7 +446,6 @@ describe('applicationRow', () => {
                     url: '/jobs/7',
                 },
             }),
-            NY,
         );
 
         expect(row.resume).toBe('No resume recorded');
@@ -411,11 +454,11 @@ describe('applicationRow', () => {
     });
 
     it('numbers several applications to the same job', () => {
+        expect(applicationRow(item({ attempt: 2, attempts: 3 })).series).toBe(
+            'Application 2 of 3',
+        );
         expect(
-            applicationRow(item({ attempt: 2, attempts: 3 }), NY).series,
-        ).toBe('Application 2 of 3');
-        expect(
-            applicationRow(item({ attempt: 1, attempts: 1 }), NY).series,
+            applicationRow(item({ attempt: 1, attempts: 1 })).series,
         ).toBeNull();
     });
 
@@ -423,13 +466,11 @@ describe('applicationRow', () => {
         expect(
             applicationRow(
                 item({ phase: 'rejected', phase_label: 'Rejected' }),
-                NY,
             ),
         ).toMatchObject({ status: 'Rejected', tone: 'neutral' });
         expect(
             applicationRow(
                 item({ phase: 'interviewing', phase_label: 'Interviewing' }),
-                NY,
             ).tone,
         ).toBe('accent');
     });

@@ -385,3 +385,63 @@ describe('what the workspace and list show', function () {
             ->and($rows[$mistake->id]['submission'])->toBeNull();
     });
 });
+
+describe('the calendar date a person entered', function () {
+    it('is kept exactly as entered, whatever timezone it was entered from', function (string $timezone) {
+        $job = epJob();
+
+        epPost($this, $job, ['submitted_on' => '2026-11-13', 'timezone' => $timezone])->assertSessionHasNoErrors();
+
+        expect(Submission::sole()->submitted_on)->toBe('2026-11-13');
+        $this->get(route('opportunities.show', $job))->assertInertia(fn (Assert $page) => $page->where('application.records.0.submitted_on', '2026-11-13'));
+        $row = collect($this->get('/opportunities')->viewData('page')['props']['opportunities'])->firstWhere('id', $job->id);
+        expect($row['submission']['submitted_on'])->toBe('2026-11-13')
+            ->and(collect($this->get('/applications')->viewData('page')['props']['applications'])->first()['submitted_on'])->toBe('2026-11-13');
+    })->with(['Pacific/Honolulu', 'America/New_York', 'UTC', 'Europe/Berlin', 'Asia/Tokyo', 'Pacific/Kiritimati']);
+
+    it('keeps the instant for ordering apart from the date that is shown', function () {
+        epPost($this, epJob(), ['submitted_on' => '2026-11-13', 'timezone' => 'Asia/Tokyo']);
+
+        $submission = Submission::sole();
+
+        // The start of Nov 13 in Tokyo is Nov 12 in UTC: the instant moves with the zone, the date does not.
+        expect($submission->submitted_at->utc()->format('Y-m-d H:i'))->toBe('2026-11-12 15:00')
+            ->and($submission->submitted_on)->toBe('2026-11-13')
+            ->and($submission->displayDate())->toBe('2026-11-13');
+    });
+
+    it('orders by the date entered, not by an instant that depends on the zone', function () {
+        $a = epJob();
+        $b = epJob();
+        // Tokyo's Nov 13 starts earlier in UTC than New York's Nov 12 would end; the shown dates decide.
+        epPost($this, $a, ['submitted_on' => '2026-11-13', 'timezone' => 'Asia/Tokyo']);
+        epPost($this, $b, ['submitted_on' => '2026-11-12', 'timezone' => 'Pacific/Honolulu']);
+
+        $ids = collect($this->get('/applications')->viewData('page')['props']['applications'])->pluck('job.id')->all();
+
+        expect($ids)->toBe([$a->id, $b->id]);
+    });
+
+    it('refuses a date that is not a real calendar date', function (string $date) {
+        epPost($this, epJob(), ['submitted_on' => $date])->assertSessionHasErrors('submitted_on');
+
+        expect(Submission::count())->toBe(0);
+    })->with(['2026-02-30', '2026-13-01', '2026-00-10', 'yesterday']);
+
+    it('falls back, documented, to the date of the stored instant for a row recorded before dates were kept', function () {
+        $job = epJob();
+        $old = Submission::factory()->create(['job_posting_id' => $job->id, 'submitted_at' => '2026-11-10 05:00:00', 'submitted_on' => null]);
+
+        expect($old->displayDate())->toBe('2026-11-10')
+            ->and($old->fresh()->getAttributes()['submitted_at'])->toBe('2026-11-10 05:00:00');
+        $this->get(route('opportunities.show', $job))->assertInertia(fn (Assert $page) => $page->where('application.records.0.submitted_on', '2026-11-10'));
+    });
+
+    it('never rewrites an older row\'s stored instant', function () {
+        $old = Submission::factory()->create(['submitted_at' => '2026-11-10 05:00:00', 'submitted_on' => null]);
+
+        $this->get('/applications')->assertOk();
+
+        expect($old->fresh()->submitted_on)->toBeNull()->and($old->fresh()->submitted_at->format('Y-m-d H:i:s'))->toBe('2026-11-10 05:00:00');
+    });
+});
