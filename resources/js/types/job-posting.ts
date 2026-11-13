@@ -139,6 +139,7 @@ export type JobPostingDetail = {
     application_id: number | null;
     inspection: InspectionSummary;
     discovery: JobPostingDiscoveryMetadata;
+    disposition: JobDispositionSummary;
 };
 
 /**

@@ -6,10 +6,16 @@ import { cn } from '@/lib/utils';
 import { index as careerDataIndex } from '@/routes/career-data';
 import { home } from '@/routes';
 import { index as jobsIndex } from '@/routes/jobs';
+import { index as opportunitiesIndex } from '@/routes/opportunities';
 import { index as resumeProfilesIndex } from '@/routes/resume-profiles';
 
 const NAV_ITEMS = [
     { label: 'Jobs', href: jobsIndex.url(), match: '/jobs' },
+    {
+        label: 'Opportunities',
+        href: opportunitiesIndex.url(),
+        match: '/opportunities',
+    },
     {
         label: 'Resume Profiles',
         href: resumeProfilesIndex.url(),

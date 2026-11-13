@@ -47,6 +47,7 @@ import {
     toggleAllSelection,
     toggleSelection,
 } from '@/lib/opportunities-list';
+import { formatCompensation } from '@/lib/job-display';
 import { cn } from '@/lib/utils';
 import { show as applicationsShow } from '@/routes/applications';
 import {
@@ -69,7 +70,6 @@ import type {
     JobDisposition,
     JobDispositionFilter,
     DismissalReason,
-    JobPostingDiscoveryMetadata,
     JobPostingSummary,
     JobsIndexProps,
     OpportunityResumeFilter,
@@ -85,28 +85,6 @@ const DISCOVERY_SOURCE_LABELS: Record<string, string> = {
 
 function discoverySourceLabel(source: string): string {
     return DISCOVERY_SOURCE_LABELS[source] ?? source;
-}
-
-function formatCompensation(
-    discovery: JobPostingDiscoveryMetadata,
-): string | null {
-    if (
-        discovery.compensation_min === null &&
-        discovery.compensation_max === null
-    ) {
-        return null;
-    }
-
-    const currency = discovery.compensation_currency ?? '';
-    const min = discovery.compensation_min?.toLocaleString();
-    const max = discovery.compensation_max?.toLocaleString();
-
-    // Non-breaking spaces keep "USD 120,000–150,000" together on one line.
-    if (min && max) {
-        return `${currency}\u00a0${min}\u2060–\u2060${max}`.trim();
-    }
-
-    return `${currency}\u00a0${min ?? max}`.trim();
 }
 
 const STATUS_TABS: {

@@ -251,7 +251,7 @@ export default function ApplicationShow({
                 href={jobsShow.url({ jobPosting: application.job_posting.id })}
                 className="text-sm font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
             >
-                ← Back to Opportunity
+                ← Back to job
             </Link>
 
             <div className="mt-4">

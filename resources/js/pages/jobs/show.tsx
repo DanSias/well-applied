@@ -6,6 +6,7 @@ import {
     InspectionStateBadge,
 } from '@/components/badges';
 import { ApprovedEvidencePanel } from '@/components/approved-evidence-panel';
+import { DispositionBadge } from '@/components/job-decisions';
 import { GenerationStatus } from '@/components/generation-status';
 import { TailoredResumePanel } from '@/components/tailored-resume-panel';
 import { WaitingForWorkerNotice } from '@/components/worker-status-badge';
@@ -14,6 +15,7 @@ import { useWorkerStatusPolling } from '@/hooks/use-worker-status-polling';
 import AppShell from '@/layouts/app-shell';
 import { show as applicationsShow } from '@/routes/applications';
 import { index as jobsIndex } from '@/routes/jobs';
+import { index as opportunitiesIndex } from '@/routes/opportunities';
 import {
     show as analysesShow,
     store as analysesStore,
@@ -191,19 +193,36 @@ export default function JobsShow({
         <AppShell>
             <Head title={`${job.title} at ${job.company}`} />
 
-            <Link
-                href={jobsIndex.url()}
-                className="text-sm font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
-            >
-                ← Back to Opportunities
-            </Link>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                <Link
+                    href={
+                        job.disposition.value === 'pursued'
+                            ? opportunitiesIndex.url()
+                            : jobsIndex.url()
+                    }
+                    className="text-sm font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+                >
+                    {job.disposition.value === 'pursued'
+                        ? '← Back to Opportunities'
+                        : '← Back to Jobs'}
+                </Link>
+                {job.disposition.value === 'pursued' && (
+                    <Link
+                        href={jobsIndex.url()}
+                        className="text-sm font-medium text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+                    >
+                        All jobs
+                    </Link>
+                )}
+            </div>
 
             <div className="mt-4">
                 <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
                     {job.title}
                 </h1>
-                <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-neutral-600 dark:text-neutral-400">
                     {job.company}
+                    <DispositionBadge disposition={job.disposition} />
                 </p>
 
                 <div className="mt-3">

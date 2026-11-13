@@ -15,6 +15,7 @@ use App\Http\Controllers\JobDecisionController;
 use App\Http\Controllers\JobMatchController;
 use App\Http\Controllers\JobPostingController;
 use App\Http\Controllers\JobResumePdfController;
+use App\Http\Controllers\OpportunityController;
 use App\Http\Controllers\ProfileSynthesisController;
 use App\Http\Controllers\ReadinessReviewController;
 use App\Http\Controllers\ResumeProfileController;
@@ -31,6 +32,7 @@ Route::get('/career-data', [CareerDataController::class, 'index'])->name('career
 Route::get('/career-data/facts/{careerFact}', [CareerDataController::class, 'showFact'])->name('career-data.facts.show');
 
 Route::get('/jobs', [JobPostingController::class, 'index'])->name('jobs.index');
+Route::get('/opportunities', [OpportunityController::class, 'index'])->name('opportunities.index');
 Route::get('/jobs/create', [JobPostingController::class, 'create'])->name('jobs.create');
 Route::post('/jobs', [JobPostingController::class, 'store'])->name('jobs.store');
 Route::get('/jobs/{jobPosting}', [JobPostingController::class, 'show'])->name('jobs.show');

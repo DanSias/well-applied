@@ -219,12 +219,20 @@ class JobPostingController extends Controller
             'inspection' => $inspection,
             'triage' => $triage,
             'discovery' => $this->transformDiscoveryMetadata($job),
-            'disposition' => [
-                'value' => $job->disposition->value,
-                'reason' => $job->disposition_reason,
-                'reason_label' => DismissalReason::tryFrom((string) $job->disposition_reason)?->label(),
-                'decided_at' => $job->dispositioned_at?->toIso8601String(),
-            ],
+            'disposition' => $this->transformDisposition($job),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function transformDisposition(JobPosting $job): array
+    {
+        return [
+            'value' => $job->disposition->value,
+            'reason' => $job->disposition_reason,
+            'reason_label' => DismissalReason::tryFrom((string) $job->disposition_reason)?->label(),
+            'decided_at' => $job->dispositioned_at?->toIso8601String(),
         ];
     }
 
@@ -274,6 +282,7 @@ class JobPostingController extends Controller
             'application_id' => $application?->id,
             'inspection' => $summarizer->forApplication($application),
             'discovery' => $this->transformDiscoveryMetadata($job),
+            'disposition' => $this->transformDisposition($job),
         ];
     }
 
