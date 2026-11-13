@@ -1,11 +1,4 @@
-import {
-    Head,
-    Link,
-    router,
-    useForm,
-    usePage,
-    usePoll,
-} from '@inertiajs/react';
+import { Head, Link, router, useForm, usePoll } from '@inertiajs/react';
 import {
     Fragment,
     useCallback,
@@ -23,12 +16,10 @@ import {
 } from '@/components/badges';
 import {
     DecisionActions,
-    DecisionResultPanel,
     DismissStrip,
     DispositionBadge,
     type DecideFn,
 } from '@/components/job-decisions';
-import { Alert } from '@/components/ui/alert';
 import { Button, ButtonLink } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { TextInput } from '@/components/ui/field';
@@ -36,6 +27,7 @@ import { Pagination } from '@/components/ui/pagination';
 import { SegmentedControl } from '@/components/ui/segmented';
 import { Select } from '@/components/ui/select';
 import { Card } from '@/components/ui/surface';
+import { useJobDecisions } from '@/hooks/use-job-decisions';
 import AppShell from '@/layouts/app-shell';
 import {
     BATCH_MAX_ITEMS,
@@ -58,18 +50,11 @@ import {
 import { store as inspectStore } from '@/routes/jobs/applications';
 import {
     analyze as batchAnalyze,
-    decision as batchDecision,
     match as batchMatch,
 } from '@/routes/jobs/batch';
-import { store as decisionStore } from '@/routes/jobs/decision';
-import { undo as decisionsUndo } from '@/routes/jobs/decisions';
 import type {
     BatchOperation,
-    BatchResult,
-    DecisionResult,
-    JobDisposition,
     JobDispositionFilter,
-    DismissalReason,
     JobPostingSummary,
     JobsIndexProps,
     OpportunityResumeFilter,
@@ -162,59 +147,6 @@ function describeFilters(filters: JobsIndexProps['filters']): string {
 
 /** Pause between the last keystroke and the search hitting the server. */
 const SEARCH_DEBOUNCE_MS = 300;
-
-/**
- * Readable labels for the backend's fixed set of batch reason literals.
- * Anything not listed here is rendered with underscores replaced by
- * spaces so a future literal still reads as a sentence fragment.
- */
-const BATCH_REASON_LABELS: Record<string, string> = {
-    in_flight: 'already in flight',
-    claim_failed: 'could not be queued',
-    analysis_unavailable: 'no analysis available',
-};
-
-/**
- * "3 started, 2 skipped, 1 failed" — zero-count buckets omitted, fixed
- * order, read straight off the result's counts.
- */
-function batchSummaryText(result: BatchResult): string {
-    const parts: string[] = [];
-    if (result.started > 0) {
-        parts.push(`${result.started} started`);
-    }
-    if (result.skipped > 0) {
-        parts.push(`${result.skipped} skipped`);
-    }
-    if (result.failed > 0) {
-        parts.push(`${result.failed} failed`);
-    }
-    if (result.not_found > 0) {
-        parts.push(`${result.not_found} not found`);
-    }
-    return parts.length > 0 ? parts.join(', ') : 'no items processed';
-}
-
-/**
- * Grouped reason counts over the result's items — "2 already in flight",
- * "1 no analysis available" — in first-seen order, null reasons skipped.
- */
-function batchReasonLines(result: BatchResult): string[] {
-    const counts = new Map<string, number>();
-    for (const item of result.items) {
-        if (item.reason === null) {
-            continue;
-        }
-        counts.set(item.reason, (counts.get(item.reason) ?? 0) + 1);
-    }
-    const lines: string[] = [];
-    counts.forEach((count, reason) => {
-        lines.push(
-            `${count} ${BATCH_REASON_LABELS[reason] ?? reason.replaceAll('_', ' ').trim()}`,
-        );
-    });
-    return lines;
-}
 
 /** A small caption beside one filter row, so the groups read as separate filters. */
 function FilterGroup({
@@ -525,57 +457,14 @@ export default function JobsIndex({
     );
     const [pendingOp, setPendingOp] = useState<BatchOperation | null>(null);
 
-    // Decisions (shortlist / dismiss / pursue / restore, one job or a selection). The result arrives as flash data and is
-    // copied into page state for the same reason the batch result is (a poll clears the flash).
-    const [decisionPending, setDecisionPending] = useState(false);
+    // Decisions (shortlist / dismiss / pursue / restore, one job or a selection). Their outcome is reported by the
+    // app-wide toast; this page only keeps which row is asking for a dismissal reason.
+    const decisions = useJobDecisions();
+    const decisionPending = decisions.pending;
     const [dismissing, setDismissing] = useState<number | 'selection' | null>(
         null,
     );
-    const flashDecisionResult = usePage().flash?.decision_result;
-    const [decisionResult, setDecisionResult] = useState<
-        DecisionResult | undefined
-    >(flashDecisionResult);
-    const seenDecisionResult = useRef<DecisionResult | undefined>(
-        flashDecisionResult,
-    );
-    useEffect(() => {
-        if (
-            flashDecisionResult !== undefined &&
-            seenDecisionResult.current !== flashDecisionResult
-        ) {
-            seenDecisionResult.current = flashDecisionResult;
-            setDecisionResult(flashDecisionResult);
-        }
-    }, [flashDecisionResult]);
     const batchForm = useForm<{ job_ids: number[] }>({ job_ids: [] });
-
-    // The batch result arrives as one-shot Inertia flash data. E5
-    // intentionally copies the latest arrival into page-local state: a
-    // jobs-only poll response clears `page.flash` (to `{}`), which would
-    // otherwise make the banner vanish ~4s after the batch completes. The
-    // copy is ephemeral page state — no storage of any kind, and leaving
-    // /jobs loses it with the unmount. A later new arrival (a new object
-    // in the flash) replaces it and re-shows the panel after a dismissal.
-    const flashBatchResult = usePage().flash?.batch_result;
-    const [batchResult, setBatchResult] = useState<BatchResult | undefined>(
-        flashBatchResult,
-    );
-    const [batchResultDismissed, setBatchResultDismissed] = useState(false);
-    const seenBatchResult = useRef<BatchResult | undefined>(flashBatchResult);
-    useEffect(() => {
-        // Copy only genuine new arrivals — an object currently present in
-        // the flash and different from the previous arrival. Ignoring the
-        // flash clearing (undefined) is deliberate: the poll clearing
-        // `page.flash` must not dismiss a result the user is looking at.
-        if (
-            flashBatchResult !== undefined &&
-            seenBatchResult.current !== flashBatchResult
-        ) {
-            seenBatchResult.current = flashBatchResult;
-            setBatchResult(flashBatchResult);
-            setBatchResultDismissed(false);
-        }
-    }, [flashBatchResult]);
 
     // E5 lightweight polling: while any *visible* opportunity is actively
     // analyzing or matching, refresh only the list every few seconds so
@@ -741,30 +630,11 @@ export default function JobsIndex({
         batchForm.clearErrors();
     };
 
-    const post = (
-        url: string,
-        data: Record<string, unknown>,
-        onSuccess?: () => void,
-    ) => {
-        setDecisionPending(true);
-        router.post(url, data as Parameters<typeof router.post>[1], {
-            showProgress: false,
-            preserveScroll: true,
-            preserveState: true,
-            onSuccess,
-            onFinish: () => setDecisionPending(false),
-        });
-    };
-
     const decideOne =
         (job: JobPostingSummary): DecideFn =>
         (to, options) => {
             setDismissing(null);
-            post(decisionStore.url({ jobPosting: job.id }), {
-                disposition: to,
-                reason: options?.reason,
-                note: options?.note,
-            });
+            decisions.decide(job.id, to, options);
         };
 
     const decideSelected: DecideFn = (to, options) => {
@@ -773,23 +643,9 @@ export default function JobsIndex({
             return;
         }
         setDismissing(null);
-        post(
-            batchDecision.url(),
-            {
-                job_ids: ids,
-                disposition: to,
-                reason: options?.reason,
-                note: options?.note,
-            },
-            () => setSelectedIds(new Set<number>()),
+        decisions.decideMany(ids, to, options, () =>
+            setSelectedIds(new Set<number>()),
         );
-    };
-
-    const undoDecision = () => {
-        if (decisionResult === undefined) {
-            return;
-        }
-        post(decisionsUndo.url(), { decisions: decisionResult.decision_ids });
     };
 
     const submitBatch = (operation: BatchOperation) => {
@@ -797,7 +653,6 @@ export default function JobsIndex({
         if (ids.length < 1 || ids.length > BATCH_MAX_ITEMS) {
             return;
         }
-        setBatchResultDismissed(false);
         setPendingOp(operation);
         batchForm.clearErrors();
         batchForm.setData({ job_ids: ids });
@@ -830,8 +685,6 @@ export default function JobsIndex({
         (hasIndexedBatchError
             ? 'One of the selected jobs could not be processed.'
             : undefined);
-    const reasonLines =
-        batchResult === undefined ? [] : batchReasonLines(batchResult);
     const filtersActive =
         filters.q !== '' ||
         filters.status !== 'all' ||
@@ -936,45 +789,6 @@ export default function JobsIndex({
                     />
                 </FilterGroup>
             </div>
-
-            {decisionResult !== undefined && (
-                <DecisionResultPanel
-                    result={decisionResult}
-                    busy={decisionPending}
-                    onUndo={undoDecision}
-                    onDismiss={() => setDecisionResult(undefined)}
-                />
-            )}
-
-            {batchResult !== undefined && !batchResultDismissed && (
-                <Alert
-                    tone="neutral"
-                    role="status"
-                    className="mt-4 flex items-start justify-between gap-3"
-                >
-                    <div>
-                        <p className="text-fg font-medium">
-                            {batchResult.operation === 'analyze'
-                                ? 'Analyze'
-                                : 'Match'}{' '}
-                            batch — {batchSummaryText(batchResult)}
-                        </p>
-                        {reasonLines.length > 0 && (
-                            <p className="text-fg-subtle mt-1 text-xs">
-                                {reasonLines.join(' · ')}
-                            </p>
-                        )}
-                    </div>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        aria-label="Dismiss batch result"
-                        onClick={() => setBatchResultDismissed(true)}
-                    >
-                        ×
-                    </Button>
-                </Alert>
-            )}
 
             {jobs.length === 0 ? (
                 <Card className="mt-5 border-dashed p-10 text-center">

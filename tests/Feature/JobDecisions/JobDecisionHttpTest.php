@@ -189,3 +189,39 @@ it('keeps existing jobs in the inbox after the migration, whatever work they alr
 
     expect(JobPosting::find($id)->disposition)->toBe(JobDisposition::New)->and(array_column(jobsPage($this)['jobs'], 'id'))->toBe([$id]);
 });
+
+// ---- Feedback delivery: a toast is built from flash the server sends once, and only when the server confirmed.
+
+it('hands the decision result to the next page load once, so a reload or a later visit never replays it', function () {
+    $job = httpJob(CareerProfile::factory()->create());
+    $this->post("/jobs/{$job->id}/decision", ['disposition' => 'shortlisted']);
+
+    $first = $this->get('/jobs')->viewData('page');
+    $second = $this->get('/jobs')->viewData('page');
+
+    expect($first['flash']['decision_result'])->toMatchArray(['to' => 'shortlisted', 'changed' => [$job->id]])
+        ->and($first['flash']['decision_result']['decision_ids'])->toHaveKey((string) $job->id)
+        ->and($second['flash'] ?? [])->not->toHaveKey('decision_result');
+});
+
+it('sends no result, so no success message, when the request is rejected', function () {
+    $job = httpJob(CareerProfile::factory()->create());
+
+    $this->post("/jobs/{$job->id}/decision", ['disposition' => 'dismissed'])->assertSessionHasErrors('reason');
+
+    expect(session('decision_result'))->toBeNull()->and($job->fresh()->disposition)->toBe(JobDisposition::New);
+});
+
+it('reports an undo that no longer applies as a refusal the page can explain, never a silent overwrite', function () {
+    $job = httpJob(CareerProfile::factory()->create());
+    $this->post("/jobs/{$job->id}/decision", ['disposition' => 'shortlisted']);
+    $stale = session('decision_result')['decision_ids'];
+    $this->post("/jobs/{$job->id}/decision", ['disposition' => 'pursued']);
+
+    $this->post('/jobs/decisions/undo', ['decisions' => $stale])->assertSessionHasNoErrors();
+
+    $result = session('decision_result');
+    expect($result['to'])->toBe('undo')->and($result['changed'])->toBe([])
+        ->and($result['failed'][0]['message'])->toContain('can no longer be undone')
+        ->and($job->fresh()->disposition)->toBe(JobDisposition::Pursued);
+});

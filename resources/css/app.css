@@ -128,3 +128,23 @@
         transform: translateX(-100%);
     }
 }
+
+/* Toasts (Sonner): keep the action button and description on the product's tokens. */
+[data-sonner-toaster] [data-sonner-toast] [data-button]:not([data-cancel]) {
+    background: var(--color-accent);
+    color: var(--color-accent-fg);
+    min-height: 2rem;
+    padding-inline: 0.75rem;
+    font-weight: 500;
+}
+
+[data-sonner-toaster]
+    [data-sonner-toast]
+    [data-button]:not([data-cancel]):hover {
+    background: var(--color-accent-hover);
+}
+
+[data-sonner-toaster] [data-sonner-toast] [data-description] {
+    color: var(--color-fg-muted);
+    overflow-wrap: anywhere;
+}

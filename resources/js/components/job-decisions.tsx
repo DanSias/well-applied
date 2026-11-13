@@ -1,11 +1,8 @@
 import { useState } from 'react';
-import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TextInput } from '@/components/ui/field';
-import { canUndoDecision, decisionSummaryText } from '@/lib/opportunities-list';
 import type {
-    DecisionResult,
     DismissalReason,
     JobDisposition,
     JobDispositionSummary,
@@ -192,59 +189,5 @@ export function DismissStrip({
                 </Button>
             </div>
         </div>
-    );
-}
-
-/** What a decision did, with Undo while that is still possible, and why anything was refused. */
-export function DecisionResultPanel({
-    result,
-    busy,
-    onUndo,
-    onDismiss,
-}: {
-    result: DecisionResult;
-    busy: boolean;
-    onUndo: () => void;
-    onDismiss: () => void;
-}) {
-    const refused = new Map<string, number>();
-
-    for (const item of result.failed) {
-        refused.set(item.message, (refused.get(item.message) ?? 0) + 1);
-    }
-
-    return (
-        <Alert
-            tone={result.failed.length > 0 ? 'warn' : 'neutral'}
-            role="status"
-            className="mt-4 flex items-start justify-between gap-3"
-        >
-            <div className="min-w-0">
-                <p className="text-fg font-medium">
-                    {decisionSummaryText(result)}
-                </p>
-                {[...refused].map(([message, count]) => (
-                    <p key={message} className="text-fg-subtle mt-1 text-xs">
-                        {count > 1 ? `${count} jobs: ` : ''}
-                        {message}
-                    </p>
-                ))}
-            </div>
-            <div className="flex shrink-0 items-center gap-1">
-                {canUndoDecision(result) && (
-                    <Button size="sm" disabled={busy} onClick={onUndo}>
-                        Undo
-                    </Button>
-                )}
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    aria-label="Dismiss message"
-                    onClick={onDismiss}
-                >
-                    ×
-                </Button>
-            </div>
-        </Alert>
     );
 }

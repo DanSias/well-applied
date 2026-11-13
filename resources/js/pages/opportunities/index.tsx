@@ -1,10 +1,7 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { Fragment } from 'react';
 import { TriageStageBadge, InspectionStateBadge } from '@/components/badges';
-import {
-    DecisionResultPanel,
-    DispositionBadge,
-} from '@/components/job-decisions';
+import { DispositionBadge } from '@/components/job-decisions';
 import { Badge } from '@/components/ui/badge';
 import { Button, ButtonAnchor, ButtonLink } from '@/components/ui/button';
 import { SegmentedControl } from '@/components/ui/segmented';
@@ -282,15 +279,6 @@ export default function OpportunitiesIndex({
                 </div>
                 <ButtonLink href={jobsIndex.url()}>Browse jobs</ButtonLink>
             </div>
-
-            {decisions.result !== undefined && (
-                <DecisionResultPanel
-                    result={decisions.result}
-                    busy={decisions.pending}
-                    onUndo={decisions.undo}
-                    onDismiss={decisions.dismiss}
-                />
-            )}
 
             {counts.all > 0 && (
                 <div className="mt-5 flex max-w-full min-w-0 items-center gap-2">
