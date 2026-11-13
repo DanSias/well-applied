@@ -33,6 +33,31 @@ export type SubmissionRecord = {
     resume: { id: number; label: string | null } | null;
     pdf_kept: boolean;
     inspection_linked: boolean;
+    /** Marked as recorded in error: kept for reference, no longer an application. */
+    in_error: boolean;
+    /** Over (rejected, withdrawn, an offer accepted or declined): the final status stands. */
+    ended: boolean;
+    interviews: number;
+    follow_ups: number;
+    /** The updates worth offering now, chosen by the server from the derived state. Empty once ended or in error. */
+    allowed_updates: UpdateOption[];
+    /** This application's own history, newest first. */
+    events: HistoryEvent[];
+};
+
+export type UpdateOption = { value: string; label: string };
+
+/** One recorded update, as the person entered it: never a verified employer message. */
+export type HistoryEvent = {
+    id: number;
+    type: string;
+    label: string;
+    /** The calendar date entered (YYYY-MM-DD), the same in every timezone. */
+    occurred_on: string;
+    note: string | null;
+    url: string | null;
+    recorded_at: string;
+    source: string;
 };
 
 export type ResumeOption = {

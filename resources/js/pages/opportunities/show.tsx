@@ -9,7 +9,9 @@ import { TailoredResumePanel } from '@/components/tailored-resume-panel';
 import { Badge } from '@/components/ui/badge';
 import { Button, ButtonAnchor, ButtonLink } from '@/components/ui/button';
 import { Drawer } from '@/components/ui/drawer';
+import { SubmissionCorrectionDrawer } from '@/components/submission-correction-drawer';
 import { SubmissionDrawer } from '@/components/submission-drawer';
+import { SubmissionUpdateDrawer } from '@/components/submission-update-drawer';
 import { Card } from '@/components/ui/surface';
 import { useJobDecisions } from '@/hooks/use-job-decisions';
 import AppShell from '@/layouts/app-shell';
@@ -29,6 +31,12 @@ import {
     type ApplicationSection,
     type SubmissionRecord,
 } from '@/lib/submission';
+import {
+    historyEntries,
+    recordActions,
+    splitRecords,
+    statusNote,
+} from '@/lib/submission-update';
 import { show as analysisShow } from '@/routes/jobs/analyses';
 import { show as matchShow } from '@/routes/jobs/analyses/matches';
 import { show as workspaceShow } from '@/routes/jobs/profile-resumes';
@@ -68,7 +76,8 @@ function Section({
             <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                 <h2
                     id={`${id}-title`}
-                    className="text-fg text-sm font-semibold tracking-tight"
+                    tabIndex={-1}
+                    className="text-fg text-sm font-semibold tracking-tight focus:outline-none"
                 >
                     {title}
                 </h2>
@@ -81,22 +90,51 @@ function Section({
 
 const day = (iso: string) => new Date(iso).toLocaleDateString();
 
-/** One recorded application: what the person told us, and where it stands now. */
-function SubmissionItem({ record }: { record: SubmissionRecord }) {
+/**
+ * One recorded application: what the person told us, where it stands now (derived from its updates), and its own compact
+ * history. Everything here is the person's own record, not a verified employer message.
+ */
+function SubmissionItem({
+    record,
+    onUpdate,
+    onCorrect,
+}: {
+    record: SubmissionRecord;
+    onUpdate: () => void;
+    onCorrect: () => void;
+}) {
     const resume = record.resume
         ? `${record.resume.label ?? 'A Well Applied resume'}${record.pdf_kept ? ', copy of the PDF kept' : ', no copy of the PDF kept'}`
         : record.pdf_kept
           ? 'A PDF you uploaded, kept privately'
           : 'No resume recorded';
+    const note = statusNote(record);
+    const { canUpdate, canCorrect } = recordActions(record);
+    const history = historyEntries(record);
 
     return (
-        <li className="space-y-1 py-2.5 text-sm first:pt-0">
-            <p className="text-fg font-medium">
-                Applied {formatCalendarDate(record.submitted_on)}
-                <span className="text-fg-subtle ml-2 text-xs font-normal">
+        <li
+            className="space-y-2 py-3 text-sm first:pt-0"
+            data-record-id={record.id}
+        >
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                <p className="text-fg font-medium">
+                    Applied {formatCalendarDate(record.submitted_on)}
+                </p>
+                <Badge
+                    tone={record.in_error ? 'neutral' : phaseTone(record.phase)}
+                >
                     {record.phase_label}
-                </span>
-            </p>
+                </Badge>
+            </div>
+            {note && (
+                <p
+                    role="note"
+                    className="text-fg-muted text-xs leading-relaxed"
+                >
+                    {note}
+                </p>
+            )}
             <dl className="text-fg-muted space-y-0.5 text-xs">
                 <div className="flex flex-wrap gap-x-1.5">
                     <dt className="text-fg-subtle">Recorded by you:</dt>
@@ -130,6 +168,70 @@ function SubmissionItem({ record }: { record: SubmissionRecord }) {
                     </div>
                 )}
             </dl>
+
+            <div>
+                <h3 className="text-fg-subtle text-xs font-medium">
+                    History{' '}
+                    <span className="font-normal">
+                        (what you recorded, newest first)
+                    </span>
+                </h3>
+                <ol className="border-line mt-1 space-y-1.5 border-l pl-3">
+                    {history.map((entry) => (
+                        <li key={entry.key} className="text-xs leading-relaxed">
+                            <span className="text-fg font-medium">
+                                {entry.label}
+                            </span>
+                            <span className="text-fg-subtle">
+                                {' '}
+                                · {entry.date}
+                            </span>
+                            {entry.note && (
+                                <span className="text-fg-muted block break-words whitespace-pre-wrap">
+                                    {entry.note}
+                                </span>
+                            )}
+                            {entry.url && (
+                                <a
+                                    href={entry.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-accent-text block break-all underline underline-offset-2"
+                                >
+                                    {entry.url}
+                                </a>
+                            )}
+                        </li>
+                    ))}
+                </ol>
+            </div>
+
+            {(canUpdate || canCorrect) && (
+                <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                    {canUpdate && (
+                        <Button
+                            size="sm"
+                            variant="secondary"
+                            aria-haspopup="dialog"
+                            data-record-action={`${record.id}:update`}
+                            onClick={onUpdate}
+                        >
+                            Add update
+                        </Button>
+                    )}
+                    {canCorrect && (
+                        <Button
+                            size="sm"
+                            variant="ghost"
+                            aria-haspopup="dialog"
+                            data-record-action={`${record.id}:correct`}
+                            onClick={onCorrect}
+                        >
+                            Mark as recorded in error
+                        </Button>
+                    )}
+                </div>
+            )}
         </li>
     );
 }
@@ -154,7 +256,12 @@ export default function OpportunityShow({
     const [recordingAnother, setRecordingAnother] = useState(false);
     const applicationTrigger = useRef<HTMLButtonElement>(null);
     const timezone = browserTimezone();
-    const activeRecord = application.records.find((r) => r.active) ?? null;
+    const { counted, inError } = splitRecords(application.records);
+    const activeRecord = counted.find((r) => r.active) ?? null;
+    const [editing, setEditing] = useState<{
+        record: SubmissionRecord;
+        mode: 'update' | 'correct';
+    } | null>(null);
     const descriptionTrigger = useRef<HTMLButtonElement>(null);
     const inspectionTrigger = useRef<HTMLButtonElement>(null);
     const next = workspaceNext(op, tailored_resume);
@@ -166,6 +273,24 @@ export default function OpportunityShow({
     const showInspectionBadge =
         op.inspection.state !== 'not_inspected' ||
         op.inspection.latest_attempt_failed;
+
+    // After an update or correction closes, focus returns to the button that opened it (or, if it is gone because the
+    // application ended, to the application's own section).
+    const closeEditing = () => {
+        const target = editing;
+
+        setEditing(null);
+        window.setTimeout(() => {
+            const selector = target
+                ? `[data-record-action="${target.record.id}:${target.mode}"]`
+                : '';
+
+            (
+                (selector && document.querySelector<HTMLElement>(selector)) ||
+                document.querySelector<HTMLElement>('#application h2')
+            )?.focus();
+        }, 80);
+    };
 
     const close = () => {
         const trigger =
@@ -304,22 +429,16 @@ export default function OpportunityShow({
                     id="application"
                     title="Application"
                     aside={
-                        activeRecord !== null ? (
-                            <Badge tone={phaseTone(activeRecord.phase)}>
-                                {activeRecord.phase_label}
-                            </Badge>
-                        ) : application.records.length > 0 ? (
-                            <Badge
-                                tone={phaseTone(application.records[0].phase)}
-                            >
-                                {application.records[0].phase_label}
-                            </Badge>
-                        ) : (
+                        counted.length === 0 ? (
                             <Badge>Not recorded</Badge>
-                        )
+                        ) : counted.length > 1 ? (
+                            <span className="text-fg-subtle text-xs">
+                                {counted.length} applications
+                            </span>
+                        ) : undefined
                     }
                 >
-                    {application.records.length === 0 ? (
+                    {counted.length === 0 ? (
                         <p className="text-fg-muted text-sm">
                             Tracks an application you submitted yourself,
                             outside Well Applied. Well Applied never submits
@@ -327,10 +446,16 @@ export default function OpportunityShow({
                         </p>
                     ) : (
                         <ul className="divide-line divide-y">
-                            {application.records.map((record) => (
+                            {counted.map((record) => (
                                 <SubmissionItem
                                     key={record.id}
                                     record={record}
+                                    onUpdate={() =>
+                                        setEditing({ record, mode: 'update' })
+                                    }
+                                    onCorrect={() =>
+                                        setEditing({ record, mode: 'correct' })
+                                    }
                                 />
                             ))}
                         </ul>
@@ -338,11 +463,7 @@ export default function OpportunityShow({
                     <Button
                         ref={applicationTrigger}
                         size="sm"
-                        variant={
-                            application.records.length === 0
-                                ? 'primary'
-                                : 'secondary'
-                        }
+                        variant={counted.length === 0 ? 'primary' : 'secondary'}
                         className="mt-3"
                         aria-haspopup="dialog"
                         onClick={() => {
@@ -350,10 +471,28 @@ export default function OpportunityShow({
                             setOpen('application');
                         }}
                     >
-                        {application.records.length === 0
+                        {counted.length === 0
                             ? 'Record that I applied'
                             : 'Record another application'}
                     </Button>
+
+                    {inError.length > 0 && (
+                        <details className="border-line mt-4 border-t pt-3">
+                            <summary className="text-fg-subtle cursor-pointer text-xs font-medium">
+                                Recorded in error ({inError.length})
+                            </summary>
+                            <ul className="divide-line mt-2 divide-y opacity-80">
+                                {inError.map((record) => (
+                                    <SubmissionItem
+                                        key={record.id}
+                                        record={record}
+                                        onUpdate={() => undefined}
+                                        onCorrect={() => undefined}
+                                    />
+                                ))}
+                            </ul>
+                        </details>
+                    )}
                 </Section>
 
                 <Section
@@ -503,6 +642,20 @@ export default function OpportunityShow({
                     section={application.form}
                     another={recordingAnother}
                     onClose={close}
+                />
+            )}
+            {editing?.mode === 'update' && (
+                <SubmissionUpdateDrawer
+                    record={editing.record}
+                    jobLabel={label}
+                    onClose={closeEditing}
+                />
+            )}
+            {editing?.mode === 'correct' && (
+                <SubmissionCorrectionDrawer
+                    record={editing.record}
+                    jobLabel={label}
+                    onClose={closeEditing}
                 />
             )}
             {open === 'inspection' && (
