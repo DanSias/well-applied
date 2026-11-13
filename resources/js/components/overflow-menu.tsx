@@ -13,6 +13,8 @@ export type MenuItem = {
     label: string;
     /** Navigate (an Inertia link) instead of running `onSelect`. */
     href?: string;
+    /** `href` leaves the app: a plain link that opens in a new tab, not an Inertia visit. */
+    external?: boolean;
     onSelect?: () => void;
 };
 
@@ -189,7 +191,19 @@ export function OverflowMenu({
                         className="border-line-strong bg-raised shadow-card rounded-card fixed top-0 left-0 z-50 min-w-48 overflow-y-auto border p-1"
                     >
                         {items.map((item) =>
-                            item.href !== undefined ? (
+                            item.href !== undefined && item.external ? (
+                                <a
+                                    key={item.label}
+                                    role="menuitem"
+                                    href={item.href}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={itemClass}
+                                    onClick={() => close(false)}
+                                >
+                                    {item.label}
+                                </a>
+                            ) : item.href !== undefined ? (
                                 <Link
                                     key={item.label}
                                     role="menuitem"

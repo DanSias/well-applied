@@ -83,3 +83,13 @@ export type InspectionSummary = {
     field_count: number | null;
     latest_attempt_failed: boolean;
 };
+
+/** What the Opportunities inspection drawer is handed for one pursued job (OpportunityController::inspectionJob). */
+export type InspectionJob = {
+    id: number;
+    title: string;
+    company: string;
+    source_url: string | null;
+    application_id: number | null;
+    inspection: ApplicationInspectionState | null;
+};

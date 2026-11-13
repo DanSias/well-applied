@@ -246,3 +246,45 @@ it('does not promote anything on its own: existing work stays unpursued until a 
 
     expect(array_column(oppPage($this)['opportunities'], 'id'))->toBe([$job->id])->and(oppPage($this)['review'])->toBe([]);
 });
+
+it('hands the inspection drawer only its own job, and only for a pursued one', function () {
+    $profile = oppProfile();
+    $job = oppJob($profile, JobDisposition::Pursued, ['source_url' => 'https://example.com/apply']);
+    $inbox = oppJob($profile);
+
+    $this->get('/opportunities')->assertInertia(fn ($page) => $page->where('inspection_job', null)->where('filters.inspect', null));
+
+    $this->get('/opportunities?inspect='.$job->id)->assertInertia(fn ($page) => $page
+        ->where('filters.inspect', $job->id)
+        ->where('inspection_job.id', $job->id)
+        ->where('inspection_job.application_id', null)
+        ->where('inspection_job.inspection', null));
+
+    $this->get('/opportunities?inspect='.$inbox->id)->assertInertia(fn ($page) => $page->where('inspection_job', null));
+});
+
+it('presents the inspection state of a pursued job once an application exists', function () {
+    $profile = oppProfile();
+    $job = oppJob($profile, JobDisposition::Pursued, ['source_url' => 'https://example.com/apply']);
+    $application = Application::factory()->create(['job_posting_id' => $job->id]);
+
+    $this->get('/opportunities?inspect='.$job->id)->assertInertia(fn ($page) => $page
+        ->where('inspection_job.application_id', $application->id)
+        ->where('inspection_job.inspection.application_id', $application->id)
+        ->where('inspection_job.inspection.workflow_run', null));
+});
+
+it('starts an inspection from the drawer and returns to Opportunities with the drawer open', function () {
+    $profile = oppProfile();
+    $job = oppJob($profile, JobDisposition::Pursued, ['source_url' => 'https://example.com/apply']);
+
+    $this->post(route('jobs.applications.store', $job), ['return_to' => 'opportunities', 'resume' => 'final'])
+        ->assertRedirect('/opportunities?resume=final&inspect='.$job->id);
+    $this->post(route('jobs.applications.store', $job), ['return_to' => 'opportunities'])
+        ->assertRedirect('/opportunities?inspect='.$job->id);
+
+    // A second click joined the same run rather than queueing another, and the full results page still works.
+    expect(Application::count())->toBe(1);
+    $this->get(route('applications.show', Application::first()))->assertOk();
+    $this->post(route('jobs.applications.store', $job))->assertRedirect(route('applications.show', Application::first()));
+});
