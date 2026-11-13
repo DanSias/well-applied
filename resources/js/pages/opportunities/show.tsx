@@ -9,6 +9,7 @@ import { TailoredResumePanel } from '@/components/tailored-resume-panel';
 import { Badge } from '@/components/ui/badge';
 import { Button, ButtonAnchor, ButtonLink } from '@/components/ui/button';
 import { Drawer } from '@/components/ui/drawer';
+import { SubmissionDrawer } from '@/components/submission-drawer';
 import { Card } from '@/components/ui/surface';
 import { useJobDecisions } from '@/hooks/use-job-decisions';
 import AppShell from '@/layouts/app-shell';
@@ -21,6 +22,13 @@ import {
     type OpportunityDetail,
 } from '@/lib/opportunity';
 import { show as jobShow } from '@/routes/jobs';
+import {
+    browserTimezone,
+    formatSubmittedDate,
+    phaseTone,
+    type ApplicationSection,
+    type SubmissionRecord,
+} from '@/lib/submission';
 import { show as analysisShow } from '@/routes/jobs/analyses';
 import { show as matchShow } from '@/routes/jobs/analyses/matches';
 import { show as workspaceShow } from '@/routes/jobs/profile-resumes';
@@ -37,6 +45,7 @@ type Props = {
     resume_profiles: TailoringProfile[];
     analysis: AnalysisPointer;
     inspection_job: InspectionJob;
+    application: ApplicationSection;
 };
 
 function Section({
@@ -72,6 +81,65 @@ function Section({
 
 const day = (iso: string) => new Date(iso).toLocaleDateString();
 
+/** One recorded application: what the person told us, and where it stands now. */
+function SubmissionItem({
+    record,
+    timezone,
+}: {
+    record: SubmissionRecord;
+    timezone: string;
+}) {
+    const resume = record.resume
+        ? `${record.resume.label ?? 'A Well Applied resume'}${record.pdf_kept ? ', copy of the PDF kept' : ', no copy of the PDF kept'}`
+        : record.pdf_kept
+          ? 'A PDF you uploaded, kept privately'
+          : 'No resume recorded';
+
+    return (
+        <li className="space-y-1 py-2.5 text-sm first:pt-0">
+            <p className="text-fg font-medium">
+                Applied {formatSubmittedDate(record.submitted_at, timezone)}
+                <span className="text-fg-subtle ml-2 text-xs font-normal">
+                    {record.phase_label}
+                </span>
+            </p>
+            <dl className="text-fg-muted space-y-0.5 text-xs">
+                <div className="flex flex-wrap gap-x-1.5">
+                    <dt className="text-fg-subtle">Recorded by you:</dt>
+                    <dd>manual, not submitted by Well Applied</dd>
+                </div>
+                <div className="flex flex-wrap gap-x-1.5">
+                    <dt className="text-fg-subtle">Resume:</dt>
+                    <dd className="break-words">{resume}</dd>
+                </div>
+                {record.application_url && (
+                    <div className="flex flex-wrap gap-x-1.5">
+                        <dt className="text-fg-subtle">Link:</dt>
+                        <dd className="min-w-0 break-all">
+                            <a
+                                href={record.application_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-accent-text underline underline-offset-2"
+                            >
+                                {record.application_url}
+                            </a>
+                        </dd>
+                    </div>
+                )}
+                {record.notes && (
+                    <div className="flex flex-wrap gap-x-1.5">
+                        <dt className="text-fg-subtle">Notes:</dt>
+                        <dd className="min-w-0 break-words whitespace-pre-wrap">
+                            {record.notes}
+                        </dd>
+                    </div>
+                )}
+            </dl>
+        </li>
+    );
+}
+
 /**
  * One pursued job as a workspace. It composes what already exists and owns no workflow of its own: the resume panel,
  * the inspection drawer and the decision hook are the same ones used elsewhere, and the one next step is the list's
@@ -83,9 +151,16 @@ export default function OpportunityShow({
     resume_profiles,
     analysis,
     inspection_job,
+    application,
 }: Props) {
     const decisions = useJobDecisions();
-    const [open, setOpen] = useState<'description' | 'inspection' | null>(null);
+    const [open, setOpen] = useState<
+        'description' | 'inspection' | 'application' | null
+    >(null);
+    const [recordingAnother, setRecordingAnother] = useState(false);
+    const applicationTrigger = useRef<HTMLButtonElement>(null);
+    const timezone = browserTimezone();
+    const activeRecord = application.records.find((r) => r.active) ?? null;
     const descriptionTrigger = useRef<HTMLButtonElement>(null);
     const inspectionTrigger = useRef<HTMLButtonElement>(null);
     const next = workspaceNext(op, tailored_resume);
@@ -100,7 +175,11 @@ export default function OpportunityShow({
 
     const close = () => {
         const trigger =
-            open === 'description' ? descriptionTrigger : inspectionTrigger;
+            open === 'description'
+                ? descriptionTrigger
+                : open === 'application'
+                  ? applicationTrigger
+                  : inspectionTrigger;
 
         setOpen(null);
         window.setTimeout(() => trigger.current?.focus(), 60);
@@ -225,6 +304,63 @@ export default function OpportunityShow({
                             </ButtonLink>
                         </div>
                     )}
+                </Section>
+
+                <Section
+                    id="application"
+                    title="Application"
+                    aside={
+                        activeRecord !== null ? (
+                            <Badge tone={phaseTone(activeRecord.phase)}>
+                                {activeRecord.phase_label}
+                            </Badge>
+                        ) : application.records.length > 0 ? (
+                            <Badge
+                                tone={phaseTone(application.records[0].phase)}
+                            >
+                                {application.records[0].phase_label}
+                            </Badge>
+                        ) : (
+                            <Badge>Not recorded</Badge>
+                        )
+                    }
+                >
+                    {application.records.length === 0 ? (
+                        <p className="text-fg-muted text-sm">
+                            Tracks an application you submitted yourself,
+                            outside Well Applied. Well Applied never submits
+                            anything for you.
+                        </p>
+                    ) : (
+                        <ul className="divide-line divide-y">
+                            {application.records.map((record) => (
+                                <SubmissionItem
+                                    key={record.id}
+                                    record={record}
+                                    timezone={timezone}
+                                />
+                            ))}
+                        </ul>
+                    )}
+                    <Button
+                        ref={applicationTrigger}
+                        size="sm"
+                        variant={
+                            application.records.length === 0
+                                ? 'primary'
+                                : 'secondary'
+                        }
+                        className="mt-3"
+                        aria-haspopup="dialog"
+                        onClick={() => {
+                            setRecordingAnother(activeRecord !== null);
+                            setOpen('application');
+                        }}
+                    >
+                        {application.records.length === 0
+                            ? 'Record that I applied'
+                            : 'Record another application'}
+                    </Button>
                 </Section>
 
                 <Section
@@ -367,6 +503,14 @@ export default function OpportunityShow({
                         {op.description}
                     </p>
                 </Drawer>
+            )}
+            {open === 'application' && (
+                <SubmissionDrawer
+                    job={op}
+                    section={application.form}
+                    another={recordingAnother}
+                    onClose={close}
+                />
             )}
             {open === 'inspection' && (
                 <InspectionDrawer
