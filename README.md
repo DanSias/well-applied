@@ -1,6 +1,6 @@
-# Career Toolkit
+# Well Applied
 
-Career Toolkit is intended to become a private, local-first application for
+Well Applied is intended to become a private, local-first application for
 maintaining canonical, structured career data and generating job-specific
 resumes from it.
 

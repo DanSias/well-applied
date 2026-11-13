@@ -1,6 +1,6 @@
 # Application Inspector
 
-How Career Toolkit's first agentic capability — a read-only browser-based
+How Well Applied's first agentic capability — a read-only browser-based
 inspector of external job-application forms — is architected, and what of
 that architecture is actually implemented today. Companion to
 `docs/domain-model.md`'s "Application", "WorkflowRun", "WorkflowStep",
@@ -22,7 +22,7 @@ explicitly.
 
 ## Purpose
 
-Career Toolkit's long-term direction is to continuously help operate a
+Well Applied's long-term direction is to continuously help operate a
 job search while the user remains in control of consequential decisions.
 The first concrete step toward that is entirely passive: given an
 application URL, open it in a real browser, identify the ATS, extract
@@ -79,7 +79,7 @@ inspection outcome" below.
 ## WorkflowRun
 
 `WorkflowRun` represents **"accomplish this durable business process."**
-It is Career Toolkit's own durable execution-state record for a business
+It is Well Applied's own durable execution-state record for a business
 process spanning potentially many steps and, eventually, pauses for
 human input — the layer that sits _above_ `GenerationAttempt`, not a
 replacement for it (see "GenerationAttempt remains specialized" below).
@@ -161,11 +161,11 @@ justified the moment something happens to an `Application` that isn't
 already a workflow record — a human manually changing its status, an
 external email arriving — and neither exists yet.
 
-## Career Toolkit owns durable state and orchestration
+## Well Applied owns durable state and orchestration
 
 Every piece of state this feature needs to reason about — which
 `Application` is being pursued, which `WorkflowRun`/`WorkflowStep` is in
-progress, what an `AgentRun` actually found — lives in Career Toolkit's
+progress, what an `AgentRun` actually found — lives in Well Applied's
 own database, as the models this document describes. The browser worker
 (§ below) is not, and will not become, an orchestrator: it claims one
 bounded unit of work, executes it, and reports a result. It never
@@ -189,7 +189,7 @@ implementation pass that actually builds it. **None of it exists yet.**
   its own repository remains straightforward.
 - **No Career Profile access.** The worker never receives candidate
   data, never queries it, and has no credential that could reach it.
-- **No database credentials of any kind**, to Career Toolkit's database
+- **No database credentials of any kind**, to Well Applied's database
   or otherwise.
 - **No submission, filling, or email capability.** v1's worker has no
   `type()`/`select_answer()`/`upload()`/`submit()` primitive at all —
@@ -200,12 +200,12 @@ implementation pass that actually builds it. **None of it exists yet.**
   concrete, demonstrated extraction failure, not preemptively.
 - **No browser-local LLM.** Question extraction is fully deterministic;
   any future semantic classification of what a question _means_ happens
-  server-side, in Career Toolkit, never inside the worker.
+  server-side, in Well Applied, never inside the worker.
 - **No browser-agent framework** (browser-use, Stagehand, Skyvern, or
   similar) — a small, purpose-built Playwright worker was sufficient in
   the proof of concept and would not benefit from a framework that wants
   to own its own task/orchestration loop, which would conflict directly
-  with Career Toolkit owning `WorkflowRun`/`WorkflowStep`.
+  with Well Applied owning `WorkflowRun`/`WorkflowStep`.
 - **No vision/computer-use in v1.**
 - **Greenhouse first.** Lever and Workday are explicitly out of scope
   for the first working worker; Workday in particular was found, during
@@ -216,7 +216,7 @@ implementation pass that actually builds it. **None of it exists yet.**
 ## Approved future worker transport: HTTP pull -> claim -> result
 
 ```
-AI-box worker                          Career Toolkit
+AI-box worker                          Well Applied
     │  authenticated poll                   │
     ├───────────────────────────────────────►
     │                              claim pending AgentRun
@@ -232,8 +232,8 @@ and introducing one solely to reuse Laravel's own queue concept across a
 machine boundary was explicitly rejected) and over a direct push to the
 worker (which would require an inbound-listening service on the worker
 machine, a strictly larger network/firewall surface for no benefit at
-this scale). The worker never receives direct database access; Career
-Toolkit remains the only writer of its own durable state.
+this scale). The worker never receives direct database access; Well
+Applied remains the only writer of its own durable state.
 
 ## Approved v1 worker authentication: shared-secret bearer token
 
@@ -256,7 +256,7 @@ moment any of the following becomes real, rather than before:
 
 ## Worker presence
 
-Career Toolkit needs to tell the user whether inspection capacity is
+Well Applied needs to tell the user whether inspection capacity is
 actually available, rather than leaving a queued inspection unexplained
 if the worker happens to be offline. Piggybacked entirely on the
 existing claim-poll protocol rather than a dedicated heartbeat
@@ -276,7 +276,7 @@ worker registry — upserted by identity, never accumulated as history.
 survives one missed/slow poll without flapping): a *config-derived*
 number, never a magic constant duplicated independently in the
 frontend. `GET /browser-worker/status` exposes this for the nav-bar
-badge and any "waiting for browser worker" message; Career Toolkit only
+badge and any "waiting for browser worker" message; Well Applied only
 ever *observes* presence here — there is no start/stop/restart action,
 and none is planned.
 

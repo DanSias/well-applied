@@ -24,7 +24,7 @@ RUN chown -R pwuser:pwuser /app
 USER pwuser
 
 # Default runtime is the Phase 3 poll loop — it runs continuously,
-# claiming and reporting work against Career Toolkit. src/cli.js
+# claiming and reporting work against Well Applied. src/cli.js
 # remains available for manual/dev one-shot invocation:
 #   docker run --rm <image> node src/cli.js <url>
 ENTRYPOINT ["node", "src/poll.js"]

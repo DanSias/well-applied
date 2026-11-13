@@ -45,7 +45,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
                                 aria-hidden="true"
                                 className="bg-accent h-2.5 w-2.5 rounded-[3px]"
                             />
-                            Career Toolkit
+                            Well Applied
                         </Link>
                         <nav
                             aria-label="Primary"

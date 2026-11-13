@@ -69,7 +69,7 @@ return [
 
     /*
     | Named, reusable discovery SEARCH PROFILES — one entry per role
-    | family Career Toolkit should discover. Loaded (and strictly
+    | family Well Applied should discover. Loaded (and strictly
     | validated — typos and malformed values fail loudly) by
     | App\Support\JobDiscovery\LoadSearchProfiles into immutable
     | App\Support\JobDiscovery\SearchProfile values.

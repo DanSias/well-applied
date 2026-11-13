@@ -8,7 +8,7 @@ use Inertia\Response;
 
 /**
  * The in-app preview surface for one ResumeVariant's candidate-facing
- * document — an Inertia page (Career Toolkit's normal chrome/nav stays
+ * document — an Inertia page (Well Applied's normal chrome/nav stays
  * visible) embedding the actual generated PDF via an `<iframe>`, rather
  * than an independently-paginated HTML rendering.
  *

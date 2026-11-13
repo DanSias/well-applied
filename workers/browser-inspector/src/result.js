@@ -1,7 +1,7 @@
 // Result-shape builders for the worker's CLI/JSON boundary.
 //
 // The string values below are deliberately copy-pasted, not generated,
-// from Career Toolkit's Phase 1 backed enums, so a future audit can diff
+// from Well Applied's Phase 1 backed enums, so a future audit can diff
 // this file against them directly rather than trust a codegen step:
 //
 //   app/Enums/ApplicationQuestionLabelSource.php
@@ -38,8 +38,8 @@ export const InspectionOutcome = Object.freeze({
 });
 
 // A strict SUBSET of App\Enums\AgentRunFailureCategory — the worker can
-// never produce 'claim_timeout' (that value exists only for Career
-// Toolkit's own staleness detection of a worker that claimed work and
+// never produce 'claim_timeout' (that value exists only for Well
+// Applied's own staleness detection of a worker that claimed work and
 // never reported back; from inside the worker process, that case is
 // definitionally unobservable).
 export const FailureCategory = Object.freeze({

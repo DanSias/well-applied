@@ -5,7 +5,7 @@ namespace App\Support\ApplicationInspection;
 use App\Models\WorkerHeartbeat;
 
 /**
- * The one safe JSON shape Career Toolkit ever hands a browser for
+ * The one safe JSON shape Well Applied ever hands a browser for
  * worker presence — used by both
  * App\Http\Controllers\BrowserWorkerStatusController (the persistent
  * nav badge) and anywhere else "is inspection capacity available"

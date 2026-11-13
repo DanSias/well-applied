@@ -62,7 +62,7 @@ class ReportInspectionResultRequest extends FormRequest
             'fields.*.extraction_source' => ['required', Rule::enum(ApplicationQuestionExtractionSource::class)],
 
             // The worker can never legitimately report claim_timeout —
-            // that value exists only for Career Toolkit's own
+            // that value exists only for Well Applied's own
             // staleness detection (see App\Support\ApplicationInspection\
             // ClaimNextAgentRun). Excluding it here means a
             // worker/attacker attempting to report it fails validation

@@ -1,6 +1,6 @@
-# Career Toolkit — Core Domain Model
+# Well Applied — Core Domain Model
 
-This is the first version of the domain model behind Career Toolkit's
+This is the first version of the domain model behind Well Applied's
 canonical career data. It intentionally implements only the data layer:
 models, migrations, relationships, and integrity rules. No UI, importers,
 AI functionality, resume generation, or authentication behavior exists yet.
@@ -1427,12 +1427,12 @@ silently defaulted to a guessed value.
 This subtree carries no question-normalization or answer-resolution
 fields — deliberately. `ApplicationQuestion` in this milestone only
 records what was _found_; what a question _means_ and what value, if
-any, Career Toolkit could safely supply are later, separate concerns
+any, Well Applied could safely supply are later, separate concerns
 layered on top, not fields on this table today.
 
 ## WorkflowRun, WorkflowStep, and AgentRun
 
-Career Toolkit's own durable execution-state model for a business
+Well Applied's own durable execution-state model for a business
 process that spans more than one bounded step — sitting _above_
 `App\Models\GenerationAttempt`, not replacing or generalizing it. See
 `docs/application-inspector.md` for the full rationale (including why

@@ -110,7 +110,7 @@ return [
     | protocol endpoints (App\Http\Middleware\AuthenticateBrowserWorker)
     | — never Sanctum; see docs/application-inspector.md "Approved v1
     | worker authentication". claim_ttl is how long a claimed AgentRun
-    | may run before Career Toolkit treats the worker as gone and
+    | may run before Well Applied treats the worker as gone and
     | recovers the claim as failed (failure_category: claim_timeout) —
     | see App\Support\ApplicationInspection\ClaimNextAgentRun. Default
     | (60s) is sized against the real AI-box smoke-test timing (~3.5s
@@ -123,7 +123,7 @@ return [
 
         // The worker's own expected poll cadence
         // (BROWSER_WORKER_POLL_INTERVAL_MS in workers/browser-inspector,
-        // in seconds here) — Career Toolkit's side of the same number,
+        // in seconds here) — Well Applied's side of the same number,
         // kept as a plain default rather than something the worker
         // reports, since one shared expectation is simpler than a
         // negotiated one for a single-worker system. Used only to

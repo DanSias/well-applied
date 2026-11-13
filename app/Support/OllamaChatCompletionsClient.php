@@ -30,7 +30,7 @@ use Throwable;
  * output there at all) or adding provider-conditional branches inside
  * one class. This class exists to get a second, real, working
  * implementation on record before any shared abstraction is drawn —
- * see the Career Toolkit local-Ollama-provider investigation for the
+ * see the Well Applied local-Ollama-provider investigation for the
  * full reasoning. Do not merge this with OpenAIResponsesApiClient
  * without a concrete second data point (e.g. Job Match, Resume
  * Selection/Wording also needing this) showing what's actually common.

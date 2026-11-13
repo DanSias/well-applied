@@ -414,7 +414,7 @@ export function MarketTab({ page }: { page: ResumeProfilePage }) {
                 {page.build.state === 'none' && (
                     <ol className="text-fg-muted mt-4 list-decimal space-y-1 pl-5 text-sm leading-relaxed">
                         <li>
-                            Career Toolkit reads a sample of current full-stack
+                            Well Applied reads a sample of current full-stack
                             job postings and notes what employers keep asking
                             for.
                         </li>

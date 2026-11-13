@@ -214,7 +214,7 @@ export default function Home({
                         No opportunities yet
                     </h2>
                     <p className="text-fg-muted mx-auto mt-1.5 max-w-md text-sm leading-relaxed">
-                        Add a job you are interested in. Career Toolkit analyzes
+                        Add a job you are interested in. Well Applied analyzes
                         it, matches it against your approved evidence and helps
                         you tailor a resume.
                     </p>

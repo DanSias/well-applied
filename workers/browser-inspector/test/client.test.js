@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import { createClient } from '../src/client.js';
 
-// A minimal fake Career Toolkit server — no mocking library added
+// A minimal fake Well Applied server — no mocking library added
 // solely for this; a real HTTP server on a random local port makes
 // createClient()'s actual fetch() calls exercised end-to-end.
 function startFakeServer(handler) {

@@ -30,7 +30,7 @@ use Throwable;
  * no persistent browser pool. `chrome-php/chrome`'s own AutoDiscover
  * finds the installed Chrome/Chromium binary (honoring a `CHROME_PATH`
  * environment variable override, e.g. for a Linux/CI environment
- * without the macOS default path) — no Career Toolkit-specific
+ * without the macOS default path) — no Well Applied-specific
  * configuration was added for this, since the library already covers
  * it. See docs/resume-variant-generation.md "PDF export".
  */

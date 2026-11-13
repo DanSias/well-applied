@@ -56,7 +56,7 @@ multi-provider abstraction: the interface is the only seam, and a
 provider (or a fake for tests) is a new class implementing it, not a
 change to the orchestrator, prompt, validator, or domain layer.
 
-**career-toolkit is local-first**: `AppServiceProvider::resolveJobAnalysisProvider()`
+**Well Applied is local-first**: `AppServiceProvider::resolveJobAnalysisProvider()`
 picks the bound implementation from `services.job_analysis.provider`
 (`AI_JOB_ANALYSIS_PROVIDER`), defaulting to `'ollama'` when unset/blank
 — the happy path does not require an OpenAI API key. OpenAI remains

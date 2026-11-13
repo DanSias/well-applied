@@ -1,6 +1,6 @@
 # Browser Inspector Worker
 
-Career Toolkit's read-only Application Inspector browser worker. See
+Well Applied's read-only Application Inspector browser worker. See
 `docs/application-inspector.md` in the main repository for the full
 architecture; this document is operational, not architectural.
 
@@ -25,7 +25,7 @@ this worker's code, not as a disabled option, as an absent one:
 - No browser-agent framework (browser-use/Stagehand/Skyvern) and no
   visual/computer-use reasoning.
 - No persistent browser profile, cookies, or session state.
-- No Career Profile access, no Career Toolkit database access, no
+- No Career Profile access, no Well Applied database access, no
   Laravel/PHP dependency of any kind.
 - No credentials of any kind are read, stored, or required.
 
@@ -35,8 +35,8 @@ This worker is independently built and independently deployed — a
 Docker component, not a Laravel dependency. `src/inspect.js` is the
 reusable extraction boundary, untouched since Phase 2. `src/cli.js`
 remains a thin one-shot development/test wrapper around it.
-`src/poll.js` is the production runtime: it claims work from Career
-Toolkit over HTTP, calls the same `inspect()`, and reports the result
+`src/poll.js` is the production runtime: it claims work from Well
+Applied over HTTP, calls the same `inspect()`, and reports the result
 back — see "Worker runtime" below. See `docs/application-inspector.md`
 for the full protocol.
 
@@ -99,11 +99,11 @@ npm run poll
 
 | Variable | Required | Default | Meaning |
 |---|---|---|---|
-| `CAREER_TOOLKIT_URL` | yes | — | Base URL of Career Toolkit, e.g. `http://192.168.1.50:8000`. The worker only ever makes **outbound** requests to this URL — it never listens on any inbound port. |
-| `BROWSER_WORKER_TOKEN` | yes | — | Shared-secret bearer token. Must match Career Toolkit's `BROWSER_WORKER_TOKEN` env var exactly. Used only in this process's HTTP requests to Career Toolkit — never passed into `inspect()`, Playwright, or any browser page context. |
+| `CAREER_TOOLKIT_URL` | yes | — | Base URL of Well Applied, e.g. `http://192.168.1.50:8000`. The worker only ever makes **outbound** requests to this URL — it never listens on any inbound port. |
+| `BROWSER_WORKER_TOKEN` | yes | — | Shared-secret bearer token. Must match Well Applied's `BROWSER_WORKER_TOKEN` env var exactly. Used only in this process's HTTP requests to Well Applied — never passed into `inspect()`, Playwright, or any browser page context. |
 | `BROWSER_WORKER_IDENTITY` | no | `browser-inspector` | Sent as `worker_identity` on every claim; recorded on the `AgentRun` for audit only, not used for authorization. |
 | `BROWSER_WORKER_POLL_INTERVAL_MS` | no | `5000` | Delay between claim attempts when no work is available. |
-| `BROWSER_WORKER_MAX_BACKOFF_MS` | no | `60000` | Ceiling for exponential backoff after a claim/poll error (network failure, Career Toolkit unreachable, etc). |
+| `BROWSER_WORKER_MAX_BACKOFF_MS` | no | `60000` | Ceiling for exponential backoff after a claim/poll error (network failure, Well Applied unreachable, etc). |
 | `BROWSER_WORKER_RESULT_RETRY_ATTEMPTS` | no | `3` | Attempts to deliver one result before giving up. |
 | `BROWSER_WORKER_RESULT_RETRY_BACKOFF_MS` | no | `2000` | Linear backoff unit between result-delivery retries. |
 
@@ -122,19 +122,19 @@ throws) rather than running misconfigured.
   behavior is identical regardless of transport.
 - **Report**: `POST {CAREER_TOOLKIT_URL}/api/worker/agent-runs/{id}/result`
   with `inspect()`'s own return value as the JSON body verbatim — it
-  already matches Career Toolkit's validated contract field-for-field
+  already matches Well Applied's validated contract field-for-field
   (see "JSON output contract" below).
 - **Result-delivery retry** (`src/poll.js`'s `deliverResult()`) only
   retries a **transport-level** failure (a thrown exception — network
   unreachable, connection reset). Any response that actually came back
-  from Career Toolkit — including a `409` stale-result rejection — is
+  from Well Applied — including a `409` stale-result rejection — is
   treated as a completed delivery and is never retried; the browser
   inspection itself is never re-run to retry a delivery. If all
   transport retries are exhausted, the result is dropped and the
-  `AgentRun`'s claim lease simply expires — Career Toolkit's own claim
+  `AgentRun`'s claim lease simply expires — Well Applied's own claim
   recovery marks it `failed`/`claim_timeout` on the next poll from any
   worker, and the user can trigger a fresh retry from the UI.
-- **Claim/poll errors** (Career Toolkit unreachable, non-2xx/204
+- **Claim/poll errors** (Well Applied unreachable, non-2xx/204
   response) back off exponentially up to `BROWSER_WORKER_MAX_BACKOFF_MS`
   rather than retrying immediately in a tight loop.
 
@@ -179,12 +179,12 @@ throws) rather than running misconfigured.
 
 `position`/`external_field_id`/`raw_label`/`label_source`/
 `control_type`/`required`/`options`/`section`/`extraction_source` map
-directly onto Career Toolkit's `application_questions` table
+directly onto Well Applied's `application_questions` table
 (`ApplicationQuestion` model) — see `app/Enums/ApplicationQuestionLabelSource.php`
 and `app/Enums/ApplicationQuestionExtractionSource.php` for the
 authoritative enum values, hand-synced in `src/result.js` (see
 "Contract alignment" below). The worker does not and cannot know
-`application_id`/`agent_run_id` — those belong to Career Toolkit,
+`application_id`/`agent_run_id` — those belong to Well Applied,
 assigned when a future transport layer persists this result.
 
 ### Success — unsupported ATS
@@ -229,16 +229,16 @@ a supported ATS.
 ```
 
 `failure_category` is one of `navigation_timeout` / `unsupported_ats` /
-`unexpected_error` — a strict **subset** of Career Toolkit's
+`unexpected_error` — a strict **subset** of Well Applied's
 `AgentRunFailureCategory` enum. The fourth value, `claim_timeout`,
-exists only for Career Toolkit's own detection of a worker that claimed
+exists only for Well Applied's own detection of a worker that claimed
 work and never reported back; it is definitionally unobservable from
 inside this process and this worker never produces it.
 
 ## Contract alignment
 
-`src/result.js` hand-copies the exact string values from Career
-Toolkit's Phase 1 backed enums (`ApplicationQuestionLabelSource`,
+`src/result.js` hand-copies the exact string values from Well
+Applied's Phase 1 backed enums (`ApplicationQuestionLabelSource`,
 `ApplicationQuestionExtractionSource`, `InspectionOutcome`,
 `AgentRunFailureCategory`) rather than importing PHP or generating
 code from it. For a contract this small (four enums, under 20 total
@@ -307,7 +307,7 @@ fields, one per option, each individually labeled (e.g. `"Male"`,
 `"Female"`) with the shared question text only available via `section`
 (e.g. `"Gender"`) — there is no synthesized single field carrying
 `"Gender"` as its own label with an `options` array the way a
-`<select>` is represented. This matches Career Toolkit's Phase 1
+`<select>` is represented. This matches Well Applied's Phase 1
 `ApplicationQuestion` schema (no `group` column) and the granularity
 the investigation's proof of concept already validated; revisit only if
 a concrete downstream need for aggregated radio-group questions
@@ -355,12 +355,12 @@ human chose to capture."
   writable-volume requirement at all in this pass (no screenshots or
   other diagnostic files are written to disk — see "Diagnostics"
   below).
-- No Career Toolkit database credentials, no Career Toolkit API
+- No Well Applied database credentials, no Well Applied API
   credentials, no unrelated API keys — this worker holds no
   credentials of any kind.
 - No network service is exposed; the worker has no inbound listening
   port at all. `src/poll.js` only ever makes outbound HTTP requests to
-  `CAREER_TOOLKIT_URL` — Career Toolkit never initiates a connection to
+  `CAREER_TOOLKIT_URL` — Well Applied never initiates a connection to
   this worker or the AI box it runs on.
 
 ## Diagnostics
@@ -399,8 +399,8 @@ Three kinds:
   `npx playwright install chromium` once first.
 - **Runtime/protocol, fixture-server-based** (`test/client.test.js`,
   `test/poll.test.js`) — `client.test.js` starts a real, minimal
-  `node:http` server on a random local port to stand in for Career
-  Toolkit, so `createClient()`'s actual `fetch()` calls are exercised
+  `node:http` server on a random local port to stand in for Well
+  Applied, so `createClient()`'s actual `fetch()` calls are exercised
   end-to-end without depending on a real Laravel server. `poll.test.js`
   drives `runOnce()`/`deliverResult()`/`runForever()` against a fake
   in-memory client object with an injectable `inspect()` stub, so no
@@ -418,19 +418,19 @@ syntax gate.
 
 ## Normal development connectivity
 
-For the persistent worker to claim real work, it needs to reach Career
-Toolkit's normal dev server over the LAN — not a temporary,
-manually-started one. Career Toolkit's `php artisan serve` (and the
+For the persistent worker to claim real work, it needs to reach Well
+Applied's normal dev server over the LAN — not a temporary,
+manually-started one. Well Applied's `php artisan serve` (and the
 `composer run dev` / `php artisan dev` multiplex that wraps it) reads
 its bind address from the `SERVER_HOST` env var
 (`Illuminate\Foundation\Console\ServeCommand`), defaulting to
-`127.0.0.1` when unset. Setting `SERVER_HOST=0.0.0.0` in Career
-Toolkit's own `.env` — a one-line, one-time change, no code change, no
+`127.0.0.1` when unset. Setting `SERVER_HOST=0.0.0.0` in Well
+Applied's own `.env` — a one-line, one-time change, no code change, no
 extra process, no firewall/router change — makes the *same* `composer
 run dev` session already reachable from the LAN. It takes effect the
 next time that dev session is (re)started.
 
-- **Career Toolkit's own URL** (browser, on the Mac): unchanged —
+- **Well Applied's own URL** (browser, on the Mac): unchanged —
   `http://localhost:8000`.
 - **Worker-facing URL** (what `CAREER_TOOLKIT_URL` below is set to):
   `http://<Mac's LAN IP>:8000` — find the Mac's LAN IP with
@@ -442,9 +442,9 @@ no tunnel, nothing reachable outside the local network.
 ## Persistent deployment (normal operation)
 
 The worker runs as a normal, always-on Docker Compose service on the
-AI box — not something started by hand for each inspection. Career
-Toolkit never starts, stops, or has credentials for this; the worker
-sits idle, polling, until Career Toolkit creates work (see "Worker
+AI box — not something started by hand for each inspection. Well
+Applied never starts, stops, or has credentials for this; the worker
+sits idle, polling, until Well Applied creates work (see "Worker
 runtime" above). This repository (`workers/browser-inspector/`) is the
 only source of truth for the worker's code — the AI-box deployment
 directory is a plain, non-edited copy of it, kept in sync with
@@ -464,7 +464,7 @@ rsync -az --exclude node_modules --exclude .env workers/browser-inspector/ <host
 ssh <host> "cp ~/career-toolkit-browser-worker/.env.example ~/career-toolkit-browser-worker/.env"
 # then edit ~/career-toolkit-browser-worker/.env on the host: set
 # CAREER_TOOLKIT_URL (see "Normal development connectivity" above) and
-# BROWSER_WORKER_TOKEN (must match Career Toolkit's own .env exactly)
+# BROWSER_WORKER_TOKEN (must match Well Applied's own .env exactly)
 ```
 
 ### START
@@ -491,7 +491,7 @@ ssh <host> "cd ~/career-toolkit-browser-worker && docker compose restart"
 ssh <host> "cd ~/career-toolkit-browser-worker && docker compose ps"
 ```
 
-Also check Career Toolkit's own nav-bar badge ("Browser Inspector ●
+Also check Well Applied's own nav-bar badge ("Browser Inspector ●
 Online / last seen Ns ago") — that's the source of truth the rest of
 the app actually uses, derived from the worker's own claim polls (see
 `docs/application-inspector.md` "Worker presence"), not from Docker's

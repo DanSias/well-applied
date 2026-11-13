@@ -1,4 +1,4 @@
-// Thin HTTP client for the Career Toolkit browser-worker protocol.
+// Thin HTTP client for the Well Applied browser-worker protocol.
 // Deliberately has nothing to do with Playwright/browser pages — the
 // worker token is only ever used here, never passed into inspect().
 function authHeaders(token) {

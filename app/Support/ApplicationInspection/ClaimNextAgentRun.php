@@ -89,7 +89,7 @@ final class ClaimNextAgentRun
 
     /**
      * A worker that claimed an AgentRun and never reported back leaves
-     * it Running forever unless something notices. Career Toolkit
+     * it Running forever unless something notices. Well Applied
      * notices lazily, here, on the next real claim poll — no
      * scheduler/watchdog process exists solely for this. See
      * docs/application-inspector.md "Retry semantics": the expired

@@ -300,7 +300,7 @@ export function TailoredResumePanel({
                     className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200"
                 >
                     <p>
-                        Career Toolkit cannot confirm this is the complete job
+                        Well Applied cannot confirm this is the complete job
                         description. Missing requirements or responsibilities
                         can affect the tailoring.
                     </p>

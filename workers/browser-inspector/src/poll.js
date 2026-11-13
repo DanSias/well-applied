@@ -1,11 +1,11 @@
-// The Phase 3 production runtime: poll Career Toolkit for claimed
+// The Phase 3 production runtime: poll Well Applied for claimed
 // work, run the existing (unchanged) inspect() from src/inspect.js,
 // and report the result back. See README.md "Worker runtime".
 //
 // This module's top-level code only runs the loop when executed
 // directly (node src/poll.js) — importing it for tests never starts
 // the loop, so runOnce()/deliverResult() can be exercised in isolation
-// against a fake Career Toolkit HTTP server.
+// against a fake Well Applied HTTP server.
 import { inspect } from './inspect.js';
 import { createClient } from './client.js';
 import { loadConfig } from './config.js';
@@ -17,7 +17,7 @@ function sleep(ms) {
 /**
  * Delivers one inspection result, retrying transport-level failures
  * (network errors, thrown exceptions) with backoff. A response that
- * came back from Career Toolkit at all — including a 409 stale-result
+ * came back from Well Applied at all — including a 409 stale-result
  * rejection — is a completed delivery, not a transient failure: the
  * browser inspection is never re-run to retry a delivery.
  *

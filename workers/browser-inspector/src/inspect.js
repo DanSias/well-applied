@@ -94,7 +94,7 @@ export async function inspect(rawUrl) {
  * Small, structured, non-content diagnostics only — never a raw DOM/
  * accessibility-tree/page-text dump, never cookies or storage. See
  * docs/domain-model.md "WorkflowRun, WorkflowStep, and AgentRun" for
- * the same policy on the Career Toolkit side (AgentRun.result_summary).
+ * the same policy on the Well Applied side (AgentRun.result_summary).
  */
 function baseDiagnostics({
     startedAt,

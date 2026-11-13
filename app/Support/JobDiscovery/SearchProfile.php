@@ -4,7 +4,7 @@ namespace App\Support\JobDiscovery;
 
 /**
  * A named, reusable discovery search profile: a description of the
- * KIND of jobs Career Toolkit should discover for one role family,
+ * KIND of jobs Well Applied should discover for one role family,
  * defined purely in the `search_profiles` section of
  * config/job_discovery.php and loaded (and validated) by
  * App\Support\JobDiscovery\LoadSearchProfiles. No provider ever sees

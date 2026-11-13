@@ -2,8 +2,8 @@ import { relativeTimeFromNow } from '@/lib/relative-time';
 import type { WorkerStatus } from '@/types/worker-status';
 
 /**
- * "Browser Inspector ● Online / Last seen 3 seconds ago" — Career
- * Toolkit only ever OBSERVES worker presence here, never
+ * "Browser Inspector ● Online / Last seen 3 seconds ago" — Well Applied
+ * only ever OBSERVES worker presence here, never
  * starts/stops/restarts it. See
  * App\Support\ApplicationInspection\PresentWorkerAvailability.
  */

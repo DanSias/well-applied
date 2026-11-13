@@ -121,7 +121,7 @@ function GenerateAnalysisAction({
                     <p>
                         {completeness === 'preview'
                             ? 'This posting contains only a preview.'
-                            : 'Career Toolkit cannot verify that this description is complete.'}{' '}
+                            : 'Well Applied cannot verify that this description is complete.'}{' '}
                         Missing requirements or responsibilities can affect
                         analysis.
                     </p>
@@ -222,7 +222,7 @@ export default function JobsShow({
                             {job.discovery.description_completeness ===
                             'preview'
                                 ? 'This opportunity only contains a preview of the job description. Some requirements or responsibilities may be missing.'
-                                : 'Career Toolkit cannot confirm that this is the complete job description.'}
+                                : 'Well Applied cannot confirm that this is the complete job description.'}
                         </p>
                     )}
                 </div>
