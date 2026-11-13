@@ -104,6 +104,14 @@ export function DecisionActions({
                     >
                         Shortlist
                     </Button>
+                    <Button
+                        size="sm"
+                        disabled={disabled}
+                        aria-label={`Pursue ${jobLabel}`}
+                        onClick={() => onDecide('pursued')}
+                    >
+                        Pursue
+                    </Button>
                     {dismiss}
                 </>
             );
