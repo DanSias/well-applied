@@ -236,3 +236,37 @@ describe('return to Shortlist', function () {
         $this->post(route('jobs.batch.decision'), ['job_ids' => [$job->id], 'disposition' => 'shortlisted', 'return_to' => 'job'])->assertSessionHasErrors('return_to');
     });
 });
+
+describe('the recommended next step', function () {
+    it('is the same on the list and in the workspace, for every resume state', function () {
+        $none = wsJob();
+        $progress = wsJob();
+        wsResume($progress);
+        $final = wsJob();
+        wsResume($final, final: true);
+
+        $rows = collect($this->get('/opportunities')->viewData('page')['props']['opportunities'])->keyBy('id');
+
+        foreach ([$none, $progress, $final] as $job) {
+            $this->get(route('opportunities.show', $job))->assertInertia(fn (Assert $page) => $page->where('opportunity.next', $rows[$job->id]['next']));
+        }
+
+        expect($rows[$progress->id]['next'])->toBe('continue_resume')->and($rows[$final->id]['next'])->toBe('review_final');
+    });
+
+    it('asks for generation, never a manual analysis, for a job with nothing yet', function () {
+        $job = wsJob();
+
+        $this->get(route('opportunities.show', $job))->assertInertia(fn (Assert $page) => $page
+            ->where('opportunity.next', fn ($next) => in_array($next, ['analyze', 'prepare_resume'], true))
+            ->where('tailored_resume.state', 'idle'));
+    });
+
+    it('still offers generation, behind a confirmation, when the description is only a preview', function () {
+        $job = wsJob(attributes: ['description_completeness' => DescriptionCompleteness::Preview]);
+
+        $this->get(route('opportunities.show', $job))->assertInertia(fn (Assert $page) => $page
+            ->where('tailored_resume.state', 'idle')
+            ->where('tailored_resume.needs_confirmation', true));
+    });
+});

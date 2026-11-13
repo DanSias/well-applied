@@ -72,7 +72,7 @@ function OpportunityRow({
                   jobPosting: op.id,
                   resumeVariant: next.variantId,
               })
-            : opportunityShow.url(op.id);
+            : `${opportunityShow.url(op.id)}#resume`;
     const meta = [op.location, op.remote_status, formatCompensation(op)].filter(
         (item): item is string => Boolean(item),
     );

@@ -20,6 +20,7 @@ import {
     type AnalysisPointer,
     type OpportunityDetail,
 } from '@/lib/opportunity';
+import { show as jobShow } from '@/routes/jobs';
 import { show as analysisShow } from '@/routes/jobs/analyses';
 import { show as matchShow } from '@/routes/jobs/analyses/matches';
 import { show as workspaceShow } from '@/routes/jobs/profile-resumes';
@@ -87,7 +88,7 @@ export default function OpportunityShow({
     const [open, setOpen] = useState<'description' | 'inspection' | null>(null);
     const descriptionTrigger = useRef<HTMLButtonElement>(null);
     const inspectionTrigger = useRef<HTMLButtonElement>(null);
-    const next = workspaceNext(op);
+    const next = workspaceNext(op, tailored_resume);
     const meta = [op.location, op.remote_status, formatCompensation(op)].filter(
         (item): item is string => Boolean(item),
     );
@@ -163,9 +164,11 @@ export default function OpportunityShow({
                             {next.label}
                         </ButtonLink>
                     ) : (
-                        <ButtonAnchor variant="primary" href="#resume">
+                        // The step happens in the Resume section below, whose own button is the primary action: stating
+                        // it here in words, rather than as a second button, keeps one clear thing to press.
+                        <p className="text-fg text-sm font-semibold">
                             {next.label}
-                        </ButtonAnchor>
+                        </p>
                     )}
                     <p className="text-fg-muted min-w-0 flex-1 text-sm">
                         {next.hint}
@@ -188,8 +191,7 @@ export default function OpportunityShow({
                 >
                     {op.resume.state === 'none' && (
                         <p className="text-fg-muted mb-2 text-sm">
-                            Not started. One click analyzes the job, matches
-                            your evidence and writes a tailored resume.
+                            Not started.
                         </p>
                     )}
                     {op.description_completeness !== 'complete' && (
@@ -262,10 +264,20 @@ export default function OpportunityShow({
 
                 <Section id="analysis" title="Job analysis">
                     {analysis === null ? (
-                        <p className="text-fg-muted text-sm">
-                            Not started. The tailored resume above analyzes the
-                            job as its first step.
-                        </p>
+                        <div className="text-fg-muted text-sm">
+                            <p>
+                                Not started. Generating the tailored resume
+                                analyzes the job as its first step.
+                            </p>
+                            <ButtonLink
+                                size="sm"
+                                variant="ghost"
+                                className="mt-1 -ml-2.5"
+                                href={jobShow.url({ jobPosting: op.id })}
+                            >
+                                Analyze this job on its own
+                            </ButtonLink>
+                        </div>
                     ) : (
                         <div className="space-y-2 text-sm">
                             <p className="text-fg-muted leading-relaxed">

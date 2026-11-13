@@ -49,12 +49,12 @@ describe('the next step for an opportunity', () => {
         const none = resume(null, null);
 
         expect(nextAction({ next: 'analyze', resume: none })).toEqual({
-            label: 'Analyze job',
+            label: 'Generate tailored resume',
             to: 'job',
             variantId: null,
         });
         expect(nextAction({ next: 'prepare_resume', resume: none }).label).toBe(
-            'Prepare resume',
+            'Generate tailored resume',
         );
         expect(
             nextAction({ next: 'answer_questions', resume: none }).label,
@@ -197,5 +197,62 @@ describe('workspaceNext', () => {
                 resume: resume(null, null),
             }).kind,
         ).toBe('section');
+    });
+});
+
+describe('workspaceNext and the pipeline', () => {
+    const none = {
+        state: 'none' as const,
+        versions: 0,
+        current_variant_id: null,
+        final_variant_id: null,
+    };
+
+    it('names resume generation, not manual analysis, for a job with no resume', () => {
+        for (const next of ['analyze', 'prepare_resume'] as const) {
+            const step = workspaceNext({ next, resume: none });
+
+            expect(step.kind).toBe('section');
+            expect(step.label).toBe('Generate tailored resume');
+        }
+    });
+
+    it('says so when the description has to be confirmed', () => {
+        const step = workspaceNext(
+            { next: 'prepare_resume', resume: none },
+            { state: 'idle', needs_confirmation: true },
+        );
+
+        expect(step.hint).toMatch(/confirm/);
+        expect(
+            workspaceNext(
+                { next: 'prepare_resume', resume: none },
+                { state: 'idle', needs_confirmation: false },
+            ).hint,
+        ).not.toMatch(/confirm/);
+    });
+
+    it('follows the pipeline when it is running or failed, and keeps Continue resume primary otherwise', () => {
+        expect(
+            workspaceNext(
+                { next: 'processing', resume: none },
+                { state: 'running', needs_confirmation: false },
+            ).hint,
+        ).toMatch(/running/);
+        expect(
+            workspaceNext(
+                { next: 'analyze', resume: none },
+                { state: 'failed', needs_confirmation: false },
+            ).hint,
+        ).toMatch(/failed/);
+        expect(
+            workspaceNext(
+                {
+                    next: 'continue_resume',
+                    resume: { ...none, current_variant_id: 3 },
+                },
+                { state: 'idle', needs_confirmation: false },
+            ),
+        ).toMatchObject({ kind: 'link', label: 'Continue resume' });
     });
 });

@@ -121,10 +121,11 @@ export function nextAction(
                   };
         case 'processing':
             return job('View progress');
+        // Analysis is the first stage of the tailored resume pipeline, so a job that still needs it gets the same single
+        // step as one that needs a resume: generate it. Analyzing on its own stays available, as a secondary action.
         case 'analyze':
-            return job('Analyze job');
         default:
-            return job('Prepare resume');
+            return job('Generate tailored resume');
     }
 }
 
@@ -179,17 +180,23 @@ export type AnalysisPointer = {
 } | null;
 
 /**
- * The workspace's one prominent next step: the same choice the list makes (nextAction), shown in place. A step that
- * leads to a resume in the resume workspace links there; every other step happens in the Resume section of this very
- * page (starting or following the pipeline, answering its questions), so it points at that section and says what it
- * does, instead of leading away to the job page.
+ * The workspace's one next step: the same choice the list makes (nextAction), shown in place. A step that leads to a
+ * resume in the resume workspace is a link there (the one primary button). Every other step happens in the Resume
+ * section of this very page, whose own button is the primary action, so the step is stated in words and not repeated as
+ * a second button. The hint follows the pipeline's real state, and says so when the description needs confirming.
  */
 export type WorkspaceNext =
     | { kind: 'link'; label: string; hint: string; variantId: number }
     | { kind: 'section'; label: string; hint: string };
 
+export type PipelineHint = {
+    state: 'idle' | 'running' | 'ready' | 'failed' | 'needs_clarification';
+    needs_confirmation: boolean;
+};
+
 export function workspaceNext(
     op: Pick<Opportunity, 'next' | 'resume'>,
+    pipeline?: PipelineHint,
 ): WorkspaceNext {
     const next = nextAction(op);
 
@@ -205,18 +212,22 @@ export function workspaceNext(
         };
     }
 
+    const confirm = pipeline?.needs_confirmation
+        ? ' You will be asked to confirm first, because the job description may be incomplete.'
+        : '';
     const hints: Record<string, string> = {
         answer_questions:
-            'A few questions could improve the resume. Answer them, or generate now.',
+            'A few questions could improve the resume. Answer them below, or generate now.',
         processing: 'The job is being prepared. Progress is shown below.',
-        analyze:
-            'Starts the tailored resume pipeline, which analyzes the job first.',
-        prepare_resume: 'Starts the tailored resume pipeline for this job.',
+        analyze: `One click analyzes the job, matches your evidence and writes the resume.${confirm}`,
+        prepare_resume: `One click matches your evidence and writes the resume.${confirm}`,
     };
+    const hint =
+        pipeline?.state === 'running'
+            ? 'Generation is running. Progress is shown below.'
+            : pipeline?.state === 'failed'
+              ? 'The last attempt failed. Retry it below; finished stages are reused.'
+              : (hints[op.next] ?? 'Continue with the resume below.');
 
-    return {
-        kind: 'section',
-        label: next.label,
-        hint: hints[op.next] ?? 'Continue with the resume below.',
-    };
+    return { kind: 'section', label: next.label, hint };
 }
