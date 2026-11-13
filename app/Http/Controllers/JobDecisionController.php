@@ -6,6 +6,7 @@ use App\Http\Requests\JobDecisionRequest;
 use App\Http\Requests\UndoJobDecisionsRequest;
 use App\Models\JobPosting;
 use App\Support\JobDecisions\RecordJobDecisionBatch;
+use App\Support\Navigation\ReturnTo;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 
@@ -20,7 +21,9 @@ class JobDecisionController extends Controller
 
     public function store(JobDecisionRequest $request, JobPosting $jobPosting): RedirectResponse
     {
-        return $this->respond($this->decisions->record([$jobPosting->id], $request->disposition(), $request->reason(), $request->note()));
+        $result = $this->decisions->record([$jobPosting->id], $request->disposition(), $request->reason(), $request->note());
+
+        return $this->respond($result, ReturnTo::redirect($request, $jobPosting));
     }
 
     public function batch(JobDecisionRequest $request): RedirectResponse
@@ -36,10 +39,10 @@ class JobDecisionController extends Controller
     /**
      * @param  array<string, mixed>  $result
      */
-    private function respond(array $result): RedirectResponse
+    private function respond(array $result, ?RedirectResponse $to = null): RedirectResponse
     {
         Inertia::flash('decision_result', $result);
 
-        return back()->with('decision_result', $result);
+        return ($to ?? back())->with('decision_result', $result);
     }
 }

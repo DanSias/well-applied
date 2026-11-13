@@ -3,9 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Enums\JobDisposition;
-use App\Support\ApplicationInspection\PresentApplicationInspection;
+use App\Models\JobPosting;
 use App\Support\CurrentCareerProfile;
+use App\Support\Opportunities\PresentInspectionJob;
 use App\Support\Opportunities\PresentOpportunities;
+use App\Support\Opportunities\PresentOpportunityWorkspace;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -17,7 +20,7 @@ use Inertia\Response;
  */
 class OpportunityController extends Controller
 {
-    public function index(Request $request, PresentOpportunities $opportunities, PresentApplicationInspection $inspection): Response
+    public function index(Request $request, PresentOpportunities $opportunities, PresentInspectionJob $inspection): Response
     {
         $resume = in_array($request->query('resume'), ['none', 'in-progress', 'final'], true) ? (string) $request->query('resume') : 'all';
         $inspectId = ctype_digit((string) $request->query('inspect')) ? (int) $request->query('inspect') : null;
@@ -30,31 +33,30 @@ class OpportunityController extends Controller
     }
 
     /**
-     * What the inspection drawer shows for one pursued job: the job, and its Application's inspection state when one
-     * exists. Null when the job is not one of the current profile's pursued jobs (the drawer says it is unavailable).
+     * One pursued job as a workspace. The URL carries the job's own id: an opportunity is not a record of its own, so
+     * there is nothing else to look up. A job that is not (or is no longer) pursued has no workspace and goes to its
+     * job page, which keeps any resume, analysis or inspection work reachable.
+     */
+    public function show(JobPosting $jobPosting, PresentOpportunityWorkspace $workspace): Response|RedirectResponse
+    {
+        abort_unless($jobPosting->career_profile_id === CurrentCareerProfile::resolve()->id, 404);
+
+        if ($jobPosting->disposition !== JobDisposition::Pursued) {
+            return redirect()->route('jobs.show', $jobPosting);
+        }
+
+        return Inertia::render('opportunities/show', $workspace->present($jobPosting));
+    }
+
+    /**
+     * The drawer's job on the list: only a pursued job of the current profile, else null (the drawer says unavailable).
      *
      * @return array<string, mixed>|null
      */
-    private function inspectionJob(int $id, PresentApplicationInspection $inspection): ?array
+    private function inspectionJob(int $id, PresentInspectionJob $inspection): ?array
     {
-        $job = CurrentCareerProfile::resolve()->jobPostings()
-            ->where('disposition', JobDisposition::Pursued->value)
-            ->with('applications')
-            ->find($id);
+        $job = CurrentCareerProfile::resolve()->jobPostings()->where('disposition', JobDisposition::Pursued->value)->find($id);
 
-        if ($job === null) {
-            return null;
-        }
-
-        $application = $job->applications->first();
-
-        return [
-            'id' => $job->id,
-            'title' => $job->title,
-            'company' => $job->company,
-            'source_url' => $job->source_url,
-            'application_id' => $application?->id,
-            'inspection' => $application !== null ? $inspection->present($application) : null,
-        ];
+        return $job === null ? null : $inspection->present($job);
     }
 }

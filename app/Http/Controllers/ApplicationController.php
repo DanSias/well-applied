@@ -6,6 +6,7 @@ use App\Models\Application;
 use App\Models\JobPosting;
 use App\Support\ApplicationInspection\DispatchApplicationInspection;
 use App\Support\ApplicationInspection\PresentApplicationInspection;
+use App\Support\Navigation\ReturnTo;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -32,6 +33,10 @@ class ApplicationController extends Controller
 
         // The Opportunities inspection drawer starts an inspection without leaving the page: it asks to come back to
         // itself, with the drawer still open on this job. Everywhere else keeps going to the results page.
+        if ($request->input('return_to') === ReturnTo::OPPORTUNITY) {
+            return redirect()->route('opportunities.show', $jobPosting);
+        }
+
         if ($request->input('return_to') === 'opportunities') {
             $resume = in_array($request->input('resume'), ['none', 'in-progress', 'final'], true) ? $request->input('resume') : null;
 

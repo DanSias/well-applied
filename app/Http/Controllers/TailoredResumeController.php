@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\JobPosting;
 use App\Models\ResumeProfileSynthesis;
 use App\Support\CurrentCareerProfile;
+use App\Support\Navigation\ReturnTo;
 use App\Support\TailoredResume\PresentTailoredResume;
 use App\Support\TailoredResume\TailoredResumePipeline;
 use Illuminate\Http\JsonResponse;
@@ -28,6 +29,7 @@ class TailoredResumeController extends Controller
             'regenerate' => ['sometimes', 'boolean'],
             // Tailor from an approved profile (the standard pathway is used when this is absent).
             'resume_profile_synthesis_id' => ['sometimes', 'nullable', 'integer', 'exists:resume_profile_syntheses,id'],
+            'return_to' => ['sometimes', 'nullable', ReturnTo::RULE],
         ]);
 
         $synthesis = $request->filled('resume_profile_synthesis_id')
@@ -41,7 +43,7 @@ class TailoredResumeController extends Controller
             $synthesis,
         );
 
-        return redirect()->route('jobs.show', $jobPosting);
+        return ReturnTo::redirect($request, $jobPosting) ?? redirect()->route('jobs.show', $jobPosting);
     }
 
     public function status(JobPosting $jobPosting, PresentTailoredResume $presenter): JsonResponse

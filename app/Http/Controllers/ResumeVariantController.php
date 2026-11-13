@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\GenerationType;
+use App\Enums\JobDisposition;
 use App\Enums\ResumeClaimPosture;
 use App\Enums\ResumeTermUsageLocation;
 use App\Jobs\GenerateResumeVariantJob;
@@ -131,7 +132,7 @@ class ResumeVariantController extends Controller
         $describe = fn (string $key) => ['key' => $key, 'statement' => $factStatements[$key]->statement ?? $key];
 
         return Inertia::render('jobs/resumes/workspace', [
-            'job' => ['id' => $jobPosting->id, 'company' => $jobPosting->company, 'title' => $jobPosting->title],
+            'job' => ['id' => $jobPosting->id, 'company' => $jobPosting->company, 'title' => $jobPosting->title, 'pursued' => $jobPosting->disposition === JobDisposition::Pursued],
             'analysis' => ['id' => $resumeVariant->job_analysis_id],
             'match' => null,
             'resume' => $resume,

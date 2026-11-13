@@ -13,6 +13,7 @@ use App\Support\Clarification\ReviewEvidenceProposal;
 use App\Support\Clarification\ReviseApprovedEvidence;
 use App\Support\Clarification\SubmitClarificationAnswer;
 use App\Support\CurrentCareerProfile;
+use App\Support\Navigation\ReturnTo;
 use App\Support\TailoredResume\TailoredResumePipeline;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -89,8 +90,10 @@ class ClarificationController extends Controller
      * Generate Now (nothing answered) or "Continue" after answering. Both
      * resume the same pipeline run.
      */
-    public function continue(JobPosting $jobPosting, ClarificationGate $gate, TailoredResumePipeline $pipeline): RedirectResponse
+    public function continue(Request $request, JobPosting $jobPosting, ClarificationGate $gate, TailoredResumePipeline $pipeline): RedirectResponse
     {
+        $request->validate(['return_to' => ['sometimes', 'nullable', ReturnTo::RULE]]);
+
         $session = $gate->pendingFor($jobPosting);
         abort_if($session === null, 404);
 
@@ -102,7 +105,7 @@ class ClarificationController extends Controller
             $answered ? ClarificationSessionStatus::Completed : ClarificationSessionStatus::Skipped,
         );
 
-        return redirect()->route('jobs.show', $jobPosting);
+        return ReturnTo::redirect($request, $jobPosting) ?? redirect()->route('jobs.show', $jobPosting);
     }
 
     public function updateProposal(Request $request, EvidenceProposal $evidenceProposal, ReviewEvidenceProposal $review): RedirectResponse

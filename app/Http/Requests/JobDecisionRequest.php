@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Enums\DismissalReason;
 use App\Enums\JobDisposition;
 use App\Support\JobDecisions\RecordJobDecisionBatch;
+use App\Support\Navigation\ReturnTo;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -34,6 +35,8 @@ class JobDecisionRequest extends FormRequest
             'disposition' => ['required', Rule::in(array_map(fn (JobDisposition $d) => $d->value, $allowed))],
             'reason' => ['nullable', 'required_if:disposition,dismissed', Rule::enum(DismissalReason::class)],
             'note' => ['nullable', 'string', 'max:500'],
+            // Where a single-job decision lands: only fixed keys, see ReturnTo. Bulk decisions never navigate.
+            'return_to' => [$this->routeIs('jobs.batch.decision') ? 'prohibited' : 'sometimes', 'nullable', ReturnTo::RULE],
             'job_ids' => [$this->routeIs('jobs.batch.decision') ? 'required' : 'prohibited', 'array', 'min:1', 'max:'.RecordJobDecisionBatch::MAX_ITEMS],
             'job_ids.*' => ['required', 'integer', 'distinct'],
         ];
