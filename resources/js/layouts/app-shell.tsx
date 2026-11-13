@@ -9,8 +9,7 @@ import { index as jobsIndex } from '@/routes/jobs';
 import { index as resumeProfilesIndex } from '@/routes/resume-profiles';
 
 const NAV_ITEMS = [
-    { label: 'Overview', href: home.url(), match: '/' },
-    { label: 'Opportunities', href: jobsIndex.url(), match: '/jobs' },
+    { label: 'Jobs', href: jobsIndex.url(), match: '/jobs' },
     {
         label: 'Resume Profiles',
         href: resumeProfilesIndex.url(),
@@ -52,10 +51,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
                         className="-mx-1 flex min-w-0 items-center gap-0.5 overflow-x-auto px-1 text-sm sm:gap-1"
                     >
                         {NAV_ITEMS.map((item) => {
-                            const isActive =
-                                item.match === '/'
-                                    ? url === '/'
-                                    : url.startsWith(item.match);
+                            const isActive = url.startsWith(item.match);
 
                             return (
                                 <Link

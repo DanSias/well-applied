@@ -209,7 +209,7 @@ final class PresentHome
                 'status' => $status,
                 'activity_at' => $row['activity_at']?->toIso8601String(),
                 'resume_variant_id' => $open?->id,
-                'action' => $resume !== null ? 'Open resume' : 'Open opportunity',
+                'action' => $resume !== null ? 'Open resume' : 'Open job',
             ];
         }
 
@@ -265,13 +265,13 @@ final class PresentHome
         $failed = (int) ($stages['analysis-failed'] ?? 0) + (int) ($stages['match-failed'] ?? 0);
 
         if ($failed > 0) {
-            $items[] = ['key' => 'failed', 'kind' => 'summary', 'title' => $failed === 1 ? '1 opportunity failed analysis or matching' : "{$failed} opportunities failed analysis or matching", 'company' => null, 'message' => 'Open them to see why and retry.', 'action' => 'Review failures', 'job_id' => null, 'resume_variant_id' => null, 'filter' => 'failed'];
+            $items[] = ['key' => 'failed', 'kind' => 'summary', 'title' => $failed === 1 ? '1 job failed analysis or matching' : "{$failed} jobs failed analysis or matching", 'company' => null, 'message' => 'Open them to see why and retry.', 'action' => 'Review failures', 'job_id' => null, 'resume_variant_id' => null, 'filter' => 'failed'];
         }
 
         $raw = (int) ($stages['raw'] ?? 0);
 
         if ($raw > 0) {
-            $items[] = ['key' => 'raw', 'kind' => 'summary', 'title' => $raw === 1 ? '1 opportunity is not analyzed yet' : "{$raw} opportunities are not analyzed yet", 'company' => null, 'message' => 'Analysis is the first step toward matching and a tailored resume.', 'action' => 'Triage opportunities', 'job_id' => null, 'resume_variant_id' => null, 'filter' => 'raw'];
+            $items[] = ['key' => 'raw', 'kind' => 'summary', 'title' => $raw === 1 ? '1 job is not analyzed yet' : "{$raw} jobs are not analyzed yet", 'company' => null, 'message' => 'Analysis is the first step toward matching and a tailored resume.', 'action' => 'Triage jobs', 'job_id' => null, 'resume_variant_id' => null, 'filter' => 'raw'];
         }
 
         return ['total' => count($items), 'items' => array_slice($items, 0, self::ATTENTION_LIMIT)];

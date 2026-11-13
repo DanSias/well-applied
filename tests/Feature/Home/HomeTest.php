@@ -164,9 +164,9 @@ it('sends each Overview count to a list that shows exactly those opportunities',
     $overview = $this->get('/')->viewData('page')['props']['overview'];
     $listed = fn (string $query) => $this->get("/jobs{$query}")->viewData('page')['props'];
 
-    $inProgress = $listed('?resume=in-progress');
-    $finals = $listed('?resume=final');
-    $raw = $listed('?triage=raw');
+    $inProgress = $listed('?disposition=all&resume=in-progress');
+    $finals = $listed('?disposition=all&resume=final');
+    $raw = $listed('?disposition=all&triage=raw');
 
     expect($inProgress['pagination']['total'])->toBe($overview['resumes_in_progress'])
         ->and(array_column($inProgress['jobs'], 'id'))->toBe([$working->id])
@@ -174,7 +174,7 @@ it('sends each Overview count to a list that shows exactly those opportunities',
         ->and($finals['pagination']['total'])->toBe($overview['resumes_final'])
         ->and(array_column($finals['jobs'], 'id'))->toBe([$final->id])
         ->and($raw['pagination']['total'])->toBe($overview['not_analyzed'])
-        ->and($listed('')['pagination']['total'])->toBe($overview['opportunities'])
+        ->and($listed('?disposition=all')['pagination']['total'])->toBe($overview['opportunities'])
         // An unknown value is ignored and echoed as "all", never silently half-applied.
         ->and($listed('?resume=bogus')['filters']['resume'])->toBe('all')
         // Filters combine with search and the other filters.

@@ -27,7 +27,11 @@ function destination(
     filter: string | null = null,
 ): string {
     if (jobId === null) {
-        return jobsIndex.url({ query: filter ? { triage: filter } : {} });
+        return jobsIndex.url({
+            query: filter
+                ? { triage: filter, disposition: 'all' }
+                : { disposition: 'all' },
+        });
     }
 
     return variantId === null
@@ -188,7 +192,7 @@ export default function Home({
                 job: latest.title,
                 href: destination(latest.job_id, latest.resume_variant_id),
             }
-          : { label: 'Add an opportunity', job: null, href: jobsCreate.url() };
+          : { label: 'Add a job', job: null, href: jobsCreate.url() };
     const empty = overview.opportunities === 0;
 
     return (
@@ -208,7 +212,7 @@ export default function Home({
                     <div className="flex flex-wrap items-center gap-2">
                         {!empty && (
                             <ButtonLink href={jobsCreate.url()}>
-                                Add opportunity
+                                Add job
                             </ButtonLink>
                         )}
                         <ButtonLink
@@ -235,7 +239,7 @@ export default function Home({
                         <code className="bg-sunken rounded px-1 py-0.5 text-xs">
                             php artisan career:import
                         </code>{' '}
-                        to start tracking opportunities and building resumes.
+                        to start tracking jobs and building resumes.
                     </p>
                 </Alert>
             )}
@@ -243,7 +247,7 @@ export default function Home({
             {has_profile && empty && (
                 <Card className="mt-5 p-6 text-center">
                     <h2 className="text-fg text-base font-semibold">
-                        No opportunities yet
+                        No jobs yet
                     </h2>
                     <p className="text-fg-muted mx-auto mt-1.5 max-w-md text-sm leading-relaxed">
                         Add a job you are interested in. Well Applied analyzes
@@ -257,18 +261,23 @@ export default function Home({
                 <div className="mt-5 space-y-6">
                     <Card className="bg-line grid grid-cols-2 gap-px overflow-hidden lg:grid-cols-4">
                         <Stat
-                            label="Opportunities"
+                            label="Jobs"
                             value={overview.opportunities}
                             hint={
                                 overview.not_analyzed > 0
                                     ? `${overview.not_analyzed} not analyzed`
                                     : 'All analyzed'
                             }
-                            href={jobsIndex.url()}
+                            href={jobsIndex.url({
+                                query: { disposition: 'all' },
+                            })}
                             hintHref={
                                 overview.not_analyzed > 0
                                     ? jobsIndex.url({
-                                          query: { triage: 'raw' },
+                                          query: {
+                                              triage: 'raw',
+                                              disposition: 'all',
+                                          },
                                       })
                                     : undefined
                             }
@@ -278,7 +287,10 @@ export default function Home({
                             value={overview.in_flight}
                             hint="Analyzing or matching"
                             href={jobsIndex.url({
-                                query: { triage: 'in-progress' },
+                                query: {
+                                    triage: 'in-progress',
+                                    disposition: 'all',
+                                },
                             })}
                         />
                         <Stat
@@ -286,7 +298,10 @@ export default function Home({
                             value={overview.resumes_in_progress}
                             hint="Not marked final"
                             href={jobsIndex.url({
-                                query: { resume: 'in-progress' },
+                                query: {
+                                    resume: 'in-progress',
+                                    disposition: 'all',
+                                },
                             })}
                         />
                         <Stat
@@ -294,7 +309,7 @@ export default function Home({
                             value={overview.resumes_final}
                             hint="Ready to apply with"
                             href={jobsIndex.url({
-                                query: { resume: 'final' },
+                                query: { resume: 'final', disposition: 'all' },
                             })}
                         />
                     </Card>
@@ -331,15 +346,18 @@ export default function Home({
                         <SectionTitle>Continue working</SectionTitle>
                         {recent.length === 0 ? (
                             <Card className="text-fg-muted mt-3 p-5 text-sm">
-                                No recent work yet. Analyze an opportunity to
-                                get started.{' '}
+                                No recent work yet. Analyze a job to get
+                                started.{' '}
                                 <Link
                                     href={jobsIndex.url({
-                                        query: { triage: 'raw' },
+                                        query: {
+                                            triage: 'raw',
+                                            disposition: 'all',
+                                        },
                                     })}
                                     className="text-accent-text hover:text-fg rounded-sm underline underline-offset-2"
                                 >
-                                    Open opportunities
+                                    Open jobs
                                 </Link>
                             </Card>
                         ) : (
@@ -364,8 +382,8 @@ export default function Home({
                     <div className="mt-3 grid gap-3 sm:grid-cols-3">
                         <QuickLink
                             href={jobsIndex.url()}
-                            title="Opportunities"
-                            description="Triage, analyze and match job postings."
+                            title="Jobs"
+                            description="Qualify, analyze and match job postings."
                         />
                         <QuickLink
                             href={resumeProfilesIndex.url()}
