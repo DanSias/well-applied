@@ -1,11 +1,15 @@
 <?php
 
+use App\Enums\DecisionSource;
 use App\Enums\DescriptionCompleteness;
+use App\Enums\DismissalReason;
 use App\Enums\JobCanonicalSource;
 use App\Enums\JobDiscoverySource;
+use App\Enums\JobDisposition;
 use App\Enums\JobPostingLifecycleStatus;
 use App\Models\CareerProfile;
 use App\Models\JobPosting;
+use App\Support\JobDecisions\RecordJobDecision;
 use App\Support\JobDiscovery\Canonical\CanonicalJobPosting;
 use App\Support\JobDiscovery\DiscoveredJobCandidate;
 use App\Support\JobDiscovery\DiscoveryIngestionException;
@@ -463,4 +467,26 @@ it('protects a Complete canonical description from a Preview canonical match and
 
     expect($viaPreviewCanonical->description)->toBe('Canonical full.')
         ->and($viaPreviewCanonical->description_completeness)->toBe(DescriptionCompleteness::Complete);
+});
+
+it('keeps a user decision, and its history, when the same posting is rediscovered', function () {
+    $profile = CareerProfile::factory()->create();
+    $ingest = new IngestDiscoveredCandidate;
+    $job = $ingest->ingest(discoveryCandidate(), null, $profile)->jobPosting;
+    $decision = app(RecordJobDecision::class)->record($job, JobDisposition::Dismissed, DecisionSource::User, DismissalReason::Compensation, 'Pays too little');
+
+    $again = $ingest->ingest(discoveryCandidate(['title' => 'Senior Software Engineer II', 'compensationMax' => 250000]), null, $profile);
+
+    expect($again->wasCreated)->toBeFalse()
+        ->and($again->jobPosting->id)->toBe($job->id)
+        ->and($again->jobPosting->title)->toBe('Senior Software Engineer II')
+        ->and($job->fresh()->disposition)->toBe(JobDisposition::Dismissed)
+        ->and($job->fresh()->disposition_reason)->toBe('compensation')
+        ->and($job->decisions)->toHaveCount(1)->and($job->decisions->first()->id)->toBe($decision->id);
+});
+
+it('creates every discovered job in the inbox', function () {
+    $job = (new IngestDiscoveredCandidate)->ingest(discoveryCandidate(), null, CareerProfile::factory()->create())->jobPosting;
+
+    expect($job->fresh()->disposition)->toBe(JobDisposition::New);
 });

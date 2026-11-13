@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Enums\DecisionSource;
 use App\Enums\DescriptionCompleteness;
 use App\Enums\JobCanonicalSource;
 use App\Enums\JobDiscoverySource;
+use App\Enums\JobDisposition;
 use App\Enums\JobPostingLifecycleStatus;
 use App\Enums\JobRemoteStatus;
 use Carbon\CarbonImmutable;
@@ -67,6 +69,11 @@ use Illuminate\Support\Carbon;
  * @property JobPostingLifecycleStatus $status
  * @property CarbonImmutable|null $last_checked_at
  * @property array<string, mixed>|null $discovery_metadata
+ * @property JobDisposition $disposition
+ * @property DecisionSource|null $disposition_source
+ * @property string|null $disposition_reason
+ * @property CarbonImmutable|null $dispositioned_at
+ * @property CarbonImmutable|null $pursued_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -101,6 +108,7 @@ class JobPosting extends Model
         static::creating(function (JobPosting $job) {
             $job->discovery_source ??= JobDiscoverySource::Manual;
             $job->status ??= JobPostingLifecycleStatus::Open;
+            $job->disposition ??= JobDisposition::New;
             $job->discovered_at ??= now();
             // A hand-created posting has no source-completeness
             // provenance — never guessed as Complete merely because a
@@ -119,6 +127,10 @@ class JobPosting extends Model
             'canonical_source' => JobCanonicalSource::class,
             'remote_status' => JobRemoteStatus::class,
             'status' => JobPostingLifecycleStatus::class,
+            'disposition' => JobDisposition::class,
+            'disposition_source' => DecisionSource::class,
+            'dispositioned_at' => 'datetime',
+            'pursued_at' => 'datetime',
             'posted_at' => 'datetime',
             'source_updated_at' => 'datetime',
             'discovered_at' => 'datetime',
@@ -151,6 +163,16 @@ class JobPosting extends Model
     public function jobAnalyses(): HasMany
     {
         return $this->hasMany(JobAnalysis::class);
+    }
+
+    /**
+     * The append-only history of this job's disposition changes, oldest first.
+     *
+     * @return HasMany<JobDecision, $this>
+     */
+    public function decisions(): HasMany
+    {
+        return $this->hasMany(JobDecision::class)->orderBy('id');
     }
 
     /**
