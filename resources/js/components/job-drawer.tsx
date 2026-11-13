@@ -1,4 +1,3 @@
-import { useEffect, useRef, useState } from 'react';
 import {
     DescriptionCompletenessBadge,
     InspectionStateBadge,
@@ -11,10 +10,9 @@ import {
     type DecideFn,
 } from '@/components/job-decisions';
 import { Badge } from '@/components/ui/badge';
-import { Toaster } from '@/components/ui/toaster';
+import { Drawer } from '@/components/ui/drawer';
 import { Button, ButtonAnchor, ButtonLink } from '@/components/ui/button';
 import { formatCompensation } from '@/lib/job-display';
-import { setToastTarget } from '@/lib/toast';
 import { show as showJob } from '@/routes/jobs';
 import type { SelectedJob } from '@/types/job-posting';
 
@@ -164,23 +162,6 @@ export function JobDrawer({
     onDecide: DecideFn;
     onClose: () => void;
 }) {
-    const dialog = useRef<HTMLDialogElement>(null);
-
-    useEffect(() => {
-        const element = dialog.current;
-
-        if (element !== null && !element.open) {
-            element.showModal();
-        }
-    }, []);
-
-    // The app-wide toaster sits behind this modal and is inert, so toasts (and their Undo) follow the drawer while it is open.
-    useEffect(() => {
-        setToastTarget('drawer');
-
-        return () => setToastTarget(undefined);
-    }, []);
-
     const title = job?.title ?? fallback?.title ?? 'Job';
     const company = job?.company ?? fallback?.company ?? '';
     const id = job?.id ?? fallback?.id ?? null;
@@ -197,48 +178,14 @@ export function JobDrawer({
         : [];
 
     return (
-        <dialog
-            ref={dialog}
-            aria-labelledby="drawer-title"
-            onCancel={(event) => {
-                // Escape: let the page decide how to close, so the URL and history stay in step.
-                event.preventDefault();
-                onClose();
-            }}
-            onClick={(event) => {
-                // A click on the backdrop lands on the dialog element itself, never on its content.
-                if (event.target === event.currentTarget) {
-                    onClose();
-                }
-            }}
-            className="job-drawer border-line bg-surface text-fg fixed inset-y-0 right-0 left-auto m-0 h-dvh max-h-none w-full max-w-xl flex-col border-l p-0 shadow-xl backdrop:bg-black/55 open:flex"
-        >
-            <header className="border-line flex items-start justify-between gap-3 border-b px-5 py-4">
-                <div className="min-w-0">
-                    <h2
-                        id="drawer-title"
-                        className="text-fg text-base leading-snug font-semibold break-words"
-                    >
-                        {title}
-                    </h2>
-                    {company && (
-                        <p className="text-fg-muted mt-0.5 text-sm">
-                            {company}
-                        </p>
-                    )}
-                </div>
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    aria-label="Close job"
-                    onClick={onClose}
-                >
-                    ✕
-                </Button>
-            </header>
-
-            {state === 'ready' && job && (
-                <div className="border-line border-b px-5 py-3">
+        <Drawer
+            title={title}
+            subtitle={company || undefined}
+            closeLabel="Close job"
+            onClose={onClose}
+            header={
+                state === 'ready' && job ? (
+<div className="border-line border-b px-5 py-3">
                     {meta.length > 0 && (
                         <p className="text-fg-subtle text-xs leading-relaxed break-words">
                             {meta.join(' · ')}
@@ -265,25 +212,9 @@ export function JobDrawer({
                         )}
                     </div>
                 </div>
-            )}
-
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
-                {state === 'loading' && <Loading />}
-                {state === 'unavailable' && (
-                    <div role="alert" className="text-fg-muted text-sm">
-                        <p className="text-fg font-medium">
-                            This job is no longer available.
-                        </p>
-                        <p className="mt-1">
-                            It may have been removed, or the link is not one of
-                            your jobs.
-                        </p>
-                    </div>
-                )}
-                {state === 'ready' && job && <JobBody job={job} />}
-            </div>
-
-            <footer className="border-line bg-surface border-t px-5 py-3">
+                ) : undefined
+            }
+            footer={
                 <div className="flex flex-wrap items-center gap-x-1 gap-y-2">
                     {state === 'ready' && job && (
                         <DecisionActions
@@ -302,8 +233,21 @@ export function JobDrawer({
                         </ButtonLink>
                     )}
                 </div>
-            </footer>
-            <Toaster id="drawer" inset={88} />
-        </dialog>
+            }
+        >
+                {state === 'loading' && <Loading />}
+                {state === 'unavailable' && (
+                    <div role="alert" className="text-fg-muted text-sm">
+                        <p className="text-fg font-medium">
+                            This job is no longer available.
+                        </p>
+                        <p className="mt-1">
+                            It may have been removed, or the link is not one of
+                            your jobs.
+                        </p>
+                    </div>
+                )}
+                {state === 'ready' && job && <JobBody job={job} />}
+        </Drawer>
     );
 }
