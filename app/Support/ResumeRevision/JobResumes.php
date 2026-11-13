@@ -2,6 +2,7 @@
 
 namespace App\Support\ResumeRevision;
 
+use App\Models\JobAnalysis;
 use App\Models\JobPosting;
 use App\Models\JobResumeSelection;
 use App\Models\ResumeVariant;
@@ -50,6 +51,35 @@ final class JobResumes
         $id = $this->selection($posting)?->preferred_resume_variant_id;
 
         return $id === null ? null : $this->variants($posting)->firstWhere('id', $id);
+    }
+
+    /**
+     * Where each job's resume work stands: 'final' when the user marked one final, 'in-progress' when it has a
+     * profile-assisted resume but none marked final. Jobs with no resume are absent. This is the definition the
+     * Overview counts and the Opportunities "Resume" filter share.
+     *
+     * @param  iterable<int, int>  $jobIds
+     * @return array<int, 'in-progress'|'final'>
+     */
+    public function stateByJob(iterable $jobIds): array
+    {
+        $jobIds = collect($jobIds)->all();
+        $withResumes = ResumeVariant::query()
+            ->whereNotNull('resume_profile_synthesis_id')
+            ->whereIn('job_analysis_id', JobAnalysis::query()->whereIn('job_posting_id', $jobIds)->select('id'))
+            ->with('jobAnalysis:id,job_posting_id')
+            ->get(['id', 'job_analysis_id'])
+            ->map(fn (ResumeVariant $v) => $v->jobAnalysis->job_posting_id)
+            ->unique();
+        $states = [];
+
+        foreach (JobPosting::query()->whereIn('id', $withResumes)->get() as $posting) {
+            if ($this->current($posting) !== null) {
+                $states[$posting->id] = $this->preferred($posting) !== null ? 'final' : 'in-progress';
+            }
+        }
+
+        return $states;
     }
 
     public function setCurrent(JobPosting $posting, ResumeVariant $variant): void

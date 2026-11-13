@@ -151,3 +151,32 @@ it('surfaces a pending clarification as the most pressing item', function () {
         ->where('attention.items.0.job_id', $posting->id)
         ->where('continue.0.status.label', 'Questions waiting'));
 });
+
+it('sends each Overview count to a list that shows exactly those opportunities', function () {
+    $profile = homeProfile();
+    $working = homePosting($profile);
+    homeResume($profile, $working);
+    $final = homePosting($profile);
+    $finalResume = homeResume($profile, $final);
+    JobResumeSelection::query()->create(['job_posting_id' => $final->id, 'current_resume_variant_id' => $finalResume->id, 'preferred_resume_variant_id' => $finalResume->id]);
+    homePosting($profile); // no resume at all
+
+    $overview = $this->get('/')->viewData('page')['props']['overview'];
+    $listed = fn (string $query) => $this->get("/jobs{$query}")->viewData('page')['props'];
+
+    $inProgress = $listed('?resume=in-progress');
+    $finals = $listed('?resume=final');
+    $raw = $listed('?triage=raw');
+
+    expect($inProgress['pagination']['total'])->toBe($overview['resumes_in_progress'])
+        ->and(array_column($inProgress['jobs'], 'id'))->toBe([$working->id])
+        ->and($inProgress['filters']['resume'])->toBe('in-progress')
+        ->and($finals['pagination']['total'])->toBe($overview['resumes_final'])
+        ->and(array_column($finals['jobs'], 'id'))->toBe([$final->id])
+        ->and($raw['pagination']['total'])->toBe($overview['not_analyzed'])
+        ->and($listed('')['pagination']['total'])->toBe($overview['opportunities'])
+        // An unknown value is ignored and echoed as "all", never silently half-applied.
+        ->and($listed('?resume=bogus')['filters']['resume'])->toBe('all')
+        // Filters combine with search and the other filters.
+        ->and($listed('?resume=in-progress&q=zzz-no-such-title')['pagination']['total'])->toBe(0);
+});

@@ -13,6 +13,7 @@ use App\Support\Clarification\PresentApprovedEvidence;
 use App\Support\CurrentCareerProfile;
 use App\Support\GenerationAttempt\PresentGenerationAttempt;
 use App\Support\OpportunityTriage\SummarizeTriageStates;
+use App\Support\ResumeRevision\JobResumes;
 use App\Support\TailoredResume\PresentTailoredResume;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -31,12 +32,14 @@ class JobPostingController extends Controller
      * unchanged; only the product-facing label differs. See
      * docs/application-inspector.md "Opportunities index".
      */
-    public function index(Request $request, SummarizeInspectionStates $summarizer, SummarizeTriageStates $triageSummarizer): Response
+    public function index(Request $request, SummarizeInspectionStates $summarizer, SummarizeTriageStates $triageSummarizer, JobResumes $jobResumes): Response
     {
         $search = trim((string) $request->query('q', ''));
         $status = (string) $request->query('status', 'all');
         $triage = (string) $request->query('triage', 'all');
         $triageStages = $this->triageStagesForFilter($triage);
+        // Resume work, per job: 'in-progress' (a resume exists, none marked final) or 'final'. Anything else is no restriction.
+        $resume = in_array($request->query('resume'), ['in-progress', 'final'], true) ? (string) $request->query('resume') : 'all';
         $perPage = $this->perPage($request);
 
         $query = CurrentCareerProfile::resolve()->jobPostings()->latest()->orderByDesc('id');
@@ -51,7 +54,7 @@ class JobPostingController extends Controller
         // Inspection and triage state are derived from other tables, so
         // filtering on them needs every matching posting's state. Without
         // those filters the page can be cut in SQL and only its rows summarized.
-        if ($status === 'all' && $triageStages === null) {
+        if ($status === 'all' && $triageStages === null && $resume === 'all') {
             $total = (clone $query)->count();
             $page = $this->page($request, $total, $perPage);
             $jobs = $query->forPage($page, $perPage)->get();
@@ -74,6 +77,11 @@ class JobPostingController extends Controller
                 );
             }
 
+            if ($resume !== 'all') {
+                $resumeStates = $jobResumes->stateByJob($jobs->pluck('id'));
+                $jobs = $jobs->filter(fn (JobPosting $job) => ($resumeStates[$job->id] ?? null) === $resume);
+            }
+
             $total = $jobs->count();
             $page = $this->page($request, $total, $perPage);
             $jobs = $jobs->forPage($page, $perPage);
@@ -84,7 +92,7 @@ class JobPostingController extends Controller
             // `triage` is normalized so the echoed filter always reflects
             // what was actually applied — an invalid value degrades to
             // `all` in both behavior and props.
-            'filters' => ['q' => $search, 'status' => $status, 'triage' => $triageStages === null ? 'all' : $triage],
+            'filters' => ['q' => $search, 'status' => $status, 'triage' => $triageStages === null ? 'all' : $triage, 'resume' => $resume],
             // Normalized the same way: an out-of-range page or an
             // unsupported page size degrades to a valid one and is echoed.
             'pagination' => [
