@@ -24,6 +24,7 @@ use App\Http\Controllers\ResumeVariantController;
 use App\Http\Controllers\ResumeVariantPdfController;
 use App\Http\Controllers\ResumeVariantPreviewController;
 use App\Http\Controllers\SubmissionController;
+use App\Http\Controllers\SubmissionEventController;
 use App\Http\Controllers\TailoredResumeController;
 use App\Http\Middleware\AllowLongRunningGeneration;
 use Illuminate\Support\Facades\Route;
@@ -136,6 +137,9 @@ Route::get('/applications/{application}', [ApplicationController::class, 'show']
 // Every application the person recorded, newest first: read-only. (/applications/{application} below is the browser
 // inspection record, a different thing.)
 Route::get('/applications', [SubmissionController::class, 'index'])->name('applications.index');
+// What happened to a recorded application (an update, or marking it recorded in error). Append-only: nothing is edited or removed.
+Route::post('/submissions/{submission}/events', [SubmissionEventController::class, 'store'])->whereNumber('submission')->name('submissions.events.store');
+Route::post('/submissions/{submission}/correction', [SubmissionEventController::class, 'correct'])->whereNumber('submission')->name('submissions.correction.store');
 Route::post('/jobs/{jobPosting}/submissions', [SubmissionController::class, 'store'])->whereNumber('jobPosting')->name('jobs.submissions.store');
 Route::get('/applications/{application}/status', [ApplicationInspectionStatusController::class, 'show'])->name('applications.status');
 

@@ -18,7 +18,10 @@ use Illuminate\Support\Facades\DB;
  *
  * - the submission is re-read under a lock, so two requests cannot both write against a state only one of them saw;
  * - `occurred_at` is when it happened (kept apart from when it was recorded), cannot precede the submission, and cannot
- *   be in the future except for an interview, which may be scheduled ahead;
+ *   be in the future except for an interview, which may be scheduled ahead; a calendar date entered (`occurredOn`) is also
+ *   kept as that plain date, which is what is shown and what "before the submission" is judged by;
+ * - once the application has ended nothing dated after the ending can be added, and no second ending (see
+ *   refuseAfterAnEnding);
  * - once a submission is marked in error nothing more is recorded on it;
  * - a retry with the same idempotency key, or an identical entry (same type, time and source), returns the event already
  *   written instead of a second one;
@@ -41,6 +44,7 @@ final class RecordSubmissionEvent
         ?string $note = null,
         ?array $evidence = null,
         ?string $idempotencyKey = null,
+        ?string $occurredOn = null,
     ): SubmissionEvent {
         $idempotencyKey = $idempotencyKey === null || trim($idempotencyKey) === '' ? null : trim($idempotencyKey);
 
@@ -48,10 +52,11 @@ final class RecordSubmissionEvent
             throw new SubmissionException("Events from {$source->value} cannot be recorded yet.", 'source_unsupported');
         }
 
+        $occurredOn = $this->calendarDate($occurredOn);
         $evidence = $this->evidence($evidence);
         $note = $note === null || trim($note) === '' ? null : mb_substr(trim($note), 0, 5000);
 
-        return DB::transaction(function () use ($submission, $type, $occurredAt, $source, $note, $evidence, $idempotencyKey) {
+        return DB::transaction(function () use ($submission, $type, $occurredAt, $source, $note, $evidence, $idempotencyKey, $occurredOn) {
             $locked = Submission::query()->lockForUpdate()->find($submission->id)
                 ?? throw new SubmissionException('That submission does not exist.', 'submission_not_found');
 
@@ -67,17 +72,27 @@ final class RecordSubmissionEvent
                 }
             }
 
-            $identical = $locked->events()->where('type', $type->value)->where('source', $source->value)->where('occurred_at', $occurredAt)->first();
+            $identical = $locked->events()->where('type', $type->value)->where('source', $source->value)->where('occurred_at', $occurredAt->copy()->setTimezone(config('app.timezone')))->first();
 
             if ($identical !== null) {
                 return $identical;
+            }
+
+            // Marking a record as a mistake twice is one correction, not a second event.
+            if ($type === SubmissionEventType::RecordedInError && ($already = $locked->events()->where('type', $type->value)->first()) !== null) {
+                return $already;
             }
 
             if ($locked->events()->where('type', SubmissionEventType::RecordedInError->value)->exists()) {
                 throw new SubmissionException('This application was marked as recorded in error, so nothing more can be added to it.', 'recorded_in_error');
             }
 
-            if ($occurredAt->isBefore($locked->submitted_at)) {
+            $this->refuseAfterAnEnding($locked, $type, $occurredAt);
+
+            // By calendar day when a date was entered, so the same day entered from another timezone is never "before".
+            $before = $occurredOn !== null ? $occurredOn < $locked->displayDate() : $occurredAt->isBefore($locked->submitted_at);
+
+            if ($before) {
                 throw new SubmissionException('That cannot have happened before the application was submitted.', 'before_submission');
             }
 
@@ -89,12 +104,48 @@ final class RecordSubmissionEvent
                 'submission_id' => $locked->id,
                 'type' => $type,
                 'occurred_at' => $occurredAt->copy()->setTimezone(config('app.timezone')),
+                // The day entered, kept exactly: shown as written, never converted through a timezone.
+                'occurred_on' => $occurredOn,
                 'source' => $source,
                 'note' => $note,
                 'evidence' => $evidence,
                 'idempotency_key' => $idempotencyKey,
             ]);
         });
+    }
+
+    /**
+     * Once an application has ended (rejected, withdrawn, offer accepted or declined) nothing can happen to it afterwards:
+     * no further ending and nothing dated after the ending. Earlier history can still be filled in (an interview that took
+     * place before the rejection but was recorded after it), and a mistaken record can still be marked as such.
+     */
+    private function refuseAfterAnEnding(Submission $submission, SubmissionEventType $type, CarbonInterface $occurredAt): void
+    {
+        if ($type === SubmissionEventType::RecordedInError) {
+            return;
+        }
+
+        $ending = $submission->events()->get()->filter(fn (SubmissionEvent $e) => $e->type->isTerminal())->last();
+
+        if ($ending !== null && ($type->isTerminal() || $occurredAt->isAfter($ending->occurred_at))) {
+            throw new SubmissionException("This application already ended ({$ending->type->label()}), so nothing after that can be added. If you applied again, record another application.", 'already_ended');
+        }
+    }
+
+    /** A calendar date as Y-m-d, or null when none was given. */
+    private function calendarDate(?string $date): ?string
+    {
+        if ($date === null || trim($date) === '') {
+            return null;
+        }
+
+        $parsed = \DateTimeImmutable::createFromFormat('!Y-m-d', trim($date));
+
+        if ($parsed === false || $parsed->format('Y-m-d') !== trim($date)) {
+            throw new SubmissionException('The date must be a real calendar date.', 'occurred_on_invalid');
+        }
+
+        return $parsed->format('Y-m-d');
     }
 
     /**

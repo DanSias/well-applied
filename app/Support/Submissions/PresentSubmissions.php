@@ -3,10 +3,12 @@
 namespace App\Support\Submissions;
 
 use App\Enums\JobDisposition;
+use App\Enums\SubmissionEventType;
 use App\Models\CareerProfile;
 use App\Models\JobPosting;
 use App\Models\ResumeVariant;
 use App\Models\Submission;
+use App\Models\SubmissionEvent;
 use App\Support\Navigation\JobHome;
 use App\Support\ResumeRevision\JobResumes;
 
@@ -188,7 +190,38 @@ final class PresentSubmissions
             // A copy of the exact PDF is kept only when there was real file to keep.
             'pdf_kept' => $submission->submitted_pdf_sha256 !== null,
             'inspection_linked' => $submission->application_id !== null,
+            'in_error' => $summary->recordedInError,
+            // Over and not a mistake: the final status stands, and nothing ordinary can be added.
+            'ended' => ! $summary->active && ! $summary->recordedInError,
+            'interviews' => $summary->interviews,
+            'follow_ups' => $summary->followUps,
+            'allowed_updates' => array_map(fn (SubmissionEventType $t) => ['value' => $t->value, 'label' => $t->label()], AllowedUpdates::for($summary)),
+            'events' => $this->events($submission),
         ];
+    }
+
+    /**
+     * This submission's own history, newest first (by the day it happened, then as recorded). Every entry is what the
+     * person recorded themselves, never a verified employer message. Other submissions' events are never mixed in.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function events(Submission $submission): array
+    {
+        return $submission->events
+            ->sortByDesc(fn (SubmissionEvent $e) => [$e->displayDate(), $e->occurred_at->getTimestamp(), $e->id])
+            ->values()
+            ->map(fn (SubmissionEvent $e) => [
+                'id' => $e->id,
+                'type' => $e->type->value,
+                'label' => $e->type->label(),
+                'occurred_on' => $e->displayDate(),
+                'note' => $e->note,
+                'url' => ($e->evidence['kind'] ?? null) === 'url' ? ($e->evidence['reference'] ?? null) : null,
+                'recorded_at' => $e->created_at->toIso8601String(),
+                'source' => $e->source->value,
+            ])
+            ->all();
     }
 
     /**

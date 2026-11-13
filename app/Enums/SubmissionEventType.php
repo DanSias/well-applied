@@ -18,6 +18,22 @@ enum SubmissionEventType: string
     case OfferDeclined = 'offer_declined';
     case RecordedInError = 'recorded_in_error';
 
+    /** What a person reads: never the raw value. */
+    public function label(): string
+    {
+        return match ($this) {
+            self::ConfirmationReceived => 'Confirmation received',
+            self::FollowUpSent => 'Follow-up sent',
+            self::Interview => 'Interview',
+            self::Rejected => 'Rejected',
+            self::Withdrawn => 'Withdrawn',
+            self::OfferReceived => 'Offer received',
+            self::OfferAccepted => 'Offer accepted',
+            self::OfferDeclined => 'Offer declined',
+            self::RecordedInError => 'Recorded in error',
+        };
+    }
+
     /** An event that ends the application: nothing is pending after it. */
     public function isTerminal(): bool
     {

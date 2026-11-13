@@ -12,8 +12,8 @@ use Illuminate\Support\Collection;
  * Where a submission stands, derived from its events on every call and never stored (there is no status column to
  * drift out of step with the history). Deterministic, so it can be tested exhaustively:
  *
- * 1. Events are ordered by when they happened, then by when they were recorded (`occurred_at`, then `id`), so a late
- *    entry takes its true place and never overrides something that happened after it.
+ * 1. Events are ordered by the day they happened (the date entered), then the instant, then when they were recorded
+ *    (`id`), so a late entry takes its true place and never overrides something that happened after it.
  * 2. `recorded_in_error` on any event makes the whole submission a mistaken record: phase RecordedInError, not active,
  *    not confirmed, whatever else was recorded. Nothing can undo it, and nothing more can be recorded after it.
  * 3. Otherwise, if any ending was recorded (rejected, withdrawn, offer accepted, offer declined), the latest ending by
@@ -39,7 +39,7 @@ final class SummarizeSubmission
      */
     public function fromEvents(Collection $events): SubmissionSummary
     {
-        $events = $events->sortBy(fn (SubmissionEvent $e) => [$e->occurred_at->getTimestamp(), $e->id])->values();
+        $events = $events->sortBy(fn (SubmissionEvent $e) => [$e->displayDate(), $e->occurred_at->getTimestamp(), $e->id])->values();
         $of = fn (SubmissionEventType $type) => $events->filter(fn (SubmissionEvent $e) => $e->type === $type);
         $interviews = $of(SubmissionEventType::Interview)->count();
         $followUps = $of(SubmissionEventType::FollowUpSent)->count();

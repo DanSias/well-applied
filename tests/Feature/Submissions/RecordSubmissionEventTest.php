@@ -6,6 +6,7 @@ use App\Models\Submission;
 use App\Models\SubmissionEvent;
 use App\Support\Submissions\RecordSubmissionEvent;
 use App\Support\Submissions\SubmissionException;
+use Illuminate\Support\Carbon;
 
 function events(): RecordSubmissionEvent
 {
@@ -48,16 +49,91 @@ it('keeps history append-only', function () {
         ->and($event->fresh()->type)->toBe(SubmissionEventType::Interview);
 });
 
-it('accepts every supported type', function () {
+it('accepts every supported type, each ending on a submission of its own', function () {
     foreach (SubmissionEventType::cases() as $i => $type) {
         if ($type === SubmissionEventType::RecordedInError) {
             continue;
         }
 
-        events()->record($this->submission, $type, now()->subDays(6)->addMinutes($i));
+        $submission = $type->isTerminal() ? Submission::factory()->create(['submitted_at' => now()->subWeek()]) : $this->submission;
+
+        events()->record($submission, $type, now()->subDays(6)->addMinutes($i));
     }
 
-    expect($this->submission->events()->count())->toBe(count(SubmissionEventType::cases()) - 1);
+    expect(SubmissionEvent::count())->toBe(count(SubmissionEventType::cases()) - 1);
+});
+
+describe('after the application has ended', function () {
+    it('refuses a second ending and anything dated after the first', function (SubmissionEventType $ending) {
+        events()->record($this->submission, $ending, now()->subDays(3));
+
+        refused(fn () => events()->record($this->submission, SubmissionEventType::Rejected, now()->subDays(2)), 'already_ended');
+        refused(fn () => events()->record($this->submission, SubmissionEventType::Interview, now()->subDays(2)), 'already_ended');
+        refused(fn () => events()->record($this->submission, SubmissionEventType::FollowUpSent, now()->subDays(1)), 'already_ended');
+        expect($this->submission->events()->count())->toBe(1);
+    })->with([SubmissionEventType::Rejected, SubmissionEventType::Withdrawn, SubmissionEventType::OfferAccepted, SubmissionEventType::OfferDeclined]);
+
+    it('still lets earlier history be filled in, on or before the ending', function () {
+        events()->record($this->submission, SubmissionEventType::Rejected, now()->subDays(3)->startOfSecond());
+
+        events()->record($this->submission, SubmissionEventType::Interview, now()->subDays(5));
+        events()->record($this->submission, SubmissionEventType::ConfirmationReceived, now()->subDays(3)->startOfSecond());
+
+        expect($this->submission->events()->count())->toBe(3);
+    });
+
+    it('refuses an earlier-dated ending too, so two endings never sit side by side', function () {
+        events()->record($this->submission, SubmissionEventType::Rejected, now()->subDays(3));
+
+        refused(fn () => events()->record($this->submission, SubmissionEventType::Withdrawn, now()->subDays(5)), 'already_ended');
+    });
+
+    it('still lets a mistaken record be marked as one', function () {
+        events()->record($this->submission, SubmissionEventType::OfferAccepted, now()->subDays(3));
+
+        events()->record($this->submission, SubmissionEventType::RecordedInError, now());
+
+        expect($this->submission->events()->count())->toBe(2);
+    });
+
+    it('does not block an offer being accepted or declined after it was received', function () {
+        events()->record($this->submission, SubmissionEventType::OfferReceived, now()->subDays(4));
+
+        events()->record($this->submission, SubmissionEventType::OfferAccepted, now()->subDays(2));
+
+        expect($this->submission->events()->count())->toBe(2);
+    });
+});
+
+describe('a calendar date entered for the event', function () {
+    it('is kept exactly, whatever timezone it was entered from', function (string $tz) {
+        $day = now()->subDays(2)->toDateString();
+        $at = Carbon::parse($day, $tz)->startOfDay();
+
+        $event = events()->record($this->submission, SubmissionEventType::ConfirmationReceived, $at, occurredOn: $day);
+
+        expect($event->fresh()->occurred_on)->toBe($day)->and($event->fresh()->displayDate())->toBe($day);
+    })->with(['Pacific/Honolulu', 'America/New_York', 'UTC', 'Europe/Berlin', 'Asia/Tokyo', 'Pacific/Kiritimati']);
+
+    it('is judged against the submission by day, so the same day from another timezone is not "before"', function () {
+        $submission = Submission::factory()->create(['submitted_at' => '2026-11-13 05:00:00', 'submitted_on' => '2026-11-13']);
+
+        // Nov 13 in Tokyo starts at 15:00 UTC on Nov 12, an instant before the submission's, yet the same day.
+        $event = events()->record($submission, SubmissionEventType::ConfirmationReceived, Carbon::parse('2026-11-13', 'Asia/Tokyo')->startOfDay(), occurredOn: '2026-11-13');
+
+        expect($event->occurred_on)->toBe('2026-11-13');
+        refused(fn () => events()->record($submission, SubmissionEventType::FollowUpSent, Carbon::parse('2026-11-12', 'Asia/Tokyo')->startOfDay(), occurredOn: '2026-11-12'), 'before_submission');
+    });
+
+    it('refuses a date that is not a real calendar date', function (string $date) {
+        refused(fn () => events()->record($this->submission, SubmissionEventType::FollowUpSent, now()->subDay(), occurredOn: $date), 'occurred_on_invalid');
+    })->with(['2026-02-30', '2026-13-01', 'yesterday']);
+
+    it('falls back, documented, to the instant\'s date for an event recorded before dates were kept', function () {
+        $event = SubmissionEvent::factory()->create(['submission_id' => $this->submission->id, 'occurred_at' => '2026-11-10 05:00:00', 'occurred_on' => null]);
+
+        expect($event->displayDate())->toBe('2026-11-10');
+    });
 });
 
 it('refuses sources nothing produces yet, so nothing is inferred', function (SubmissionEventSource $source) {

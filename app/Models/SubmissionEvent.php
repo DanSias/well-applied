@@ -20,14 +20,15 @@ use LogicException;
  * @property int $id
  * @property int $submission_id
  * @property SubmissionEventType $type
- * @property Carbon $occurred_at
+ * @property Carbon $occurred_at The instant used for ordering; for an entered date, the start of that day in the person's timezone.
+ * @property string|null $occurred_on The calendar date the person entered (Y-m-d), never converted through a timezone; null on older rows.
  * @property SubmissionEventSource $source
  * @property string|null $note
  * @property array<string, mixed>|null $evidence
  * @property string|null $idempotency_key
  * @property Carbon $created_at
  */
-#[Fillable(['submission_id', 'type', 'occurred_at', 'source', 'note', 'evidence', 'idempotency_key'])]
+#[Fillable(['submission_id', 'type', 'occurred_at', 'occurred_on', 'source', 'note', 'evidence', 'idempotency_key'])]
 class SubmissionEvent extends Model
 {
     /** @use HasFactory<SubmissionEventFactory> */
@@ -49,6 +50,15 @@ class SubmissionEvent extends Model
             'occurred_at' => 'datetime',
             'evidence' => 'array',
         ];
+    }
+
+    /**
+     * The date to show, as Y-m-d: the date entered, or for older events the date of `occurred_at` in the application's
+     * timezone (documented as approximate: the entered timezone was never stored).
+     */
+    public function displayDate(): string
+    {
+        return $this->occurred_on ?? $this->occurred_at->setTimezone(config('app.timezone'))->toDateString();
     }
 
     /**
