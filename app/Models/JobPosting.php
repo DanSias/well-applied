@@ -176,6 +176,16 @@ class JobPosting extends Model
     }
 
     /**
+     * The screening assessments of this job, oldest first. Immutable snapshots: a changed posting adds a row.
+     *
+     * @return HasMany<JobQualification, $this>
+     */
+    public function qualifications(): HasMany
+    {
+        return $this->hasMany(JobQualification::class)->orderBy('id');
+    }
+
+    /**
      * Every recorded submission of an application to this job, oldest first. A job may have several over time. Not the
      * same thing as applications(): those are browser inspection records.
      *
