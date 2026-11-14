@@ -7,6 +7,7 @@ use App\Enums\JobDiscoverySource;
 use App\Enums\JobRemoteStatus;
 use App\Support\JobDiscovery\DiscoveredJobCandidate;
 use App\Support\JobDiscovery\SearchProfile;
+use App\Support\JobDiscovery\TitleFamilies;
 use Carbon\CarbonImmutable;
 
 /**
@@ -46,7 +47,7 @@ final class EightfoldPositionMapper
             return 'malformed_row';
         }
 
-        if (! $this->matchesAny($title, $profile->includeTerms)) {
+        if (! $this->matchesAny($title, $profile->includeTerms) && ! TitleFamilies::matches($title)) {
             return 'title_not_matching';
         }
 
@@ -66,7 +67,8 @@ final class EightfoldPositionMapper
 
         if ($profile->remotePreference === 'remote_us') {
             $arrangement = $row['workLocationOption'] ?? null;
-            if ($arrangement === 'onsite' || $arrangement === 'hybrid') {
+            // On-site is out; hybrid stays only when Florida is a listed location, matching the global filter's policy.
+            if ($arrangement === 'onsite' || ($arrangement === 'hybrid' && ! in_array('FL', $geo['states'], true))) {
                 return 'work_arrangement';
             }
         }

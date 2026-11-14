@@ -17,8 +17,9 @@ final readonly class DiscoverySearchCriteria
      * @param  string[]  $keywords  Whole-word/phrase OR matching against the title.
      *                              Defaults describe roles, not standalone seniority:
      *                              a CEO mentioning senior engineers is not an engineering role.
-     * @param  string[]  $excludedKeywords  Reject if ANY appear in
-     *                                      title+description.
+     * @param  string[]  $excludedKeywords  Reject if ANY appear in the TITLE
+     *                                      (junior/intern roles). Description text never
+     *                                      rejects: senior roles often mention junior staff.
      * @param  string[]  $excludedTitleKeywords  Reject if ANY appear in
      *                                           the TITLE only — role-identity
      *                                           exclusions (SRE / Site
@@ -32,9 +33,9 @@ final readonly class DiscoverySearchCriteria
      *                                           purpose from, and checked
      *                                           independently of,
      *                                           $excludedKeywords.
-     * @param  string[]  $allowedLocations  Used only as a fallback
-     *                                      location-text check when remoteStatus is unknown — never
-     *                                      overrides an explicit Remote/Onsite/Hybrid signal.
+     * @param  string[]  $allowedLocations  Retained for the search profiles' shared shape; the gate no longer reads
+     *                                      it (see LocationSignals).
+     * @param  bool  $titleFamilies  Also accept titles matching the config's title families (see TitleFamilies).
      */
     public function __construct(
         public array $keywords,
@@ -43,6 +44,7 @@ final readonly class DiscoverySearchCriteria
         public string $remotePreference,
         public array $allowedLocations,
         public ?string $employmentType,
+        public bool $titleFamilies = false,
     ) {}
 
     public static function fromConfig(): self
@@ -56,6 +58,7 @@ final readonly class DiscoverySearchCriteria
             remotePreference: $config['remote_preference'],
             allowedLocations: $config['allowed_locations'],
             employmentType: $config['employment_type'],
+            titleFamilies: is_array($config['title_families'] ?? null),
         );
     }
 }

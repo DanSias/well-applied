@@ -7,6 +7,7 @@ use App\Enums\JobRemoteStatus;
 use App\Enums\QualificationEligibility;
 use App\Models\JobPosting;
 use App\Support\JobAnalysis\SegmentJobPostingDescription;
+use App\Support\JobDiscovery\LocationSignals;
 
 /**
  * Conservative, explainable eligibility checks. A job is only Ineligible on explicit evidence that is reliable: a
@@ -20,12 +21,6 @@ use App\Support\JobAnalysis\SegmentJobPostingDescription;
  */
 final class AssessEligibility
 {
-    private const NON_US_PLACES = [
-        'canada', 'united kingdom', 'uk', 'england', 'ireland', 'germany', 'france', 'spain', 'portugal', 'netherlands',
-        'poland', 'europe', 'the eu', 'eu', 'emea', 'apac', 'india', 'australia', 'new zealand', 'brazil', 'mexico',
-        'argentina', 'israel', 'singapore', 'japan', 'philippines', 'latam',
-    ];
-
     private const US_STATES = [
         'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut', 'Delaware', 'Georgia', 'Hawaii',
         'Idaho', 'Illinois', 'Indiana', 'Iowa', 'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland', 'Massachusetts',
@@ -193,25 +188,17 @@ final class AssessEligibility
 
     private function mentionsHomeState(string $text): bool
     {
-        return preg_match('/\bflorida\b|,\s*FL\b|\bFL\s*(?:,|$)/i', $text) === 1;
+        return LocationSignals::mentionsFlorida($text);
     }
 
     private function mentionsUs(string $text): bool
     {
-        // "US" is matched case-sensitively so the pronoun in "join us" is not read as the country.
-        return preg_match('/\b(?:united\s+states|usa|north\s+america)\b/i', $text) === 1
-            || preg_match('/\bU\.S\.|\bUS\b/', $text) === 1;
+        return LocationSignals::mentionsUs($text);
     }
 
     private function mentionsNonUsPlace(string $text): bool
     {
-        foreach (self::NON_US_PLACES as $place) {
-            if (preg_match('/\b'.preg_quote($place, '/').'\b/i', $text) === 1) {
-                return true;
-            }
-        }
-
-        return false;
+        return LocationSignals::mentionsNonUsPlace($text);
     }
 
     private function mentionsOtherState(string $text): bool

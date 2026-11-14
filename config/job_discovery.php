@@ -28,9 +28,30 @@ return [
             'data pipeline', 'analytics engineer',
         ],
 
+        /*
+        | Junior/intern exclusions, matched against the TITLE only. A description that mentions "junior developers" or
+        | "interns" (a senior role that mentors them) must never reject the job; only a title that names a junior or
+        | intern role does.
+        */
         'excluded_keywords' => [
             'intern', 'internship', 'entry level', 'entry-level',
             'junior', 'jr.', 'new grad', 'new graduate',
+        ],
+
+        /*
+        | Title families: a title is a target role when it names one of these specializations directly followed by one
+        | of the role nouns ("Backend Developer", "Senior Full-Stack Engineer", "Laravel Engineer"). Spaces inside a
+        | specialization match spaces, hyphens or nothing ("full stack" covers "full-stack" and "fullstack"). Matching is
+        | whole-word, and a bare "Engineer" never matches. Accepted in addition to `keywords` above. Role focus and
+        | mandatory stack are judged later by qualification, not here.
+        */
+        'title_families' => [
+            'roles' => ['engineer', 'developer'],
+            'specializations' => [
+                'software', 'software development', 'web', 'application', 'full stack', 'back end', 'front end',
+                'product', 'integration', 'api',
+                'php', 'laravel', 'react', 'react.js', 'reactjs', 'typescript', 'javascript', 'node', 'node.js', 'nodejs',
+            ],
         ],
 
         /*
@@ -54,11 +75,12 @@ return [
             'firmware', 'compiler',
         ],
 
-        // 'remote_us' or 'any' — see FilterDiscoveredCandidates.
+        // 'remote_us' or 'any' — see FilterDiscoveredCandidates and docs/job-discovery.md "Remote and location policy".
         'remote_preference' => 'remote_us',
 
-        // Fallback location-text matching only, used when a
-        // candidate's remote_status is unknown.
+        // No longer read by the discovery gate: a bare "US" or state name is not proof of remote work, so location text
+        // is only used to reject explicit contradictions (App\Support\JobDiscovery\LocationSignals). Kept for the
+        // search profiles' shared shape.
         'allowed_locations' => ['United States', 'US', 'USA', 'Remote'],
 
         // Null = don't filter by employment type. A candidate's own
