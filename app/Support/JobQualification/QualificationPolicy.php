@@ -9,7 +9,7 @@ namespace App\Support\JobQualification;
  */
 final class QualificationPolicy
 {
-    public const VERSION = 'balanced-2';
+    public const VERSION = 'balanced-3';
 
     /** Below this many characters a description is too thin to judge a role from, whatever its completeness tag says. */
     public const MIN_DESCRIPTION_CHARS = 400;

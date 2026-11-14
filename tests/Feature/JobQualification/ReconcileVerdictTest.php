@@ -172,3 +172,60 @@ it('keeps a flexible unfamiliar central stack in review-to-good range, and a pre
 
     expect($flexible['verdict'])->toBe(V::NeedsReview)->and($preferred['verdict'])->toBe(V::Good)->and($preferred['adjustments'])->toBe([]);
 });
+
+/*
+ * Downstream decisions read the reconciled role, not the raw label. An engineering_management label that was set aside as
+ * unsupported must not keep blocking Strong, and being set aside is not itself a promotion.
+ */
+const STACK = ['S001' => 'You will own our React and TypeScript application end to end.'];
+
+it('lets a hands-on application role reach Strong after an unsupported management role label is set aside', function (array $segments) {
+    // The model said engineering_management, cited nothing that describes managing people, and described a hands-on job on a stack the candidate has.
+    $result = reconciled('strong', [Q::tech('React', 'mandatory', 'familiar')], ['role_type' => 'engineering_management', 'hands_on' => 'hands_on', 'management_evidence_refs' => ['S001']], skills: ['React'], segments: $segments);
+
+    expect($result['verdict'])->toBe(V::Strong)->and($result['adjustments'])->toBe(['management_claim_unsupported']);
+})->with([
+    'nothing cited that exists' => [[]],
+    'a sentence about technical leadership' => [LEADS_TECHNICALLY],
+    'a sentence about the stack' => [STACK],
+]);
+
+it('keeps supported engineering management capped, even when the model proposed Strong', function () {
+    $result = reconciled('strong', [Q::tech('React', 'mandatory', 'familiar')], ['role_type' => 'engineering_management', 'hands_on' => 'hands_on', 'management_evidence_refs' => ['S001']], segments: MANAGES_PEOPLE);
+
+    expect($result['verdict'])->toBe(V::NeedsReview)->and($result['adjustments'])->toBe(['primarily_management_capped']);
+});
+
+it('does not promote an unclear role to Strong just because the management claim was unsupported', function (array $answer, array $technologies, string $why) {
+    $result = reconciled('strong', $technologies, ['role_type' => 'engineering_management', 'management_evidence_refs' => []] + $answer);
+
+    expect($result['verdict'])->toBe(V::Good, $why)->and($result['adjustments'])->toBe(['management_claim_unsupported', 'strong_not_supported']);
+})->with([
+    'hands-on level unclear' => [['hands_on' => 'unclear'], [Q::tech('React', 'mandatory', 'familiar')], 'unclear hands-on level'],
+    'mixed hands-on and management' => [['hands_on' => 'mixed'], [Q::tech('React', 'mandatory', 'familiar')], 'mixed role'],
+    'nothing central that the candidate has' => [['hands_on' => 'hands_on'], [], 'no evidence of an application stack'],
+    'only an incidental familiar technology' => [['hands_on' => 'hands_on'], [Q::tech('React', 'incidental', 'familiar')], 'incidental stack only'],
+    'a central stack that is only preferred' => [['hands_on' => 'hands_on'], [Q::tech('React', 'preferred', 'familiar')], 'preferred stack only'],
+]);
+
+it('still applies every other Strong condition after an unsupported management label is set aside', function (E $eligibility, array $technologies) {
+    $result = reconciled('strong', $technologies, ['role_type' => 'engineering_management', 'hands_on' => 'hands_on', 'management_evidence_refs' => []], $eligibility);
+
+    expect($result['verdict'])->not->toBe(V::Strong);
+})->with([
+    'unclear eligibility' => [E::Unknown, [Q::tech('React', 'mandatory', 'familiar')]],
+    'a central mandatory unfamiliar stack' => [E::Eligible, [Q::tech('React', 'mandatory', 'familiar'), Q::tech('Go', 'mandatory', 'unfamiliar', 'working')]],
+]);
+
+it('keeps a hands-on engineer with technical leadership Strong, whatever the mentoring language', function () {
+    $result = reconciled('strong', [Q::tech('Laravel', 'mandatory', 'familiar')], ['role_type' => 'backend', 'hands_on' => 'hands_on', 'management_evidence_refs' => []], segments: LEADS_TECHNICALLY);
+
+    expect($result['verdict'])->toBe(V::Strong)->and($result['adjustments'])->toBe([]);
+});
+
+it('does not let a raw role label that was set aside influence anything else', function () {
+    // Set aside: no cap, no poor floor effects, and the unsupported-claim record is the only trace.
+    $result = reconciled('good', [Q::tech('Laravel', 'mandatory', 'familiar')], ['role_type' => 'engineering_management', 'hands_on' => 'hands_on', 'management_evidence_refs' => []]);
+
+    expect($result['verdict'])->toBe(V::Good)->and($result['adjustments'])->toBe(['management_claim_unsupported']);
+});

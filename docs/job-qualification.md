@@ -47,7 +47,11 @@ There is no confidence number anywhere.
      staffing, building or growing a team, and similar; `QualificationPolicy::PEOPLE_MANAGEMENT_EVIDENCE`). Mentoring, "lead",
      and Senior/Staff/Principal titles are not management evidence. An unsupported claim is set aside (adjustment
      `management_claim_unsupported`) and the hands-on level is read as unclear, which still blocks `strong`;
-   - `strong` needs a hands-on product-engineering role, nothing unfamiliar and mandatory, and eligible status;
+   - `strong` needs a hands-on product-engineering role, nothing unfamiliar and mandatory, and eligible status. Every
+     downstream rule reads the **reconciled** role, not the raw label: if an `engineering_management` label is set aside as
+     unsupported, the role is unclassified (not management, and not assumed to be application work), and `strong` then needs
+     positive evidence: the model says the job is `hands_on` and it is built around a mandatory, central technology the
+     candidate has. Unclear or mixed roles stay at `good`;
    - a technology the model calls unfamiliar that is one of the candidate's own skills is corrected to familiar.
 
 Failures (provider error, timeout, off-contract output) end as a failed `GenerationAttempt` and write no row. The earlier
@@ -75,4 +79,5 @@ model; nothing is calibrated against real postings yet, which is what shadow mod
 `balanced-1` (first real-model run): the model labelled several hands-on IC roles `primarily_management` (the prompt never
 defined the values) and the policy capped on the label alone; an incidental clause ("edge caching") was tagged mandatory
 and unfamiliar. `balanced-2` defines the hands-on values by evidence, requires cited management evidence, and adds the
-`central` flag. Policy bumps make older snapshots read as out of date.
+`central` flag. `balanced-3`: the second calibration showed the model sometimes labelling IC roles `engineering_management`;
+the evidence check set those aside but Strong still read the raw label, so Strong now reads the reconciled role. Policy bumps make older snapshots read as out of date.
