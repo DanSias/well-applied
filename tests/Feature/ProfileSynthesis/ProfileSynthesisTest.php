@@ -6,6 +6,7 @@ use App\Enums\CareerFactType;
 use App\Enums\DescriptionCompleteness;
 use App\Enums\GenerationStatus;
 use App\Enums\GenerationType;
+use App\Enums\SkillCategory;
 use App\Enums\Verification;
 use App\Enums\Visibility;
 use App\Exceptions\ReadinessReviewException;
@@ -84,7 +85,8 @@ function synthesisScenario(): array
 {
     $f = F::career();
     $career = $f['career'];
-    $skill = fn (string $name) => Skill::factory()->create(['career_profile_id' => $career->id, 'name' => $name, 'slug' => strtolower($name)]);
+    // Categories are explicit: the factory picks one at random, and the skills presentation depends on it.
+    $skill = fn (string $name, SkillCategory $category) => Skill::factory()->create(['career_profile_id' => $career->id, 'name' => $name, 'slug' => strtolower($name), 'category' => $category]);
     $fact = function (string $key, string $statement, string $type, int $id, Visibility $v = Visibility::Public, Verification $verification = Verification::Verified, array $skills = [], ?string $group = null) use ($career) {
         $fact = CareerFact::factory()->create([
             'career_profile_id' => $career->id, 'key' => $key, 'statement' => $statement, 'visibility' => $v, 'verification' => $verification, 'fact_type' => CareerFactType::Bullet,
@@ -95,8 +97,8 @@ function synthesisScenario(): array
         return $fact;
     };
 
-    foreach (['TypeScript', 'React', 'Node.js', 'BigQuery'] as $name) {
-        $skill($name);
+    foreach (['TypeScript' => SkillCategory::BuildTechnology, 'React' => SkillCategory::BuildTechnology, 'Node.js' => SkillCategory::BuildTechnology, 'BigQuery' => SkillCategory::PlatformIntegration] as $name => $category) {
+        $skill($name, $category);
     }
 
     $pearson = Role::factory()->create(['employer_id' => Employer::factory()->create(['career_profile_id' => $career->id, 'name' => 'Pearson Online'])->id, 'title' => 'Data Lead Developer', 'start_year' => 2015, 'end_year' => 2024]);
