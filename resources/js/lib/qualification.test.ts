@@ -3,6 +3,7 @@ import {
     noRecommendationText,
     qualificationAction,
     qualificationToast,
+    reasonsHeading,
     roleShape,
     stackConcernText,
 } from './qualification';
@@ -128,5 +129,20 @@ describe('qualificationToast', () => {
             kind: 'info',
             title: 'Already up to date',
         });
+    });
+});
+
+describe('reasonsHeading', () => {
+    it('reads as the case against a poor match and positively otherwise', () => {
+        expect(reasonsHeading('poor')).toBe("Why it doesn't fit");
+
+        for (const verdict of [
+            'strong',
+            'good',
+            'needs_review',
+            null,
+        ] as const) {
+            expect(reasonsHeading(verdict)).toBe('Why it fits');
+        }
     });
 });

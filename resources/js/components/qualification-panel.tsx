@@ -9,6 +9,7 @@ import {
     VERDICT_TONE,
     noRecommendationText,
     qualificationAction,
+    reasonsHeading,
     roleShape,
     stackConcernText,
 } from '@/lib/qualification';
@@ -112,7 +113,7 @@ function Result({ q, stale }: { q: QualificationResult; stale: boolean }) {
                     {a.why_it_fits.length > 0 && (
                         <div>
                             <h4 className="text-fg-subtle text-xs font-medium">
-                                Why it fits
+                                {reasonsHeading(q.verdict)}
                             </h4>
                             <ul className="text-fg-muted mt-0.5 list-disc space-y-0.5 pl-5">
                                 {a.why_it_fits.map((r) => (

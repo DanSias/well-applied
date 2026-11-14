@@ -122,6 +122,14 @@ export function qualificationAction(
     }
 }
 
+/**
+ * The heading over the model's reasons. For a poor match the reasons are the case against the job, so "Why it fits" would
+ * read backwards; every other verdict keeps the natural positive wording.
+ */
+export function reasonsHeading(verdict: QualificationVerdict | null): string {
+    return verdict === 'poor' ? "Why it doesn't fit" : 'Why it fits';
+}
+
 /** The line shown for a result that gave no recommendation, so the reason is plain. */
 export function noRecommendationText(e: QualificationEligibility): string {
     return e === 'ineligible'
