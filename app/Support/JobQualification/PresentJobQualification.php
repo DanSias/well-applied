@@ -76,6 +76,7 @@ final class PresentJobQualification
             'generated_at' => $q->generated_at->toIso8601String(),
             'generated_by' => $q->generated_by,
             'adjusted' => $q->model_verdict !== null && $q->model_verdict !== $q->verdict,
+            'model_verdict_label' => $q->model_verdict?->label(),
             'assessment' => $a === null ? null : [
                 'role_type' => $a['role_type'],
                 'primary_role_focus' => $a['primary_role_focus'],

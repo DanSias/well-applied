@@ -92,12 +92,86 @@ export type JobAnalysisBrief = {
     technologies: string[];
 };
 
+export type QualificationVerdict = 'strong' | 'good' | 'needs_review' | 'poor';
+
+export type QualificationEligibility =
+    | 'eligible'
+    | 'ineligible'
+    | 'unknown'
+    | 'insufficient_information';
+
+export type QualificationState =
+    | 'none'
+    | 'queued'
+    | 'running'
+    | 'ready'
+    | 'failed';
+
+/** A sentence of the posting a statement rests on, exactly as the posting wrote it. */
+export type QualificationEvidence = { ref: string; excerpt: string };
+
+export type QualificationStackConcern = {
+    name: string;
+    requirement: 'mandatory' | 'preferred' | 'incidental';
+    familiarity: 'familiar' | 'related' | 'unfamiliar';
+    depth: 'deep_production' | 'working' | 'unstated';
+    transferable_accepted: boolean;
+    evidence: QualificationEvidence[];
+};
+
+export type QualificationResult = {
+    id: number;
+    verdict: QualificationVerdict | null;
+    verdict_label: string | null;
+    model_verdict_label: string | null;
+    adjusted: boolean;
+    eligibility: QualificationEligibility;
+    eligibility_label: string;
+    eligibility_reasons: {
+        code: string;
+        severity: 'ineligible' | 'insufficient' | 'unknown';
+        message: string;
+        evidence: string | null;
+    }[];
+    generated_at: string;
+    generated_by: string | null;
+    assessment: {
+        role_type: string;
+        primary_role_focus: string;
+        hands_on: string;
+        seniority: string;
+        responsibilities: string[];
+        why_it_fits: { text: string; evidence: QualificationEvidence[] }[];
+        biggest_concern: {
+            text: string;
+            evidence: QualificationEvidence[];
+        } | null;
+        practical_concerns: string[];
+        mandatory_stack_concerns: QualificationStackConcern[];
+    } | null;
+};
+
+/** What the review drawer shows about screening a job: where it stands, and the latest assessment if there is one. */
+export type JobQualificationView = {
+    state: QualificationState;
+    /** The latest assessment no longer matches the posting, the candidate's evidence or the policy. */
+    stale: boolean;
+    attempt: GenerationAttempt | null;
+    current: QualificationResult | null;
+};
+
+/** What the server flashed after asking for a qualification. */
+export type QualificationFlash = {
+    outcome: 'started' | 'up_to_date' | 'in_flight';
+};
+
 /** A job as the review drawer shows it: the list row's summary plus the description and analysis the list leaves out. */
 export type SelectedJob = JobPostingSummary & {
     description: string;
     /** Where "open this job" leads: the Opportunity workspace for a pursued job, the job page otherwise. */
     home_url: string;
     analysis: JobAnalysisBrief | null;
+    qualification: JobQualificationView;
 };
 
 export type JobDisposition = 'new' | 'shortlisted' | 'dismissed' | 'pursued';

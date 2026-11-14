@@ -9,6 +9,7 @@ import {
     DispositionBadge,
     type DecideFn,
 } from '@/components/job-decisions';
+import { QualificationPanel } from '@/components/qualification-panel';
 import { Badge } from '@/components/ui/badge';
 import { Drawer } from '@/components/ui/drawer';
 import { Button, ButtonAnchor, ButtonLink } from '@/components/ui/button';
@@ -60,6 +61,11 @@ function JobBody({ job }: { job: SelectedJob }) {
 
     return (
         <>
+            <QualificationPanel
+                jobId={job.id}
+                qualification={job.qualification}
+            />
+
             <section aria-labelledby="drawer-description">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                     <h3
