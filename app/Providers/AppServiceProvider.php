@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Contracts\GeneratesJobAnalysis;
 use App\Contracts\GeneratesJobMatch;
+use App\Contracts\GeneratesJobQualification;
 use App\Contracts\GeneratesReadinessReview;
 use App\Contracts\GeneratesResumeSelection;
 use App\Contracts\GeneratesResumeWording;
@@ -21,6 +22,8 @@ use App\Support\JobAnalysis\Providers\OllamaJobAnalysisClient;
 use App\Support\JobAnalysis\Providers\OpenAIJobAnalysisClient;
 use App\Support\JobMatch\Providers\OllamaJobMatchClient;
 use App\Support\JobMatch\Providers\OpenAIJobMatchClient;
+use App\Support\JobQualification\Providers\OllamaJobQualificationClient;
+use App\Support\JobQualification\Providers\OpenAIJobQualificationClient;
 use App\Support\ReadinessReview\OllamaReadinessReviewClient;
 use App\Support\ResumeProfile\OllamaQuestionWriter;
 use App\Support\ResumeProfile\QuestionWriter;
@@ -51,6 +54,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(GeneratesJobAnalysis::class, fn () => $this->resolveJobAnalysisProvider());
 
         $this->app->bind(GeneratesJobMatch::class, fn () => $this->resolveJobMatchProvider());
+
+        $this->app->bind(GeneratesJobQualification::class, fn () => $this->resolveJobQualificationProvider());
 
         $this->app->bind(GeneratesResumeSelection::class, fn () => $this->resolveResumeSelectionProvider());
 
@@ -97,6 +102,33 @@ class AppServiceProvider extends ServiceProvider
             ),
             default => throw new InvalidArgumentException(
                 "Unsupported AI_JOB_ANALYSIS_PROVIDER value [{$provider}]. Supported values: openai, ollama."
+            ),
+        };
+    }
+
+    /**
+     * The one place GeneratesJobQualification's provider is chosen (`services.job_qualification.provider`,
+     * AI_JOB_QUALIFICATION_PROVIDER), 'ollama' by default and never an automatic fallback, mirroring
+     * resolveJobAnalysisProvider(). It has its own Ollama model and a short timeout: the screen is a small bounded call,
+     * and swapping the model that does it never changes what analysis or matching use. Resolving only constructs a client.
+     */
+    private function resolveJobQualificationProvider(): GeneratesJobQualification
+    {
+        $provider = (string) config('services.job_qualification.provider');
+        $provider = $provider === '' ? 'ollama' : $provider;
+
+        return match ($provider) {
+            'openai' => new OpenAIJobQualificationClient(
+                apiKey: (string) config('services.openai.key'),
+                model: (string) config('services.openai.model'),
+            ),
+            'ollama' => new OllamaJobQualificationClient(
+                baseUrl: (string) config('services.ollama.base_url'),
+                model: (string) config('services.ollama.job_qualification_model'),
+                timeoutSeconds: (int) config('services.ollama.job_qualification_timeout'),
+            ),
+            default => throw new InvalidArgumentException(
+                "Unsupported AI_JOB_QUALIFICATION_PROVIDER value [{$provider}]. Supported values: openai, ollama."
             ),
         };
     }

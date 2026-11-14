@@ -60,6 +60,8 @@ return [
         'base_url' => env('OLLAMA_BASE_URL'),
         'model' => env('OLLAMA_MODEL', 'qwen3.8:27b'),
         'timeout' => (int) env('OLLAMA_TIMEOUT_SECONDS', 300),
+        'job_qualification_model' => env('OLLAMA_JOB_QUALIFICATION_MODEL', 'qwen3.8:27b'),
+        'job_qualification_timeout' => (int) env('OLLAMA_JOB_QUALIFICATION_TIMEOUT_SECONDS', 240),
         'job_match_model' => env('OLLAMA_JOB_MATCH_MODEL', 'qwen3.8:27b'),
         'job_match_timeout' => (int) env('OLLAMA_JOB_MATCH_TIMEOUT_SECONDS', 600),
         'resume_selection_model' => env('OLLAMA_RESUME_SELECTION_MODEL', 'qwen3.8:27b'),
@@ -91,6 +93,10 @@ return [
     */
     'job_analysis' => [
         'provider' => env('AI_JOB_ANALYSIS_PROVIDER', 'ollama'),
+    ],
+
+    'job_qualification' => [
+        'provider' => env('AI_JOB_QUALIFICATION_PROVIDER', 'ollama'),
     ],
 
     'job_match' => [
