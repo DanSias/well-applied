@@ -7,6 +7,7 @@ use App\Enums\GenerationType;
 use App\Exceptions\UnsupportedGenerationTypeException;
 use App\Jobs\GenerateJobAnalysisJob;
 use App\Jobs\GenerateJobMatchJob;
+use App\Jobs\GenerateJobQualificationJob;
 use App\Jobs\GenerateResumeVariantJob;
 use App\Jobs\RenderResumePdfJob;
 use App\Models\GenerationAttempt;
@@ -154,7 +155,7 @@ final class QueueGenerationAttempt
      */
     private function ensureSupported(GenerationType $type): void
     {
-        if (! in_array($type, [GenerationType::JobAnalysis, GenerationType::JobMatch, GenerationType::ResumeVariant, GenerationType::ResumePdf], true)) {
+        if (! in_array($type, [GenerationType::JobAnalysis, GenerationType::JobMatch, GenerationType::ResumeVariant, GenerationType::ResumePdf, GenerationType::JobQualification], true)) {
             throw new UnsupportedGenerationTypeException($type);
         }
     }
@@ -201,6 +202,7 @@ final class QueueGenerationAttempt
             GenerationType::JobMatch => GenerateJobMatchJob::dispatch($attempt),
             GenerationType::ResumeVariant => GenerateResumeVariantJob::dispatch($attempt),
             GenerationType::ResumePdf => RenderResumePdfJob::dispatch($attempt),
+            GenerationType::JobQualification => GenerateJobQualificationJob::dispatch($attempt),
         };
     }
 

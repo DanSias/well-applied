@@ -176,7 +176,7 @@ class GenerationAttempt extends Model
      * second polymorphic type column. See this class's docblock for
      * why.
      */
-    public function result(): JobAnalysis|JobMatch|ResumeVariant|null
+    public function result(): JobAnalysis|JobMatch|ResumeVariant|JobQualification|null
     {
         if ($this->result_id === null) {
             return null;
@@ -186,6 +186,7 @@ class GenerationAttempt extends Model
             GenerationType::JobAnalysis => JobAnalysis::find($this->result_id),
             GenerationType::JobMatch => JobMatch::find($this->result_id),
             GenerationType::ResumeVariant, GenerationType::ResumePdf => ResumeVariant::find($this->result_id),
+            GenerationType::JobQualification => JobQualification::find($this->result_id),
         };
     }
 

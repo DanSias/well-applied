@@ -13,6 +13,7 @@ use App\Http\Controllers\JobAnalysisController;
 use App\Http\Controllers\JobBatchController;
 use App\Http\Controllers\JobDecisionController;
 use App\Http\Controllers\JobMatchController;
+use App\Http\Controllers\JobQualificationController;
 use App\Http\Controllers\JobPostingController;
 use App\Http\Controllers\JobResumePdfController;
 use App\Http\Controllers\OpportunityController;
@@ -111,6 +112,9 @@ Route::post('/jobs/batch/match', [JobBatchController::class, 'match'])->name('jo
 Route::post('/jobs/batch/decision', [JobDecisionController::class, 'batch'])->name('jobs.batch.decision');
 Route::post('/jobs/decisions/undo', [JobDecisionController::class, 'undo'])->name('jobs.decisions.undo');
 Route::post('/jobs/{jobPosting}/decision', [JobDecisionController::class, 'store'])->whereNumber('jobPosting')->name('jobs.decision.store');
+
+// Screening a job before any full analysis: queued like analysis, never changes the job's disposition.
+Route::post('/jobs/{jobPosting}/qualification', [JobQualificationController::class, 'store'])->whereNumber('jobPosting')->name('jobs.qualification.store');
 
 // Job Analysis generation is queued (GenerateJobAnalysisJob) — this
 // POST only creates/looks up a GenerationAttempt and dispatches, so it

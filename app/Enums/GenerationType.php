@@ -21,4 +21,6 @@ enum GenerationType: string
     case JobMatch = 'job_match';
     case ResumeVariant = 'resume_variant';
     case ResumePdf = 'resume_pdf';
+    /** A screening assessment of a JobPosting; result_id is a JobQualification. */
+    case JobQualification = 'job_qualification';
 }

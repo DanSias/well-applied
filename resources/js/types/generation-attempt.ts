@@ -17,7 +17,8 @@ export type GenerationAttempt = {
         | 'job_analysis'
         | 'job_match'
         | 'resume_variant'
-        | 'resume_pdf';
+        | 'resume_pdf'
+        | 'job_qualification';
     queued_at: string | null;
     started_at: string | null;
     finished_at: string | null;

@@ -15,6 +15,7 @@ use App\Support\ApplicationInspection\SummarizeInspectionStates;
 use App\Support\Clarification\PresentApprovedEvidence;
 use App\Support\CurrentCareerProfile;
 use App\Support\GenerationAttempt\PresentGenerationAttempt;
+use App\Support\JobQualification\PresentJobQualification;
 use App\Support\Navigation\JobHome;
 use App\Support\OpportunityTriage\SummarizeTriageStates;
 use App\Support\ResumeRevision\JobResumes;
@@ -151,6 +152,7 @@ class JobPostingController extends Controller
         return $this->transformSummary($job, $inspection->forJobPostings($ids)[$job->id], $triage) + [
             'description' => $job->description,
             'home_url' => JobHome::url($job),
+            'qualification' => app(PresentJobQualification::class)->forJob($job),
             'analysis' => $analysis === null ? null : [
                 'role_summary' => $analysis->role_summary,
                 'seniority' => $analysis->overall_seniority?->value,

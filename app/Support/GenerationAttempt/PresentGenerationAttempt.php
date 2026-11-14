@@ -56,6 +56,8 @@ final class PresentGenerationAttempt
             GenerationType::JobMatch => $this->jobMatchResultUrl($attempt),
             GenerationType::ResumeVariant => $this->resumeVariantResultUrl($attempt),
             GenerationType::ResumePdf => route('resume-variants.preview', ['resumeVariant' => $attempt->result_id]),
+            // A qualification is read in place (the drawer), never navigated to.
+            GenerationType::JobQualification => null,
         };
     }
 
