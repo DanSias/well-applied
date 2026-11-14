@@ -59,6 +59,7 @@ final class RunJobDiscovery
         private readonly ResolveAtsBoard $resolveBoard = new ResolveAtsBoard,
         private readonly MatchCanonicalPosting $matchCanonical = new MatchCanonicalPosting,
         private readonly IngestDiscoveredCandidate $ingestCandidate = new IngestDiscoveredCandidate,
+        private readonly DiscoveryRejectionLog $rejections = new DiscoveryRejectionLog,
         ?GreenhouseCanonicalAdapter $greenhouse = null,
         ?LeverCanonicalAdapter $lever = null,
         ?AshbyCanonicalAdapter $ashby = null,
@@ -173,10 +174,14 @@ final class RunJobDiscovery
                 $partialSummary = $provider->partialFailureSummary();
             }
             foreach ($candidates as $candidate) {
-                if (! $this->filter->accepts($candidate, $criteria)) {
+                $decision = $this->filter->evaluate($candidate, $criteria);
+                if (! $decision->accepted) {
+                    $this->recordRejection($candidate, $decision, $discoveryRun->id);
+
                     continue;
                 }
                 $accepted++;
+                $this->resolveRejection($candidate);
                 $canonicalMatch = $this->resolveCanonicalMatch($candidate, $boardCache);
                 try {
                     $result = $this->ingestCandidate->ingest($candidate, $canonicalMatch, $careerProfile);
@@ -242,6 +247,28 @@ final class RunJobDiscovery
             'failure_message' => $failureMessage,
             'failure_exception_class' => $failureExceptionClass,
         ]);
+    }
+
+    /**
+     * The rejection log is a diagnostic: failing to write it must never fail the provider attempt or lose the candidates
+     * after it, so a write error is logged (structurally, no payload) and discovery carries on.
+     */
+    private function recordRejection(DiscoveredJobCandidate $candidate, FilterDecision $decision, int $discoveryRunId): void
+    {
+        try {
+            $this->rejections->record($candidate, $decision, $discoveryRunId);
+        } catch (Throwable $e) {
+            Log::warning('Discovery rejection could not be recorded.', ['provider' => $candidate->source->value, 'exception' => $e::class]);
+        }
+    }
+
+    private function resolveRejection(DiscoveredJobCandidate $candidate): void
+    {
+        try {
+            $this->rejections->resolve($candidate);
+        } catch (Throwable $e) {
+            Log::warning('Discovery rejection could not be resolved.', ['provider' => $candidate->source->value, 'exception' => $e::class]);
+        }
     }
 
     /**
