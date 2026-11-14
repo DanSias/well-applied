@@ -292,4 +292,12 @@ return [
         'retry_after_hours' => (int) env('JOB_DISCOVERY_RETRY_AFTER_HOURS', 6),
     ],
 
+    /*
+    | Rejected-candidate log (discovery_rejections): rows not seen again for this many days are pruned by
+    | `discovery:prune-rejections` (scheduled daily). See docs/job-discovery.md "Retention".
+    */
+    'rejections' => [
+        'retention_days' => (int) env('JOB_DISCOVERY_REJECTION_RETENTION_DAYS', 30),
+    ],
+
 ];

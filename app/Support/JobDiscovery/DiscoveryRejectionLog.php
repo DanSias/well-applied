@@ -83,4 +83,13 @@ class DiscoveryRejectionLog
 
         return $id === '' ? null : mb_substr($id, 0, self::IDENTITY_LIMIT);
     }
+
+    /**
+     * Delete rejections not seen for more than $days days (a row exactly $days old is kept). Touches only
+     * discovery_rejections, resolved rows included, and is safe to repeat.
+     */
+    public function prune(int $days): int
+    {
+        return DiscoveryRejection::query()->where('last_seen_at', '<', now()->subDays($days))->delete();
+    }
 }

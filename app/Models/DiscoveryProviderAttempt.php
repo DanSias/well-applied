@@ -28,6 +28,8 @@ use Illuminate\Support\Carbon;
  * @property int|null $jobs_created
  * @property int|null $jobs_updated
  * @property int|null $jobs_canonicalized
+ * @property array<string, int>|null $rejection_counts
+ * @property array<string, int|array<string, int>>|null $retrieval_diagnostics
  * @property string|null $failure_category
  * @property string|null $failure_message
  * @property string|null $failure_exception_class
@@ -37,6 +39,7 @@ use Illuminate\Support\Carbon;
 #[Fillable([
     'discovery_run_id', 'provider', 'status', 'started_at', 'finished_at',
     'candidates_retrieved', 'candidates_accepted', 'jobs_created', 'jobs_updated', 'jobs_canonicalized',
+    'rejection_counts', 'retrieval_diagnostics',
     'failure_category', 'failure_message', 'failure_exception_class',
 ])]
 class DiscoveryProviderAttempt extends Model
@@ -51,6 +54,8 @@ class DiscoveryProviderAttempt extends Model
             'status' => DiscoveryStatus::class,
             'started_at' => 'datetime',
             'finished_at' => 'datetime',
+            'rejection_counts' => 'array',
+            'retrieval_diagnostics' => 'array',
         ];
     }
 

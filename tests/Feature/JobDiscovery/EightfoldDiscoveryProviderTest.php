@@ -1198,3 +1198,44 @@ it('rejects an unknown provider name on the command', function () {
         ->expectsOutputToContain('Unknown discovery provider')
         ->assertFailed();
 });
+
+it('records Eightfold provider prefilter reasons apart from global filter rejections', function () {
+    CareerProfile::factory()->create();
+    efOnly('lockheed');
+    $rows = fx('lockheed_search')['data']['positions'];
+    efFake([LOCKHEED_HOST => efTenant($rows, [
+        996476391868 => fx('lockheed_detail_996476391868'),
+        996476482699 => fx('lockheed_detail_996476482699'),
+    ])]);
+
+    $run = (new RunJobDiscovery(eightfold: new EightfoldDiscoveryProvider))->run([JobDiscoverySource::Eightfold]);
+    $attempt = $run->providerAttempts->firstWhere('provider', JobDiscoverySource::Eightfold);
+
+    $diagnostics = $attempt->retrieval_diagnostics;
+    expect($diagnostics['search_rows'])->toBeGreaterThan(0)
+        ->and($diagnostics['unique_positions'])->toBe(5)
+        ->and($diagnostics['prefilter_dropped'])->toBeArray()->not->toBeEmpty()
+        ->and($diagnostics['normalization_dropped'])->toBe(0)
+        // candidates_retrieved is what survived the prefilter, so it is not search_rows nor unique_positions.
+        ->and($attempt->candidates_retrieved)->toBeLessThan($diagnostics['unique_positions'])
+        ->and($attempt->rejection_counts)->toBeArray();
+});
+
+it('keeps hybrid positions listed in Florida past the Eightfold prefilter and drops other hybrid or on-site ones', function () {
+    efOnly('lockheed');
+    $template = fx('lockheed_search')['data']['positions'][1];
+    $rows = [
+        efRow($template, 11, ['name' => 'Software Engineer', 'workLocationOption' => 'hybrid', 'standardizedLocations' => ['Orlando, FL, US']]),
+        efRow($template, 12, ['name' => 'Software Engineer', 'workLocationOption' => 'hybrid', 'standardizedLocations' => ['Austin, TX, US']]),
+        efRow($template, 13, ['name' => 'Software Engineer', 'workLocationOption' => 'onsite', 'standardizedLocations' => ['Orlando, FL, US']]),
+        efRow($template, 14, ['name' => 'PHP Developer', 'workLocationOption' => 'remote_local', 'standardizedLocations' => ['US']]),
+    ];
+    efFake([LOCKHEED_HOST => efTenant($rows)]);
+
+    $provider = new EightfoldDiscoveryProvider;
+    $provider->retrieve(efContext(['remotePreference' => 'remote_us']));
+
+    $d = $provider->diagnostics()['lockheed'];
+    expect($d['dropped_before_details'])->toBe(['work_arrangement' => 2])
+        ->and($d['plausible'])->toBe(2);
+});

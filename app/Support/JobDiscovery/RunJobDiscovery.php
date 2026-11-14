@@ -23,6 +23,7 @@ use App\Support\JobDiscovery\Providers\HimalayasDiscoveryProvider;
 use App\Support\JobDiscovery\Providers\JobicyDiscoveryProvider;
 use App\Support\JobDiscovery\Providers\ProviderDiscoveryContext;
 use App\Support\JobDiscovery\Providers\ReportsPartialFailure;
+use App\Support\JobDiscovery\Providers\ReportsRetrievalDiagnostics;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -163,6 +164,10 @@ final class RunJobDiscovery
         ]);
 
         $retrieved = $accepted = $created = $updated = $canonicalized = 0;
+        /** @var array<string, int> $rejectionCounts */
+        $rejectionCounts = [];
+        $diagnostics = null;
+        $retrievalCompleted = false;
         $failureCategory = $failureMessage = $failureExceptionClass = null;
         $partialSummary = null;
         $candidate = null;
@@ -170,12 +175,18 @@ final class RunJobDiscovery
         try {
             $candidates = $provider->retrieve($context);
             $retrieved = count($candidates);
+            $retrievalCompleted = true;
+            if ($provider instanceof ReportsRetrievalDiagnostics) {
+                $diagnostics = $provider->retrievalDiagnostics();
+            }
             if ($provider instanceof ReportsPartialFailure) {
                 $partialSummary = $provider->partialFailureSummary();
             }
             foreach ($candidates as $candidate) {
                 $decision = $this->filter->evaluate($candidate, $criteria);
                 if (! $decision->accepted) {
+                    $reasonCode = $decision->reason->value ?? 'unknown';
+                    $rejectionCounts[$reasonCode] = ($rejectionCounts[$reasonCode] ?? 0) + 1;
                     $this->recordRejection($candidate, $decision, $discoveryRun->id);
 
                     continue;
@@ -243,6 +254,9 @@ final class RunJobDiscovery
             'jobs_created' => $created,
             'jobs_updated' => $updated,
             'jobs_canonicalized' => $canonicalized,
+            // null = retrieval never completed, so the filter stage was never observed; [] = observed, nothing rejected.
+            'rejection_counts' => $retrievalCompleted ? $rejectionCounts : null,
+            'retrieval_diagnostics' => $diagnostics,
             'failure_category' => $failureCategory,
             'failure_message' => $failureMessage,
             'failure_exception_class' => $failureExceptionClass,

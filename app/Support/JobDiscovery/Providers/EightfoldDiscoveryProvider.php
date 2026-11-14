@@ -33,7 +33,7 @@ use Throwable;
  * profile is the built-in default. `maxResults` is a ceiling on
  * candidates, shared evenly across enabled tenants.
  */
-final class EightfoldDiscoveryProvider implements DiscoveryProviderContract, ReportsPartialFailure
+final class EightfoldDiscoveryProvider implements DiscoveryProviderContract, ReportsPartialFailure, ReportsRetrievalDiagnostics
 {
     private const DEFAULT_PROFILE = 'software_engineering';
 
@@ -100,6 +100,33 @@ final class EightfoldDiscoveryProvider implements DiscoveryProviderContract, Rep
         }
 
         return $candidates;
+    }
+
+    /**
+     * Stage counts across tenants. `candidates_retrieved` for this provider is what survives the prefilter and the
+     * detail fetch, so it is NOT comparable with the single-feed providers' raw counts; the prefilter reasons here say
+     * what was dropped before then.
+     *
+     * @return array<string, int|array<string, int>>
+     */
+    public function retrievalDiagnostics(): array
+    {
+        $dropped = [];
+        foreach ($this->reports as $report) {
+            foreach ($report->dropped as $reason => $count) {
+                $dropped[$reason] = ($dropped[$reason] ?? 0) + $count;
+            }
+        }
+        $unmappable = $dropped['unmappable'] ?? 0;
+        unset($dropped['unmappable']);
+        ksort($dropped);
+
+        return [
+            'search_rows' => array_sum(array_map(fn (TenantRunReport $r) => $r->searchRows, $this->reports)),
+            'unique_positions' => array_sum(array_map(fn (TenantRunReport $r) => $r->uniquePositions, $this->reports)),
+            'prefilter_dropped' => $dropped,
+            'normalization_dropped' => $unmappable,
+        ];
     }
 
     public function partialFailureSummary(): ?string

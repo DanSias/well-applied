@@ -53,8 +53,10 @@ use Throwable;
  * (App\Support\JobDiscovery\Canonical) still takes over the
  * authoritative URL when a company resolves to a known ATS board.
  */
-final class JobicyDiscoveryProvider implements DiscoveryProviderContract
+final class JobicyDiscoveryProvider implements DiscoveryProviderContract, ReportsRetrievalDiagnostics
 {
+    use RecordsRetrievalDiagnostics;
+
     private const TIMEOUT_SECONDS = 30;
 
     private const RETRY_TIMES = 3;
@@ -81,6 +83,8 @@ final class JobicyDiscoveryProvider implements DiscoveryProviderContract
      */
     public function retrieve(?ProviderDiscoveryContext $context = null): array
     {
+        $this->diagnostics = [];
+
         $baseUrl = (string) config('services.jobicy.base_url');
 
         try {
@@ -117,10 +121,7 @@ final class JobicyDiscoveryProvider implements DiscoveryProviderContract
         }
 
         try {
-            return array_values(array_filter(array_map(
-                fn (array $job) => $this->normalize($job),
-                $jobs,
-            )));
+            return $this->normalizeEntries($jobs, fn (array $job) => $this->normalize($job));
         } catch (\TypeError|\ValueError $e) {
             throw new DiscoveryProviderException('Provider response contained malformed job fields.', previous: $e);
         }

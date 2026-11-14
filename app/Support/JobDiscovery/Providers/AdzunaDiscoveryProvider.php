@@ -28,8 +28,10 @@ use Throwable;
  * volume naturally respects the quota by construction (see
  * docs/job-discovery.md "Cost / quota").
  */
-final class AdzunaDiscoveryProvider implements DiscoveryProviderContract
+final class AdzunaDiscoveryProvider implements DiscoveryProviderContract, ReportsRetrievalDiagnostics
 {
+    use RecordsRetrievalDiagnostics;
+
     private const TIMEOUT_SECONDS = 30;
 
     private const RETRY_TIMES = 3;
@@ -53,6 +55,8 @@ final class AdzunaDiscoveryProvider implements DiscoveryProviderContract
      */
     public function retrieve(?ProviderDiscoveryContext $context = null): array
     {
+        $this->diagnostics = [];
+
         $appId = (string) config('services.adzuna.app_id');
         $appKey = (string) config('services.adzuna.app_key');
         $country = (string) config('services.adzuna.country');
@@ -109,10 +113,7 @@ final class AdzunaDiscoveryProvider implements DiscoveryProviderContract
         }
 
         try {
-            return array_values(array_filter(array_map(
-                fn (array $job) => $this->normalize($job, $country),
-                $results,
-            )));
+            return $this->normalizeEntries($results, fn (array $job) => $this->normalize($job, $country));
         } catch (\TypeError|\ValueError $e) {
             throw new DiscoveryProviderException('Provider response contained malformed job fields.', previous: $e);
         }

@@ -10,3 +10,6 @@ Artisan::command('inspire', function () {
 
 // A generation whose worker stopped or restarted is recorded as interrupted, so it can be continued.
 Schedule::command('generations:recover-stale')->everyFiveMinutes();
+
+// Rejected-candidate records are diagnostics, kept 30 days after they were last seen. Independent of discovery itself.
+Schedule::command('discovery:prune-rejections')->daily();

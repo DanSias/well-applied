@@ -38,8 +38,10 @@ use Throwable;
  * not implemented here; daily reruns still accumulate fresh coverage
  * over time via the same dedup path every other rediscovery uses.
  */
-final class HimalayasDiscoveryProvider implements DiscoveryProviderContract
+final class HimalayasDiscoveryProvider implements DiscoveryProviderContract, ReportsRetrievalDiagnostics
 {
+    use RecordsRetrievalDiagnostics;
+
     private const TIMEOUT_SECONDS = 30;
 
     private const RETRY_TIMES = 3;
@@ -66,6 +68,8 @@ final class HimalayasDiscoveryProvider implements DiscoveryProviderContract
      */
     public function retrieve(?ProviderDiscoveryContext $context = null): array
     {
+        $this->diagnostics = [];
+
         $baseUrl = (string) config('services.himalayas.base_url');
 
         try {
@@ -102,10 +106,7 @@ final class HimalayasDiscoveryProvider implements DiscoveryProviderContract
         }
 
         try {
-            return array_values(array_filter(array_map(
-                fn (array $job) => $this->normalize($job),
-                $jobs,
-            )));
+            return $this->normalizeEntries($jobs, fn (array $job) => $this->normalize($job));
         } catch (\TypeError|\ValueError $e) {
             throw new DiscoveryProviderException('Provider response contained malformed job fields.', previous: $e);
         }
