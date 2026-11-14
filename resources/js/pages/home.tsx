@@ -1,5 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 import type { ReactNode } from 'react';
+import { DiscoveryHealth } from '@/components/discovery-health';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { ButtonLink } from '@/components/ui/button';
@@ -179,6 +180,7 @@ export default function Home({
     attention,
     continue: recent,
     quick_access,
+    discovery,
 }: HomeProps) {
     // The single primary action: the most pressing item, else the most
     // recent work, else the first step.
@@ -399,6 +401,12 @@ export default function Home({
                             </Card>
                         )}
                     </section>
+                </div>
+            )}
+
+            {has_profile && (
+                <div className="mt-6">
+                    <DiscoveryHealth discovery={discovery} />
                 </div>
             )}
 

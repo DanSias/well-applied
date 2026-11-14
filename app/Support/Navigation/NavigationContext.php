@@ -39,7 +39,8 @@ final class NavigationContext
         $name = $route?->getName() ?? '';
 
         $section = match (true) {
-            $name === 'home' => self::HOME,
+            // Discovery health lives on Overview; its rejected-candidates list is a drill-down of it.
+            $name === 'home' || str_starts_with($name, 'discovery.') => self::HOME,
             $name === 'applications.index' => self::APPLICATIONS,
             str_starts_with($name, 'opportunities.') => self::OPPORTUNITIES,
             str_starts_with($name, 'career-data.') || str_starts_with($name, 'resume-profiles.') => self::PROFILE,

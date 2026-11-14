@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\Home\PresentDiscoveryHealth;
 use App\Support\Home\PresentHome;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -11,8 +12,8 @@ use Inertia\Response;
  */
 class HomeController extends Controller
 {
-    public function index(PresentHome $home): Response
+    public function index(PresentHome $home, PresentDiscoveryHealth $discovery): Response
     {
-        return Inertia::render('home', $home->present());
+        return Inertia::render('home', $home->present() + ['discovery' => $discovery->present()]);
     }
 }

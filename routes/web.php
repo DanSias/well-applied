@@ -5,6 +5,7 @@ use App\Http\Controllers\ApplicationInspectionStatusController;
 use App\Http\Controllers\BrowserWorkerStatusController;
 use App\Http\Controllers\CareerDataController;
 use App\Http\Controllers\ClarificationController;
+use App\Http\Controllers\DiscoveryRejectionController;
 use App\Http\Controllers\EvidenceConsolidationController;
 use App\Http\Controllers\EvidenceExpansionController;
 use App\Http\Controllers\GenerationAttemptController;
@@ -31,6 +32,7 @@ use App\Http\Middleware\AllowLongRunningGeneration;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
+Route::get('/discovery/rejections', [DiscoveryRejectionController::class, 'index'])->name('discovery.rejections.index');
 Route::get('/career-data', [CareerDataController::class, 'index'])->name('career-data.index');
 Route::get('/career-data/facts/{careerFact}', [CareerDataController::class, 'showFact'])->name('career-data.facts.show');
 
