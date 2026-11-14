@@ -86,10 +86,11 @@ final class PresentJobQualification
                 'why_it_fits' => $a['fit_reasons'],
                 'biggest_concern' => $a['biggest_concern'],
                 'practical_concerns' => $a['practical_concerns'],
-                // The stack concerns worth a person's attention: mandatory technologies the candidate has not shown.
+                // The stack concerns worth a person's attention: central, mandatory technologies the candidate has not shown.
+                // (Snapshots made before `central` existed have no flag and are all shown.)
                 'mandatory_stack_concerns' => array_values(array_filter(
                     $a['technologies'],
-                    fn (array $t) => $t['requirement'] === 'mandatory' && $t['familiarity'] !== 'familiar',
+                    fn (array $t) => $t['requirement'] === 'mandatory' && $t['familiarity'] !== 'familiar' && ($t['central'] ?? true),
                 )),
             ],
         ];

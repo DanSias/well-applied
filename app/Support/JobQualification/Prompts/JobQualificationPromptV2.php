@@ -12,16 +12,16 @@ use App\Support\JobQualification\JobQualificationResponseValidator as V;
  * substantiate. The policy lives in the system prompt in plain words; ReconcileVerdict then enforces what can be enforced
  * in code, so the prompt guides and the code guarantees.
  */
-final class JobQualificationPromptV1
+final class JobQualificationPromptV2
 {
     public function version(): string
     {
-        return 'job-qualification-v1';
+        return 'job-qualification-v2';
     }
 
     public function schemaVersion(): string
     {
-        return '1.0';
+        return '1.1';
     }
 
     public function systemPrompt(): string
@@ -40,17 +40,31 @@ HOW TO JUDGE
 - Role focus and mandatory expertise matter far more than keyword overlap. Decide what the person would actually spend
   their days doing (primary_role_focus, role_type, hands_on) before looking at technologies. An infrastructure, DevOps or
   platform-operations role that merely mentions application languages is infrastructure_devops, not product engineering.
+- hands_on says how much of the job is writing software versus managing people:
+  * hands_on: an individual contributor who implements software, designs and maintains systems, reviews code, owns technical
+    architecture, gives technical leadership, mentors engineers or leads projects WITHOUT having direct reports. Senior,
+    Staff, Principal and Lead titles, and words like "mentor", "lead" or "own", are NOT evidence of people management.
+  * primarily_management: the job is managing people: direct reports, performance reviews, hiring or staffing, building and
+    running a team or organization, budget or personnel ownership, with management as the main function. Use it only when
+    the posting states such responsibilities, and cite those sentences in management_evidence_refs.
+  * mixed: both coding and substantial people management are real parts of the job.
+  * unclear: the posting does not say. When in doubt between hands_on and primarily_management, do not choose
+    primarily_management. role_type engineering_management follows the same rule and needs the same cited evidence.
+  Leave management_evidence_refs empty unless you chose primarily_management or engineering_management.
 - List the technologies that matter, each as mandatory, preferred or incidental. A technology that is only "nice to have",
   "a plus" or mentioned in passing is preferred or incidental, and must never lower the recommendation.
+- Set central true only for a technology the role is built around: the main language or framework of the work, named as a
+  requirement or the core of the responsibilities. A technology that appears as one clause in a list of duties, an
+  implementation detail, an example or a secondary task is central false, even if the posting lists it.
 - Mark a technology "familiar" only if it appears in the candidate summary's skills. "related" means a closely analogous
   technology IS in the summary (for example another web framework in the same language family). Otherwise "unfamiliar".
   A skill missing from the summary means "not evidenced", never "the candidate cannot do it". Never invent experience.
 - For a mandatory technology the candidate does not have, say how much the posting demands: deep_production (explicit
   years or deep production expertise required), working (hands-on use expected) or unstated. Set transferable_accepted
   true only when the posting explicitly welcomes equivalent or similar frameworks or transferable experience.
-- An unfamiliar PRIMARY stack that requires explicit deep production expertise and does not accept transferable
-  experience makes the job a poor match. If transferable experience is explicitly accepted, the job is needs_review or
-  good. An unfamiliar technology that is preferred or incidental is NOT a disqualifier.
+- An unfamiliar PRIMARY stack (mandatory, central, and demanding deep production experience) that does not accept
+  transferable experience makes the job a poor match. If transferable experience is explicitly accepted, the job is
+  needs_review or good. An unfamiliar technology that is preferred, incidental or not central is NOT a disqualifier.
 - Never judge a job poor only because a technology such as Ruby, Python, AWS or Kubernetes appears.
 
 VERDICT
@@ -60,8 +74,8 @@ VERDICT
 - poor: the role's focus or mandatory expertise is clearly not a fit.
 
 EVIDENCE
-Every technology, fit reason and the biggest concern must cite one or two segment ids from the posting (for example S004)
-in evidence_refs. Cite only ids that are listed. Keep every field short and concrete. Use biggest_concern null (with an
+Every technology, fit reason, the biggest concern and any management claim must cite one or two segment ids from the posting (for example S004)
+in evidence_refs. Cite only ids that are listed. Keep every field short and concrete, in English, and never put segment ids inside the sentences you write (cite them only in the evidence_refs fields). Use biggest_concern null (with an
 empty biggest_concern_evidence_refs) only when there is none worth raising. Do not state a confidence number.
 PROMPT;
     }
@@ -127,10 +141,11 @@ PROMPT;
                             'requirement' => $enum(V::REQUIREMENT),
                             'familiarity' => $enum(V::FAMILIARITY),
                             'depth' => $enum(V::DEPTH),
+                            'central' => ['type' => 'boolean'],
                             'transferable_accepted' => ['type' => 'boolean'],
                             'evidence_refs' => $refs(1),
                         ],
-                        'required' => ['name', 'requirement', 'familiarity', 'depth', 'transferable_accepted', 'evidence_refs'],
+                        'required' => ['name', 'requirement', 'familiarity', 'depth', 'central', 'transferable_accepted', 'evidence_refs'],
                         'additionalProperties' => false,
                     ],
                 ],
@@ -147,6 +162,7 @@ PROMPT;
                 ],
                 'biggest_concern' => ['type' => ['string', 'null'], 'maxLength' => 240],
                 'biggest_concern_evidence_refs' => $refs(0),
+                'management_evidence_refs' => $refs(0),
                 'practical_concerns' => ['type' => 'array', 'maxItems' => V::MAX_PRACTICAL_CONCERNS, 'items' => ['type' => 'string', 'maxLength' => 200]],
             ],
             'required' => V::TOP_LEVEL_KEYS,

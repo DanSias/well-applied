@@ -9,9 +9,12 @@ use App\Enums\QualificationVerdict;
  * The qualification policy as code. The model proposes a verdict and structured facts; this decides what the facts allow.
  * It exists so the policy is a tested guarantee rather than a hope about a prompt:
  *
- * - an unfamiliar mandatory technology that explicitly needs deep production experience, with no transferable allowance,
- *   is always Poor;
+ * - an unfamiliar mandatory technology that is central to the role and explicitly needs deep production experience, with no
+ *   transferable allowance, is always Poor; a mandatory technology that is not central (a clause in a list of duties, a
+ *   detail) never caps anything;
  * - an unfamiliar mandatory technology where equivalents are explicitly welcome lands in NeedsReview..Good;
+ * - a claim that the role is people management only caps a verdict when the posting sentences the model cited for it
+ *   actually describe people-management responsibility; otherwise the claim is set aside as unsupported;
  * - preferred or incidental technologies never lower a verdict, and Poor needs a structural reason (a deep unfamiliar
  *   primary stack, a non-engineering role, or a role that is primarily management or infrastructure), otherwise it is
  *   raised to NeedsReview;
@@ -29,9 +32,10 @@ final class ReconcileVerdict
     /**
      * @param  array<string, mixed>  $assessment  A validated model response.
      * @param  list<string>  $candidateSkillNames
+     * @param  array<string, string>  $segments  Segment id => posting sentence, to check the management claim's cited evidence.
      * @return array{verdict: QualificationVerdict, technologies: list<array<string, mixed>>, adjustments: list<string>}
      */
-    public function reconcile(array $assessment, QualificationEligibility $eligibility, array $candidateSkillNames): array
+    public function reconcile(array $assessment, QualificationEligibility $eligibility, array $candidateSkillNames, array $segments = []): array
     {
         $adjustments = [];
         $known = array_flip(array_map(self::normalize(...), $candidateSkillNames));
@@ -45,13 +49,20 @@ final class ReconcileVerdict
             $technologies[] = $technology;
         }
 
-        $mandatoryUnfamiliar = array_filter($technologies, fn (array $t) => $t['requirement'] === 'mandatory' && $t['familiarity'] === 'unfamiliar');
+        // Only a technology the role is built around can count against it; the rest stay visible but never cap.
+        $mandatoryUnfamiliar = array_filter($technologies, fn (array $t) => $t['requirement'] === 'mandatory' && $t['familiarity'] === 'unfamiliar' && $t['central']);
         $deepUnfamiliar = array_filter($mandatoryUnfamiliar, fn (array $t) => $t['depth'] === 'deep_production' && ! $t['transferable_accepted']);
         $acceptedUnfamiliar = array_filter($mandatoryUnfamiliar, fn (array $t) => $t['transferable_accepted']);
         $unacceptedUnfamiliar = array_filter($mandatoryUnfamiliar, fn (array $t) => ! $t['transferable_accepted']);
 
         $roleType = $assessment['role_type'];
-        $management = $assessment['hands_on'] === 'primarily_management' || $roleType === 'engineering_management';
+        $claimsManagement = $assessment['hands_on'] === 'primarily_management' || $roleType === 'engineering_management';
+        $management = $claimsManagement && $this->managementIsEvidenced($assessment['management_evidence_refs'], $segments);
+        if ($claimsManagement && ! $management) {
+            $adjustments[] = 'management_claim_unsupported';
+        }
+        // A "primarily management" label with no cited people-management duties is no evidence of either; it is not read as hands-on.
+        $handsOn = $assessment['hands_on'] === 'primarily_management' && ! $management ? 'unclear' : $assessment['hands_on'];
         $infrastructure = $roleType === 'infrastructure_devops';
         $nonEngineering = $roleType === 'non_engineering';
 
@@ -88,12 +99,31 @@ final class ReconcileVerdict
             }
         }
 
-        if ($rank >= 3 && ! $this->mayBeStrong($roleType, $assessment['hands_on'], $mandatoryUnfamiliar, $eligibility)) {
+        if ($rank >= 3 && ! $this->mayBeStrong($roleType, $handsOn, $mandatoryUnfamiliar, $eligibility)) {
             $rank = 2;
             $adjustments[] = 'strong_not_supported';
         }
 
         return ['verdict' => QualificationVerdict::fromRank($rank), 'technologies' => $technologies, 'adjustments' => $adjustments];
+    }
+
+    /**
+     * Whether any sentence the model cited for "this is people management" really describes people-management duties.
+     *
+     * @param  list<string>  $refs
+     * @param  array<string, string>  $segments
+     */
+    private function managementIsEvidenced(array $refs, array $segments): bool
+    {
+        foreach ($refs as $ref) {
+            foreach (QualificationPolicy::PEOPLE_MANAGEMENT_EVIDENCE as $pattern) {
+                if (isset($segments[$ref]) && preg_match($pattern, $segments[$ref]) === 1) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**

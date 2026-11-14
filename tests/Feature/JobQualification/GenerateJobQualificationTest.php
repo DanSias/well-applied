@@ -17,6 +17,7 @@ use App\Support\JobQualification\CandidateCapabilitySummary;
 use App\Support\JobQualification\GenerateJobQualification;
 use App\Support\JobQualification\QualificationFreshness;
 use App\Support\JobQualification\QualificationPolicy;
+use Inertia\Testing\AssertableInertia;
 use Tests\Support\QualificationFixtures as Q;
 
 /**
@@ -36,7 +37,7 @@ it('rates a strong PHP/Laravel application role strong, with source evidence and
     $q = qualify($job);
 
     expect($q->verdict)->toBe(V::Strong)->and($q->eligibility)->toBe(E::Eligible)->and($q->adjustments)->toBe([])
-        ->and($q->generated_by)->toBe('ollama:qwen-test')->and($q->prompt_version)->toBe('job-qualification-v1')->and($q->policy_version)->toBe(QualificationPolicy::VERSION)
+        ->and($q->generated_by)->toBe('ollama:qwen-test')->and($q->prompt_version)->toBe('job-qualification-v2')->and($q->policy_version)->toBe(QualificationPolicy::VERSION)
         ->and($q->assessment['fit_reasons'][0]['evidence'][0])->toBe(['ref' => 'S001', 'excerpt' => 'We are hiring a Senior Software Engineer to build our customer platform.'])
         ->and($fake->callCount)->toBe(1);
 });
@@ -296,4 +297,76 @@ it('sends the model a bounded request: the policy, a capability summary and the 
         ->and($fake->schema['properties'])->not->toHaveKey('confidence')
         ->and($fake->schema['additionalProperties'])->toBeFalse()
         ->and($fake->schema['properties']['fit_reasons']['items']['properties']['evidence_refs']['items']['enum'])->toContain('S001', 'S002');
+});
+
+it('asks the model to define hands-on against management by evidence, and for centrality, in a schema that requires both', function () {
+    $career = Q::candidate();
+    $fake = Q::fake()->willReturn(Q::answer());
+    qualify(Q::job($career, Q::laravel()));
+
+    expect($fake->systemPrompt)->toContain('Senior,')->toContain('Staff, Principal and Lead titles')->toContain('NOT evidence of people management')
+        ->and($fake->systemPrompt)->toContain('When in doubt between hands_on and primarily_management, do not choose')->toContain('direct reports')
+        ->and($fake->systemPrompt)->toContain('Set central true only')
+        ->and($fake->schema['required'])->toContain('management_evidence_refs')
+        ->and($fake->schema['properties']['technologies']['items']['required'])->toContain('central')
+        ->and($fake->schema['properties']['management_evidence_refs']['maxItems'])->toBe(2);
+});
+
+it('rejects a response that omits the centrality flag or management evidence, or cites a sentence that does not exist', function (array $broken) {
+    $career = Q::candidate();
+    $job = Q::job($career, Q::laravel());
+    Q::fake()->willReturn($broken);
+
+    expect(fn () => qualify($job))->toThrow(InvalidJobQualificationResponseException::class);
+    expect(JobQualification::query()->count())->toBe(0);
+})->with([
+    'no central flag' => fn () => Q::answer(['technologies' => [array_diff_key(Q::tech('Laravel', 'mandatory', 'familiar'), ['central' => 1])]]),
+    'no management evidence field' => fn () => array_diff_key(Q::answer(), ['management_evidence_refs' => 1]),
+    'an invented management sentence' => fn () => Q::answer(['hands_on' => 'primarily_management', 'management_evidence_refs' => ['S999']]),
+    'too many management sentences' => fn () => Q::answer(['management_evidence_refs' => ['S001', 'S002', 'S003']]),
+]);
+
+it('judges a hands-on senior engineer mislabelled as management by what the posting actually says', function () {
+    $career = Q::candidate();
+    $description = 'We are hiring a Staff Backend Engineer to build our APIs. You will mentor engineers and lead technical design across the team. You will own the architecture of our Laravel services. Experience with MySQL is required. '.str_repeat('The team ships weekly and reviews code together. ', 6);
+    Q::fake()->willReturn(Q::answer(['verdict' => 'good', 'hands_on' => 'primarily_management', 'management_evidence_refs' => ['S002'], 'technologies' => [Q::tech('Laravel', 'mandatory', 'familiar')]]));
+
+    $q = qualify(Q::job($career, $description));
+
+    expect($q->verdict)->toBe(V::Good)->and($q->model_verdict)->toBe(V::Good)->and($q->adjustments)->toBe(['management_claim_unsupported'])
+        ->and($q->assessment['management_evidence'][0]['excerpt'])->toBe('You will mentor engineers and lead technical design across the team.');
+});
+
+it('still caps a genuine engineering manager when the posting states people-management duties', function () {
+    $career = Q::candidate();
+    $description = 'We are hiring an engineering manager for our platform group. You will build and lead a team of engineers in your region. You will run performance reviews and own hiring. Code reviews are part of the job. '.str_repeat('The team ships weekly and reviews code together. ', 6);
+    Q::fake()->willReturn(Q::answer(['verdict' => 'good', 'role_type' => 'engineering_management', 'management_evidence_refs' => ['S002', 'S003']]));
+
+    $q = qualify(Q::job($career, $description));
+
+    expect($q->verdict)->toBe(V::NeedsReview)->and($q->adjustments)->toBe(['primarily_management_capped']);
+});
+
+it('keeps an incidental mandatory-looking technology from capping a strong full-stack role, and still lists nothing for it in the drawer', function () {
+    $career = Q::candidate();
+    $job = Q::job($career, Q::react());
+    Q::fake()->willReturn(Q::answer(['verdict' => 'strong', 'technologies' => [Q::tech('React', 'mandatory', 'familiar'), Q::tech('Edge caching', 'mandatory', 'unfamiliar', 'working', central: false)]]));
+
+    $q = qualify($job);
+
+    expect($q->verdict)->toBe(V::Strong)->and($q->adjustments)->toBe([])
+        ->and(array_column($q->assessment['technologies'], 'central', 'name'))->toBe(['React' => true, 'Edge caching' => false]);
+
+    test()->get("/jobs?disposition=all&job={$job->id}")->assertInertia(fn (AssertableInertia $page) => $page
+        ->where('selected_job.qualification.current.assessment.mandatory_stack_concerns', []));
+});
+
+it('lists a central mandatory stack the candidate has not shown in the drawer', function () {
+    $career = Q::candidate();
+    $job = Q::job($career, Q::railsDeep());
+    Q::fake()->willReturn(Q::answer(['verdict' => 'poor', 'technologies' => [Q::tech('Ruby on Rails', 'mandatory', 'unfamiliar', 'deep_production')]]));
+    qualify($job);
+
+    test()->get("/jobs?disposition=all&job={$job->id}")->assertInertia(fn (AssertableInertia $page) => $page
+        ->where('selected_job.qualification.current.assessment.mandatory_stack_concerns.0.name', 'Ruby on Rails'));
 });

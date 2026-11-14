@@ -9,7 +9,7 @@ use App\Models\JobPosting;
 use App\Models\JobQualification;
 use App\Support\GenerationAttempt\GenerationMetrics;
 use App\Support\JobAnalysis\SegmentJobPostingDescription;
-use App\Support\JobQualification\Prompts\JobQualificationPromptV1;
+use App\Support\JobQualification\Prompts\JobQualificationPromptV2;
 
 /**
  * Qualifies one job: the deterministic eligibility gate first, a model only when the gate allows it, then the policy check,
@@ -23,7 +23,7 @@ final class GenerateJobQualification
 {
     public function __construct(
         private readonly GeneratesJobQualification $provider,
-        private readonly JobQualificationPromptV1 $prompt,
+        private readonly JobQualificationPromptV2 $prompt,
         private readonly JobQualificationResponseValidator $validator,
         private readonly SegmentJobPostingDescription $segmenter,
         private readonly AssessEligibility $eligibility,
@@ -76,6 +76,7 @@ final class GenerateJobQualification
             $validated,
             $eligibility->outcome,
             array_column($inputs['summary']['skills'], 'name'),
+            $segments,
         );
 
         return JobQualification::query()->create($base + [
@@ -109,9 +110,10 @@ final class GenerateJobQualification
             'core_responsibilities' => $validated['core_responsibilities'],
             'technologies' => array_map(fn (array $t) => [
                 'name' => $t['name'], 'requirement' => $t['requirement'], 'familiarity' => $t['familiarity'], 'depth' => $t['depth'],
-                'transferable_accepted' => $t['transferable_accepted'], 'evidence' => $resolve($t['evidence_refs']),
+                'central' => $t['central'], 'transferable_accepted' => $t['transferable_accepted'], 'evidence' => $resolve($t['evidence_refs']),
             ], $technologies),
             'seniority' => $validated['seniority'],
+            'management_evidence' => $resolve($validated['management_evidence_refs']),
             'fit_reasons' => array_map(fn (array $r) => ['text' => $r['text'], 'evidence' => $resolve($r['evidence_refs'])], $validated['fit_reasons']),
             'biggest_concern' => $validated['biggest_concern'] === null ? null : ['text' => $validated['biggest_concern'], 'evidence' => $resolve($validated['biggest_concern_evidence_refs'])],
             'practical_concerns' => $validated['practical_concerns'],

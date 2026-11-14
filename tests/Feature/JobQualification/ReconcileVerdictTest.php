@@ -8,14 +8,19 @@ use Tests\Support\QualificationFixtures as Q;
 /**
  * The policy as a contract: what a model's structured facts allow the verdict to be, whatever verdict it proposed.
  */
-function reconciled(string $modelVerdict, array $technologies = [], array $answer = [], E $eligibility = E::Eligible, array $skills = ['Laravel', 'PHP']): array
+function reconciled(string $modelVerdict, array $technologies = [], array $answer = [], E $eligibility = E::Eligible, array $skills = ['Laravel', 'PHP'], array $segments = []): array
 {
     return (new ReconcileVerdict)->reconcile(
         Q::answer(['verdict' => $modelVerdict, 'technologies' => $technologies] + $answer),
         $eligibility,
         $skills,
+        $segments,
     );
 }
+
+/** Posting sentences that really describe people management, and ones that merely describe a senior engineer. */
+const MANAGES_PEOPLE = ['S001' => 'You will manage a team of six engineers, run their performance reviews and own hiring.'];
+const LEADS_TECHNICALLY = ['S001' => 'Mentor engineers, lead ambiguous technical design and own the architecture of our backend services.'];
 
 it('makes an unfamiliar mandatory stack that needs deep production experience a poor match, whatever the model said', function (string $proposed) {
     $result = reconciled($proposed, [Q::tech('Ruby on Rails', 'mandatory', 'unfamiliar', 'deep_production')]);
@@ -47,10 +52,10 @@ it('raises a poor verdict that has no structural reason to needs_review', functi
 });
 
 it('keeps a poor verdict that has a structural reason', function (array $answer) {
-    expect(reconciled('poor', [Q::tech('Laravel', 'mandatory', 'familiar')], $answer)['verdict'])->toBe(V::Poor);
+    expect(reconciled('poor', [Q::tech('Laravel', 'mandatory', 'familiar')], $answer, segments: MANAGES_PEOPLE)['verdict'])->toBe(V::Poor);
 })->with([
     'a non-engineering role' => [['role_type' => 'non_engineering']],
-    'primarily management' => [['hands_on' => 'primarily_management']],
+    'primarily management' => [['hands_on' => 'primarily_management', 'management_evidence_refs' => ['S001']]],
     'an infrastructure-focused role' => [['role_type' => 'infrastructure_devops']],
 ]);
 
@@ -59,13 +64,13 @@ it('forces a non-engineering role to poor', function () {
 });
 
 it('caps an infrastructure-focused or management-focused role at needs_review', function (array $answer, string $code) {
-    $result = reconciled('strong', [Q::tech('Laravel', 'mandatory', 'familiar')], $answer);
+    $result = reconciled('strong', [Q::tech('Laravel', 'mandatory', 'familiar')], $answer, segments: MANAGES_PEOPLE);
 
     expect($result['verdict'])->toBe(V::NeedsReview)->and($result['adjustments'])->toContain($code);
 })->with([
     'infrastructure' => [['role_type' => 'infrastructure_devops'], 'infrastructure_focus_capped'],
-    'management' => [['hands_on' => 'primarily_management'], 'primarily_management_capped'],
-    'engineering management' => [['role_type' => 'engineering_management'], 'primarily_management_capped'],
+    'management' => [['hands_on' => 'primarily_management', 'management_evidence_refs' => ['S001']], 'primarily_management_capped'],
+    'engineering management' => [['role_type' => 'engineering_management', 'management_evidence_refs' => ['S001']], 'primarily_management_capped'],
 ]);
 
 it('caps an unfamiliar mandatory stack that is neither deep nor explicitly accepted at needs_review', function () {
@@ -93,4 +98,77 @@ it('does not invent familiarity for a technology that is not among the candidate
     $result = reconciled('good', [Q::tech('Ruby on Rails', 'mandatory', 'unfamiliar', 'deep_production')], skills: ['Laravel']);
 
     expect($result['technologies'][0]['familiarity'])->toBe('unfamiliar')->and($result['verdict'])->toBe(V::Poor);
+});
+
+/*
+ * Regressions from the first real-model calibration: hands-on engineers labelled "primarily management", and an incidental
+ * clause treated as a mandatory unfamiliar stack.
+ */
+it('does not cap a hands-on senior, staff or principal engineer labelled primarily management without evidence', function (string $verdict, V $expected) {
+    // The model's label is wrong and it cited nothing: mentoring and technical leadership are not management.
+    $result = reconciled($verdict, [Q::tech('Laravel', 'mandatory', 'familiar')], ['hands_on' => 'primarily_management', 'management_evidence_refs' => []], segments: LEADS_TECHNICALLY);
+
+    expect($result['verdict'])->toBe($expected)->and($result['adjustments'])->toContain('management_claim_unsupported')->and($result['adjustments'])->not->toContain('primarily_management_capped');
+})->with([
+    'good stays good' => ['good', V::Good],
+    'strong is held at good, since hands-on level is now unclear' => ['strong', V::Good],
+]);
+
+it('sets aside a management claim whose cited sentence only describes technical leadership', function (string $roleType, string $handsOn) {
+    $result = reconciled('good', [Q::tech('Laravel', 'mandatory', 'familiar')], ['role_type' => $roleType, 'hands_on' => $handsOn, 'management_evidence_refs' => ['S001']], segments: LEADS_TECHNICALLY);
+
+    expect($result['verdict'])->toBe(V::Good)->and($result['adjustments'])->toBe(['management_claim_unsupported']);
+})->with([
+    'a hands-on label from a titled-senior engineer' => ['product_engineering', 'primarily_management'],
+    'an engineering-management type with no managing in the posting' => ['engineering_management', 'hands_on'],
+]);
+
+it('still caps genuine engineering management when the posting states people-management duties', function () {
+    $result = reconciled('good', [Q::tech('Python', 'mandatory', 'familiar')], ['role_type' => 'engineering_management', 'hands_on' => 'hands_on', 'management_evidence_refs' => ['S001']], segments: MANAGES_PEOPLE);
+
+    expect($result['verdict'])->toBe(V::NeedsReview)->and($result['adjustments'])->toBe(['primarily_management_capped']);
+});
+
+it('recognises concrete people-management sentences and not mere mentoring or leading projects', function (string $sentence, bool $supports) {
+    $result = reconciled('good', [], ['hands_on' => 'primarily_management', 'management_evidence_refs' => ['S001']], segments: ['S001' => $sentence]);
+
+    expect(in_array('management_claim_unsupported', $result['adjustments'], true))->toBe(! $supports);
+})->with([
+    ['Build and lead a team of engineers in your region.', true],
+    ['You will have five direct reports and own their career growth.', true],
+    ['Lead and grow a team responsible for developer tooling.', true],
+    ['As an engineering manager you must run an effective team.', true],
+    ['Own hiring, headcount and performance reviews for the group.', true],
+    ['Mentor and grow web engineers across the organization.', false],
+    ['Lead projects end-to-end, balancing hands-on development with guiding others.', false],
+    ['Demonstrated ability to lead through influence and mentor engineers.', false],
+    ['Provide technical leadership as a senior individual contributor.', false],
+    ['We are hiring a Staff Backend Engineer who can lead technical design.', false],
+]);
+
+it('treats a mixed engineering and management role as neither capped nor strong-blocked by management', function () {
+    $result = reconciled('good', [Q::tech('Go', 'mandatory', 'familiar')], ['hands_on' => 'mixed', 'management_evidence_refs' => ['S001']], segments: MANAGES_PEOPLE);
+
+    expect($result['verdict'])->toBe(V::Good)->and($result['adjustments'])->toBe([]);
+});
+
+it('ignores a mandatory unfamiliar technology that is not central to the role', function (string $depth) {
+    // "Implement caching strategies at the edge" inside a list of duties, tagged mandatory by the model.
+    $result = reconciled('strong', [Q::tech('React', 'mandatory', 'familiar'), Q::tech('Edge caching', 'mandatory', 'unfamiliar', $depth, central: false)]);
+
+    expect($result['verdict'])->toBe(V::Strong)->and($result['adjustments'])->toBe([]);
+})->with(['working', 'deep_production', 'unstated']);
+
+it('still rejects a central, mandatory, deep unfamiliar stack, and caps a central working-level one', function () {
+    $deep = reconciled('strong', [Q::tech('Ruby on Rails', 'mandatory', 'unfamiliar', 'deep_production', central: true)]);
+    $working = reconciled('strong', [Q::tech('Go', 'mandatory', 'unfamiliar', 'working', central: true)]);
+
+    expect($deep['verdict'])->toBe(V::Poor)->and($working['verdict'])->toBe(V::NeedsReview);
+});
+
+it('keeps a flexible unfamiliar central stack in review-to-good range, and a preferred one irrelevant', function () {
+    $flexible = reconciled('poor', [Q::tech('Ruby on Rails', 'mandatory', 'unfamiliar', 'deep_production', transferable: true, central: true)]);
+    $preferred = reconciled('good', [Q::tech('Laravel', 'mandatory', 'familiar'), Q::tech('Python', 'preferred', 'unfamiliar', 'deep_production', central: true)]);
+
+    expect($flexible['verdict'])->toBe(V::NeedsReview)->and($preferred['verdict'])->toBe(V::Good)->and($preferred['adjustments'])->toBe([]);
 });

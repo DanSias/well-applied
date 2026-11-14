@@ -15,7 +15,7 @@ a job's disposition, queues analysis or matching, generates a resume, or runs on
 - `assessment`: the validated model output (role type, primary focus, hands-on level, responsibilities, technologies with
   requirement/familiarity/depth/transferable flags, seniority, fit reasons, biggest concern, practical concerns), each
   claim citing posting sentences, stored as the posting's exact text rather than anything the model wrote;
-- `content_fingerprint`, `profile_fingerprint`, `policy_version`, `prompt_version`, `generated_by`, `generated_at`.
+- `content_fingerprint`, `profile_fingerprint`, `policy_version`, `prompt_version` (`job-qualification-v2`), `generated_by`, `generated_at`.
 
 There is no confidence number anywhere.
 
@@ -35,12 +35,18 @@ There is no confidence number anywhere.
 4. **Validate.** `JobQualificationResponseValidator` rejects any unexpected field, unknown value, oversize list or
    evidence id the model was not given.
 5. **Policy (`ReconcileVerdict`).** The policy enforced in code:
-   - a mandatory unfamiliar technology that explicitly needs deep production experience, with no transferable allowance, is
-     `poor`;
+   - a mandatory unfamiliar technology that is **central** to the role (the model marks `central` only for what the role is
+     built around, not one clause in a list of duties) and explicitly needs deep production experience, with no transferable
+     allowance, is `poor`; a non-central mandatory technology never caps anything;
    - a mandatory unfamiliar technology where equivalents are explicitly welcome is `needs_review`..`good`;
    - preferred or incidental technologies never lower a verdict, and `poor` needs a structural reason (such a stack, a
      non-engineering role, or a primarily management or infrastructure role), otherwise it is raised to `needs_review`;
-   - infrastructure-focused and management-focused roles are capped at `needs_review`;
+   - infrastructure-focused and management-focused roles are capped at `needs_review`. A management claim
+     (`hands_on: primarily_management` or `role_type: engineering_management`) only counts when a sentence the model cited in
+     `management_evidence_refs` states concrete people-management duties (direct reports, performance reviews, hiring or
+     staffing, building or growing a team, and similar; `QualificationPolicy::PEOPLE_MANAGEMENT_EVIDENCE`). Mentoring, "lead",
+     and Senior/Staff/Principal titles are not management evidence. An unsupported claim is set aside (adjustment
+     `management_claim_unsupported`) and the hands-on level is read as unclear, which still blocks `strong`;
    - `strong` needs a hands-on product-engineering role, nothing unfamiliar and mandatory, and eligible status;
    - a technology the model calls unfamiliar that is one of the candidate's own skills is corrected to familiar.
 
@@ -63,3 +69,10 @@ whenever eligibility, reconciliation or the prompt change what a job would be to
 
 Eligibility patterns are English-only and sentence-based; the policy's role-type and familiarity judgements still rest on the
 model; nothing is calibrated against real postings yet, which is what shadow mode is for.
+
+## Calibration history
+
+`balanced-1` (first real-model run): the model labelled several hands-on IC roles `primarily_management` (the prompt never
+defined the values) and the policy capped on the label alone; an incidental clause ("edge caching") was tagged mandatory
+and unfamiliar. `balanced-2` defines the hands-on values by evidence, requires cited management evidence, and adds the
+`central` flag. Policy bumps make older snapshots read as out of date.

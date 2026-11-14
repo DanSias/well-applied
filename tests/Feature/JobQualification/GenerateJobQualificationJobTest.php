@@ -40,7 +40,7 @@ it('runs queued to succeeded and links the result', function () {
     $q = JobQualification::query()->sole();
     expect($attempt->status)->toBe(GenerationStatus::Succeeded)->and($attempt->result_id)->toBe($q->id)->and($attempt->result()?->is($q))->toBeTrue()
         ->and($attempt->started_at)->not->toBeNull()->and($attempt->finished_at)->not->toBeNull()
-        ->and($attempt->provider)->toBe('ollama')->and($attempt->model)->toBe('qwen-test')->and($attempt->prompt_version)->toBe('job-qualification-v1')
+        ->and($attempt->provider)->toBe('ollama')->and($attempt->model)->toBe('qwen-test')->and($attempt->prompt_version)->toBe('job-qualification-v2')
         ->and($attempt->failure_message)->toBeNull();
 });
 

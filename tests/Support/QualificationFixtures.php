@@ -76,14 +76,15 @@ final class QualificationFixtures
             'fit_reasons' => [['text' => 'Hands-on product engineering on a stack the candidate has.', 'evidence_refs' => ['S001']]],
             'biggest_concern' => null,
             'biggest_concern_evidence_refs' => [],
+            'management_evidence_refs' => [],
             'practical_concerns' => [],
         ];
     }
 
     /** @return array<string, mixed> */
-    public static function tech(string $name, string $requirement, string $familiarity, string $depth = 'working', bool $transferable = false, string $ref = 'S002'): array
+    public static function tech(string $name, string $requirement, string $familiarity, string $depth = 'working', bool $transferable = false, string $ref = 'S002', bool $central = true): array
     {
-        return ['name' => $name, 'requirement' => $requirement, 'familiarity' => $familiarity, 'depth' => $depth, 'transferable_accepted' => $transferable, 'evidence_refs' => [$ref]];
+        return ['name' => $name, 'requirement' => $requirement, 'familiarity' => $familiarity, 'depth' => $depth, 'central' => $central, 'transferable_accepted' => $transferable, 'evidence_refs' => [$ref]];
     }
 
     public static function fake(): FakeJobQualificationProvider

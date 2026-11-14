@@ -5,7 +5,7 @@ namespace App\Support\JobQualification;
 use App\Models\CareerProfile;
 use App\Models\JobPosting;
 use App\Models\JobQualification;
-use App\Support\JobQualification\Prompts\JobQualificationPromptV1;
+use App\Support\JobQualification\Prompts\JobQualificationPromptV2;
 
 /**
  * Whether a stored qualification still describes the job as it is now. It does when it was made from the same posting
@@ -16,7 +16,7 @@ final class QualificationFreshness
 {
     public function __construct(
         private readonly CandidateCapabilitySummary $capabilities,
-        private readonly JobQualificationPromptV1 $prompt,
+        private readonly JobQualificationPromptV2 $prompt,
     ) {}
 
     /**

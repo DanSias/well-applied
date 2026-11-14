@@ -38,7 +38,7 @@ final class JobQualificationResponseValidator
 
     public const TOP_LEVEL_KEYS = [
         'verdict', 'role_type', 'primary_role_focus', 'hands_on', 'core_responsibilities', 'technologies', 'seniority',
-        'fit_reasons', 'biggest_concern', 'biggest_concern_evidence_refs', 'practical_concerns',
+        'fit_reasons', 'biggest_concern', 'biggest_concern_evidence_refs', 'management_evidence_refs', 'practical_concerns',
     ];
 
     /**
@@ -64,11 +64,12 @@ final class JobQualificationResponseValidator
             'core_responsibilities' => ['required', 'array', 'min:1', 'max:'.self::MAX_RESPONSIBILITIES],
             'core_responsibilities.*' => ['required', 'string', 'min:3', 'max:200'],
             'technologies' => ['present', 'array', 'max:'.self::MAX_TECHNOLOGIES],
-            'technologies.*' => ['array:name,requirement,familiarity,depth,transferable_accepted,evidence_refs'],
+            'technologies.*' => ['array:name,requirement,familiarity,depth,central,transferable_accepted,evidence_refs'],
             'technologies.*.name' => ['required', 'string', 'min:1', 'max:80'],
             'technologies.*.requirement' => ['required', 'string', Rule::in(self::REQUIREMENT)],
             'technologies.*.familiarity' => ['required', 'string', Rule::in(self::FAMILIARITY)],
             'technologies.*.depth' => ['required', 'string', Rule::in(self::DEPTH)],
+            'technologies.*.central' => ['required', 'boolean'],
             'technologies.*.transferable_accepted' => ['required', 'boolean'],
             'technologies.*.evidence_refs' => ['required', 'min:1', ...$refs],
             'technologies.*.evidence_refs.*' => ['required', 'string', Rule::in($validSegmentIds)],
@@ -81,6 +82,8 @@ final class JobQualificationResponseValidator
             'biggest_concern' => ['present', 'nullable', 'string', 'max:240'],
             'biggest_concern_evidence_refs' => ['present', ...$refs],
             'biggest_concern_evidence_refs.*' => ['required', 'string', Rule::in($validSegmentIds)],
+            'management_evidence_refs' => ['present', ...$refs],
+            'management_evidence_refs.*' => ['required', 'string', Rule::in($validSegmentIds)],
             'practical_concerns' => ['present', 'array', 'max:'.self::MAX_PRACTICAL_CONCERNS],
             'practical_concerns.*' => ['required', 'string', 'min:3', 'max:200'],
         ]);
