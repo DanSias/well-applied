@@ -49,8 +49,16 @@ return [
             'roles' => ['engineer', 'developer'],
             'specializations' => [
                 'software', 'software development', 'web', 'application', 'full stack', 'back end', 'front end',
-                'product', 'integration', 'api',
+                'product', 'integration', 'integrations', 'api', 'apis',
                 'php', 'laravel', 'react', 'react.js', 'reactjs', 'typescript', 'javascript', 'node', 'node.js', 'nodejs',
+            ],
+            // Also read in the role-first, comma-separated form ("Developer, Integrations"). Kept to these two so a
+            // title like "Engineer, Sales" is not drawn in.
+            'reversed_specializations' => ['integration', 'integrations', 'api', 'apis'],
+            // Developer-facing support and solutions roles, matched as whole phrases. There is deliberately no generic
+            // "support" or bare "engineer" match.
+            'phrases' => [
+                'developer support engineer', 'api support engineer', 'technical support engineer', 'solutions engineer',
             ],
         ],
 

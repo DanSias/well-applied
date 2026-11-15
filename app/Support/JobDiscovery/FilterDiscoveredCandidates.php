@@ -99,7 +99,11 @@ final class FilterDiscoveredCandidates
             return FilterDecision::reject(DiscoveryRejectionReason::WorkArrangementNotAllowed, 'onsite', 'remote_status', $location !== '' ? "on-site; location: {$location}" : 'on-site');
         }
 
-        if ($candidate->remoteStatus === JobRemoteStatus::Hybrid && $location !== '' && ! LocationSignals::mentionsFlorida($location)) {
+        // Eightfold's `location` text is truncated for display; its metadata carries the signals of every listed place.
+        $floridaListed = LocationSignals::mentionsFlorida($location) || ($candidate->sourceMetadata['floridaListed'] ?? false) === true;
+        $usListed = ($candidate->sourceMetadata['usLocationListed'] ?? false) === true;
+
+        if ($candidate->remoteStatus === JobRemoteStatus::Hybrid && $location !== '' && ! $floridaListed) {
             return FilterDecision::reject(DiscoveryRejectionReason::WorkArrangementNotAllowed, 'hybrid', 'remote_status', "hybrid outside Florida; location: {$location}");
         }
 
@@ -115,7 +119,7 @@ final class FilterDiscoveredCandidates
             }
         }
 
-        if ($location !== '' && LocationSignals::isNonUsOnly($location)) {
+        if ($location !== '' && ! $usListed && LocationSignals::isNonUsOnly($location)) {
             return FilterDecision::reject(DiscoveryRejectionReason::LocationNotAllowed, null, 'location', $location);
         }
 

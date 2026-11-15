@@ -7,6 +7,8 @@ use App\Models\CareerProfile;
 use App\Models\DiscoveryProviderAttempt;
 use App\Models\JobPosting;
 use App\Support\JobDiscovery\DiscoveryScheduleIsDue;
+use App\Support\JobDiscovery\DiscoverySearchCriteria;
+use App\Support\JobDiscovery\FilterDiscoveredCandidates;
 use App\Support\JobDiscovery\Providers\DiscoveryProviderException;
 use App\Support\JobDiscovery\Providers\Eightfold\EightfoldTenant;
 use App\Support\JobDiscovery\Providers\EightfoldDiscoveryProvider;
@@ -1239,3 +1241,20 @@ it('keeps hybrid positions listed in Florida past the Eightfold prefilter and dr
     expect($d['dropped_before_details'])->toBe(['work_arrangement' => 2])
         ->and($d['plausible'])->toBe(2);
 });
+
+it('judges eligibility from every listed location, not just the five shown', function (string $arrangement, array $locations, bool $accepted) {
+    efOnly('lockheed');
+    $row = efRow(fx('lockheed_search')['data']['positions'][1], 777001, ['workLocationOption' => $arrangement, 'standardizedLocations' => $locations, 'locations' => $locations]);
+    $detail = efDetail(fx('lockheed_detail_996476391868'), 777001, ['workLocationOption' => $arrangement, 'standardizedLocations' => $locations, 'locations' => $locations]);
+    efFake([LOCKHEED_HOST => efTenant([$row], [777001 => $detail])]);
+
+    $candidate = (new EightfoldDiscoveryProvider)->retrieve(efContext())[0];
+    $decision = (new FilterDiscoveredCandidates)->evaluate($candidate, DiscoverySearchCriteria::fromConfig());
+
+    expect($candidate->location)->toContain('(+')
+        ->and($decision->accepted)->toBe($accepted);
+})->with([
+    'hybrid with Florida sixth' => ['hybrid', ['Austin, TX, US', 'Dallas, TX, US', 'Denver, CO, US', 'Boston, MA, US', 'Seattle, WA, US', 'Orlando, FL, US', 'Reston, VA, US'], true],
+    'hybrid without Florida' => ['hybrid', ['Austin, TX, US', 'Dallas, TX, US', 'Denver, CO, US', 'Boston, MA, US', 'Seattle, WA, US', 'Reston, VA, US', 'Plano, TX, US'], false],
+    'remote with US listed after non-US places' => ['remote_local', ['Toronto, Canada', 'London, United Kingdom', 'Berlin, Germany', 'Paris, France', 'Madrid, Spain', 'Denver, CO, US', 'Reston, VA, US'], true],
+]);

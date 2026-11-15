@@ -126,6 +126,8 @@ final class EightfoldPositionMapper
                 'remoteEligibility' => $this->remoteEligibility($arrangement, $geo),
                 'listedStates' => $geo['states'],
                 'floridaListed' => in_array('FL', $geo['states'], true),
+                // Complete eligibility signals from every listed location; `location` is truncated for display.
+                'usLocationListed' => $geo['us'] !== [],
                 'createdAt' => $this->timestamp($merged['creationTs'] ?? null)?->toIso8601String(),
                 'salaryNormalization' => $salaryNote,
                 'customFields' => $this->customFields($detail),

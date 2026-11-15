@@ -7,6 +7,7 @@ use App\Enums\JobRemoteStatus;
 use App\Support\JobDiscovery\DiscoveredJobCandidate;
 use App\Support\JobDiscovery\DiscoverySearchCriteria;
 use App\Support\JobDiscovery\FilterDiscoveredCandidates;
+use App\Support\JobDiscovery\LocationSignals;
 use Carbon\CarbonImmutable;
 
 /**
@@ -64,7 +65,7 @@ it('does not accept generic or unrelated engineer titles', function (string $tit
         ->and($decision->reason)->toBe(DiscoveryRejectionReason::TitleNotMatching);
 })->with([
     'Engineer', 'Senior Engineer', 'Staff Engineer', 'Principal Engineer', 'Engineering Manager', 'Solutions Architect',
-    'Technical Support Engineer', 'Sales Engineer', 'Developer Advocate', 'Product Manager', 'Software Engineering Manager',
+    'Support Specialist', 'Customer Support Manager', 'Technical Support Engineering Manager', 'Sales Engineer', 'Engineer, Sales', 'Developer Advocate', 'Product Manager', 'Software Engineering Manager',
     'Production Engineer', 'Webmaster', 'Reactor Engineer', 'Senior Account Executive',
 ]);
 
@@ -174,4 +175,82 @@ it('keeps accepts() consistent with evaluate()', function () {
         $job = policyCandidate(['title' => $title]);
         expect($filter->accepts($job, $criteria))->toBe($filter->evaluate($job, $criteria)->accepted);
     }
+});
+
+it('recognizes plural specializations and the role-first integrations form', function (string $title) {
+    expect(policyDecision(['title' => $title])->accepted)->toBeTrue();
+})->with(['Integrations Engineer', 'Senior Integrations Developer', 'APIs Engineer', 'API Engineer', 'Developer, Integrations', 'Engineer, APIs', 'Integration Engineer']);
+
+it('accepts the explicit developer-facing support and solutions roles, and nothing generic around them', function (string $title, bool $accepted) {
+    expect(policyDecision(['title' => $title])->accepted)->toBe($accepted);
+})->with([
+    ['Developer Support Engineer', true],
+    ['API Support Engineer', true],
+    ['Technical Support Engineer', true],
+    ['Senior Technical Support Engineer', true],
+    ['Solutions Engineer', true],
+    ['Technical-Support Engineer', true],
+    ['Support Engineer', false],
+    ['Customer Engineer', false],
+    ['Support Developer Advocate', false],
+    ['Solutions Architect', false],
+    ['Technical Support Engineering Manager', false],
+]);
+
+it('keeps the exclusions in force for the newly included roles', function (string $title, DiscoveryRejectionReason $reason) {
+    expect(policyDecision(['title' => $title])->reason)->toBe($reason);
+})->with([
+    ['DevOps Solutions Engineer', DiscoveryRejectionReason::ExcludedTitleRole],
+    ['Junior Technical Support Engineer', DiscoveryRejectionReason::ExcludedSeniority],
+    ['Solutions Engineer Intern', DiscoveryRejectionReason::ExcludedSeniority],
+    ['Firmware Support Engineer', DiscoveryRejectionReason::ExcludedTitleRole],
+]);
+
+it('reads New Mexico as a US state and still rejects Mexico', function (string $location, bool $accepted) {
+    expect(policyDecision(['location' => $location])->accepted)->toBe($accepted);
+})->with([
+    ['Remote, New Mexico', true],
+    ['Albuquerque, New Mexico', true],
+    ['New  Mexico', true],
+    ['Mexico', false],
+    ['Remote - Mexico', false],
+    ['Mexico City, Mexico', false],
+    ['New Mexico or Mexico', false],
+]);
+
+it('keeps LocationSignals consistent for qualification: New Mexico is not a non-US place', function () {
+    expect(LocationSignals::mentionsNonUsPlace('Santa Fe, New Mexico'))->toBeFalse()
+        ->and(LocationSignals::mentionsNonUsPlace('Monterrey, Mexico'))->toBeTrue()
+        ->and(LocationSignals::mentionsNonUsPlace('Toronto, Canada'))->toBeTrue();
+});
+
+it('accepts Florida hybrid roles with or without a comma and ZIP code, and still rejects other hybrid states', function (string $location, bool $accepted) {
+    expect(policyDecision(['location' => $location, 'remoteStatus' => JobRemoteStatus::Hybrid])->accepted)->toBe($accepted);
+})->with([
+    ['Tampa FL 33602', true],
+    ['Orlando, FL 32801', true],
+    ['Orlando, FL 32801-1234', true],
+    ['Miami, Florida', true],
+    ['Tampa, TX 33602', false],
+    ['Austin TX 78701', false],
+    ['FLX 33602', false],
+]);
+
+it('keeps rejecting hybrid roles that list only the United States', function (string $location) {
+    $decision = policyDecision(['location' => $location, 'remoteStatus' => JobRemoteStatus::Hybrid]);
+
+    expect($decision->accepted)->toBeFalse()
+        ->and($decision->reason)->toBe(DiscoveryRejectionReason::WorkArrangementNotAllowed)
+        ->and($decision->matchedTerm)->toBe('hybrid');
+})->with(['United States', 'USA', 'US']);
+
+it('lets an Eightfold candidate pass on complete location signals even when the shown text is truncated', function () {
+    $shown = 'Toronto, Canada; London, United Kingdom; Berlin, Germany; Paris, France; Madrid, Spain (+2 more)';
+
+    // Hybrid with Florida beyond the fifth listed location.
+    expect(policyDecision(['source' => JobDiscoverySource::Eightfold, 'location' => 'Austin, TX, US; Dallas, TX, US; Denver, CO, US; Boston, MA, US; Seattle, WA, US (+2 more)', 'remoteStatus' => JobRemoteStatus::Hybrid, 'sourceMetadata' => ['floridaListed' => true]])->accepted)->toBeTrue()
+        ->and(policyDecision(['source' => JobDiscoverySource::Eightfold, 'location' => 'Austin, TX, US; Dallas, TX, US; Denver, CO, US; Boston, MA, US; Seattle, WA, US (+2 more)', 'remoteStatus' => JobRemoteStatus::Hybrid, 'sourceMetadata' => ['floridaListed' => false]])->accepted)->toBeFalse()
+        // Remote with a US location listed only after five non-US ones.
+        ->and(policyDecision(['source' => JobDiscoverySource::Eightfold, 'location' => $shown, 'sourceMetadata' => ['usLocationListed' => true]])->accepted)->toBeTrue()
+        ->and(policyDecision(['source' => JobDiscoverySource::Eightfold, 'location' => $shown, 'sourceMetadata' => ['usLocationListed' => false]])->accepted)->toBeFalse();
 });

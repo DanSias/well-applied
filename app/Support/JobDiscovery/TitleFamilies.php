@@ -4,8 +4,9 @@ namespace App\Support\JobDiscovery;
 
 /**
  * The deterministic title-family gate: a title is a target role when it names a specialization directly followed by
- * "engineer" or "developer" ("Backend Developer", "Senior Full-Stack Engineer", "Laravel Engineer"). Specializations and
- * role nouns live in config/job_discovery.php (`search.title_families`).
+ * "engineer" or "developer" ("Backend Developer", "Senior Full-Stack Engineer", "Laravel Engineer"), reads
+ * "Developer, Integrations", or contains one of a few explicit developer-facing phrases ("Solutions Engineer").
+ * Everything lives in config/job_discovery.php (`search.title_families`).
  *
  * Whole-word matching only, and a bare "Engineer" never matches without a specialization. Whether a role is really
  * product work, and which stack it needs, is the qualification pipeline's job, not this gate's.
@@ -48,6 +49,23 @@ final class TitleFamilies
         ));
         $rolePattern = implode('|', array_map(fn (string $role) => preg_quote($role, '~'), $roles));
 
-        return '~(?<![\p{L}\p{N}_])(?:'.$specializationPattern.')[\s\-]+(?:'.$rolePattern.')(?![\p{L}\p{N}_])~iu';
+        $boundaryStart = '(?<![\p{L}\p{N}_])';
+        $boundaryEnd = '(?![\p{L}\p{N}_])';
+        $alternatives = [
+            $boundaryStart.'(?:'.$specializationPattern.')[\s\-]+(?:'.$rolePattern.')'.$boundaryEnd,
+        ];
+
+        // "Developer, Integrations": role first, then a comma, then one of the listed specializations.
+        $reversed = array_values(array_filter((array) ($config['reversed_specializations'] ?? []), 'is_string'));
+        if ($reversed !== []) {
+            $alternatives[] = $boundaryStart.'(?:'.$rolePattern.')\s*,\s*(?:'.implode('|', array_map(fn (string $term) => preg_quote($term, '~'), $reversed)).')'.$boundaryEnd;
+        }
+
+        foreach (array_filter((array) ($config['phrases'] ?? []), 'is_string') as $phrase) {
+            $words = preg_split('/\s+/u', trim($phrase)) ?: [];
+            $alternatives[] = $boundaryStart.implode('[\s\-]+', array_map(fn (string $word) => preg_quote($word, '~'), $words)).$boundaryEnd;
+        }
+
+        return '~'.implode('|', $alternatives).'~iu';
     }
 }

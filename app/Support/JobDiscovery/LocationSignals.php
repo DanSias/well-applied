@@ -17,7 +17,8 @@ final class LocationSignals
 
     public static function mentionsFlorida(string $text): bool
     {
-        return preg_match('/\bflorida\b|,\s*FL\b|\bFL\s*(?:,|$)/i', $text) === 1;
+        // "Miami, FL", "FL, US", "Remote - FL", and a ZIP-coded "Tampa FL 33602".
+        return preg_match('/\bflorida\b|,\s*FL\b|\bFL\s*(?:,|$)|\bFL\s+\d{5}\b/i', $text) === 1;
     }
 
     public static function mentionsUs(string $text): bool
@@ -29,6 +30,9 @@ final class LocationSignals
 
     public static function mentionsNonUsPlace(string $text): bool
     {
+        // New Mexico is a US state, not the country Mexico.
+        $text = (string) preg_replace('/\bnew\s+mexico\b/i', ' ', $text);
+
         foreach (self::NON_US_PLACES as $place) {
             if (preg_match('/\b'.preg_quote($place, '/').'\b/i', $text) === 1) {
                 return true;

@@ -70,9 +70,12 @@ A title is accepted when it names a specialization directly followed by `enginee
 interchangeable (`Full Stack`, `Full-Stack`, `Fullstack`): `config/job_discovery.php` → `search.title_families`.
 
 - Specializations: software, software development, web, application, full stack, back end (`backend`, `back-end`), front end,
-  product, integration, api.
+  product, integration(s), api(s). "Developer, Integrations" and "Engineer, APIs" (role first, comma) are also read.
 - Stacks: php, laravel, react (`react.js`, `reactjs`), typescript, javascript, node (`node.js`, `nodejs`).
 - The older `search.keywords` phrases (`software engineer`, `platform engineer`, `data engineer`, …) still apply.
+- Explicit developer-facing phrases, matched whole: Developer Support Engineer, API Support Engineer, Technical Support Engineer,
+  Solutions Engineer. There is no generic `support` or bare `engineer` match, so "Support Engineer" and "Customer Engineer"
+  are still rejected.
 - A bare "Engineer", "Staff Engineer" or "Engineering Manager" is **not** accepted; neither is "Developer Advocate" or
   "Production Engineer". Which stack a role really needs, and whether it is product work, is qualification's job.
 
@@ -92,10 +95,13 @@ Discovery is remote-first (`search.remote_preference = remote_us`). Only explici
 | Hybrid, any other location | rejected, `work_arrangement_not_allowed` |
 | On-site (Florida included, for now) | rejected, `work_arrangement_not_allowed` |
 
-"Florida" means the word `Florida` or a `FL` state token (`Orlando, FL`, `FL,US`); no other state is read as Florida. The
+"Florida" means the word `Florida` or a `FL` state token (`Orlando, FL`, `FL,US`, and a ZIP-coded `Tampa FL 33602`); no other state is read as Florida. "New Mexico" is a US
+state, not the country Mexico. A hybrid role listing only `United States` has no place to be hybrid in, and is rejected like
+any other non-Florida hybrid. The
 patterns live in `LocationSignals`, shared with qualification's eligibility check (`AssessEligibility`) so the two agree.
-Eightfold's prefilter applies the same hybrid rule (`work_arrangement` keeps hybrid positions listing `FL`), though only the
-first few locations of a long list reach the global filter's location text. Qualification, not discovery, decides
+Eightfold's prefilter applies the same hybrid rule (`work_arrangement` keeps hybrid positions listing `FL`), and
+Eightfold candidates carry complete Florida and US signals from every listed location in `sourceMetadata`
+(`floridaListed`, `usLocationListed`), so the display text's five-location cut does not affect the global filter. Qualification, not discovery, decides
 eligibility from the posting text once it has enough information.
 
 Adzuna keeps being ingested. Its postings are 500-character previews with no remote status; they stay marked
@@ -153,7 +159,7 @@ was rejected. No counter is inferred from another. A zero-result attempt is `sta
 
 ## Overview discovery health
 
-Overview shows, per provider, its **last successful attempt** (not a sum of history): age, retrieved, accepted, created,
+Overview shows, per provider, its **last successful attempt** (a Succeeded or Partial attempt; Partial is labelled, with its summary; not a sum of history): age, retrieved, accepted, created,
 updated and filtered counts (with the reasons), plus a failure message when a later attempt failed. A scheduled provider is
 **overdue** when its last success is older than twice `stale_after_hours` (46 hours) or missing; manual-only providers
 (Eightfold unless scheduled) are listed but never flagged. The headline says discovery "has not run recently" or "has not run
