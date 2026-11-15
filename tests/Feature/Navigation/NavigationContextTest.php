@@ -80,6 +80,9 @@ it('lights the index pages of the workflow', function (string $path, string $sec
     expect(navSection($this, $path))->toBe($section);
 })->with([
     'home' => ['/', 'home'],
+    'sources' => ['/sources', 'sources'],
+    'a provider drawer' => ['/sources?provider=jobicy', 'sources'],
+    'filtered candidates' => ['/discovery/rejections', 'sources'],
     'jobs' => ['/jobs', 'jobs'],
     'adding a job' => ['/jobs/create', 'jobs'],
     'opportunities' => ['/opportunities', 'opportunities'],

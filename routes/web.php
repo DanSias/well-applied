@@ -25,6 +25,7 @@ use App\Http\Controllers\ResumeRevisionController;
 use App\Http\Controllers\ResumeVariantController;
 use App\Http\Controllers\ResumeVariantPdfController;
 use App\Http\Controllers\ResumeVariantPreviewController;
+use App\Http\Controllers\SourcesController;
 use App\Http\Controllers\SubmissionController;
 use App\Http\Controllers\SubmissionEventController;
 use App\Http\Controllers\TailoredResumeController;
@@ -32,6 +33,7 @@ use App\Http\Middleware\AllowLongRunningGeneration;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
+Route::get('/sources', [SourcesController::class, 'index'])->name('sources.index');
 Route::get('/discovery/rejections', [DiscoveryRejectionController::class, 'index'])->name('discovery.rejections.index');
 Route::get('/career-data', [CareerDataController::class, 'index'])->name('career-data.index');
 Route::get('/career-data/facts/{careerFact}', [CareerDataController::class, 'showFact'])->name('career-data.facts.show');

@@ -219,8 +219,7 @@ it('gives the drawer a provider detail with safe configuration', function () {
     $usajobs = $sources->detail(JobDiscoverySource::Usajobs);
     $eightfold = $sources->detail(JobDiscoverySource::Eightfold);
 
-    expect($usajobs['provider']['provider'])->toBe('usajobs')
-        ->and($usajobs['configuration'])->toMatchArray(['credentials_present' => true, 'category' => '2210', 'feed_host' => 'data.usajobs.gov'])
+    expect($usajobs['configuration'])->toMatchArray(['credentials_present' => true, 'category' => '2210', 'feed_host' => 'data.usajobs.gov'])
         ->and($eightfold['configuration']['tenants'])->toBe([['slug' => 'acme', 'company' => 'Acme', 'host' => 'acme.eightfold.ai', 'enabled' => true]])
         ->and($eightfold['configuration']['budget'])->toHaveKey('max_search_requests')
         ->and($eightfold['history']['attempts'])->toBe([]);

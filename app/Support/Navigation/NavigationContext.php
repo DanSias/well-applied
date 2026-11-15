@@ -11,7 +11,7 @@ use Illuminate\Http\Request;
  * Which part of the header a page belongs to, decided from the route and, for anything about one job, from that job's
  * disposition: never from the address text, and never from the link that was clicked to get there.
  *
- * - Home, Jobs (the list and adding one), Opportunities (the list and its workspaces) and Applications (the list of
+ * - Home, Sources (discovery providers and their filtered candidates), Jobs (the list and adding one), Opportunities (the list and its workspaces) and Applications (the list of
  *   recorded applications) are themselves.
  * - Every page about one job (its page, analysis, match, resumes, and the browser inspection record) belongs to the
  *   workflow stage the job is in: Opportunities while it is pursued, Jobs otherwise. So the preparation pages of a
@@ -21,6 +21,8 @@ use Illuminate\Http\Request;
 final class NavigationContext
 {
     public const HOME = 'home';
+
+    public const SOURCES = 'sources';
 
     public const JOBS = 'jobs';
 
@@ -39,8 +41,9 @@ final class NavigationContext
         $name = $route?->getName() ?? '';
 
         $section = match (true) {
-            // Discovery health lives on Overview; its rejected-candidates list is a drill-down of it.
-            $name === 'home' || str_starts_with($name, 'discovery.') => self::HOME,
+            $name === 'home' => self::HOME,
+            // Sources is where discovery is observed; its filtered-candidates list is a drill-down of it.
+            str_starts_with($name, 'sources.') || str_starts_with($name, 'discovery.') => self::SOURCES,
             $name === 'applications.index' => self::APPLICATIONS,
             str_starts_with($name, 'opportunities.') => self::OPPORTUNITIES,
             str_starts_with($name, 'career-data.') || str_starts_with($name, 'resume-profiles.') => self::PROFILE,

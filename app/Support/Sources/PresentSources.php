@@ -166,16 +166,14 @@ final class PresentSources
     }
 
     /**
-     * The drawer's content: the provider's summary, read-only configuration, and a page of its history.
+     * The drawer's lazily loaded content: read-only configuration and a page of the provider's history. Its summary and
+     * latest attempts are already in `providers()`, so they are not fetched a second time.
      *
      * @return array<string, mixed>
      */
     public function detail(JobDiscoverySource $source, int $historyPage = 1): array
     {
-        $summary = collect($this->providers())->firstWhere('provider', $source->value);
-
         return [
-            'provider' => $summary,
             'configuration' => $this->configuration($source),
             'history' => $this->history($source, $historyPage),
         ];
@@ -268,7 +266,7 @@ final class PresentSources
      *
      * @return array<string, mixed>
      */
-    private function configuration(JobDiscoverySource $source): array
+    public function configuration(JobDiscoverySource $source): array
     {
         $host = fn (string $key) => parse_url((string) config($key), PHP_URL_HOST) ?: null;
 

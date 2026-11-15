@@ -8,8 +8,9 @@ import { cn } from '@/lib/utils';
 import { home } from '@/routes';
 
 /**
- * App shell: a sticky header with the product name, the job-search navigation (Home, Jobs, Opportunities, Applications)
- * and, at the right, the profile menu holding personal career information, over a single content column. The Browser Inspector status sits quietly in
+ * App shell: a sticky header with the product name, the job-search navigation (Home, Sources, Jobs, Opportunities, Applications)
+ * and, at the right, the profile menu holding personal career information, over a single content column. Five items do not fit beside the name and profile menu on a phone, so below `md` the
+ * navigation drops to its own row instead of clipping. The Browser Inspector status sits quietly in
  * the footer. Every screen renders inside it, so global chrome changes happen
  * here once.
  */
@@ -24,7 +25,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
     return (
         <div className="bg-canvas text-fg min-h-screen">
             <header className="border-line bg-canvas/90 sticky top-0 z-20 border-b backdrop-blur-sm">
-                <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-4 py-2 sm:gap-4 sm:px-6">
+                <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 px-4 py-2 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-x-4 sm:px-6">
                     <div className="flex min-w-0 items-center justify-start">
                         <Link
                             href={home.url()}
@@ -44,7 +45,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
                     </div>
                     <nav
                         aria-label="Primary"
-                        className="flex items-center gap-0.5 text-sm sm:gap-1"
+                        className="order-3 col-span-2 -mx-1 flex max-w-full items-center gap-0.5 overflow-x-auto px-1 text-sm sm:gap-1 md:order-none md:col-span-1 md:mx-0 md:overflow-visible md:px-0"
                     >
                         {PRIMARY_NAV.map((item) => {
                             const isActive = active === item.key;

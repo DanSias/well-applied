@@ -11,12 +11,14 @@ describe('primary navigation', () => {
     it('is the job-search workflow, in order', () => {
         expect(PRIMARY_NAV.map((i) => i.label)).toEqual([
             'Home',
+            'Sources',
             'Jobs',
             'Opportunities',
             'Applications',
         ]);
         expect(PRIMARY_NAV.map((i) => i.href)).toEqual([
             '/',
+            '/sources',
             '/jobs',
             '/opportunities',
             '/applications',
@@ -32,7 +34,7 @@ describe('primary navigation', () => {
 });
 
 describe('active primary destination', () => {
-    it.each([['home'], ['jobs'], ['opportunities'], ['applications']])(
+    it.each([['home'], ['sources'], ['jobs'], ['opportunities'], ['applications']])(
         'lights %s when the server says so',
         (section) => {
             expect(activePrimary(section)).toBe(section);
