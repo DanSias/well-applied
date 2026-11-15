@@ -50,7 +50,9 @@ final class PresentDiscoveryHealth
     private function provider(JobDiscoverySource $source, bool $scheduled): array
     {
         $latest = $this->latest($source);
-        $success = $this->latest($source, DiscoveryStatus::Succeeded);
+        // A Partial attempt did real work (one tenant or page failed, the rest kept its counts), so it counts as the last
+        // success; it is labelled as partial rather than passed off as a clean run.
+        $success = $this->latest($source, [DiscoveryStatus::Succeeded, DiscoveryStatus::Partial]);
         $reference = $success === null ? null : ($success->finished_at ?? $success->started_at);
         $ageHours = $reference === null ? null : (int) floor($reference->diffInHours(now(), true));
         $staleAfter = (int) config('job_discovery.schedule.stale_after_hours') * self::STALE_MULTIPLIER;
@@ -62,6 +64,8 @@ final class PresentDiscoveryHealth
             // Only a provider the scheduler runs can be "overdue"; a manual-only one is just "last run".
             'stale' => $scheduled && ($ageHours === null || $ageHours >= $staleAfter),
             'last_success' => $success === null ? null : [
+                'status' => $success->status->value,
+                'partial_summary' => $success->status === DiscoveryStatus::Partial ? $success->failure_message : null,
                 'at' => $reference?->toIso8601String(),
                 'age_hours' => $ageHours,
                 'retrieved' => $success->candidates_retrieved,
@@ -85,11 +89,14 @@ final class PresentDiscoveryHealth
         ];
     }
 
-    private function latest(JobDiscoverySource $source, ?DiscoveryStatus $status = null): ?DiscoveryProviderAttempt
+    /**
+     * @param  list<DiscoveryStatus>|null  $statuses
+     */
+    private function latest(JobDiscoverySource $source, ?array $statuses = null): ?DiscoveryProviderAttempt
     {
         return DiscoveryProviderAttempt::query()
             ->where('provider', $source)
-            ->when($status !== null, fn ($query) => $query->where('status', $status))
+            ->when($statuses !== null, fn ($query) => $query->whereIn('status', $statuses))
             ->orderByDesc('started_at')
             ->orderByDesc('id')
             ->first();

@@ -11,6 +11,8 @@ function provider(
         scheduled: true,
         stale: false,
         last_success: {
+            status: 'succeeded',
+            partial_summary: null,
             at: '2026-11-14T13:00:00Z',
             age_hours: 3,
             retrieved: 100,
@@ -80,6 +82,22 @@ describe('discoveryHeadline', () => {
 });
 
 describe('providerBadge', () => {
+    it('labels a partial last success as Partial, and Overdue still wins when stale', () => {
+        const partial = {
+            ...provider({}).last_success!,
+            status: 'partial' as const,
+            partial_summary: 'one tenant failed',
+        };
+
+        expect(providerBadge(provider({ last_success: partial })).text).toBe(
+            'Partial',
+        );
+        expect(
+            providerBadge(provider({ last_success: partial, stale: true }))
+                .text,
+        ).toBe('Overdue');
+    });
+
     it('distinguishes never-succeeded, overdue, recent and manual-only', () => {
         expect(providerBadge(provider({ last_success: null })).text).toBe(
             'Never succeeded',

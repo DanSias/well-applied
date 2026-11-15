@@ -55,6 +55,9 @@ export type DiscoveryProviderHealth = {
     /** Scheduled, and its last success is missing or older than twice the daily cadence. */
     stale: boolean;
     last_success: {
+        /** `partial` means some of the provider's work failed but the rest was kept. */
+        status: 'succeeded' | 'partial';
+        partial_summary: string | null;
         at: string | null;
         age_hours: number | null;
         retrieved: number | null;

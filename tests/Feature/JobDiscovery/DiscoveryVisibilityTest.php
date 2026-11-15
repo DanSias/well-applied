@@ -66,6 +66,25 @@ it('is not stale once every scheduled provider has succeeded recently', function
     $this->get('/')->assertInertia(fn (Assert $page) => $page->where('discovery.stale', false));
 });
 
+it('treats a Partial attempt as the last success, labelled partial, and keeps a later failure visible', function () {
+    visAttempt(JobDiscoverySource::Eightfold, DiscoveryStatus::Partial, 3, ['candidates_retrieved' => 10, 'candidates_accepted' => 4, 'failure_message' => 'Eightfold: one tenant degraded.']);
+
+    $this->get('/')->assertInertia(fn (Assert $page) => $page
+        ->where('discovery.providers', fn ($providers) => collect($providers)->contains(fn ($p) => $p['provider'] === 'eightfold'
+            && $p['last_success']['status'] === 'partial'
+            && $p['last_success']['partial_summary'] === 'Eightfold: one tenant degraded.'
+            && $p['last_success']['accepted'] === 4
+            && $p['latest']['is_last_success'] === true)));
+
+    visAttempt(JobDiscoverySource::Eightfold, DiscoveryStatus::Failed, 1, ['failure_message' => 'Eightfold: every tenant failed.']);
+
+    $this->get('/')->assertInertia(fn (Assert $page) => $page
+        ->where('discovery.providers', fn ($providers) => collect($providers)->contains(fn ($p) => $p['provider'] === 'eightfold'
+            && $p['last_success']['status'] === 'partial'
+            && $p['latest']['status'] === 'failed'
+            && $p['latest']['is_last_success'] === false)));
+});
+
 it('keeps the last success visible and reports a failure since', function () {
     visAttempt(JobDiscoverySource::Jobicy, DiscoveryStatus::Succeeded, 30, ['candidates_retrieved' => 100, 'candidates_accepted' => 9]);
     visAttempt(JobDiscoverySource::Jobicy, DiscoveryStatus::Failed, 1, ['failure_message' => 'Jobicy request failed with HTTP status 500.']);

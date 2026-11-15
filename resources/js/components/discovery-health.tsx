@@ -42,7 +42,10 @@ function ProviderRow({ provider }: { provider: DiscoveryProviderHealth }) {
                     <Badge tone={badge.tone}>{badge.text}</Badge>
                     {success?.at && (
                         <span title={success.at}>
-                            Last succeeded {ageLabel(success.age_hours)}
+                            {success.status === 'partial'
+                                ? 'Last completed (partial)'
+                                : 'Last succeeded'}{' '}
+                            {ageLabel(success.age_hours)}
                             <span className="sr-only">
                                 {' '}
                                 ({relativeTimeFromNow(success.at)})
@@ -75,6 +78,12 @@ function ProviderRow({ provider }: { provider: DiscoveryProviderHealth }) {
                     {success.filtered_by_reason
                         .map((r) => `${r.label} ${r.count}`)
                         .join(' · ')}
+                </p>
+            )}
+
+            {success?.status === 'partial' && success.partial_summary && (
+                <p className="text-fg-subtle mt-2 text-xs break-words">
+                    Partial: {success.partial_summary}
                 </p>
             )}
 

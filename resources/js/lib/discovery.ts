@@ -61,6 +61,9 @@ export function providerBadge(provider: DiscoveryProviderHealth): {
     if (provider.stale) {
         return { tone: 'warn', text: 'Overdue' };
     }
+    if (provider.last_success.status === 'partial') {
+        return { tone: 'warn', text: 'Partial' };
+    }
 
     return provider.scheduled
         ? { tone: 'ok', text: 'Recent' }
