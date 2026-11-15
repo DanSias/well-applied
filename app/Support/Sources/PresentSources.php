@@ -174,6 +174,7 @@ final class PresentSources
     public function detail(JobDiscoverySource $source, int $historyPage = 1): array
     {
         return [
+            'provider' => $source->value,
             'configuration' => $this->configuration($source),
             'history' => $this->history($source, $historyPage),
         ];
@@ -197,7 +198,9 @@ final class PresentSources
             'last_attempt' => $latest === null ? null : $this->attempt($latest),
             'last_success' => $success === null ? null : $this->attempt($success),
             'last_failure' => $failure === null ? null : $this->attempt($failure),
-            'needs_attention' => $health['stale']
+            // A source that has never run is not in trouble, it is new; overdue only means something once it has succeeded.
+            'overdue' => $health['stale'] && $success !== null,
+            'needs_attention' => ($health['stale'] && $success !== null)
                 || ($latest !== null && in_array($latest->status, [DiscoveryStatus::Failed, DiscoveryStatus::Partial], true)),
         ];
     }
