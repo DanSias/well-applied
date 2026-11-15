@@ -227,3 +227,23 @@ it('gives the drawer a provider detail with safe configuration', function () {
     $json = json_encode([$sources->present(), $usajobs, $eightfold, $sources->detail(JobDiscoverySource::Adzuna)], JSON_THROW_ON_ERROR);
     expect($json)->not->toContain('SECRET')->not->toContain('private.person')->not->toContain('nope');
 });
+
+it('reports a never-run automatic source separately from failures, and drops it once it has an attempt', function () {
+    $before = (new PresentSources)->summary();
+    $neverRun = collect((new PresentSources)->providers())->filter(fn (array $p) => $p['never_run'])->pluck('provider')->all();
+
+    expect($neverRun)->toContain('himalayas', 'jobicy')
+        ->and($before['never_run_providers'])->toBe($neverRun)
+        ->and($before['never_run'])->toBe(count($neverRun))
+        ->and($before['needs_attention'])->toBe(0);
+
+    foreach ((new PresentSources)->providers() as $provider) {
+        // Only an automatic, configured source with no attempt qualifies; anything else is just new or unavailable.
+        expect($provider['never_run'])->toBe($provider['configured'] && $provider['effective_schedule'] === 'automatic');
+    }
+
+    srcAttempt(JobDiscoverySource::Himalayas, DiscoveryStatus::Succeeded, 1);
+
+    expect(srcProvider('himalayas')['never_run'])->toBeFalse()
+        ->and((new PresentSources)->summary()['never_run_providers'])->not->toContain('himalayas');
+});

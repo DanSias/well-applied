@@ -52,6 +52,12 @@ export function providerBadge(provider: DiscoveryProviderHealth): {
     tone: Tone;
     text: string;
 } {
+    if (provider.last_success === null && provider.latest === null) {
+        return {
+            tone: provider.scheduled ? 'warn' : 'neutral',
+            text: 'Never run',
+        };
+    }
     if (provider.last_success === null) {
         return {
             tone: provider.scheduled ? 'warn' : 'neutral',

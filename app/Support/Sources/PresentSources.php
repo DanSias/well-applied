@@ -66,6 +66,11 @@ final class PresentSources
             array_filter($providers, fn (array $p) => $p['needs_attention']),
         ));
 
+        $neverRun = array_values(array_map(
+            fn (array $p) => $p['provider'],
+            array_filter($providers, fn (array $p) => $p['never_run']),
+        ));
+
         $lastRun = DiscoveryRun::query()->orderByDesc('id')->first();
         $count = fn (string $schedule) => count(array_filter($providers, fn (array $p) => $p['effective_schedule'] === $schedule));
 
@@ -79,6 +84,8 @@ final class PresentSources
             'unavailable' => $count(DiscoveryProviderInventory::SCHEDULE_UNAVAILABLE),
             'needs_attention' => count($attention),
             'attention_providers' => $attention,
+            'never_run' => count($neverRun),
+            'never_run_providers' => $neverRun,
             'runs_in_window' => DiscoveryRun::query()->where('started_at', '>=', $since)->count(),
             'last_run_at' => $lastRun === null ? null : ($lastRun->finished_at ?? $lastRun->started_at)?->toIso8601String(),
             'ever_ran' => $lastRun !== null,
@@ -200,6 +207,11 @@ final class PresentSources
             'last_failure' => $failure === null ? null : $this->attempt($failure),
             // A source that has never run is not in trouble, it is new; overdue only means something once it has succeeded.
             'overdue' => $health['stale'] && $success !== null,
+            // Never run: an automatic, configured source with no attempt at all. Not a failure, so it stays out of
+            // needs_attention, but it is reported on its own so a scheduler that never fired does not go unnoticed.
+            'never_run' => $latest === null
+                && $described['configured']
+                && $described['effective_schedule'] === DiscoveryProviderInventory::SCHEDULE_AUTOMATIC,
             'needs_attention' => ($health['stale'] && $success !== null)
                 || ($latest !== null && in_array($latest->status, [DiscoveryStatus::Failed, DiscoveryStatus::Partial], true)),
         ];

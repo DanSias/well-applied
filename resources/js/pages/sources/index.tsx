@@ -9,6 +9,7 @@ import { Card, SectionTitle } from '@/components/ui/surface';
 import AppShell from '@/layouts/app-shell';
 import {
     attentionNeeded,
+    neverRunProviders,
     buildSourcesParams,
     setupNeeded,
 } from '@/lib/sources';
@@ -193,6 +194,7 @@ export default function SourcesIndex({
 
     const setup = setupNeeded(providers);
     const attention = attentionNeeded(providers, summary);
+    const neverRun = neverRunProviders(providers, summary);
 
     return (
         <AppShell>
@@ -236,9 +238,12 @@ export default function SourcesIndex({
                             label="Needs attention"
                             value={summary.needs_attention}
                             note={
-                                attention.length > 0
+                                (attention.length > 0
                                     ? `Failing, partial or overdue: ${attention.join(', ')}`
-                                    : 'No failures or overdue sources'
+                                    : 'No failures or overdue sources') +
+                                (neverRun.length > 0
+                                    ? `. Not run yet: ${neverRun.join(', ')}`
+                                    : '')
                             }
                         />
                         <SummaryItem

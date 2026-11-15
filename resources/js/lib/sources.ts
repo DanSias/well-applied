@@ -56,6 +56,15 @@ export function outcomeChip(attempt: SourceAttempt | null): Chip {
         : statusChip(attempt.status, attempt.retrieved === 0);
 }
 
+/** The provider's outcome chip: a never-run automatic source is flagged as warn, a manual one is just new. */
+export function providerOutcomeChip(provider: SourceProvider): Chip {
+    const chip = outcomeChip(provider.last_attempt);
+
+    return provider.last_attempt === null && provider.never_run
+        ? { ...chip, tone: 'warn' }
+        : chip;
+}
+
 /** "42" or "—" for a counter that was never recorded. Never turns null into 0. */
 export function count(value: number | null): string {
     return value === null ? '—' : String(value);
@@ -142,6 +151,15 @@ export function attentionNeeded(
 ): string[] {
     return providers
         .filter((p) => summary.attention_providers.includes(p.provider))
+        .map((p) => p.label);
+}
+
+export function neverRunProviders(
+    providers: SourceProvider[],
+    summary: SourcesSummary,
+): string[] {
+    return providers
+        .filter((p) => summary.never_run_providers.includes(p.provider))
         .map((p) => p.label);
 }
 

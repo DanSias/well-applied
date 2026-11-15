@@ -100,8 +100,28 @@ describe('providerBadge', () => {
 
     it('distinguishes never-succeeded, overdue, recent and manual-only', () => {
         expect(providerBadge(provider({ last_success: null })).text).toBe(
-            'Never succeeded',
+            'Never run',
         );
+        expect(providerBadge(provider({ last_success: null })).tone).toBe(
+            'warn',
+        );
+        expect(
+            providerBadge(
+                provider({
+                    last_success: null,
+                    latest: {
+                        status: 'failed',
+                        at: '2026-11-15T10:00:00Z',
+                        failure: 'boom',
+                        is_last_success: false,
+                    },
+                }),
+            ).text,
+        ).toBe('Never succeeded');
+        expect(
+            providerBadge(provider({ last_success: null, scheduled: false }))
+                .tone,
+        ).toBe('neutral');
         expect(providerBadge(provider({ stale: true })).text).toBe('Overdue');
         expect(providerBadge(provider()).text).toBe('Recent');
         expect(providerBadge(provider({ scheduled: false })).text).toBe(

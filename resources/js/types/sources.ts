@@ -50,6 +50,8 @@ export type SourceProvider = {
     stale: boolean;
     /** Scheduled, has succeeded before, and its last success is more than twice the normal cadence old. */
     overdue: boolean;
+    /** Automatic and configured, but no attempt has ever been made. Not a failure. */
+    never_run: boolean;
     needs_attention: boolean;
     last_attempt: SourceAttempt | null;
     last_success: SourceAttempt | null;
@@ -68,6 +70,8 @@ export type SourcesSummary = {
     unavailable: number;
     needs_attention: number;
     attention_providers: string[];
+    never_run: number;
+    never_run_providers: string[];
     runs_in_window: number;
     last_run_at: string | null;
     ever_ran: boolean;

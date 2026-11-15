@@ -10,6 +10,7 @@ import {
     filteredCandidatesHref,
     formatDuration,
     outcomeChip,
+    providerOutcomeChip,
     retrievedLabel,
     runTotals,
     scheduleChip,
@@ -48,6 +49,7 @@ const provider = (over: Partial<SourceProvider> = {}): SourceProvider => ({
     manual_run_available: true,
     stale: false,
     overdue: false,
+    never_run: false,
     needs_attention: false,
     last_attempt: null,
     last_success: null,
@@ -87,6 +89,19 @@ describe('provider chips keep availability, schedule and outcome apart', () => {
             text: 'Failed',
             tone: 'bad',
         });
+    });
+
+    it('flags a never-run automatic source as a warning, and leaves a manual one neutral', () => {
+        expect(
+            providerOutcomeChip(
+                provider({ last_attempt: null, never_run: true }),
+            ),
+        ).toEqual({ text: 'Never run', tone: 'warn' });
+        expect(
+            providerOutcomeChip(
+                provider({ last_attempt: null, never_run: false }),
+            ),
+        ).toEqual({ text: 'Never run', tone: 'neutral' });
     });
 
     it('does not call a failure with no counters a zero-result success', () => {

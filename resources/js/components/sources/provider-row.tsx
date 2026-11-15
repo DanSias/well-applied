@@ -4,7 +4,7 @@ import { isPlainClick } from '@/lib/opportunities-list';
 import {
     availabilityChip,
     count,
-    outcomeChip,
+    providerOutcomeChip,
     retrievedLabel,
     scheduleChip,
 } from '@/lib/sources';
@@ -41,7 +41,7 @@ export function ProviderRow({
     const availability = availabilityChip(provider);
     const schedule = scheduleChip(provider);
     const attempt = provider.last_attempt;
-    const outcome = outcomeChip(attempt);
+    const outcome = providerOutcomeChip(provider);
     const overdue = provider.overdue;
     // Show the last success separately only when the last attempt was not it.
     const lastSuccess =
