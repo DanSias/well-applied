@@ -59,7 +59,7 @@ final class PresentDiscoveryHealth
 
         return [
             'provider' => $source->value,
-            'label' => ucfirst($source->value),
+            'label' => $source === JobDiscoverySource::Usajobs ? 'USAJOBS' : ucfirst($source->value),
             'scheduled' => $scheduled,
             // Only a provider the scheduler runs can be "overdue"; a manual-only one is just "last run".
             'stale' => $scheduled && ($ageHours === null || $ageHours >= $staleAfter),

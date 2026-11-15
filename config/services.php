@@ -165,4 +165,12 @@ return [
         'base_url' => env('JOBICY_BASE_URL', 'https://jobicy.com/api/v2/remote-jobs'),
     ],
 
+    // USAJOBS (developer.usajobs.gov): a free API key, plus the email address the key was registered with sent as the
+    // User-Agent. Both are required; neither is ever logged. See App\Support\JobDiscovery\Providers\UsajobsDiscoveryProvider.
+    'usajobs' => [
+        'base_url' => env('USAJOBS_BASE_URL', 'https://data.usajobs.gov/api/Search'),
+        'api_key' => env('USAJOBS_API_KEY'),
+        'user_agent' => env('USAJOBS_USER_AGENT'),
+    ],
+
 ];

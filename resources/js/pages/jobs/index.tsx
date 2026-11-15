@@ -67,6 +67,7 @@ const DISCOVERY_SOURCE_LABELS: Record<string, string> = {
     adzuna: 'Adzuna',
     jobicy: 'Jobicy',
     eightfold: 'Eightfold',
+    usajobs: 'USAJOBS',
 };
 
 function discoverySourceLabel(source: string): string {

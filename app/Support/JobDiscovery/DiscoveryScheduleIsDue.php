@@ -6,6 +6,7 @@ use App\Enums\DiscoveryStatus;
 use App\Enums\JobDiscoverySource;
 use App\Models\DiscoveryProviderAttempt;
 use App\Support\JobDiscovery\Providers\EightfoldDiscoveryProvider;
+use App\Support\JobDiscovery\Providers\UsajobsDiscoveryProvider;
 
 /**
  * The per-provider eligibility check bootstrap/app.php's schedule
@@ -73,6 +74,9 @@ final class DiscoveryScheduleIsDue
                 // Opt-in: scheduling stays off until a manual run has been reviewed.
                 JobDiscoverySource::Eightfold => EightfoldDiscoveryProvider::isActive()
                     && config('job_discovery.eightfold.scheduled') === true,
+                // Opt-in as well: credentials present AND scheduling switched on after a reviewed manual run.
+                JobDiscoverySource::Usajobs => UsajobsDiscoveryProvider::isActive()
+                    && config('job_discovery.usajobs.scheduled') === true,
                 default => true,
             },
         ));

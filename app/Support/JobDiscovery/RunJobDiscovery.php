@@ -24,6 +24,7 @@ use App\Support\JobDiscovery\Providers\JobicyDiscoveryProvider;
 use App\Support\JobDiscovery\Providers\ProviderDiscoveryContext;
 use App\Support\JobDiscovery\Providers\ReportsPartialFailure;
 use App\Support\JobDiscovery\Providers\ReportsRetrievalDiagnostics;
+use App\Support\JobDiscovery\Providers\UsajobsDiscoveryProvider;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -66,6 +67,7 @@ final class RunJobDiscovery
         ?AshbyCanonicalAdapter $ashby = null,
         ?JobicyDiscoveryProvider $jobicy = null,
         ?EightfoldDiscoveryProvider $eightfold = null,
+        ?UsajobsDiscoveryProvider $usajobs = null,
     ) {
         $providers = [
             JobDiscoverySource::Himalayas->value => $himalayas ?? new HimalayasDiscoveryProvider,
@@ -79,6 +81,14 @@ final class RunJobDiscovery
         $eightfold ??= EightfoldDiscoveryProvider::isActive() ? new EightfoldDiscoveryProvider : null;
         if ($eightfold !== null) {
             $providers[JobDiscoverySource::Eightfold->value] = $eightfold;
+        }
+
+        // Registered only when both USAJOBS credentials are configured (an injected instance always registers), so an
+        // install without them behaves exactly as before. Routine scheduling is a separate opt-in
+        // (see DiscoveryScheduleIsDue); a manual `discovery:run` runs it once registered.
+        $usajobs ??= UsajobsDiscoveryProvider::isActive() ? new UsajobsDiscoveryProvider : null;
+        if ($usajobs !== null) {
+            $providers[JobDiscoverySource::Usajobs->value] = $usajobs;
         }
         $this->providers = $providers;
 

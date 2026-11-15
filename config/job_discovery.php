@@ -83,6 +83,11 @@ return [
             'firmware', 'compiler',
         ],
 
+        // US states where hybrid / telework-eligible work is acceptable (the same Florida policy LocationSignals applies to
+        // commercial postings). USAJOBS uses it to also search those states and to accept telework-eligible postings
+        // located there; a search profile opts in by naming the region in its allowed locations. Empty = remote only.
+        'hybrid_regions' => ['Florida'],
+
         // 'remote_us' or 'any' — see FilterDiscoveredCandidates and docs/job-discovery.md "Remote and location policy".
         'remote_preference' => 'remote_us',
 
@@ -214,6 +219,43 @@ return [
     | Microsoft is configured but disabled: it returned HTTP 429 after only a
     | handful of requests during the feasibility spike.
     */
+    /*
+    | USAJOBS (federal) discovery — see docs/job-discovery.md "USAJOBS". Credentials live in config/services.php; the
+    | provider is registered only when both are set.
+    |
+    |   - scheduled:    whether the hourly `discovery:run --due` schedule may run it. OFF until a first manual run has
+    |                   been reviewed.
+    |   - category:     occupational series searched (2210 = Information Technology Management). Not every 2210 opening
+    |                   is a software role; the title gate decides.
+    |   - hiring_path:  USAJOBS "who may apply" path requested; `public` = open to the general public. Null = no filter.
+    |   - per_page / max_pages: the hard request bound (per_page x max_pages results at most per run).
+    |   - excluded_title_patterns: FEDERAL-ONLY title exclusions (supervisory roles), checked before anything else.
+    |   - title_patterns: FEDERAL-ONLY title patterns (regexes, case-insensitive) accepted in addition to the commercial
+    |                   title gate, and only for USAJOBS candidates. Deliberately narrow: "IT Specialist" alone is not
+    |                   a target, only the application-software specialty.
+    |   - Hybrid regions come from `search.hybrid_regions`, not from this block; `max_pages` is the request ceiling for the
+    |                   whole run, shared by the remote branch and each region branch.
+    */
+    'usajobs' => [
+        'scheduled' => (bool) env('USAJOBS_DISCOVERY_SCHEDULED', false),
+        'category' => '2210',
+        'hiring_path' => 'public',
+        'per_page' => 50,
+        'max_pages' => 3,
+        // FEDERAL-ONLY exclusions, checked first: supervisory postings are management, not the individual-contributor
+        // software role being searched for (e.g. "Supervisory IT Specialist (APPSW)").
+        'excluded_title_patterns' => [
+            '\\bsupervisory\\b',
+            '\\bsupervisor\\b',
+        ],
+        // Application-software specialties only. APPSW may sit beside other specialty codes ("APPSW/INFOSEC"), and the
+        // specialty may be spelled out. A bare "IT Specialist", INFOSEC-only, SYSADMIN or CUSTSPT titles do not match.
+        'title_patterns' => [
+            '\\b(?:IT|Information\\s+Technology)\\s+Specialist\\s*\\([^)]*\\bAPPSW\\b[^)]*\\)',
+            '\\b(?:IT|Information\\s+Technology)\\s+Specialist\\s*\\([^)]*\\bApplications?\\s+Software\\b[^)]*\\)',
+        ],
+    ],
+
     'eightfold' => [
         'enabled' => (bool) env('EIGHTFOLD_DISCOVERY_ENABLED', true),
         'scheduled' => (bool) env('EIGHTFOLD_DISCOVERY_SCHEDULED', false),
