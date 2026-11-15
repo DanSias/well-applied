@@ -108,6 +108,48 @@ Adzuna keeps being ingested. Its postings are 500-character previews with no rem
 `description_completeness = preview` (the Jobs list shows a preview badge) and qualification will report
 `insufficient_information` for them. No qualification is queued automatically and no description is fabricated.
 
+## USAJOBS (federal)
+
+`UsajobsDiscoveryProvider` searches `https://data.usajobs.gov/api/Search` with the key (`USAJOBS_API_KEY`) and the registered
+email as User-Agent (`USAJOBS_USER_AGENT`), both mapped in `config/services.php` and never logged. It is registered only
+when both are set, so an install without them behaves as before. A direct `retrieve()` without them throws and makes no
+request.
+
+- **Search:** every request is `JobCategoryCode=2210` (configurable, deliberately not widened to 1550/0854, which returned mostly
+  unrelated research and engineering roles), `HiringPath=public`, newest first, `Fields=Full`. Two bounded branches run in
+  order: **remote** (`RemoteIndicator=True`) and, for each hybrid region, **region** (`LocationName=<region>`, e.g. Florida).
+  `max_pages` is the request ceiling for the whole run, shared by all branches (every branch still gets its first page), and
+  `maxResults` caps the combined result. An announcement returned by both branches is one candidate.
+- **Regions come from the search policy, not the provider:** `search.hybrid_regions` (default `['Florida']`, the same hybrid
+  region the commercial policy uses). With no profile in the context every configured region is searched. With a profile,
+  only regions it names in its allowed locations are, so the built-in `remote_us` profiles stay remote-only and a regional
+  profile opts in by naming the region. Profile `any` is one unfiltered branch. There is no commute filtering: a posting that
+  lists Florida anywhere is kept with its agency location data, and qualification or review judges distance.
+- **Identity:** the announcement number (`PositionID`); the control number (`MatchedObjectId`) only as a fallback, and kept in
+  metadata. The same announcement twice (across pages or re-listed) is one candidate.
+- **Remote vs telework:** a posting is Remote only when the announcement's own `RemoteIndicator` (or its "(remote job)"
+  location) says so. Telework eligibility is stored as `teleworkEligible` and never turned into a remote status; a
+  telework-eligible posting keeps an unknown remote status. Because "unknown" normally passes the filter, USAJOBS is the one
+  exception: a non-remote posting is accepted only when it lists a hybrid region (`hybridRegionsListed`, computed over every
+  listed location) AND is telework eligible. Listing the region but not telework eligible is rejected as `onsite`; telework not
+  stated as `telework_not_stated`; no region as `not_remote`. All are `work_arrangement_not_allowed`, with the evidence.
+- **Federal titles:** commercial title rules apply, plus federal-only patterns (`usajobs.title_patterns`) for the
+  application-software specialty: `IT Specialist` / `Information Technology Specialist` with `APPSW` anywhere in the
+  parenthetical (`(APPSW)`, `(APPSW/INFOSEC)`) or `Application(s) Software`. A bare "IT Specialist" and INFOSEC-only, SYSADMIN,
+  CUSTSPT, data-management and similar specialties are `title_not_matching`; supervisory titles are rejected first
+  (`usajobs.excluded_title_patterns`). A mixed specialty such as `(APPSW/SYSADMIN)` is accepted because it names APPSW. Intern, junior, DevOps, SRE, firmware and compiler
+  exclusions still apply, and the patterns never affect other providers.
+- **Preserved fields:** grade range and pay plan, pay ranges (min/max across grades only when they share an interval, raw ranges
+  kept), schedule and offering type, open and closing dates, "who may apply" and hiring-path data **as given**, security
+  clearance, travel, relocation, locations and apply links. Nothing says the user is eligible: eligibility belongs to the
+  announcement's own text and to qualification.
+- **Early-career programs:** a `graduates` or `student` hiring path does not by itself exclude a posting; only the existing
+  title exclusions (intern, junior, entry level, new grad) do. Raw hiring paths are kept for qualification, and a public
+  hiring path does not mean the user is eligible.
+- **Scheduling:** off by default (`USAJOBS_DISCOVERY_SCHEDULED=false`). `php artisan discovery:run --only=usajobs` runs it once.
+- **Counters:** `retrieval_diagnostics` records `raw_entries`, `normalization_dropped`, `pages_fetched` and
+  `duplicate_announcements` and `search_branches`.
+
 ## Rejection reason codes
 
 Stable strings, stored in `discovery_rejections.reason_code` and `discovery_provider_attempts.rejection_counts`
