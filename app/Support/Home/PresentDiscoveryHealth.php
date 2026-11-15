@@ -53,10 +53,17 @@ final class PresentDiscoveryHealth
      */
     public function forProvider(JobDiscoverySource $source, bool $scheduled): array
     {
-        $latest = $this->latest($source);
-        // A Partial attempt did real work (one tenant or page failed, the rest kept its counts), so it counts as the last
-        // success; it is labelled as partial rather than passed off as a clean run.
-        $success = $this->latest($source, [DiscoveryStatus::Succeeded, DiscoveryStatus::Partial]);
+        return $this->fromAttempts($source, $scheduled, $this->latest($source), $this->latestSuccess($source));
+    }
+
+    /**
+     * The same presentation from attempts the caller has already loaded, so a page that needs the full attempts too does
+     * not query them twice.
+     *
+     * @return array<string, mixed>
+     */
+    public function fromAttempts(JobDiscoverySource $source, bool $scheduled, ?DiscoveryProviderAttempt $latest, ?DiscoveryProviderAttempt $success): array
+    {
         $reference = $success === null ? null : ($success->finished_at ?? $success->started_at);
         $ageHours = $reference === null ? null : (int) floor($reference->diffInHours(now(), true));
         $staleAfter = (int) config('job_discovery.schedule.stale_after_hours') * self::STALE_MULTIPLIER;
@@ -91,6 +98,15 @@ final class PresentDiscoveryHealth
                 'is_last_success' => $success !== null && $latest->id === $success->id,
             ],
         ];
+    }
+
+    /**
+     * A Partial attempt did real work (one tenant or page failed, the rest kept its counts), so it counts as the last
+     * success; it is labelled as partial rather than passed off as a clean run.
+     */
+    public function latestSuccess(JobDiscoverySource $source): ?DiscoveryProviderAttempt
+    {
+        return $this->latest($source, [DiscoveryStatus::Succeeded, DiscoveryStatus::Partial]);
     }
 
     /**
