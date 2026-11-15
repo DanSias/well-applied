@@ -18,7 +18,8 @@ use App\Enums\JobRemoteStatus;
  *   1. title names an excluded role identity (excluded_title_role: SRE, DevOps, firmware, compiler)
  *   2. title names a junior/intern role      (excluded_seniority)
  *   3. title is not a target role            (title_not_matching)
- *   4. explicit on-site, or hybrid outside Florida (work_arrangement_not_allowed)
+ *   4. explicit on-site, or hybrid outside Florida (work_arrangement_not_allowed); for USAJOBS, anything the
+ *      announcement does not itself mark remote
  *   5. explicit non-US-only location or country restriction (location_not_allowed)
  *   6. employment type contradicts the criteria (employment_type_not_allowed)
  */
@@ -38,6 +39,11 @@ final class FilterDiscoveredCandidates
             return FilterDecision::reject(DiscoveryRejectionReason::ExcludedTitleRole, $term, 'title', $title);
         }
 
+        // USAJOBS only: supervisory federal titles are management, not the individual-contributor role searched for.
+        if ($candidate->source === JobDiscoverySource::Usajobs && ($term = FederalTitles::excludedTerm($title)) !== null) {
+            return FilterDecision::reject(DiscoveryRejectionReason::ExcludedTitleRole, $term, 'title', $title);
+        }
+
         // Title-only: "mentors junior developers" in a description says nothing about the role's own level.
         if ($criteria->excludedKeywords !== [] && ($term = $this->matchedKeyword($title, $criteria->excludedKeywords)) !== null) {
             return FilterDecision::reject(DiscoveryRejectionReason::ExcludedSeniority, $term, 'title', $title);
@@ -45,7 +51,8 @@ final class FilterDiscoveredCandidates
 
         // Empty keywords = no positive filter = accept everything; empty exclusion lists exclude nothing.
         if ($criteria->keywords !== [] && $this->matchedKeyword($title, $criteria->keywords, pluralRoles: true) === null
-            && ! ($criteria->titleFamilies && TitleFamilies::matches($title))) {
+            && ! ($criteria->titleFamilies && TitleFamilies::matches($title))
+            && ! ($candidate->source === JobDiscoverySource::Usajobs && FederalTitles::matches($title))) {
             return FilterDecision::reject(DiscoveryRejectionReason::TitleNotMatching, null, 'title', $title);
         }
 
@@ -90,6 +97,33 @@ final class FilterDiscoveredCandidates
     }
 
     /**
+     * A non-remote USAJOBS posting: only a telework-eligible posting that lists a configured hybrid region
+     * (`search.hybrid_regions`) passes; an explicit on-site one, or one that names no such region, is rejected.
+     */
+    private function federalArrangementRejection(DiscoveredJobCandidate $candidate, string $location): ?FilterDecision
+    {
+        $regions = array_values(array_filter((array) config('job_discovery.search.hybrid_regions', []), 'is_string'));
+        $listed = array_values(array_intersect($regions, (array) ($candidate->sourceMetadata['hybridRegionsListed'] ?? [])));
+        $telework = $candidate->sourceMetadata['teleworkEligible'] ?? null;
+        $where = $location !== '' ? "; location: {$location}" : '';
+
+        if ($listed !== []) {
+            if ($telework === true) {
+                return null;
+            }
+
+            return self::workArrangement($telework === false ? 'onsite' : 'telework_not_stated', ($telework === false ? 'not telework eligible' : 'telework eligibility not stated').' in '.implode(', ', $listed).$where);
+        }
+
+        return self::workArrangement('not_remote', ($telework === true ? 'telework eligible' : 'no remote designation').$where);
+    }
+
+    private static function workArrangement(string $term, string $evidence): FilterDecision
+    {
+        return FilterDecision::reject(DiscoveryRejectionReason::WorkArrangementNotAllowed, $term, 'remote_status', $evidence);
+    }
+
+    /**
      * The remote-US policy. Only an explicit contradiction rejects:
      *   - on-site, always (Florida included, for now);
      *   - hybrid, unless the location is Florida (a hybrid role with no location stays, as unknown);
@@ -100,6 +134,13 @@ final class FilterDiscoveredCandidates
     private function workplaceRejection(DiscoveredJobCandidate $candidate): ?FilterDecision
     {
         $location = trim((string) $candidate->location);
+
+        // USAJOBS only. Unknown remote status normally passes, but a federal posting is wanted when the announcement itself
+        // says it is remote, or (a hybrid region such as Florida) when it lists that region AND is telework eligible.
+        // Telework eligibility is never stored as remote; it only decides acceptance here.
+        if ($candidate->source === JobDiscoverySource::Usajobs && $candidate->remoteStatus !== JobRemoteStatus::Remote) {
+            return $this->federalArrangementRejection($candidate, $location);
+        }
 
         if ($candidate->remoteStatus === JobRemoteStatus::Onsite) {
             return FilterDecision::reject(DiscoveryRejectionReason::WorkArrangementNotAllowed, 'onsite', 'remote_status', $location !== '' ? "on-site; location: {$location}" : 'on-site');

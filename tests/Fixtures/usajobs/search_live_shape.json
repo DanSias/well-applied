@@ -1,0 +1,755 @@
+{
+  "LanguageCode": "EN",
+  "SearchParameters": {},
+  "SearchResult": {
+    "SearchResultCount": 6,
+    "SearchResultCountAll": 337,
+    "SearchResultItems": [
+      {
+        "MatchedObjectId": "892723000",
+        "MatchedObjectDescriptor": {
+          "PositionID": "27-CIO-13106963",
+          "PositionTitle": "IT Specialist (Network Services)",
+          "PositionURI": "https://www.usajobs.gov:443/job/892723000",
+          "ApplyURI": [
+            "https://www.usajobs.gov:443/job/892723000"
+          ],
+          "PositionLocationDisplay": "Anywhere in the U.S. (remote job)",
+          "PositionLocation": [
+            {
+              "LocationName": "Anywhere in the U.S. (remote job), United States",
+              "CountryCode": "United States",
+              "CityName": "Anywhere in the U.S. (remote job), United States",
+              "Longitude": 0,
+              "Latitude": 0
+            }
+          ],
+          "OrganizationName": "Administrative Office of the U.S. Courts",
+          "DepartmentName": "Judicial Branch",
+          "JobCategory": [
+            {
+              "Name": "Information Technology Management",
+              "Code": "2210"
+            }
+          ],
+          "JobGrade": [
+            {
+              "Code": "AD"
+            }
+          ],
+          "PositionSchedule": [
+            {
+              "Name": "",
+              "Code": "1"
+            }
+          ],
+          "PositionOfferingType": [
+            {
+              "Name": "",
+              "Code": "15317"
+            }
+          ],
+          "QualificationSummary": "[trimmed] Applicants must have demonstrated experience as listed below. This requirement i",
+          "PositionRemuneration": [
+            {
+              "MinimumRange": "102415",
+              "MaximumRange": "191965",
+              "RateIntervalCode": "PA",
+              "Description": "Per Year"
+            }
+          ],
+          "PositionStartDate": "2026-11-13T00:00:00.0000",
+          "PositionEndDate": "2026-11-30T23:59:59.9970",
+          "PublicationStartDate": "2026-11-13T00:00:00.0000",
+          "ApplicationCloseDate": "2026-11-30T23:59:59.9970",
+          "UserArea": {
+            "Details": {
+              "JobSummary": "[trimmed] This position is in the Department of the Chief Information Technology Officer, ",
+              "WhoMayApply": {
+                "Name": "",
+                "Code": ""
+              },
+              "LowGrade": "00",
+              "HighGrade": "00",
+              "PromotionPotential": "00",
+              "Relocation": "False",
+              "HiringPath": [
+                "fed-internal-search"
+              ],
+              "HiringPathDisplay": [
+                "Internal to an agency"
+              ],
+              "MCOTags": [],
+              "TotalOpenings": "1",
+              "AgencyMarketingStatement": "[trimmed] The Administrative Office (AO) of the United States Courts supports, through exc",
+              "TravelCode": "0",
+              "MajorDuties": [
+                "[trimmed] The Information Technology Specialist (Network Services) works with and assists "
+              ],
+              "Education": "[trimmed] This position does not require education to qualify.",
+              "Requirements": "[trimmed] CONDITIONS OF EMPLOYMENT All information is subject to verification. Applicants ",
+              "Evaluations": "[trimmed] We will review your resume and supporting documentation and compare this informa",
+              "HowToApply": "[trimmed] To apply for this position, you must complete the online application and submit ",
+              "WhatToExpectNext": "[trimmed] After a review of your complete application is made, you will be notified of you",
+              "RequiredDocuments": "[trimmed] For this job announcement the following documents and/or information are require",
+              "Benefits": "",
+              "BenefitsDisplayDefaultText": true,
+              "OtherInformation": "[trimmed] The AO is an Equal Opportunity Employer.",
+              "KeyRequirements": [],
+              "WithinArea": "False",
+              "CommuteDistance": "0",
+              "ServiceType": "02",
+              "AnnouncementClosingType": "03",
+              "AnnouncementClosingTypeOption": "150",
+              "SecurityClearance": "Not Required",
+              "DrugTestRequired": "False",
+              "AdjudicationType": [],
+              "TeleworkEligible": false,
+              "RemoteIndicator": true,
+              "FinancialDisclosure": false,
+              "BargainingUnitStatus": false
+            },
+            "IsRadialSearch": false
+          },
+          "AnnouncementClosingType": "03",
+          "AnnouncementClosingTypeOption": "150"
+        },
+        "RelevanceRank": 0
+      },
+      {
+        "MatchedObjectId": "759326100",
+        "MatchedObjectDescriptor": {
+          "PositionID": "24-12198900-6898/DIHD",
+          "PositionTitle": "Data Engineer",
+          "PositionURI": "https://www.usajobs.gov:443/job/759326100",
+          "ApplyURI": [
+            "https://www.usajobs.gov:443/job/759326100"
+          ],
+          "PositionLocationDisplay": "Washington, District of Columbia",
+          "PositionLocation": [
+            {
+              "LocationName": "Washington, District of Columbia",
+              "CountryCode": "United States",
+              "CountrySubDivisionCode": "District of Columbia",
+              "CityName": "Washington, District of Columbia",
+              "Longitude": -77.03968,
+              "Latitude": 38.89702
+            }
+          ],
+          "OrganizationName": "Central Intelligence Agency",
+          "DepartmentName": "Other Agencies and Independent Organizations",
+          "JobCategory": [
+            {
+              "Name": "Information Technology Management",
+              "Code": "2210"
+            }
+          ],
+          "JobGrade": [
+            {
+              "Code": "GS"
+            }
+          ],
+          "PositionSchedule": [
+            {
+              "Name": "",
+              "Code": "1"
+            }
+          ],
+          "PositionOfferingType": [
+            {
+              "Name": "",
+              "Code": "15317"
+            }
+          ],
+          "QualificationSummary": "[trimmed] Minimum Qualifications Interested candidates should be passionate about the idea",
+          "PositionRemuneration": [
+            {
+              "MinimumRange": "74584",
+              "MaximumRange": "156755",
+              "RateIntervalCode": "PA",
+              "Description": "Per Year"
+            }
+          ],
+          "PositionStartDate": "2026-09-01T00:00:00.0000",
+          "PositionEndDate": "2027-01-31T23:59:59.9970",
+          "PublicationStartDate": "2026-09-01T00:00:00.0000",
+          "ApplicationCloseDate": "2027-01-31T23:59:59.9970",
+          "UserArea": {
+            "Details": {
+              "JobSummary": "[trimmed] Data Engineers in the Directorate of Mission Systems (DMS) solve critical data c",
+              "WhoMayApply": {
+                "Name": "",
+                "Code": ""
+              },
+              "LowGrade": "9",
+              "HighGrade": "13",
+              "PromotionPotential": "15",
+              "Relocation": "True",
+              "HiringPath": [
+                "fed-competitive",
+                "fed-excepted",
+                "public"
+              ],
+              "HiringPathDisplay": [
+                "Competitive service",
+                "Excepted service",
+                "Open to the public"
+              ],
+              "MCOTags": [
+                "07",
+                "IC Intel",
+                "NatSec",
+                "AI"
+              ],
+              "TotalOpenings": "Many",
+              "AgencyMarketingStatement": "[trimmed] We are the Nation's first line of defense, and we have a mission for you. Join u",
+              "TravelCode": "1",
+              "MajorDuties": [
+                "[trimmed] As a Directorate of Mission Systems (DMS) Data Engineer at CIA, you will transfo"
+              ],
+              "Education": "[trimmed] Bachelor's degree in one of the following fields or related studies: Computer Sc",
+              "Requirements": "",
+              "Evaluations": "[trimmed] For more information, please visit: Data Engineer.",
+              "HowToApply": "[trimmed] This post is for viewing purposes only. To get started, please visit https://www",
+              "WhatToExpectNext": "[trimmed] After you express interest for up to four positions on cia.gov/careers, a CIA re",
+              "RequiredDocuments": "[trimmed] For further information, please visit: Data Engineer.",
+              "Benefits": "",
+              "BenefitsDisplayDefaultText": true,
+              "OtherInformation": "",
+              "KeyRequirements": [],
+              "WithinArea": "False",
+              "CommuteDistance": "0",
+              "ServiceType": "02",
+              "AnnouncementClosingType": "01",
+              "AgencyContactWebsite": "https://cia.gov/careers",
+              "SecurityClearance": "Sensitive Compartmented Information",
+              "DrugTestRequired": "True",
+              "PositionSensitivitiy": "Special-Sensitive (SS)/High Risk",
+              "AdjudicationType": [
+                "National security"
+              ],
+              "TeleworkEligible": false,
+              "RemoteIndicator": false,
+              "FinancialDisclosure": true,
+              "BargainingUnitStatus": false
+            },
+            "IsRadialSearch": false
+          },
+          "AnnouncementClosingType": "01"
+        },
+        "RelevanceRank": 0
+      },
+      {
+        "MatchedObjectId": "850999700",
+        "MatchedObjectDescriptor": {
+          "PositionID": "SPP- Register 2026",
+          "PositionTitle": "Selective Placement Program (Noncompetitive Appointments for Applicants with Disabilities)",
+          "PositionURI": "https://www.usajobs.gov:443/job/850999700",
+          "ApplyURI": [
+            "https://www.usajobs.gov:443/job/850999700"
+          ],
+          "PositionLocationDisplay": "Multiple Locations",
+          "PositionLocation": [
+            {
+              "LocationName": "Washington, District of Columbia",
+              "CountryCode": "United States",
+              "CountrySubDivisionCode": "District of Columbia",
+              "CityName": "Washington, District of Columbia",
+              "Longitude": -77.032,
+              "Latitude": 38.8904
+            },
+            {
+              "LocationName": "Cabin John, Maryland",
+              "CountryCode": "United States",
+              "CountrySubDivisionCode": "Maryland",
+              "CityName": "Cabin John, Maryland",
+              "Longitude": -77.16213,
+              "Latitude": 38.97457
+            },
+            {
+              "LocationName": "Culpeper, Virginia",
+              "CountryCode": "United States",
+              "CountrySubDivisionCode": "Virginia",
+              "CityName": "Culpeper, Virginia",
+              "Longitude": -77.99614,
+              "Latitude": 38.47333
+            }
+          ],
+          "OrganizationName": "Library of Congress",
+          "DepartmentName": "Legislative Branch",
+          "JobCategory": [
+            {
+              "Name": "Copyright",
+              "Code": "1210"
+            },
+            {
+              "Name": "Social Science",
+              "Code": "0101"
+            },
+            {
+              "Name": "Miscellaneous Administration And Program",
+              "Code": "0301"
+            },
+            {
+              "Name": "Librarian",
+              "Code": "1410"
+            },
+            {
+              "Name": "Information Technology Management",
+              "Code": "2210"
+            }
+          ],
+          "JobGrade": [
+            {
+              "Code": "GS"
+            }
+          ],
+          "PositionSchedule": [
+            {
+              "Name": "Open",
+              "Code": "1"
+            }
+          ],
+          "PositionOfferingType": [
+            {
+              "Name": "Temporary (Not To Exceed a period of 120 days to 2 years, depending on qualifications of applicant)",
+              "Code": "15317"
+            }
+          ],
+          "QualificationSummary": "[trimmed] Education: Some positions may require specific training, education and/or degree",
+          "PositionRemuneration": [
+            {
+              "MinimumRange": "29949",
+              "MaximumRange": "195200",
+              "RateIntervalCode": "PA",
+              "Description": "Per Year"
+            }
+          ],
+          "PositionStartDate": "2025-11-25T00:00:00.0000",
+          "PositionEndDate": "2026-11-25T23:59:59.9970",
+          "PublicationStartDate": "2025-11-25T00:00:00.0000",
+          "ApplicationCloseDate": "2026-11-25T23:59:59.9970",
+          "UserArea": {
+            "Details": {
+              "JobSummary": "[trimmed] The Library of Congress is accepting applications from people who wish to be con",
+              "WhoMayApply": {
+                "Name": "",
+                "Code": ""
+              },
+              "LowGrade": "01",
+              "HighGrade": "01",
+              "PromotionPotential": "01",
+              "PromotionPotentialAdditionalText": "Appointments under this program do not have promotion potential beyond the grade to which the applicant is initially appointed.",
+              "Relocation": "False",
+              "HiringPath": [
+                "public"
+              ],
+              "HiringPathDisplay": [
+                "Open to the public"
+              ],
+              "MCOTags": [],
+              "AgencyMarketingStatement": "[trimmed] The Library of Congress serves the Congress in fulfilling its duties and preserv",
+              "TravelCode": "0",
+              "MajorDuties": [
+                "[trimmed] This announcement may be used to fill one or more vacancies at any time without "
+              ],
+              "Education": "",
+              "Requirements": "[trimmed] Applicants with disabilities wishing to be considered for employment at the Libr",
+              "Evaluations": "[trimmed] Please note, there is no page restriction to your resume, and you are allowed to",
+              "HowToApply": "[trimmed] Please carefully follow all instructions under the How to Apply tab to ensure yo",
+              "WhatToExpectNext": "[trimmed] You will be notified by email and/or telephone when your application is identifi",
+              "RequiredDocuments": "[trimmed] Disabled applicants claiming Selective Placement eligibility must submit proof o",
+              "Benefits": "",
+              "BenefitsDisplayDefaultText": true,
+              "OtherInformation": "[trimmed] Additional information on the Library's Selective Placement Program can be found",
+              "KeyRequirements": [],
+              "WithinArea": "False",
+              "CommuteDistance": "0",
+              "ServiceType": "02",
+              "AnnouncementClosingType": "01",
+              "SecurityClearance": "Other",
+              "DrugTestRequired": "False",
+              "AdjudicationType": [],
+              "TeleworkEligible": false,
+              "RemoteIndicator": false
+            },
+            "IsRadialSearch": false
+          },
+          "AnnouncementClosingType": "01"
+        },
+        "RelevanceRank": 0
+      },
+      {
+        "MatchedObjectId": "852981200",
+        "MatchedObjectDescriptor": {
+          "PositionID": "AFPCDHA-12857027-GS2210",
+          "PositionTitle": "Information Technology Specialist (INFOSEC)",
+          "PositionURI": "https://www.usajobs.gov:443/job/852981200",
+          "ApplyURI": [
+            "https://www.usajobs.gov:443/job/852981200"
+          ],
+          "PositionLocationDisplay": "Multiple Locations",
+          "PositionLocation": [
+            {
+              "LocationName": "Eielson AFB, Alaska",
+              "CountryCode": "United States",
+              "CountrySubDivisionCode": "Alaska",
+              "CityName": "Eielson AFB, Alaska",
+              "Longitude": -147.05869,
+              "Latitude": 64.67567
+            },
+            {
+              "LocationName": "Elmendorf AFB, Alaska",
+              "CountryCode": "United States",
+              "CountrySubDivisionCode": "Alaska",
+              "CityName": "Elmendorf AFB, Alaska",
+              "Longitude": -149.81961,
+              "Latitude": 61.275845
+            },
+            {
+              "LocationName": "Little Rock AFB, Arkansas",
+              "CountryCode": "United States",
+              "CountrySubDivisionCode": "Arkansas",
+              "CityName": "Little Rock AFB, Arkansas",
+              "Longitude": -92.14686,
+              "Latitude": 34.91159
+            }
+          ],
+          "OrganizationName": "Department of the Air Force Headquarters",
+          "DepartmentName": "Department of the Air Force",
+          "JobCategory": [
+            {
+              "Name": "Information Technology Management",
+              "Code": "2210"
+            }
+          ],
+          "JobGrade": [
+            {
+              "Code": "GS"
+            }
+          ],
+          "PositionSchedule": [
+            {
+              "Name": "",
+              "Code": "1"
+            }
+          ],
+          "PositionOfferingType": [
+            {
+              "Name": "",
+              "Code": "15327"
+            }
+          ],
+          "QualificationSummary": "[trimmed] In order to qualify, you must meet the specialized experience requirements descr",
+          "PositionRemuneration": [
+            {
+              "MinimumRange": "52727",
+              "MaximumRange": "139684",
+              "RateIntervalCode": "PA",
+              "Description": "Per Year"
+            }
+          ],
+          "PositionStartDate": "2025-12-22T00:00:00.0000",
+          "PositionEndDate": "2026-12-21T23:59:59.9970",
+          "PublicationStartDate": "2025-12-22T00:00:00.0000",
+          "ApplicationCloseDate": "2026-12-21T23:59:59.9970",
+          "UserArea": {
+            "Details": {
+              "JobSummary": "[trimmed] Click on \"Learn more about this agency\" button below for IMPORTANT additional in",
+              "WhoMayApply": {
+                "Name": "",
+                "Code": ""
+              },
+              "LowGrade": "9",
+              "HighGrade": "14",
+              "PromotionPotential": "14",
+              "Relocation": "False",
+              "HiringPath": [
+                "public"
+              ],
+              "HiringPathDisplay": [
+                "Open to the public"
+              ],
+              "MCOTags": [],
+              "TotalOpenings": "Few",
+              "AgencyMarketingStatement": "[trimmed] The mission of the United States Air Force is: To fly, fight, and win ... Airpow",
+              "TravelCode": "0",
+              "MajorDuties": [
+                "[trimmed] ****Duties and responsibilities vary and may increase according to grade level**",
+                "[trimmed] Utilize knowledge of IT principles, methods and security regulations and policie"
+              ],
+              "Education": "[trimmed] IF USING EDUCATION TO QUALIFY: If position has a positive degree requirement or ",
+              "Requirements": "",
+              "Evaluations": "[trimmed] Your latest resume will be used to determine your qualifications. Your applicati",
+              "HowToApply": "[trimmed] The complete Application Package must be submitted by 11:59 PM (ET) on 12/21/202",
+              "WhatToExpectNext": "[trimmed] After you submit your application, you will be contacted if further evaluation o",
+              "RequiredDocuments": "[trimmed] The following documents are required and must be provided with your application ",
+              "Benefits": "",
+              "BenefitsDisplayDefaultText": true,
+              "OtherInformation": "[trimmed] For Direct Hire (DHA) Positions: This is a Direct Hire Public Notice, under this",
+              "KeyRequirements": [],
+              "WithinArea": "False",
+              "CommuteDistance": "0",
+              "ServiceType": "01",
+              "AnnouncementClosingType": "01",
+              "SecurityClearance": "Not Required",
+              "DrugTestRequired": "False",
+              "AdjudicationType": [],
+              "TeleworkEligible": false,
+              "RemoteIndicator": false,
+              "FinancialDisclosure": false,
+              "BargainingUnitStatus": false
+            },
+            "IsRadialSearch": false
+          },
+          "AnnouncementClosingType": "01"
+        },
+        "RelevanceRank": 0
+      },
+      {
+        "MatchedObjectId": "855330700",
+        "MatchedObjectDescriptor": {
+          "PositionID": "SH12871114-26-DHA",
+          "PositionTitle": "JAVA Angular Full Stack Web Application Developer",
+          "PositionURI": "https://www.usajobs.gov:443/job/855330700",
+          "ApplyURI": [
+            "https://www.usajobs.gov:443/job/855330700"
+          ],
+          "PositionLocationDisplay": "Woodlawn, Maryland",
+          "PositionLocation": [
+            {
+              "LocationName": "Woodlawn, Maryland",
+              "CountryCode": "United States",
+              "CountrySubDivisionCode": "Maryland",
+              "CityName": "Woodlawn, Maryland",
+              "Longitude": -76.7374,
+              "Latitude": 39.317
+            }
+          ],
+          "OrganizationName": "Social Security Administration",
+          "DepartmentName": "Other Agencies and Independent Organizations",
+          "SubAgency": "Chief Information Officer (CIO)",
+          "JobCategory": [
+            {
+              "Name": "Information Technology Management",
+              "Code": "2210"
+            }
+          ],
+          "JobGrade": [
+            {
+              "Code": "GS"
+            }
+          ],
+          "PositionSchedule": [
+            {
+              "Name": "Flextime and Alternative Work Schedule are available",
+              "Code": "1"
+            }
+          ],
+          "PositionOfferingType": [
+            {
+              "Name": "",
+              "Code": "15317"
+            }
+          ],
+          "QualificationSummary": "[trimmed] Resumes exceeding two pages in length will not be considered, please visit the n",
+          "PositionRemuneration": [
+            {
+              "MinimumRange": "121785",
+              "MaximumRange": "197200",
+              "RateIntervalCode": "PA",
+              "Description": "Per Year"
+            }
+          ],
+          "PositionStartDate": "2026-01-26T00:00:00.0000",
+          "PositionEndDate": "2026-11-30T23:59:59.9970",
+          "PublicationStartDate": "2026-01-26T00:00:00.0000",
+          "ApplicationCloseDate": "2026-11-30T23:59:59.9970",
+          "UserArea": {
+            "Details": {
+              "JobSummary": "[trimmed] IT Specialist (APPSW), JAVA Angular Full Stack Web Application Developer positio",
+              "WhoMayApply": {
+                "Name": "",
+                "Code": ""
+              },
+              "LowGrade": "13",
+              "HighGrade": "15",
+              "PromotionPotential": "None",
+              "SubAgencyName": "Chief Information Officer (CIO)",
+              "Relocation": "False",
+              "HiringPath": [
+                "fed-transition",
+                "public"
+              ],
+              "HiringPathDisplay": [
+                "Career transition (CTAP, ICTAP, RPL)",
+                "Open to the public"
+              ],
+              "MCOTags": [
+                "TechToGov"
+              ],
+              "TotalOpenings": "Many",
+              "AgencyMarketingStatement": "[trimmed] Are you ready to make a real impact at the Social Security Administration? Join ",
+              "TravelCode": "0",
+              "MajorDuties": [
+                "[trimmed] This announcement serves as public notice. Applications submitted be placed into",
+                "[trimmed] Vacancies may be filled for up to 6 months after the closing date of this announ"
+              ],
+              "Education": "",
+              "Requirements": "",
+              "Evaluations": "[trimmed] The evaluation you receive is based on your responses to the online assessment q",
+              "HowToApply": "[trimmed] Please read the entire announcement and all the instructions before you begin an",
+              "WhatToExpectNext": "[trimmed] Once you have successfully submitted your application materials, you can expect ",
+              "RequiredDocuments": "[trimmed] To apply for this position, you must submit a complete Application Package which",
+              "Benefits": "",
+              "BenefitsDisplayDefaultText": true,
+              "OtherInformation": "[trimmed] See announcement cutoff dates below under How to Apply Are you ready to make a r",
+              "KeyRequirements": [],
+              "WithinArea": "False",
+              "CommuteDistance": "0",
+              "ServiceType": "01",
+              "AnnouncementClosingType": "01",
+              "SecurityClearance": "Not Required",
+              "DrugTestRequired": "False",
+              "PositionSensitivitiy": "High Risk (HR)",
+              "AdjudicationType": [
+                "Suitability/Fitness"
+              ],
+              "TeleworkEligible": false,
+              "RemoteIndicator": false,
+              "FinancialDisclosure": true,
+              "BargainingUnitStatus": false
+            },
+            "IsRadialSearch": false
+          },
+          "AnnouncementClosingType": "01"
+        },
+        "RelevanceRank": 0
+      },
+      {
+        "MatchedObjectId": "855341900",
+        "MatchedObjectDescriptor": {
+          "PositionID": "SH12871342-26-DHA",
+          "PositionTitle": "Node-React Full Stack Web Application Developer",
+          "PositionURI": "https://www.usajobs.gov:443/job/855341900",
+          "ApplyURI": [
+            "https://www.usajobs.gov:443/job/855341900"
+          ],
+          "PositionLocationDisplay": "Woodlawn, Maryland",
+          "PositionLocation": [
+            {
+              "LocationName": "Woodlawn, Maryland",
+              "CountryCode": "United States",
+              "CountrySubDivisionCode": "Maryland",
+              "CityName": "Woodlawn, Maryland",
+              "Longitude": -76.7374,
+              "Latitude": 39.317
+            }
+          ],
+          "OrganizationName": "Social Security Administration",
+          "DepartmentName": "Other Agencies and Independent Organizations",
+          "SubAgency": "Chief Information Officer (CIO)",
+          "JobCategory": [
+            {
+              "Name": "Information Technology Management",
+              "Code": "2210"
+            }
+          ],
+          "JobGrade": [
+            {
+              "Code": "GS"
+            }
+          ],
+          "PositionSchedule": [
+            {
+              "Name": "Flextime and Alternate Work Schedules are available",
+              "Code": "1"
+            }
+          ],
+          "PositionOfferingType": [
+            {
+              "Name": "",
+              "Code": "15317"
+            }
+          ],
+          "QualificationSummary": "[trimmed] Resumes exceeding two pages in length will not be considered, please visit the n",
+          "PositionRemuneration": [
+            {
+              "MinimumRange": "121785",
+              "MaximumRange": "197200",
+              "RateIntervalCode": "PA",
+              "Description": "Per Year"
+            }
+          ],
+          "PositionStartDate": "2026-01-26T00:00:00.0000",
+          "PositionEndDate": "2026-11-30T23:59:59.9970",
+          "PublicationStartDate": "2026-01-26T00:00:00.0000",
+          "ApplicationCloseDate": "2026-11-30T23:59:59.9970",
+          "UserArea": {
+            "Details": {
+              "JobSummary": "[trimmed] IT Specialist (APPSW), Node-React Full Stack Web Application Developer positions",
+              "WhoMayApply": {
+                "Name": "",
+                "Code": ""
+              },
+              "LowGrade": "13",
+              "HighGrade": "15",
+              "PromotionPotential": "None",
+              "SubAgencyName": "Chief Information Officer (CIO)",
+              "Relocation": "False",
+              "HiringPath": [
+                "fed-transition",
+                "public"
+              ],
+              "HiringPathDisplay": [
+                "Career transition (CTAP, ICTAP, RPL)",
+                "Open to the public"
+              ],
+              "MCOTags": [
+                "TechToGov"
+              ],
+              "TotalOpenings": "Many",
+              "AgencyMarketingStatement": "",
+              "TravelCode": "0",
+              "MajorDuties": [
+                "[trimmed] This announcement serves as public notice. Applications submitted be placed into",
+                "[trimmed] Vacancies may be filled for up to 6 months after the closing date of this announ"
+              ],
+              "Education": "",
+              "Requirements": "",
+              "Evaluations": "[trimmed] Duties: Design, develop, and maintain responsive web applications using React.js",
+              "HowToApply": "[trimmed] Please read the entire announcement and all the instructions before you begin an",
+              "WhatToExpectNext": "[trimmed] Once you have successfully submitted your application materials, you can expect ",
+              "RequiredDocuments": "[trimmed] To apply for this position, you must submit a complete Application Package which",
+              "Benefits": "",
+              "BenefitsDisplayDefaultText": true,
+              "OtherInformation": "[trimmed] See announcement cutoff dates below under How to Apply. Are you ready to make a ",
+              "KeyRequirements": [],
+              "WithinArea": "False",
+              "CommuteDistance": "0",
+              "ServiceType": "01",
+              "AnnouncementClosingType": "01",
+              "SecurityClearance": "Not Required",
+              "DrugTestRequired": "False",
+              "PositionSensitivitiy": "High Risk (HR)",
+              "AdjudicationType": [
+                "Suitability/Fitness"
+              ],
+              "TeleworkEligible": false,
+              "RemoteIndicator": false,
+              "FinancialDisclosure": true,
+              "BargainingUnitStatus": false
+            },
+            "IsRadialSearch": false
+          },
+          "AnnouncementClosingType": "01"
+        },
+        "RelevanceRank": 0
+      }
+    ],
+    "UserArea": {
+      "NumberOfPages": "34",
+      "IsRadialSearch": false
+    }
+  }
+}

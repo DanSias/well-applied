@@ -1,0 +1,1305 @@
+{
+  "LanguageCode": "EN",
+  "SearchParameters": {},
+  "SearchResult": {
+    "SearchResultCount": 10,
+    "SearchResultCountAll": 27,
+    "SearchResultItems": [
+      {
+        "MatchedObjectId": "892782200",
+        "MatchedObjectDescriptor": {
+          "PositionID": "EUS-DHA-13106774-NBU-26-LRH",
+          "PositionTitle": "Supervisory IT Specialist (Policy and Planning)",
+          "PositionURI": "https://www.usajobs.gov:443/job/892782200",
+          "ApplyURI": [
+            "https://www.usajobs.gov:443/job/892782200"
+          ],
+          "PositionLocationDisplay": "Multiple Locations",
+          "PositionLocation": [
+            {
+              "LocationName": "Saint Petersburg, Florida",
+              "CountryCode": "United States",
+              "CountrySubDivisionCode": "Florida",
+              "CityName": "Saint Petersburg, Florida",
+              "Longitude": -82.63934,
+              "Latitude": 27.788555
+            },
+            {
+              "LocationName": "West Palm Beach, Florida",
+              "CountryCode": "United States",
+              "CountrySubDivisionCode": "Florida",
+              "CityName": "West Palm Beach, Florida",
+              "Longitude": -80.05269,
+              "Latitude": 26.714388
+            }
+          ],
+          "OrganizationName": "Deputy Assistant Secretary for Information and Technology",
+          "DepartmentName": "Department of Veterans Affairs",
+          "SubAgency": "Office of Information Technology",
+          "JobCategory": [
+            {
+              "Name": "Information Technology Management",
+              "Code": "2210"
+            }
+          ],
+          "JobGrade": [
+            {
+              "Code": "GS"
+            }
+          ],
+          "PositionSchedule": [
+            {
+              "Name": "",
+              "Code": "1"
+            }
+          ],
+          "PositionOfferingType": [
+            {
+              "Name": "",
+              "Code": "15317"
+            }
+          ],
+          "QualificationSummary": "[trimmed] To qualify for this position, all qualification requirements, listed below, appl",
+          "PositionRemuneration": [
+            {
+              "MinimumRange": "125776",
+              "MaximumRange": "163514",
+              "RateIntervalCode": "PA",
+              "Description": "Per Year"
+            }
+          ],
+          "PositionStartDate": "2026-11-13T11:47:49.1930",
+          "PositionEndDate": "2026-11-17T23:59:59.9970",
+          "PublicationStartDate": "2026-11-13T11:47:49.1930",
+          "ApplicationCloseDate": "2026-11-17T23:59:59.9970",
+          "UserArea": {
+            "Details": {
+              "JobSummary": "[trimmed] The Area Manager is located in the Office of Information and Technology, End Use",
+              "WhoMayApply": {
+                "Name": "",
+                "Code": ""
+              },
+              "LowGrade": "14",
+              "HighGrade": "14",
+              "PromotionPotential": "None",
+              "SubAgencyName": "Office of Information Technology",
+              "Relocation": "False",
+              "HiringPath": [
+                "fed-transition",
+                "public"
+              ],
+              "HiringPathDisplay": [
+                "Career transition (CTAP, ICTAP, RPL)",
+                "Open to the public"
+              ],
+              "MCOTags": [],
+              "TotalOpenings": "2",
+              "AgencyMarketingStatement": "[trimmed] OUR MISSION: To fulfill President Lincoln's promise \"To care for those who have ",
+              "TravelCode": "2",
+              "MajorDuties": [
+                "[trimmed] Major Duties: Advance IT concepts, methodologies and best business practices in "
+              ],
+              "Education": "[trimmed] There is no educational substitution at this grade level.",
+              "Requirements": "[trimmed] You must be a U.S. Citizen to apply. To be considered for this position, you mus",
+              "Evaluations": "[trimmed] Your qualifications will be evaluated based on your application materials (e.g.,",
+              "HowToApply": "[trimmed] Please read the entire announcement and all the instructions before you begin an",
+              "WhatToExpectNext": "[trimmed] Once your online application is submitted you will receive a confirmation notifi",
+              "RequiredDocuments": "[trimmed] To apply for this position, you must provide a complete Application Package whic",
+              "Benefits": "",
+              "BenefitsDisplayDefaultText": true,
+              "OtherInformation": "[trimmed] This is not a remote position. OI&T has multiple worksites at various duty locat",
+              "KeyRequirements": [],
+              "WithinArea": "False",
+              "CommuteDistance": "0",
+              "ServiceType": "01",
+              "AnnouncementClosingType": "01",
+              "SecurityClearance": "Not Required",
+              "DrugTestRequired": "False",
+              "PositionSensitivitiy": "High Risk (HR)",
+              "AdjudicationType": [
+                "Suitability/Fitness"
+              ],
+              "TeleworkEligible": true,
+              "RemoteIndicator": false,
+              "FinancialDisclosure": false,
+              "BargainingUnitStatus": false
+            },
+            "IsRadialSearch": false
+          },
+          "AnnouncementClosingType": "01"
+        },
+        "RelevanceRank": 0
+      },
+      {
+        "MatchedObjectId": "892776500",
+        "MatchedObjectDescriptor": {
+          "PositionID": "OIS-DHA-13107862-NBU-27-SD",
+          "PositionTitle": "IT Cybersecurity Specialist (INFOSEC)",
+          "PositionURI": "https://www.usajobs.gov:443/job/892776500",
+          "ApplyURI": [
+            "https://www.usajobs.gov:443/job/892776500"
+          ],
+          "PositionLocationDisplay": "Location Negotiable After Selection",
+          "PositionLocation": [
+            {
+              "LocationName": "Salt Lake City, Utah",
+              "CountryCode": "United States",
+              "CountrySubDivisionCode": "Utah",
+              "CityName": "Salt Lake City, Utah",
+              "Longitude": -111.88823,
+              "Latitude": 40.75952
+            },
+            {
+              "LocationName": "Seattle, Washington",
+              "CountryCode": "United States",
+              "CountrySubDivisionCode": "Washington",
+              "CityName": "Seattle, Washington",
+              "Longitude": -122.32945,
+              "Latitude": 47.60358
+            },
+            {
+              "LocationName": "Phoenix, Arizona",
+              "CountryCode": "United States",
+              "CountrySubDivisionCode": "Arizona",
+              "CityName": "Phoenix, Arizona",
+              "Longitude": -112.075775,
+              "Latitude": 33.44826
+            },
+            {
+              "LocationName": "Miami, Florida",
+              "CountryCode": "United States",
+              "CountrySubDivisionCode": "Florida",
+              "CityName": "Miami, Florida",
+              "Longitude": -80.23742,
+              "Latitude": 25.728985
+            }
+          ],
+          "OrganizationName": "Deputy Assistant Secretary for Information and Technology",
+          "DepartmentName": "Department of Veterans Affairs",
+          "SubAgency": "Office of Information Security (OIS)",
+          "JobCategory": [
+            {
+              "Name": "Information Technology Management",
+              "Code": "2210"
+            }
+          ],
+          "JobGrade": [
+            {
+              "Code": "GS"
+            }
+          ],
+          "PositionSchedule": [
+            {
+              "Name": "",
+              "Code": "1"
+            }
+          ],
+          "PositionOfferingType": [
+            {
+              "Name": "",
+              "Code": "15317"
+            }
+          ],
+          "QualificationSummary": "[trimmed] To qualify for this position, applicants must meet all requirements by the closi",
+          "PositionRemuneration": [
+            {
+              "MinimumRange": "90925",
+              "MaximumRange": "118204",
+              "RateIntervalCode": "PA",
+              "Description": "Per Year"
+            }
+          ],
+          "PositionStartDate": "2026-11-13T10:22:05.7530",
+          "PositionEndDate": "2026-11-19T23:59:59.9970",
+          "PublicationStartDate": "2026-11-13T10:22:05.7530",
+          "ApplicationCloseDate": "2026-11-19T23:59:59.9970",
+          "UserArea": {
+            "Details": {
+              "JobSummary": "[trimmed] Join the Office of Information Security (OIS) service line under OIT and be part",
+              "WhoMayApply": {
+                "Name": "",
+                "Code": ""
+              },
+              "LowGrade": "13",
+              "HighGrade": "13",
+              "PromotionPotential": "None",
+              "SubAgencyName": "Office of Information Security (OIS)",
+              "Relocation": "False",
+              "HiringPath": [
+                "public",
+                "fed-transition"
+              ],
+              "HiringPathDisplay": [
+                "Open to the public",
+                "Career transition (CTAP, ICTAP, RPL)"
+              ],
+              "MCOTags": [],
+              "TotalOpenings": "1",
+              "AgencyMarketingStatement": "[trimmed] OUR MISSION: To fulfill President Lincoln's promise \"To care for those who have ",
+              "TravelCode": "2",
+              "MajorDuties": [
+                "[trimmed] Provides expert security advice and consultation in the implementation and risk "
+              ],
+              "Education": "",
+              "Requirements": "[trimmed] You must be a U.S. Citizen to apply for this job To be considered for this posit",
+              "Evaluations": "[trimmed] Your qualifications will be evaluated based on your application materials (e.g.,",
+              "HowToApply": "[trimmed] Please read the entire announcement and all the instructions before you begin an",
+              "WhatToExpectNext": "[trimmed] Once your online application is submitted you will receive a confirmation notifi",
+              "RequiredDocuments": "[trimmed] To apply for this position, you must provide a complete Application Package whic",
+              "Benefits": "[trimmed] Receiving Service Credit or Earning Annual (Vacation) Leave: Federal Employees e",
+              "BenefitsDisplayDefaultText": true,
+              "OtherInformation": "[trimmed] This is not a remote position. OIT has multiple worksites at various duty locati",
+              "KeyRequirements": [],
+              "WithinArea": "False",
+              "CommuteDistance": "0",
+              "ServiceType": "01",
+              "AnnouncementClosingType": "01",
+              "SecurityClearance": "Other",
+              "DrugTestRequired": "False",
+              "PositionSensitivitiy": "High Risk (HR)",
+              "AdjudicationType": [
+                "Suitability/Fitness"
+              ],
+              "TeleworkEligible": true,
+              "RemoteIndicator": false,
+              "FinancialDisclosure": false,
+              "BargainingUnitStatus": false
+            },
+            "IsRadialSearch": false
+          },
+          "AnnouncementClosingType": "01"
+        },
+        "RelevanceRank": 0
+      },
+      {
+        "MatchedObjectId": "892742000",
+        "MatchedObjectDescriptor": {
+          "PositionID": "NASA OIG-13113622-DE-27",
+          "PositionTitle": "Information Technology Specialist (Security) (Direct Hire)",
+          "PositionURI": "https://www.usajobs.gov:443/job/892742000",
+          "ApplyURI": [
+            "https://www.usajobs.gov:443/job/892742000"
+          ],
+          "PositionLocationDisplay": "Multiple Locations",
+          "PositionLocation": [
+            {
+              "LocationName": "Huntsville, Alabama",
+              "CountryCode": "United States",
+              "CountrySubDivisionCode": "Alabama",
+              "CityName": "Huntsville, Alabama",
+              "AddressLine": "Marshall Space Flight Ctr",
+              "Longitude": -86.585,
+              "Latitude": 34.7291
+            },
+            {
+              "LocationName": "Kennedy Space Center, Florida",
+              "CountryCode": "United States",
+              "CountrySubDivisionCode": "Florida",
+              "CityName": "Kennedy Space Center, Florida",
+              "AddressLine": "Kennedy Space Ctr",
+              "Longitude": -80.6836,
+              "Latitude": 28.516
+            },
+            {
+              "LocationName": "Cleveland, Ohio",
+              "CountryCode": "United States",
+              "CountrySubDivisionCode": "Ohio",
+              "CityName": "Cleveland, Ohio",
+              "AddressLine": "Glenn Research Ctr",
+              "Longitude": -81.690575,
+              "Latitude": 41.504494
+            }
+          ],
+          "OrganizationName": "Headquarters, NASA",
+          "DepartmentName": "National Aeronautics and Space Administration",
+          "SubAgency": "Office of Inspector General (OIG), Office of Audits (OA)",
+          "JobCategory": [
+            {
+              "Name": "Information Technology Management",
+              "Code": "2210"
+            }
+          ],
+          "JobGrade": [
+            {
+              "Code": "GS"
+            }
+          ],
+          "PositionSchedule": [
+            {
+              "Name": "",
+              "Code": "1"
+            }
+          ],
+          "PositionOfferingType": [
+            {
+              "Name": "",
+              "Code": "15317"
+            }
+          ],
+          "QualificationSummary": "[trimmed] Specialized experience is experience that has equipped you with the particular a",
+          "PositionRemuneration": [
+            {
+              "MinimumRange": "90173",
+              "MaximumRange": "159575",
+              "RateIntervalCode": "PA",
+              "Description": "Per Year"
+            }
+          ],
+          "PositionStartDate": "2026-11-13T08:13:25.8370",
+          "PositionEndDate": "2026-11-18T23:59:59.9970",
+          "PublicationStartDate": "2026-11-13T08:13:25.8370",
+          "ApplicationCloseDate": "2026-11-18T23:59:59.9970",
+          "UserArea": {
+            "Details": {
+              "JobSummary": "[trimmed] As an Information Technology (Security) specialist with the NASA Office of Inspe",
+              "WhoMayApply": {
+                "Name": "",
+                "Code": ""
+              },
+              "LowGrade": "12",
+              "HighGrade": "13",
+              "PromotionPotential": "13",
+              "SubAgencyName": "Office of Inspector General (OIG), Office of Audits (OA)",
+              "Relocation": "False",
+              "HiringPath": [
+                "public"
+              ],
+              "HiringPathDisplay": [
+                "Open to the public"
+              ],
+              "MCOTags": [
+                "TechToGov"
+              ],
+              "TotalOpenings": "Few",
+              "AgencyMarketingStatement": "[trimmed] Explore the Extraordinary Calling all the innovators, pioneers, visionaries, and",
+              "TravelCode": "1",
+              "MajorDuties": [
+                "[trimmed] Duties described below are at the highest grade advertised. Duties assigned at l",
+                "[trimmed] Conducts IT security audits and evaluations of hardware and software application"
+              ],
+              "Education": "",
+              "Requirements": "",
+              "Evaluations": "[trimmed] Direct Hire Authority: These positions will be filled through the Office of Pers",
+              "HowToApply": "[trimmed] Please read the entire announcement and all the instructions before you begin an",
+              "WhatToExpectNext": "[trimmed] Once you submit your application package, you will receive an acknowledgement em",
+              "RequiredDocuments": "[trimmed] All submitted resumes must not exceed two (2) pages in length. Resumes longer th",
+              "Benefits": "",
+              "BenefitsDisplayDefaultText": true,
+              "OtherInformation": "[trimmed] Additional selections may be made for similar positions across NASA within the l",
+              "KeyRequirements": [],
+              "WithinArea": "False",
+              "CommuteDistance": "0",
+              "ServiceType": "01",
+              "AnnouncementClosingType": "03",
+              "AnnouncementClosingTypeOption": "250",
+              "SecurityClearance": "Secret",
+              "DrugTestRequired": "True",
+              "PositionSensitivitiy": "Noncritical-Sensitive (NCS)/Moderate Risk",
+              "AdjudicationType": [
+                "Suitability/Fitness"
+              ],
+              "TeleworkEligible": true,
+              "RemoteIndicator": false,
+              "FinancialDisclosure": true,
+              "BargainingUnitStatus": false
+            },
+            "IsRadialSearch": false
+          },
+          "AnnouncementClosingType": "03",
+          "AnnouncementClosingTypeOption": "250"
+        },
+        "RelevanceRank": 0
+      },
+      {
+        "MatchedObjectId": "892455400",
+        "MatchedObjectDescriptor": {
+          "PositionID": "DE-13114607-27-HLM",
+          "PositionTitle": "IT SPECIALIST (APPSW/INFOSEC)",
+          "PositionURI": "https://www.usajobs.gov:443/job/892455400",
+          "ApplyURI": [
+            "https://www.usajobs.gov:443/job/892455400"
+          ],
+          "PositionLocationDisplay": "Cecil Field, Florida",
+          "PositionLocation": [
+            {
+              "LocationName": "Cecil Field, Florida",
+              "CountryCode": "United States",
+              "CountrySubDivisionCode": "Florida",
+              "CityName": "Cecil Field, Florida",
+              "Longitude": -81.88404,
+              "Latitude": 30.222418
+            }
+          ],
+          "OrganizationName": "Naval Air Systems Command",
+          "DepartmentName": "Department of the Navy",
+          "JobCategory": [
+            {
+              "Name": "Information Technology Management",
+              "Code": "2210"
+            }
+          ],
+          "JobGrade": [
+            {
+              "Code": "GS"
+            }
+          ],
+          "PositionSchedule": [
+            {
+              "Name": "",
+              "Code": "1"
+            }
+          ],
+          "PositionOfferingType": [
+            {
+              "Name": "",
+              "Code": "15317"
+            }
+          ],
+          "QualificationSummary": "[trimmed] You must have one year of information technology related experience in the feder",
+          "PositionRemuneration": [
+            {
+              "MinimumRange": "106437",
+              "MaximumRange": "138370",
+              "RateIntervalCode": "PA",
+              "Description": "Per Year"
+            }
+          ],
+          "PositionStartDate": "2026-11-13T00:00:00.0000",
+          "PositionEndDate": "2026-12-14T23:59:59.9970",
+          "PublicationStartDate": "2026-11-13T00:00:00.0000",
+          "ApplicationCloseDate": "2026-12-14T23:59:59.9970",
+          "UserArea": {
+            "Details": {
+              "JobSummary": "[trimmed] This is a public notice flyer to notify interested applicants of anticipated vac",
+              "WhoMayApply": {
+                "Name": "",
+                "Code": ""
+              },
+              "LowGrade": "13",
+              "HighGrade": "13",
+              "PromotionPotential": "None",
+              "Relocation": "True",
+              "HiringPath": [
+                "public"
+              ],
+              "HiringPathDisplay": [
+                "Open to the public"
+              ],
+              "MCOTags": [
+                "NatSec"
+              ],
+              "TotalOpenings": "1",
+              "AgencyMarketingStatement": "[trimmed] The Navy and Marine Corps team offers innovative, exciting and meaningful work l",
+              "TravelCode": "1",
+              "MajorDuties": [
+                "[trimmed] You will be designing, developing, and maintaining high-quality Java-based softw",
+                "[trimmed] You will write clean, testable, and well-documented code."
+              ],
+              "Education": "",
+              "Requirements": "",
+              "Evaluations": "[trimmed] In order to qualify for this position, your resume must provide sufficient exper",
+              "HowToApply": "[trimmed] Interested Applicants must submit resumes/application packages to: https://navai",
+              "WhatToExpectNext": "[trimmed] Qualified applicants will be referred to the hiring manager. The selecting offic",
+              "RequiredDocuments": "[trimmed] A complete resume is required. Resumes are restricted to no more than 2 pages. I",
+              "Benefits": "",
+              "BenefitsDisplayDefaultText": true,
+              "OtherInformation": "[trimmed] This position is covered by the Department of Defense Priority Placement Program",
+              "KeyRequirements": [],
+              "WithinArea": "False",
+              "CommuteDistance": "0",
+              "ServiceType": "01",
+              "AnnouncementClosingType": "01",
+              "SecurityClearance": "Secret",
+              "DrugTestRequired": "False",
+              "PositionSensitivitiy": "Noncritical-Sensitive (NCS)/Moderate Risk",
+              "AdjudicationType": [
+                "Suitability/Fitness",
+                "National security"
+              ],
+              "TeleworkEligible": true,
+              "RemoteIndicator": false,
+              "FinancialDisclosure": false,
+              "BargainingUnitStatus": false
+            },
+            "IsRadialSearch": false
+          },
+          "AnnouncementClosingType": "01"
+        },
+        "RelevanceRank": 0
+      },
+      {
+        "MatchedObjectId": "892625200",
+        "MatchedObjectDescriptor": {
+          "PositionID": "PDS-2026-SC-13114186-DHA",
+          "PositionTitle": "IT Specialist (Applications Software)",
+          "PositionURI": "https://www.usajobs.gov:443/job/892625200",
+          "ApplyURI": [
+            "https://www.usajobs.gov:443/job/892625200"
+          ],
+          "PositionLocationDisplay": "Location Negotiable After Selection",
+          "PositionLocation": [
+            {
+              "LocationName": "Salt Lake City, Utah",
+              "CountryCode": "United States",
+              "CountrySubDivisionCode": "Utah",
+              "CityName": "Salt Lake City, Utah",
+              "Longitude": -111.88823,
+              "Latitude": 40.75952
+            },
+            {
+              "LocationName": "Seattle, Washington",
+              "CountryCode": "United States",
+              "CountrySubDivisionCode": "Washington",
+              "CityName": "Seattle, Washington",
+              "Longitude": -122.32945,
+              "Latitude": 47.60358
+            },
+            {
+              "LocationName": "Phoenix, Arizona",
+              "CountryCode": "United States",
+              "CountrySubDivisionCode": "Arizona",
+              "CityName": "Phoenix, Arizona",
+              "Longitude": -112.075775,
+              "Latitude": 33.44826
+            },
+            {
+              "LocationName": "Miami, Florida",
+              "CountryCode": "United States",
+              "CountrySubDivisionCode": "Florida",
+              "CityName": "Miami, Florida",
+              "Longitude": -80.23742,
+              "Latitude": 25.728985
+            }
+          ],
+          "OrganizationName": "Deputy Assistant Secretary for Information and Technology",
+          "DepartmentName": "Department of Veterans Affairs",
+          "SubAgency": "Office of Information Technology",
+          "JobCategory": [
+            {
+              "Name": "Information Technology Management",
+              "Code": "2210"
+            }
+          ],
+          "JobGrade": [
+            {
+              "Code": "GS"
+            }
+          ],
+          "PositionSchedule": [
+            {
+              "Name": "",
+              "Code": "1"
+            }
+          ],
+          "PositionOfferingType": [
+            {
+              "Name": "",
+              "Code": "15317"
+            }
+          ],
+          "QualificationSummary": "[trimmed] To qualify for this position, applicants must meet all requirements by the closi",
+          "PositionRemuneration": [
+            {
+              "MinimumRange": "106437",
+              "MaximumRange": "138370",
+              "RateIntervalCode": "PA",
+              "Description": "Per Year"
+            }
+          ],
+          "PositionStartDate": "2026-11-13T00:00:00.0000",
+          "PositionEndDate": "2026-11-19T23:59:59.9970",
+          "PublicationStartDate": "2026-11-13T00:00:00.0000",
+          "ApplicationCloseDate": "2026-11-19T23:59:59.9970",
+          "UserArea": {
+            "Details": {
+              "JobSummary": "[trimmed] The position is in the Department of Veterans Affairs, Office of Information and",
+              "WhoMayApply": {
+                "Name": "",
+                "Code": ""
+              },
+              "LowGrade": "13",
+              "HighGrade": "13",
+              "PromotionPotential": "None",
+              "SubAgencyName": "Office of Information Technology",
+              "Relocation": "False",
+              "HiringPath": [
+                "fed-transition",
+                "public"
+              ],
+              "HiringPathDisplay": [
+                "Career transition (CTAP, ICTAP, RPL)",
+                "Open to the public"
+              ],
+              "MCOTags": [],
+              "TotalOpenings": "3",
+              "AgencyMarketingStatement": "[trimmed] OUR MISSION: To fulfill President Lincoln's promise \"To care for those who have ",
+              "TravelCode": "2",
+              "MajorDuties": [
+                "[trimmed] OIT Mission: The mission of the Office of Information and Technology (OIT) is to"
+              ],
+              "Education": "[trimmed] There is no educational substitution at this grade level.",
+              "Requirements": "[trimmed] You must be a U.S. Citizen to apply for this job To be considered for this posit",
+              "Evaluations": "[trimmed] Your qualifications will be evaluated based on your application materials (e.g.,",
+              "HowToApply": "[trimmed] Please read the entire announcement and all the instructions before you begin an",
+              "WhatToExpectNext": "[trimmed] Once your online application is submitted you will receive a confirmation notifi",
+              "RequiredDocuments": "[trimmed] To apply for this position, you must provide a complete Application Package whic",
+              "Benefits": "",
+              "BenefitsDisplayDefaultText": true,
+              "OtherInformation": "[trimmed] This is not a remote position. OI&T has multiple worksites at various duty locat",
+              "KeyRequirements": [],
+              "WithinArea": "False",
+              "CommuteDistance": "0",
+              "ServiceType": "01",
+              "AnnouncementClosingType": "01",
+              "SecurityClearance": "Other",
+              "DrugTestRequired": "False",
+              "PositionSensitivitiy": "High Risk (HR)",
+              "AdjudicationType": [
+                "Suitability/Fitness"
+              ],
+              "TeleworkEligible": true,
+              "RemoteIndicator": false,
+              "FinancialDisclosure": false,
+              "BargainingUnitStatus": false
+            },
+            "IsRadialSearch": false
+          },
+          "AnnouncementClosingType": "01"
+        },
+        "RelevanceRank": 0
+      },
+      {
+        "MatchedObjectId": "892723400",
+        "MatchedObjectDescriptor": {
+          "PositionID": "SF-FY27-6F-NH-2210-02-SPLSH",
+          "PositionTitle": "SYSADMIN INFOSEC/CORD Operator, 20 SPSS",
+          "PositionURI": "https://www.usajobs.gov:443/job/892723400",
+          "ApplyURI": [
+            "https://www.usajobs.gov:443/job/892723400"
+          ],
+          "PositionLocationDisplay": "Eglin AFB, Florida",
+          "PositionLocation": [
+            {
+              "LocationName": "Eglin AFB, Florida",
+              "CountryCode": "United States",
+              "CountrySubDivisionCode": "Florida",
+              "CityName": "Eglin AFB, Florida",
+              "Longitude": -86.5552,
+              "Latitude": 30.4654
+            }
+          ],
+          "OrganizationName": "United States Space Force Forces",
+          "DepartmentName": "Department of the Air Force",
+          "SubAgency": "United States Space Force / Combat Forces Command / 20 SPSS",
+          "JobCategory": [
+            {
+              "Name": "Information Technology Management",
+              "Code": "2210"
+            }
+          ],
+          "JobGrade": [
+            {
+              "Code": "NH"
+            }
+          ],
+          "PositionSchedule": [
+            {
+              "Name": "",
+              "Code": "1"
+            }
+          ],
+          "PositionOfferingType": [
+            {
+              "Name": "",
+              "Code": "15317"
+            }
+          ],
+          "QualificationSummary": "[trimmed] The 2210 series has an individual occupational requirement that must be met and ",
+          "PositionRemuneration": [
+            {
+              "MinimumRange": "41038",
+              "MaximumRange": "97809",
+              "RateIntervalCode": "PA",
+              "Description": "Per Year"
+            }
+          ],
+          "PositionStartDate": "2026-11-12T18:24:27.8700",
+          "PositionEndDate": "2026-11-19T23:59:59.9970",
+          "PublicationStartDate": "2026-11-12T18:24:27.8700",
+          "ApplicationCloseDate": "2026-11-19T23:59:59.9970",
+          "UserArea": {
+            "Details": {
+              "JobSummary": "[trimmed] Do not email applications. To submit your resume for this Direct Hire opportunit",
+              "WhoMayApply": {
+                "Name": "",
+                "Code": ""
+              },
+              "LowGrade": "2",
+              "HighGrade": "2",
+              "PromotionPotential": "None",
+              "SubAgencyName": "United States Space Force / Combat Forces Command / 20 SPSS",
+              "Relocation": "False",
+              "HiringPath": [
+                "public"
+              ],
+              "HiringPathDisplay": [
+                "Open to the public"
+              ],
+              "MCOTags": [],
+              "TotalOpenings": "1",
+              "AgencyMarketingStatement": "[trimmed] IMPORTANT INFORMATION: This Job Opportunity Announcement (JOA) will be used to f",
+              "TravelCode": "2",
+              "MajorDuties": [
+                "[trimmed] The United States Space Force (USSF) at Eglin AFB (Site C-6), FL is searching fo"
+              ],
+              "Education": "",
+              "Requirements": "",
+              "Evaluations": "[trimmed] Knowledge, Skills and Abilities (KSAs): Your qualifications will be evaluated on",
+              "HowToApply": "[trimmed] Do not email applications. To submit your resume for this Direct Hire opportunit",
+              "WhatToExpectNext": "[trimmed] For additional information on other USSF direct hire opportunities visit the Air",
+              "RequiredDocuments": "[trimmed] Resume: You must submit a resume that may NOT exceed two pages, and the font siz",
+              "Benefits": "",
+              "BenefitsDisplayDefaultText": true,
+              "OtherInformation": "[trimmed] Employed Annuitants (Reemployed Annuitants): Applicants in receipt of an annuity",
+              "KeyRequirements": [],
+              "WithinArea": "False",
+              "CommuteDistance": "0",
+              "ServiceType": "01",
+              "AnnouncementClosingType": "01",
+              "SecurityClearance": "Secret",
+              "DrugTestRequired": "True",
+              "PositionSensitivitiy": "Noncritical-Sensitive (NCS)/Moderate Risk",
+              "AdjudicationType": [
+                "National security"
+              ],
+              "TeleworkEligible": true,
+              "RemoteIndicator": false,
+              "FinancialDisclosure": false,
+              "BargainingUnitStatus": false
+            },
+            "IsRadialSearch": false
+          },
+          "AnnouncementClosingType": "01"
+        },
+        "RelevanceRank": 0
+      },
+      {
+        "MatchedObjectId": "892199900",
+        "MatchedObjectDescriptor": {
+          "PositionID": "DE-13112995-27-TEG",
+          "PositionTitle": "IT SPECIALIST (APPSW/INFOSEC)",
+          "PositionURI": "https://www.usajobs.gov:443/job/892199900",
+          "ApplyURI": [
+            "https://www.usajobs.gov:443/job/892199900"
+          ],
+          "PositionLocationDisplay": "Cecil Field, Florida",
+          "PositionLocation": [
+            {
+              "LocationName": "Cecil Field, Florida",
+              "CountryCode": "United States",
+              "CountrySubDivisionCode": "Florida",
+              "CityName": "Cecil Field, Florida",
+              "Longitude": -81.88404,
+              "Latitude": 30.222418
+            }
+          ],
+          "OrganizationName": "Naval Air Systems Command",
+          "DepartmentName": "Department of the Navy",
+          "JobCategory": [
+            {
+              "Name": "Information Technology Management",
+              "Code": "2210"
+            }
+          ],
+          "JobGrade": [
+            {
+              "Code": "GS"
+            }
+          ],
+          "PositionSchedule": [
+            {
+              "Name": "",
+              "Code": "1"
+            }
+          ],
+          "PositionOfferingType": [
+            {
+              "Name": "",
+              "Code": "15317"
+            }
+          ],
+          "QualificationSummary": "[trimmed] FOR GS-12 - Your resume must demonstrate at least one year of specialized experi",
+          "PositionRemuneration": [
+            {
+              "MinimumRange": "61722",
+              "MaximumRange": "116362",
+              "RateIntervalCode": "PA",
+              "Description": "Per Year"
+            }
+          ],
+          "PositionStartDate": "2026-11-12T00:00:00.0000",
+          "PositionEndDate": "2026-12-11T23:59:59.9970",
+          "PublicationStartDate": "2026-11-12T00:00:00.0000",
+          "ApplicationCloseDate": "2026-12-11T23:59:59.9970",
+          "UserArea": {
+            "Details": {
+              "JobSummary": "[trimmed] This is a public notice flyer to notify interested applicants of anticipated vac",
+              "WhoMayApply": {
+                "Name": "",
+                "Code": ""
+              },
+              "LowGrade": "9",
+              "HighGrade": "12",
+              "PromotionPotential": "12",
+              "Relocation": "False",
+              "HiringPath": [
+                "public"
+              ],
+              "HiringPathDisplay": [
+                "Open to the public"
+              ],
+              "MCOTags": [
+                "NatSec"
+              ],
+              "TotalOpenings": "01",
+              "AgencyMarketingStatement": "[trimmed] The Navy and Marine Corps team offers innovative, exciting and meaningful work l",
+              "TravelCode": "1",
+              "MajorDuties": [
+                "[trimmed] You will perform assignments related to the analysis, java coding, java developm",
+                "[trimmed] You will define project scope and tasks utilizing Work Breakdown Structures (WBS"
+              ],
+              "Education": "",
+              "Requirements": "",
+              "Evaluations": "[trimmed] In order to qualify for this position, your resume must provide sufficient exper",
+              "HowToApply": "[trimmed] Interested Applicants must submit resumes/application packages to: https://navai",
+              "WhatToExpectNext": "[trimmed] Qualified applicants will be referred to the hiring manager. The selecting offic",
+              "RequiredDocuments": "[trimmed] A complete resume is required. Resumes are restricted to no more than 2 pages. I",
+              "Benefits": "",
+              "BenefitsDisplayDefaultText": true,
+              "OtherInformation": "[trimmed] GS-12 $89,508-$116,362 / GS-11 $ 74,678-$97,087 / GS-9 $61,722-$80,243 This posi",
+              "KeyRequirements": [],
+              "WithinArea": "False",
+              "CommuteDistance": "0",
+              "ServiceType": "01",
+              "AnnouncementClosingType": "01",
+              "SecurityClearance": "Secret",
+              "DrugTestRequired": "False",
+              "PositionSensitivitiy": "Noncritical-Sensitive (NCS)/Moderate Risk",
+              "AdjudicationType": [
+                "National security"
+              ],
+              "TeleworkEligible": true,
+              "RemoteIndicator": false,
+              "FinancialDisclosure": false,
+              "BargainingUnitStatus": false
+            },
+            "IsRadialSearch": false
+          },
+          "AnnouncementClosingType": "01"
+        },
+        "RelevanceRank": 0
+      },
+      {
+        "MatchedObjectId": "891986600",
+        "MatchedObjectDescriptor": {
+          "PositionID": "SDST-27-13110586-DCIPS-R",
+          "PositionTitle": "IT Specialist (APPSW)",
+          "PositionURI": "https://www.usajobs.gov:443/job/891986600",
+          "ApplyURI": [
+            "https://www.usajobs.gov:443/job/891986600"
+          ],
+          "PositionLocationDisplay": "Key West, Florida",
+          "PositionLocation": [
+            {
+              "LocationName": "Key West, Florida",
+              "CountryCode": "United States",
+              "CountrySubDivisionCode": "Florida",
+              "CityName": "Key West, Florida",
+              "Longitude": -81.80085,
+              "Latitude": 24.554117
+            }
+          ],
+          "OrganizationName": "Joint Activities",
+          "DepartmentName": "Department of the Army",
+          "SubAgency": "Joint Interagency Task Force South, U.S. Southern Command, Key West, FL 33040.",
+          "JobCategory": [
+            {
+              "Name": "Information Technology Management",
+              "Code": "2210"
+            }
+          ],
+          "JobGrade": [
+            {
+              "Code": "GG"
+            }
+          ],
+          "PositionSchedule": [
+            {
+              "Name": "",
+              "Code": "1"
+            }
+          ],
+          "PositionOfferingType": [
+            {
+              "Name": "",
+              "Code": "15317"
+            }
+          ],
+          "QualificationSummary": "[trimmed] Who May Apply: Only applicants who meet one of the employment authority categori",
+          "PositionRemuneration": [
+            {
+              "MinimumRange": "81901",
+              "MaximumRange": "143867",
+              "RateIntervalCode": "PA",
+              "Description": "Per Year"
+            }
+          ],
+          "PositionStartDate": "2026-11-10T00:00:00.0000",
+          "PositionEndDate": "2026-11-16T23:59:59.9970",
+          "PublicationStartDate": "2026-11-10T00:00:00.0000",
+          "ApplicationCloseDate": "2026-11-16T23:59:59.9970",
+          "UserArea": {
+            "Details": {
+              "JobSummary": "[trimmed] About the Position: This position is in the Defense Civilian Intelligence Person",
+              "WhoMayApply": {
+                "Name": "",
+                "Code": ""
+              },
+              "LowGrade": "7",
+              "HighGrade": "11",
+              "PromotionPotential": "None",
+              "SubAgencyName": "Joint Interagency Task Force South, U.S. Southern Command, Key West, FL 33040.",
+              "Relocation": "False",
+              "HiringPath": [
+                "public"
+              ],
+              "HiringPathDisplay": [
+                "Open to the public"
+              ],
+              "MCOTags": [
+                "IC Intel",
+                "NatSec"
+              ],
+              "TotalOpenings": "1",
+              "AgencyMarketingStatement": "[trimmed] Civilian employees serve a vital role in supporting the Army mission. They provi",
+              "TravelCode": "1",
+              "MajorDuties": [
+                "[trimmed] Serve as an Information Technology (IT) Specialist providing support in the spec",
+                "[trimmed] Provide support to applications consisting of numerous software programs, utilit"
+              ],
+              "Education": "[trimmed] FOREIGN EDUCATION: If you are using education completed in foreign colleges or u",
+              "Requirements": "",
+              "Evaluations": "[trimmed] You will be evaluated based on how well you meet the qualifications listed in th",
+              "HowToApply": "[trimmed] Please read the entire announcement and all the instructions before you begin an",
+              "WhatToExpectNext": "[trimmed] If you provided an email address, you will receive an email message acknowledgin",
+              "RequiredDocuments": "[trimmed] WARNING: DO NOT INCLUDE CLASSIFIED INFORMATION IN YOUR APPLICATION PACKET! Appli",
+              "Benefits": "",
+              "BenefitsDisplayDefaultText": true,
+              "OtherInformation": "[trimmed] This position requires a 2 year trial period during which the agency evaluates y",
+              "KeyRequirements": [],
+              "WithinArea": "False",
+              "CommuteDistance": "0",
+              "ServiceType": "02",
+              "AnnouncementClosingType": "01",
+              "AgencyContactWebsite": "https://portal.chra.army.mil/hr_public?id=app_inq",
+              "SecurityClearance": "Sensitive Compartmented Information",
+              "DrugTestRequired": "True",
+              "PositionSensitivitiy": "Special-Sensitive (SS)/High Risk",
+              "AdjudicationType": [
+                "National security"
+              ],
+              "TeleworkEligible": false,
+              "RemoteIndicator": false,
+              "FinancialDisclosure": false,
+              "BargainingUnitStatus": false
+            },
+            "IsRadialSearch": false
+          },
+          "AnnouncementClosingType": "01"
+        },
+        "RelevanceRank": 0
+      },
+      {
+        "MatchedObjectId": "892230400",
+        "MatchedObjectDescriptor": {
+          "PositionID": "27-VAOIG-13105661-DE",
+          "PositionTitle": "Information Technology Specialist (DATAMGT)",
+          "PositionURI": "https://www.usajobs.gov:443/job/892230400",
+          "ApplyURI": [
+            "https://www.usajobs.gov:443/job/892230400"
+          ],
+          "PositionLocationDisplay": "Multiple Locations",
+          "PositionLocation": [
+            {
+              "LocationName": "San Diego, California",
+              "CountryCode": "United States",
+              "CountrySubDivisionCode": "California",
+              "CityName": "San Diego, California",
+              "Longitude": -117.162,
+              "Latitude": 32.7157
+            },
+            {
+              "LocationName": "Washington, District of Columbia",
+              "CountryCode": "United States",
+              "CountrySubDivisionCode": "District of Columbia",
+              "CityName": "Washington, District of Columbia",
+              "Longitude": -77.032,
+              "Latitude": 38.8904
+            },
+            {
+              "LocationName": "Bay Pines, Florida",
+              "CountryCode": "United States",
+              "CountrySubDivisionCode": "Florida",
+              "CityName": "Bay Pines, Florida",
+              "Longitude": -82.77736,
+              "Latitude": 27.8128
+            }
+          ],
+          "OrganizationName": "Veterans Affairs, Inspector General",
+          "DepartmentName": "Department of Veterans Affairs",
+          "SubAgency": "Office of Data and Analytics",
+          "JobCategory": [
+            {
+              "Name": "Information Technology Management",
+              "Code": "2210"
+            }
+          ],
+          "JobGrade": [
+            {
+              "Code": "GS"
+            }
+          ],
+          "PositionSchedule": [
+            {
+              "Name": "",
+              "Code": "1"
+            }
+          ],
+          "PositionOfferingType": [
+            {
+              "Name": "",
+              "Code": "15317"
+            }
+          ],
+          "QualificationSummary": "[trimmed] You must meet the following requirements within 30 days of the closing date of t",
+          "PositionRemuneration": [
+            {
+              "MinimumRange": "61722",
+              "MaximumRange": "80243",
+              "RateIntervalCode": "PA",
+              "Description": "Per Year"
+            }
+          ],
+          "PositionStartDate": "2026-11-10T00:00:00.0000",
+          "PositionEndDate": "2026-11-19T23:59:59.9970",
+          "PublicationStartDate": "2026-11-10T00:00:00.0000",
+          "ApplicationCloseDate": "2026-11-19T23:59:59.9970",
+          "UserArea": {
+            "Details": {
+              "JobSummary": "[trimmed] The Department of Veterans Affairs, Office of the Inspector General (OIG), is or",
+              "WhoMayApply": {
+                "Name": "",
+                "Code": ""
+              },
+              "LowGrade": "9",
+              "HighGrade": "9",
+              "PromotionPotential": "13",
+              "SubAgencyName": "Office of Data and Analytics",
+              "Relocation": "False",
+              "HiringPath": [
+                "fed-transition",
+                "public"
+              ],
+              "HiringPathDisplay": [
+                "Career transition (CTAP, ICTAP, RPL)",
+                "Open to the public"
+              ],
+              "MCOTags": [],
+              "TotalOpenings": "Many",
+              "AgencyMarketingStatement": "[trimmed] The Department of Veterans Affairs Office of Inspector General's mission is to c",
+              "TravelCode": "2",
+              "MajorDuties": [
+                "[trimmed] As a/an Information Technology Specialist (DATAMGT) the following are the duties"
+              ],
+              "Education": "[trimmed] There are no substitution of education for specialized experience at GS-09 level",
+              "Requirements": "[trimmed] The experience may have been gained in either the public, private sector or volu",
+              "Evaluations": "[trimmed] All applicants are required to submit a re\u0301sume\u0301 either by creating one in USAJO",
+              "HowToApply": "[trimmed] The following instructions outline our application process. You must complete th",
+              "WhatToExpectNext": "[trimmed] Once you submit your application, we will assess your experience and training, i",
+              "RequiredDocuments": "[trimmed] A complete application includes 1. A re\u0301sume\u0301, 2. Vacancy question responses, 3.",
+              "Benefits": "[trimmed] Our comprehensive benefits are very generous. Our benefits package includes: - C",
+              "BenefitsDisplayDefaultText": true,
+              "OtherInformation": "[trimmed] Salary: The salary range indicated in this announcement will be adjusted to incl",
+              "KeyRequirements": [],
+              "WithinArea": "False",
+              "CommuteDistance": "0",
+              "ServiceType": "01",
+              "AnnouncementClosingType": "03",
+              "AnnouncementClosingTypeOption": "200",
+              "AgencyContactWebsite": "https://staffacq-applicant.opm.gov/hc/en-us/requests/new",
+              "SecurityClearance": "Not Required",
+              "DrugTestRequired": "False",
+              "PositionSensitivitiy": "High Risk (HR)",
+              "AdjudicationType": [
+                "Suitability/Fitness"
+              ],
+              "TeleworkEligible": true,
+              "RemoteIndicator": false,
+              "FinancialDisclosure": false,
+              "BargainingUnitStatus": false
+            },
+            "IsRadialSearch": false
+          },
+          "AnnouncementClosingType": "03",
+          "AnnouncementClosingTypeOption": "200"
+        },
+        "RelevanceRank": 0
+      },
+      {
+        "MatchedObjectId": "892176400",
+        "MatchedObjectDescriptor": {
+          "PositionID": "PVO-27-DHA-OP-13109815-NBU",
+          "PositionTitle": "Information Technology Specialist (Systems Analysis)",
+          "PositionURI": "https://www.usajobs.gov:443/job/892176400",
+          "ApplyURI": [
+            "https://www.usajobs.gov:443/job/892176400"
+          ],
+          "PositionLocationDisplay": "Location Negotiable After Selection",
+          "PositionLocation": [
+            {
+              "LocationName": "Salt Lake City, Utah",
+              "CountryCode": "United States",
+              "CountrySubDivisionCode": "Utah",
+              "CityName": "Salt Lake City, Utah",
+              "Longitude": -111.88823,
+              "Latitude": 40.75952
+            },
+            {
+              "LocationName": "Seattle, Washington",
+              "CountryCode": "United States",
+              "CountrySubDivisionCode": "Washington",
+              "CityName": "Seattle, Washington",
+              "Longitude": -122.32945,
+              "Latitude": 47.60358
+            },
+            {
+              "LocationName": "Phoenix, Arizona",
+              "CountryCode": "United States",
+              "CountrySubDivisionCode": "Arizona",
+              "CityName": "Phoenix, Arizona",
+              "Longitude": -112.075775,
+              "Latitude": 33.44826
+            },
+            {
+              "LocationName": "Miami, Florida",
+              "CountryCode": "United States",
+              "CountrySubDivisionCode": "Florida",
+              "CityName": "Miami, Florida",
+              "Longitude": -80.23742,
+              "Latitude": 25.728985
+            }
+          ],
+          "OrganizationName": "Deputy Assistant Secretary for Information and Technology",
+          "DepartmentName": "Department of Veterans Affairs",
+          "SubAgency": "Office of Information and Technology (OIT)",
+          "JobCategory": [
+            {
+              "Name": "Information Technology Management",
+              "Code": "2210"
+            }
+          ],
+          "JobGrade": [
+            {
+              "Code": "GS"
+            }
+          ],
+          "PositionSchedule": [
+            {
+              "Name": "",
+              "Code": "1"
+            }
+          ],
+          "PositionOfferingType": [
+            {
+              "Name": "",
+              "Code": "15317"
+            }
+          ],
+          "QualificationSummary": "[trimmed] To qualify for this position, applicants must meet all requirements by the closi",
+          "PositionRemuneration": [
+            {
+              "MinimumRange": "106437",
+              "MaximumRange": "138370",
+              "RateIntervalCode": "PA",
+              "Description": "Per Year"
+            }
+          ],
+          "PositionStartDate": "2026-11-09T14:56:37.9270",
+          "PositionEndDate": "2026-11-16T23:59:59.9970",
+          "PublicationStartDate": "2026-11-09T14:56:37.9270",
+          "ApplicationCloseDate": "2026-11-16T23:59:59.9970",
+          "UserArea": {
+            "Details": {
+              "JobSummary": "[trimmed] This position is located in the Department of Veterans Affairs (VA), Office of I",
+              "WhoMayApply": {
+                "Name": "",
+                "Code": ""
+              },
+              "LowGrade": "13",
+              "HighGrade": "13",
+              "PromotionPotential": "None",
+              "SubAgencyName": "Office of Information and Technology (OIT)",
+              "Relocation": "False",
+              "HiringPath": [
+                "fed-transition",
+                "public"
+              ],
+              "HiringPathDisplay": [
+                "Career transition (CTAP, ICTAP, RPL)",
+                "Open to the public"
+              ],
+              "MCOTags": [],
+              "TotalOpenings": "6",
+              "AgencyMarketingStatement": "[trimmed] OUR MISSION: To fulfill President Lincoln's promise \"To care for those who have ",
+              "TravelCode": "2",
+              "MajorDuties": [
+                "[trimmed] OIT Mission: The mission of the Office of Information and Technology (OIT) is to"
+              ],
+              "Education": "[trimmed] There is no educational substitution at this grade level.",
+              "Requirements": "[trimmed] You must be a U.S. Citizen to apply for this job To be considered for this posit",
+              "Evaluations": "[trimmed] Your qualifications will be evaluated based on your application materials (e.g.,",
+              "HowToApply": "[trimmed] Please read the entire announcement and all the instructions before you begin an",
+              "WhatToExpectNext": "[trimmed] Once your online application is submitted you will receive a confirmation notifi",
+              "RequiredDocuments": "[trimmed] To apply for this position, you must provide a complete Application Package whic",
+              "Benefits": "",
+              "BenefitsDisplayDefaultText": true,
+              "OtherInformation": "[trimmed] This is not a remote position. OI&T has multiple worksites at various duty locat",
+              "KeyRequirements": [],
+              "WithinArea": "False",
+              "CommuteDistance": "0",
+              "ServiceType": "01",
+              "AnnouncementClosingType": "01",
+              "SecurityClearance": "Other",
+              "DrugTestRequired": "False",
+              "PositionSensitivitiy": "High Risk (HR)",
+              "AdjudicationType": [
+                "Suitability/Fitness"
+              ],
+              "TeleworkEligible": true,
+              "RemoteIndicator": false,
+              "FinancialDisclosure": false,
+              "BargainingUnitStatus": false
+            },
+            "IsRadialSearch": false
+          },
+          "AnnouncementClosingType": "01"
+        },
+        "RelevanceRank": 0
+      }
+    ],
+    "UserArea": {
+      "NumberOfPages": "3",
+      "IsRadialSearch": false
+    }
+  }
+}
