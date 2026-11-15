@@ -10,7 +10,7 @@ import {
 describe('primary navigation', () => {
     it('is the job-search workflow, in order', () => {
         expect(PRIMARY_NAV.map((i) => i.label)).toEqual([
-            'Home',
+            'Overview',
             'Sources',
             'Jobs',
             'Opportunities',
@@ -34,12 +34,15 @@ describe('primary navigation', () => {
 });
 
 describe('active primary destination', () => {
-    it.each([['home'], ['sources'], ['jobs'], ['opportunities'], ['applications']])(
-        'lights %s when the server says so',
-        (section) => {
-            expect(activePrimary(section)).toBe(section);
-        },
-    );
+    it.each([
+        ['home'],
+        ['sources'],
+        ['jobs'],
+        ['opportunities'],
+        ['applications'],
+    ])('lights %s when the server says so', (section) => {
+        expect(activePrimary(section)).toBe(section);
+    });
 
     it('lights nothing for the profile menu, an unknown section, or none', () => {
         expect(activePrimary('profile')).toBeNull();

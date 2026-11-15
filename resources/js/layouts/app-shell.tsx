@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import { home } from '@/routes';
 
 /**
- * App shell: a sticky header with the product name, the job-search navigation (Home, Sources, Jobs, Opportunities, Applications)
+ * App shell: a sticky header with the product name, the job-search navigation (Overview, Sources, Jobs, Opportunities, Applications)
  * and, at the right, the profile menu holding personal career information, over a single content column. Five items do not fit beside the name and profile menu on a phone, so below `md` the
  * navigation drops to its own row instead of clipping. The Browser Inspector status sits quietly in
  * the footer. Every screen renders inside it, so global chrome changes happen

@@ -11,7 +11,7 @@ use Illuminate\Http\Request;
  * Which part of the header a page belongs to, decided from the route and, for anything about one job, from that job's
  * disposition: never from the address text, and never from the link that was clicked to get there.
  *
- * - Home, Sources (discovery providers and their filtered candidates), Jobs (the list and adding one), Opportunities (the list and its workspaces) and Applications (the list of
+ * - Overview, Sources (discovery providers and their filtered candidates), Jobs (the list and adding one), Opportunities (the list and its workspaces) and Applications (the list of
  *   recorded applications) are themselves.
  * - Every page about one job (its page, analysis, match, resumes, and the browser inspection record) belongs to the
  *   workflow stage the job is in: Opportunities while it is pursued, Jobs otherwise. So the preparation pages of a

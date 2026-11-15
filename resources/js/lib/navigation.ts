@@ -1,13 +1,18 @@
 /**
- * The app's two kinds of destination, kept apart: the job-search workflow (Home, Sources, Jobs, Opportunities, Applications),
+ * The app's two kinds of destination, kept apart: the job-search workflow (Overview, Sources, Jobs, Opportunities, Applications),
  * which is the primary navigation, and personal career information (Career Data, Resume Profiles), which lives in the
  * profile menu. Pure, so the labels, the destinations and which one is active can be tested.
  */
 
-export type PrimaryKey = 'home' | 'sources' | 'jobs' | 'opportunities' | 'applications';
+export type PrimaryKey =
+    | 'home'
+    | 'sources'
+    | 'jobs'
+    | 'opportunities'
+    | 'applications';
 
 export const PRIMARY_NAV: { key: PrimaryKey; label: string; href: string }[] = [
-    { key: 'home', label: 'Home', href: '/' },
+    { key: 'home', label: 'Overview', href: '/' },
     { key: 'sources', label: 'Sources', href: '/sources' },
     { key: 'jobs', label: 'Jobs', href: '/jobs' },
     { key: 'opportunities', label: 'Opportunities', href: '/opportunities' },
