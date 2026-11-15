@@ -16,6 +16,18 @@ final class TitleFamilies
     /** @var array<string, string> */
     private static array $compiled = [];
 
+    /**
+     * The role nouns ("engineer", "developer") that also match in the plural wherever they end a target phrase.
+     *
+     * @return list<string>
+     */
+    public static function roles(): array
+    {
+        $roles = config('job_discovery.search.title_families.roles');
+
+        return is_array($roles) ? array_values(array_filter($roles, 'is_string')) : ['engineer', 'developer'];
+    }
+
     public static function matches(string $title): bool
     {
         $config = config('job_discovery.search.title_families');
@@ -47,7 +59,8 @@ final class TitleFamilies
             fn (string $term) => implode('[\s\-]*', array_map(fn (string $word) => preg_quote($word, '~'), preg_split('/\s+/u', trim($term)) ?: [])),
             $specializations,
         ));
-        $rolePattern = implode('|', array_map(fn (string $role) => preg_quote($role, '~'), $roles));
+        // Plural too: "Software Engineers". Only the role noun is made plural, never the specialization.
+        $rolePattern = implode('|', array_map(fn (string $role) => preg_quote($role, '~').'s?', $roles));
 
         $boundaryStart = '(?<![\p{L}\p{N}_])';
         $boundaryEnd = '(?![\p{L}\p{N}_])';
@@ -63,7 +76,7 @@ final class TitleFamilies
 
         foreach (array_filter((array) ($config['phrases'] ?? []), 'is_string') as $phrase) {
             $words = preg_split('/\s+/u', trim($phrase)) ?: [];
-            $alternatives[] = $boundaryStart.implode('[\s\-]+', array_map(fn (string $word) => preg_quote($word, '~'), $words)).$boundaryEnd;
+            $alternatives[] = $boundaryStart.implode('[\s\-]+', array_map(fn (string $word) => preg_quote($word, '~'), $words)).(in_array(mb_strtolower((string) end($words)), $roles, true) ? 's?' : '').$boundaryEnd;
         }
 
         return '~'.implode('|', $alternatives).'~iu';

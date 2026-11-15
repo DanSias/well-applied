@@ -254,3 +254,31 @@ it('lets an Eightfold candidate pass on complete location signals even when the 
         ->and(policyDecision(['source' => JobDiscoverySource::Eightfold, 'location' => $shown, 'sourceMetadata' => ['usLocationListed' => true]])->accepted)->toBeTrue()
         ->and(policyDecision(['source' => JobDiscoverySource::Eightfold, 'location' => $shown, 'sourceMetadata' => ['usLocationListed' => false]])->accepted)->toBeFalse();
 });
+
+it('matches plural engineers and developers wherever the singular title qualifies', function (string $title) {
+    expect(policyDecision(['title' => $title])->accepted)->toBeTrue();
+})->with([
+    'Principal + Staff Software Engineers', 'Software Engineers', 'Senior Software Developers', 'Platform Engineers',
+    'Data Engineers', 'API Engineers', 'Full-Stack Engineers', 'Fullstack Developers', 'Backend Engineers',
+    'PHP Developers', 'Laravel Engineers', 'Integrations Engineers', 'Solutions Engineers', 'Technical Support Engineers',
+    // Singular behavior is unchanged.
+    'Software Engineer', 'Platform Engineer', 'Solutions Engineer',
+]);
+
+it('does not turn plurals into generic engineer or developer matches', function (string $title) {
+    $decision = policyDecision(['title' => $title]);
+
+    expect($decision->accepted)->toBeFalse()
+        ->and($decision->reason)->toBe(DiscoveryRejectionReason::TitleNotMatching);
+})->with(['Engineers', 'Developers', 'Senior Engineers', 'Staff Engineers', 'Sales Engineers', 'Python Developers', 'Software Engineering Managers', 'Support Engineers', 'Engineering Managers']);
+
+it('keeps the exclusions in force for plural titles', function (string $title, DiscoveryRejectionReason $reason) {
+    expect(policyDecision(['title' => $title])->reason)->toBe($reason);
+})->with([
+    ['DevOps Engineers', DiscoveryRejectionReason::ExcludedTitleRole],
+    ['Site Reliability Engineers', DiscoveryRejectionReason::ExcludedTitleRole],
+    ['Firmware Software Engineers', DiscoveryRejectionReason::ExcludedTitleRole],
+    ['Compiler Engineers', DiscoveryRejectionReason::ExcludedTitleRole],
+    ['Junior Software Engineers', DiscoveryRejectionReason::ExcludedSeniority],
+    ['Junior Backend Developers', DiscoveryRejectionReason::ExcludedSeniority],
+]);

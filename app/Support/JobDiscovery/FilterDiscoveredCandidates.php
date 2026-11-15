@@ -44,7 +44,7 @@ final class FilterDiscoveredCandidates
         }
 
         // Empty keywords = no positive filter = accept everything; empty exclusion lists exclude nothing.
-        if ($criteria->keywords !== [] && $this->matchedKeyword($title, $criteria->keywords) === null
+        if ($criteria->keywords !== [] && $this->matchedKeyword($title, $criteria->keywords, pluralRoles: true) === null
             && ! ($criteria->titleFamilies && TitleFamilies::matches($title))) {
             return FilterDecision::reject(DiscoveryRejectionReason::TitleNotMatching, null, 'title', $title);
         }
@@ -65,9 +65,12 @@ final class FilterDiscoveredCandidates
     }
 
     /**
+     * With $pluralRoles, a phrase ending in a role noun ("software engineer") also matches its plural ("software
+     * engineers"). Only used for the positive title keywords, never the exclusions.
+     *
      * @param  string[]  $keywords
      */
-    private function matchedKeyword(string $haystack, array $keywords): ?string
+    private function matchedKeyword(string $haystack, array $keywords, bool $pluralRoles = false): ?string
     {
         foreach ($keywords as $keyword) {
             $words = preg_split('/\\s+/u', trim($keyword)) ?: [];
@@ -75,6 +78,9 @@ final class FilterDiscoveredCandidates
                 continue;
             }
             $phrase = implode('\\s+', array_map(fn (string $word) => preg_quote($word, '~'), $words));
+            if ($pluralRoles && in_array(mb_strtolower((string) end($words)), TitleFamilies::roles(), true)) {
+                $phrase .= 's?';
+            }
             if (preg_match('~(?<![\\p{L}\\p{N}_])'.$phrase.'(?![\\p{L}\\p{N}_])~iu', $haystack) === 1) {
                 return $keyword;
             }
