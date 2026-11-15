@@ -7,6 +7,7 @@ use App\Enums\DiscoveryStatus;
 use App\Enums\JobDiscoverySource;
 use App\Models\DiscoveryProviderAttempt;
 use App\Models\DiscoveryRejection;
+use App\Support\JobDiscovery\DiscoveryProviderInventory;
 use App\Support\JobDiscovery\DiscoveryScheduleIsDue;
 
 /**
@@ -34,7 +35,7 @@ final class PresentDiscoveryHealth
                 && (in_array($source, $scheduled, true) || DiscoveryProviderAttempt::query()->where('provider', $source)->exists()),
         ));
 
-        $providers = array_map(fn (JobDiscoverySource $source) => $this->provider($source, in_array($source, $scheduled, true)), $sources);
+        $providers = array_map(fn (JobDiscoverySource $source) => $this->forProvider($source, in_array($source, $scheduled, true)), $sources);
 
         return [
             'providers' => $providers,
@@ -45,9 +46,12 @@ final class PresentDiscoveryHealth
     }
 
     /**
+     * One provider's health. Shared with the Sources page, so the two never disagree about its last success, its latest
+     * outcome or whether it is overdue.
+     *
      * @return array<string, mixed>
      */
-    private function provider(JobDiscoverySource $source, bool $scheduled): array
+    public function forProvider(JobDiscoverySource $source, bool $scheduled): array
     {
         $latest = $this->latest($source);
         // A Partial attempt did real work (one tenant or page failed, the rest kept its counts), so it counts as the last
@@ -59,7 +63,7 @@ final class PresentDiscoveryHealth
 
         return [
             'provider' => $source->value,
-            'label' => $source === JobDiscoverySource::Usajobs ? 'USAJOBS' : ucfirst($source->value),
+            'label' => DiscoveryProviderInventory::label($source),
             'scheduled' => $scheduled,
             // Only a provider the scheduler runs can be "overdue"; a manual-only one is just "last run".
             'stale' => $scheduled && ($ageHours === null || $ageHours >= $staleAfter),
@@ -92,7 +96,7 @@ final class PresentDiscoveryHealth
     /**
      * @param  list<DiscoveryStatus>|null  $statuses
      */
-    private function latest(JobDiscoverySource $source, ?array $statuses = null): ?DiscoveryProviderAttempt
+    public function latest(JobDiscoverySource $source, ?array $statuses = null): ?DiscoveryProviderAttempt
     {
         return DiscoveryProviderAttempt::query()
             ->where('provider', $source)
@@ -106,7 +110,7 @@ final class PresentDiscoveryHealth
      * @param  array<string, int>|null  $counts
      * @return list<array{code: string, label: string, count: int}>
      */
-    private function reasons(?array $counts): array
+    public function reasons(?array $counts): array
     {
         $rows = [];
         foreach ($counts ?? [] as $code => $count) {
