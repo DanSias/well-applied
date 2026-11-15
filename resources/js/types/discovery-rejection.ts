@@ -17,7 +17,8 @@ export type DiscoveryRejectionRow = {
 
 export type DiscoveryRejectionsProps = {
     rejections: DiscoveryRejectionRow[];
-    filters: { q: string; reason: string };
+    filters: { q: string; reason: string; provider: string | null };
+    providers: { id: string; label: string }[];
     reasons: { code: string; label: string }[];
     pagination: {
         page: number;

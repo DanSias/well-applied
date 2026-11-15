@@ -15,6 +15,8 @@ export type ListState = {
     triage: string;
     resume: string;
     disposition: string;
+    /** Only postings found by this discovery source (Jobs only); absent or null is every source. */
+    source?: string | null;
     /** The job open in the review drawer, if any. */
     job?: number | null;
     per_page: number;
@@ -50,6 +52,10 @@ export function buildListParams(
 
     if (state.resume !== 'all') {
         params.resume = state.resume;
+    }
+
+    if (state.source) {
+        params.source = state.source;
     }
 
     if (state.job !== undefined && state.job !== null) {

@@ -6,6 +6,7 @@ use App\Enums\DismissalReason;
 use App\Enums\GenerationStatus;
 use App\Enums\GenerationType;
 use App\Enums\JobAnalysisFindingCategory;
+use App\Enums\JobDiscoverySource;
 use App\Enums\JobDisposition;
 use App\Http\Requests\StoreJobPostingRequest;
 use App\Models\GenerationAttempt;
@@ -49,10 +50,18 @@ class JobPostingController extends Controller
         // The decision view: the inbox (jobs nobody has decided on) unless another is asked for. Anything unrecognized is the inbox.
         $disposition = in_array($request->query('disposition'), ['inbox', 'shortlist', 'dismissed', 'all'], true) ? (string) $request->query('disposition') : 'inbox';
 
+        // Only a known discovery source narrows the list; anything else is no source filter. Independent of disposition and the
+        // other filters, so a source can be viewed across the Inbox, Shortlist, Dismissed and pursued jobs together.
+        $source = JobDiscoverySource::tryFrom((string) $request->query('source', ''));
+
         // The job open in the review drawer, if any (`?job=ID`). Only its id is read here; the detail is loaded lazily below.
         $selectedId = ctype_digit((string) $request->query('job')) ? (int) $request->query('job') : null;
 
         $query = CurrentCareerProfile::resolve()->jobPostings()->latest()->orderByDesc('id');
+
+        if ($source !== null) {
+            $query->where('discovery_source', $source->value);
+        }
 
         match ($disposition) {
             'inbox' => $query->where('disposition', JobDisposition::New->value),
@@ -109,8 +118,8 @@ class JobPostingController extends Controller
             // `triage` is normalized so the echoed filter always reflects
             // what was actually applied — an invalid value degrades to
             // `all` in both behavior and props.
-            'filters' => ['q' => $search, 'status' => $status, 'triage' => $triageStages === null ? 'all' : $triage, 'resume' => $resume, 'disposition' => $disposition, 'job' => $selectedId],
-            'disposition_counts' => $this->dispositionCounts(),
+            'filters' => ['q' => $search, 'status' => $status, 'triage' => $triageStages === null ? 'all' : $triage, 'resume' => $resume, 'disposition' => $disposition, 'source' => $source?->value, 'job' => $selectedId],
+            'disposition_counts' => $this->dispositionCounts($source),
             // The drawer's job, fetched on demand and never with the list: the full description would multiply the page
             // payload by the page size. Null when no job is open, or when the id is not one of this profile's jobs.
             'selected_job' => fn () => $selectedId === null ? null : $this->selectedJob($selectedId, $summarizer, $triageStates),
@@ -167,9 +176,9 @@ class JobPostingController extends Controller
      *
      * @return array{inbox: int, shortlist: int, dismissed: int, all: int}
      */
-    private function dispositionCounts(): array
+    private function dispositionCounts(?JobDiscoverySource $source = null): array
     {
-        $counts = CurrentCareerProfile::resolve()->jobPostings()->selectRaw('disposition, count(*) as total')->groupBy('disposition')->pluck('total', 'disposition');
+        $counts = CurrentCareerProfile::resolve()->jobPostings()->when($source !== null, fn ($q) => $q->where('discovery_source', $source?->value))->selectRaw('disposition, count(*) as total')->groupBy('disposition')->pluck('total', 'disposition');
 
         return [
             'inbox' => (int) $counts->get(JobDisposition::New->value, 0),

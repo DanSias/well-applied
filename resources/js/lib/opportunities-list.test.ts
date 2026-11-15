@@ -32,6 +32,30 @@ describe('list URL state', () => {
         expect(buildListParams(base)).toEqual({});
     });
 
+    it('carries a source filter alongside the others, and leaves it out when unset', () => {
+        expect(
+            buildListParams({
+                ...base,
+                disposition: 'all',
+                source: 'himalayas',
+                q: 'acme',
+                page: 2,
+            }),
+        ).toEqual({
+            disposition: 'all',
+            source: 'himalayas',
+            q: 'acme',
+            page: 2,
+        });
+        expect(buildListParams({ ...base, source: null })).toEqual({});
+    });
+
+    it('keeps the source filter when another filter changes, and resets the page', () => {
+        expect(
+            nextListState({ ...base, source: 'jobicy', page: 4 }, { triage: 'raw' }),
+        ).toMatchObject({ source: 'jobicy', triage: 'raw', page: 1 });
+    });
+
     it('carries search, filters, page size and page', () => {
         expect(
             buildListParams({

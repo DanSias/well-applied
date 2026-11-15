@@ -1,4 +1,4 @@
-import { Head, router, useForm, usePoll } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePoll } from '@inertiajs/react';
 import {
     Fragment,
     useCallback,
@@ -48,6 +48,7 @@ import { notify } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { show as applicationsShow } from '@/routes/applications';
 import { index as jobsIndex, create as createJob } from '@/routes/jobs';
+import { index as sourcesIndex } from '@/routes/sources';
 import { store as inspectStore } from '@/routes/jobs/applications';
 import {
     analyze as batchAnalyze,
@@ -142,9 +143,11 @@ function describeFilters(filters: JobsIndexProps['filters']): string {
         parts.push(`“${filters.q}” in the title or company`);
     }
 
+    const scope = `${VIEW_NAMES[filters.disposition]}${filters.source !== null ? ` from ${discoverySourceLabel(filters.source)}` : ''}`;
+
     return parts.length > 0
-        ? `Nothing in ${VIEW_NAMES[filters.disposition]} has ${parts.join(' and ')}.`
-        : `Nothing in ${VIEW_NAMES[filters.disposition]} matches.`;
+        ? `Nothing in ${scope} has ${parts.join(' and ')}.`
+        : `Nothing in ${scope} matches.`;
 }
 
 /** Pause between the last keystroke and the search hitting the server. */
@@ -376,6 +379,7 @@ export default function JobsIndex({
             triage: string;
             resume: string;
             disposition: string;
+            source: string | null;
             page: number;
             per_page: number;
         }>,
@@ -390,6 +394,7 @@ export default function JobsIndex({
                 triage: filters.triage,
                 resume: filters.resume,
                 disposition: filters.disposition,
+                source: filters.source,
                 per_page: pagination.per_page,
                 page: pagination.page,
             },
@@ -482,6 +487,7 @@ export default function JobsIndex({
         triage: filters.triage,
         resume: filters.resume,
         disposition: filters.disposition,
+        source: filters.source,
         per_page: pagination.per_page,
         page: pagination.page,
         job,
@@ -821,7 +827,8 @@ export default function JobsIndex({
         filters.q !== '' ||
         filters.status !== 'all' ||
         filters.triage !== 'all' ||
-        filters.resume !== 'all';
+        filters.resume !== 'all' ||
+        filters.source !== null;
     const bulkDecisions = bulkDecisionsFor(filters.disposition);
     const viewTabs = DISPOSITION_TABS.map((tab) => ({
         value: tab.value,
@@ -859,6 +866,33 @@ export default function JobsIndex({
                     Add Job
                 </ButtonLink>
             </div>
+
+            {filters.source !== null && (
+                <p className="mt-4 flex flex-wrap items-center gap-2 text-sm">
+                    <span className="bg-accent-soft text-accent-text ring-accent/40 inline-flex items-center gap-1 rounded-md py-0.5 pr-1 pl-2 text-xs font-medium ring-1 ring-inset">
+                        Source: {discoverySourceLabel(filters.source)}
+                        <button
+                            type="button"
+                            onClick={() => navigate({ source: null })}
+                            aria-label={`Clear the ${discoverySourceLabel(filters.source)} source filter`}
+                            className="hover:bg-accent/20 focus-visible:ring-focus rounded-sm px-1 focus-visible:ring-2 focus-visible:outline-none"
+                        >
+                            ×
+                        </button>
+                    </span>
+                    <span className="text-fg-subtle text-xs">
+                        Every posting this source has found, in any view.{' '}
+                        <Link
+                            href={sourcesIndex.url({
+                                query: { provider: filters.source },
+                            })}
+                            className="text-accent-text hover:text-fg underline underline-offset-2"
+                        >
+                            About this source
+                        </Link>
+                    </span>
+                </p>
+            )}
 
             <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-3">
                 <div className="relative w-full lg:w-72">
@@ -938,6 +972,7 @@ export default function JobsIndex({
                                     status: 'all',
                                     triage: 'all',
                                     resume: 'all',
+                                    source: null,
                                 });
                             }}
                         >

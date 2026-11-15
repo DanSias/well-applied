@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Enums\DiscoveryRejectionReason;
+use App\Enums\JobDiscoverySource;
 use App\Models\DiscoveryRejection;
+use App\Support\JobDiscovery\DiscoveryProviderInventory;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -21,13 +23,17 @@ class DiscoveryRejectionController extends Controller
     {
         $search = trim((string) $request->query('q', ''));
         $reason = DiscoveryRejectionReason::tryFrom((string) $request->query('reason', ''));
+        // A real discovery provider only; Manual never produces a rejection and anything unrecognized is no filter.
+        $provider = JobDiscoverySource::tryFrom((string) $request->query('provider', ''));
+        $provider = $provider === JobDiscoverySource::Manual ? null : $provider;
 
         $query = DiscoveryRejection::query()->active()
             ->when($search !== '', function ($query) use ($search) {
                 $like = '%'.mb_substr($search, 0, 100).'%';
                 $query->where(fn ($inner) => $inner->where('title', 'like', $like)->orWhere('company', 'like', $like));
             })
-            ->when($reason !== null, fn ($query) => $query->where('reason_code', $reason));
+            ->when($reason !== null, fn ($query) => $query->where('reason_code', $reason))
+            ->when($provider !== null, fn ($query) => $query->where('source', $provider));
 
         $total = (clone $query)->count();
         $lastPage = max(1, (int) ceil($total / self::PER_PAGE));
@@ -52,7 +58,8 @@ class DiscoveryRejectionController extends Controller
                 'last_seen_at' => $r->last_seen_at->toIso8601String(),
                 'seen_count' => $r->seen_count,
             ])->all(),
-            'filters' => ['q' => $search, 'reason' => $reason->value ?? 'all'],
+            'filters' => ['q' => $search, 'reason' => $reason->value ?? 'all', 'provider' => $provider?->value],
+            'providers' => array_map(fn (JobDiscoverySource $s) => ['id' => $s->value, 'label' => DiscoveryProviderInventory::label($s)], DiscoveryProviderInventory::sources()),
             'reasons' => array_map(fn (DiscoveryRejectionReason $r) => ['code' => $r->value, 'label' => $r->label()], DiscoveryRejectionReason::cases()),
             'pagination' => [
                 'page' => $page,

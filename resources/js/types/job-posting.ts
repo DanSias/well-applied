@@ -252,6 +252,8 @@ export type JobsIndexFilters = {
     triage: OpportunityTriageFilter;
     resume: OpportunityResumeFilter;
     disposition: JobDispositionFilter;
+    /** The discovery source the list is narrowed to, or null for every source. */
+    source: string | null;
     /** The job requested for the drawer (`?job=`), even if it could not be loaded. */
     job: number | null;
 };

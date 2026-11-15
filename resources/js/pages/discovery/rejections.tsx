@@ -7,8 +7,8 @@ import { Pagination } from '@/components/ui/pagination';
 import { Select } from '@/components/ui/select';
 import AppShell from '@/layouts/app-shell';
 import { relativeTimeFromNow } from '@/lib/relative-time';
-import { home } from '@/routes';
 import { index as rejectionsIndex } from '@/routes/discovery/rejections';
+import { index as sourcesIndex } from '@/routes/sources';
 import type {
     DiscoveryRejectionRow,
     DiscoveryRejectionsProps,
@@ -21,8 +21,12 @@ function params(
     q: string,
     reason: string,
     page: number,
+    provider: string | null,
 ): Record<string, string | number> {
     const query: Record<string, string | number> = {};
+    if (provider !== null) {
+        query.provider = provider;
+    }
     if (q !== '') {
         query.q = q;
     }
@@ -99,6 +103,7 @@ export default function DiscoveryRejections({
     rejections,
     filters,
     reasons,
+    providers,
     pagination,
 }: DiscoveryRejectionsProps) {
     const [q, setQ] = useState(filters.q);
@@ -114,8 +119,13 @@ export default function DiscoveryRejections({
         [],
     );
 
-    const visit = (nextQ: string, reason: string, page: number) => {
-        router.get(rejectionsIndex.url(), params(nextQ, reason, page), {
+    const visit = (
+        nextQ: string,
+        reason: string,
+        page: number,
+        provider: string | null = filters.provider,
+    ) => {
+        router.get(rejectionsIndex.url(), params(nextQ, reason, page, provider), {
             preserveState: true,
             preserveScroll: true,
             replace: true,
@@ -133,7 +143,13 @@ export default function DiscoveryRejections({
         );
     };
 
-    const filtered = filters.q !== '' || filters.reason !== 'all';
+    const filtered =
+        filters.q !== '' ||
+        filters.reason !== 'all' ||
+        filters.provider !== null;
+    const providerLabel =
+        providers.find((p) => p.id === filters.provider)?.label ??
+        filters.provider;
 
     return (
         <AppShell>
@@ -142,12 +158,12 @@ export default function DiscoveryRejections({
             <header>
                 <p className="text-fg-subtle text-xs">
                     <Link
-                        href={home.url()}
+                        href={sourcesIndex.url()}
                         className="hover:text-fg underline-offset-2 hover:underline"
                     >
-                        Overview
+                        Sources
                     </Link>{' '}
-                    / Discovery
+                    / Filtered candidates
                 </p>
                 <h1 className="text-fg mt-1 text-xl font-semibold tracking-tight sm:text-2xl">
                     Filtered candidates
@@ -170,6 +186,28 @@ export default function DiscoveryRejections({
                     className="w-full lg:w-72"
                 />
                 <label className="text-fg-subtle flex items-center gap-2 text-xs">
+                    Source
+                    <Select
+                        value={filters.provider ?? 'all'}
+                        onChange={(e) =>
+                            visit(
+                                q.trim(),
+                                filters.reason,
+                                1,
+                                e.target.value === 'all' ? null : e.target.value,
+                            )
+                        }
+                        aria-label="Filter by source"
+                    >
+                        <option value="all">All sources</option>
+                        {providers.map((p) => (
+                            <option key={p.id} value={p.id}>
+                                {p.label}
+                            </option>
+                        ))}
+                    </Select>
+                </label>
+                <label className="text-fg-subtle flex items-center gap-2 text-xs">
                     Reason
                     <Select
                         value={filters.reason}
@@ -190,6 +228,22 @@ export default function DiscoveryRejections({
                         : `${pagination.from}–${pagination.to} of ${pagination.total}`}
                 </p>
             </div>
+
+            {filters.provider !== null && (
+                <p className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+                    <span className="bg-accent-soft text-accent-text ring-accent/40 inline-flex items-center gap-1 rounded-md py-0.5 pr-1 pl-2 text-xs font-medium ring-1 ring-inset">
+                        Source: {providerLabel}
+                        <button
+                            type="button"
+                            onClick={() => visit(q.trim(), filters.reason, 1, null)}
+                            aria-label={`Clear the ${providerLabel} source filter`}
+                            className="hover:bg-accent/20 focus-visible:ring-focus rounded-sm px-1 focus-visible:ring-2 focus-visible:outline-none"
+                        >
+                            ×
+                        </button>
+                    </span>
+                </p>
+            )}
 
             {rejections.length === 0 ? (
                 <Card className="text-fg-muted mt-4 p-6 text-center text-sm">
