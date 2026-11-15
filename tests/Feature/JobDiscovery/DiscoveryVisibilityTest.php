@@ -183,8 +183,8 @@ it('keeps rejected candidates out of the Jobs inbox and its counts, and out of t
     expect(JobPosting::count())->toBe(1);
 });
 
-it('lights Overview as the active section on the rejections page', function () {
-    $this->get('/discovery/rejections')->assertInertia(fn (Assert $page) => $page->where('nav.section', 'home'));
+it('lights Sources as the active section on the rejections page', function () {
+    $this->get('/discovery/rejections')->assertInertia(fn (Assert $page) => $page->where('nav.section', 'sources'));
 });
 
 it('ingests Adzuna preview postings with unknown remote status and keeps them recognizable in Jobs', function () {
