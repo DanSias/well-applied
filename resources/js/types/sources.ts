@@ -16,6 +16,30 @@ export type ScheduleOverride = 'default' | 'paused' | 'enabled';
 /** The one scheduling action the server offers for a provider; null when it needs setup first. */
 export type ScheduleControl = { label: string; override: ScheduleOverride };
 
+/** Run Now state: what the server will accept, and the queued or running execution that rules it out. */
+export type RunNow = {
+    available: boolean;
+    active: 'queued' | 'running' | null;
+    attempt_id: number | null;
+    since: string | null;
+    unavailable_reason: string | null;
+};
+
+export type RunOutcome =
+    | 'queued'
+    | 'already_active'
+    | 'unavailable'
+    | 'not_queued';
+
+/** Flashed once after a Run Now request. */
+export type RunFlash = { provider: string; outcome: RunOutcome };
+
+export type SchedulerStatus = {
+    state: 'recent' | 'stale' | 'unknown';
+    last_observed_at: string | null;
+    age_seconds: number | null;
+};
+
 /** Flashed once after a scheduling change. `schedule` is the resulting effective schedule. */
 export type ScheduleFlash = { provider: string; schedule: SourceSchedule };
 
@@ -66,6 +90,7 @@ export type SourceProvider = {
     overdue: boolean;
     /** Automatic and configured, but no attempt has ever been made. Not a failure. */
     never_run: boolean;
+    run_now: RunNow;
     needs_attention: boolean;
     last_attempt: SourceAttempt | null;
     last_success: SourceAttempt | null;
@@ -85,6 +110,7 @@ export type SourcesSummary = {
     unavailable: number;
     needs_attention: number;
     attention_providers: string[];
+    scheduler: SchedulerStatus;
     never_run: number;
     never_run_providers: string[];
     runs_in_window: number;

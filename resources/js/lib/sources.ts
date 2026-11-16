@@ -1,7 +1,9 @@
 import type { Tone } from '@/components/ui/badge';
 import type {
     AttemptStatus,
+    RunFlash,
     ScheduleFlash,
+    SchedulerStatus,
     SourceAttempt,
     SourceConfiguration,
     SourceProvider,
@@ -281,4 +283,122 @@ export function configurationRows(
     }
 
     return rows;
+}
+
+/** The toast after a Run Now request. Only the request is acknowledged here; the outcome arrives when the run finishes. */
+export function runRequestToast(flash: RunFlash): {
+    kind: 'success' | 'info' | 'error';
+    title: string;
+    description: string;
+} {
+    switch (flash.outcome) {
+        case 'queued':
+            return {
+                kind: 'success',
+                title: `${flash.provider} run queued`,
+                description:
+                    'It starts when a queue worker picks it up. This page updates as it runs.',
+            };
+        case 'already_active':
+            return {
+                kind: 'info',
+                title: `${flash.provider} is already queued or running`,
+                description: 'Nothing new was started.',
+            };
+        case 'unavailable':
+            return {
+                kind: 'error',
+                title: `${flash.provider} can't run yet`,
+                description: 'It needs setup first.',
+            };
+        default:
+            return {
+                kind: 'error',
+                title: `Couldn't queue ${flash.provider}`,
+                description:
+                    'The queue did not accept the request, so nothing was started. Try again.',
+            };
+    }
+}
+
+/** What a finished run produced, for the toast that closes a Run Now the page was watching. */
+export function runFinishedToast(provider: SourceProvider): {
+    kind: 'success' | 'warning' | 'error';
+    title: string;
+    description: string | undefined;
+} | null {
+    const attempt = provider.last_attempt;
+
+    if (
+        attempt === null ||
+        attempt.status === 'queued' ||
+        attempt.status === 'running'
+    ) {
+        return null;
+    }
+
+    if (attempt.status === 'failed') {
+        return {
+            kind: 'error',
+            title: `${provider.label} run failed`,
+            description: failureLine(attempt) ?? undefined,
+        };
+    }
+
+    const found = `Created ${count(attempt.created)}, updated ${count(attempt.updated)}`;
+
+    return attempt.status === 'partial'
+        ? {
+              kind: 'warning',
+              title: `${provider.label} finished with problems`,
+              description: `${found}. ${failureLine(attempt) ?? ''}`.trim(),
+          }
+        : {
+              kind: 'success',
+              title: `${provider.label} run finished`,
+              description: found,
+          };
+}
+
+function ago(seconds: number): string {
+    if (seconds < 90) {
+        return 'less than 2 minutes';
+    }
+    if (seconds < 5400) {
+        return `${Math.round(seconds / 60)} minutes`;
+    }
+
+    return `${Math.round(seconds / 3600)} hours`;
+}
+
+/**
+ * One honest line about the scheduler, from its heartbeat only. It says nothing about queue workers or providers, and
+ * it only warns when something is supposed to be automatic.
+ */
+export function schedulerNote(
+    scheduler: SchedulerStatus,
+    automaticProviders: number,
+): { tone: 'ok' | 'warn' | 'neutral'; text: string } | null {
+    if (scheduler.state === 'recent') {
+        return {
+            tone: 'ok',
+            text: 'Scheduler running: last seen less than 3 minutes ago.',
+        };
+    }
+
+    if (automaticProviders === 0) {
+        return null;
+    }
+
+    if (scheduler.state === 'stale') {
+        return {
+            tone: 'warn',
+            text: `The scheduler was last seen ${ago(scheduler.age_seconds ?? 0)} ago, so automatic discovery is not running. Start it with php artisan schedule:work (php artisan dev does).`,
+        };
+    }
+
+    return {
+        tone: 'neutral',
+        text: 'The scheduler has not been seen yet. Automatic discovery only runs while it is running (php artisan dev starts it).',
+    };
 }

@@ -44,6 +44,59 @@ it, and `DiscoveryScheduleIsDue`, Overview and Sources all read it:
   paused just before a tick may still run if that tick had already selected it. There are no execution locks yet; two
   overlapping runs of the same provider (for example a manual run during a scheduled one) remain possible.
 
+## Execution safety
+
+Every way of running a provider (the hourly `--due` tick, `discovery:run`, `discovery:run --only=`, a Run Now from the
+Sources page) goes through `RunJobDiscovery`, which takes a **per-provider lease** before it creates an attempt:
+
+- It is a cache lock (`discovery:execution:{provider}`, atomic on the database cache store this app uses), taken without
+  waiting. If another execution holds it, that provider is **skipped**: no attempt is recorded, so it can never read as a
+  success. Other providers run independently. `withoutOverlapping()` on the scheduled event is no longer the only guard.
+- It is a renewable lease, not a long fixed timeout. It is renewed on every outgoing HTTP request (one global request
+  middleware, so no provider's request code changed) and once per candidate, and the running attempt's `updated_at` is
+  touched with it. `job_discovery.execution.lease_seconds` (default 900) therefore only has to exceed the longest silent
+  gap: one request with its retries, at most about three minutes (Eightfold: 3 tries x 20s plus up to two waits of 60s;
+  the public feeds 3 tries x 30s). A crashed process stops renewing, so its lease expires within 15 minutes.
+- Release is owner-checked: an execution never frees a lease another owner has taken over. A queued request uses the
+  owner token `queued-attempt-{id}`, so its job's failure handler can free exactly its own lease.
+- If every requested provider is busy, no run is recorded at all (an empty successful run would be a lie).
+
+CLI results: busy providers are listed ("Skipped, already running elsewhere"). If nothing ran because everything was busy,
+`discovery:run --due` exits 0 (a scheduler tick that finds the work already underway is fine) and any other invocation
+exits 1. Otherwise exit codes are unchanged.
+
+### Run Now
+
+`POST /sources/{provider}/run` (`RequestProviderRun`) refuses a provider that is not registered and configured, or that
+already has a live queued or running attempt (a short cache lock makes two simultaneous requests resolve to one). It records
+a `Queued` `DiscoveryRun` and `DiscoveryProviderAttempt` (`started_at` is the request time until a worker starts it) and
+dispatches `RunDiscoveryProviderJob`, then returns; no provider request happens in the web request. The job calls
+`RunJobDiscovery::executeQueued()`, which takes the lease, then claims the attempt with one conditional UPDATE
+(`queued` -> `running`), then runs the normal pipeline on that same row. So:
+
+- delivered twice, or already recovered: the attempt is no longer queued and the job does nothing;
+- provider busy: the job releases itself for 30s, up to 20 times (about ten minutes), then records the request as `not_started`;
+- the queue refuses the dispatch: the request rows are removed, nothing stays "queued";
+- worker killed: the job's failure handler records `interrupted` and frees only its own lease.
+
+Run Now works for paused and manual-only providers (it is a manual run). It needs a running queue worker (`php artisan dev`
+starts one); a request nobody picks up is shown as Queued, "waiting for a queue worker".
+
+### Recovery
+
+`discovery:recover-stale` (every five minutes) records a `running` attempt silent for a whole lease, and whose lease is not
+held, as failed / `interrupted` (this also catches attempts left running by older CLI or scheduled runs), and a `queued` one
+older than `queued_wait_seconds` (default 3600) as failed / `not_started`. Each update is conditional on the attempt still
+being queued or running, so it is idempotent, never overwrites a real outcome and never touches a job posting; counters an
+interrupted run had already written stay. The parent run is then settled from its attempts (an empty open run, silent for a
+lease, becomes failed). Retrying is just another Run Now or the next scheduled retry.
+
+### Scheduler heartbeat
+
+`routes/console.php` runs `SchedulerHeartbeat::record()` every minute. The Sources summary reports `recent` (seen within
+three minutes), `stale` or `unknown` (never seen) from that timestamp alone, and warns only when a provider is meant to be
+automatic. It says nothing about queue workers or providers.
+
 ## Pipeline stages
 
 | # | Stage | Where | Output |

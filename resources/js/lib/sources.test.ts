@@ -11,7 +11,10 @@ import {
     formatDuration,
     outcomeChip,
     providerOutcomeChip,
+    runFinishedToast,
+    runRequestToast,
     scheduleToast,
+    schedulerNote,
     retrievedLabel,
     runTotals,
     scheduleChip,
@@ -51,6 +54,13 @@ const provider = (over: Partial<SourceProvider> = {}): SourceProvider => ({
     stale: false,
     overdue: false,
     never_run: false,
+    run_now: {
+        available: true,
+        active: null,
+        attempt_id: null,
+        since: null,
+        unavailable_reason: null,
+    },
     schedule_override: 'default',
     schedule_control: { label: 'Pause scheduling', override: 'paused' },
     needs_attention: false,
@@ -263,5 +273,90 @@ describe('scheduling', () => {
         expect(
             scheduleToast({ provider: 'Jobicy', schedule: 'automatic' }).title,
         ).toBe('Jobicy scheduling is on');
+    });
+});
+
+describe('run now', () => {
+    it('acknowledges only the request, and says nothing was started for a duplicate or a refused queue', () => {
+        expect(
+            runRequestToast({ provider: 'Jobicy', outcome: 'queued' }),
+        ).toMatchObject({ kind: 'success', title: 'Jobicy run queued' });
+        expect(
+            runRequestToast({ provider: 'Jobicy', outcome: 'already_active' }),
+        ).toMatchObject({ kind: 'info' });
+        expect(
+            runRequestToast({ provider: 'Jobicy', outcome: 'not_queued' })
+                .description,
+        ).toContain('nothing was started');
+    });
+
+    it('reports the real outcome of a finished run, and stays quiet while it is still going', () => {
+        expect(
+            runFinishedToast(
+                provider({ last_attempt: attempt({ status: 'running' }) }),
+            ),
+        ).toBeNull();
+        expect(
+            runFinishedToast(
+                provider({ last_attempt: attempt({ status: 'queued' }) }),
+            ),
+        ).toBeNull();
+        expect(
+            runFinishedToast(
+                provider({ label: 'Jobicy', last_attempt: attempt() }),
+            ),
+        ).toMatchObject({ kind: 'success', title: 'Jobicy run finished' });
+        expect(
+            runFinishedToast(
+                provider({
+                    label: 'Jobicy',
+                    last_attempt: attempt({
+                        status: 'failed',
+                        failure: {
+                            category: 'provider_error',
+                            message: 'HTTP 500',
+                            exception_class: null,
+                        },
+                    }),
+                }),
+            ),
+        ).toMatchObject({
+            kind: 'error',
+            title: 'Jobicy run failed',
+            description: 'HTTP 500',
+        });
+        expect(
+            runFinishedToast(
+                provider({ last_attempt: attempt({ status: 'partial' }) }),
+            )?.kind,
+        ).toBe('warning');
+    });
+});
+
+describe('scheduler note', () => {
+    const at = {
+        last_observed_at: '2026-11-16T10:00:00Z',
+    };
+
+    it('is reassuring when recently seen, and warns only when something is meant to be automatic', () => {
+        expect(
+            schedulerNote({ state: 'recent', age_seconds: 30, ...at }, 3)?.tone,
+        ).toBe('ok');
+        expect(
+            schedulerNote({ state: 'stale', age_seconds: 1500, ...at }, 3),
+        ).toMatchObject({ tone: 'warn' });
+        expect(
+            schedulerNote({ state: 'stale', age_seconds: 1500, ...at }, 3)
+                ?.text,
+        ).toContain('25 minutes');
+        expect(
+            schedulerNote({ state: 'stale', age_seconds: 1500, ...at }, 0),
+        ).toBeNull();
+        expect(
+            schedulerNote(
+                { state: 'unknown', age_seconds: null, last_observed_at: null },
+                2,
+            )?.text,
+        ).toContain('not been seen yet');
     });
 });

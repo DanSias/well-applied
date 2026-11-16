@@ -6,10 +6,12 @@ import { ProviderRow } from '@/components/sources/provider-row';
 import { RecentActivity } from '@/components/sources/recent-activity';
 import { Time } from '@/components/sources/time';
 import { Card, SectionTitle } from '@/components/ui/surface';
+import { useActiveRunPolling } from '@/hooks/use-active-run-polling';
 import AppShell from '@/layouts/app-shell';
 import {
     attentionNeeded,
     neverRunProviders,
+    schedulerNote,
     buildSourcesParams,
     setupNeeded,
 } from '@/lib/sources';
@@ -192,9 +194,12 @@ export default function SourcesIndex({
             replace: false,
         });
 
+    useActiveRunPolling(providers);
+
     const setup = setupNeeded(providers);
     const attention = attentionNeeded(providers, summary);
     const neverRun = neverRunProviders(providers, summary);
+    const schedulerLine = schedulerNote(summary.scheduler, summary.automatic);
 
     return (
         <AppShell>
@@ -266,6 +271,19 @@ export default function SourcesIndex({
                     </dl>
                 </Card>
             </section>
+
+            {schedulerLine !== null && (
+                <p
+                    className={
+                        schedulerLine.tone === 'warn'
+                            ? 'text-warn mt-2 text-xs'
+                            : 'text-fg-subtle mt-2 text-xs'
+                    }
+                    role={schedulerLine.tone === 'warn' ? 'status' : undefined}
+                >
+                    {schedulerLine.text}
+                </p>
+            )}
 
             <section aria-label="Discovery providers" className="mt-6">
                 <SectionTitle

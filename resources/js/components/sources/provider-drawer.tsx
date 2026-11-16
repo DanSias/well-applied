@@ -24,6 +24,7 @@ import type {
 import { AttemptDetail } from './attempt-detail';
 import { Time } from './time';
 import { notify } from '@/lib/toast';
+import { store as runNow } from '@/routes/sources/run';
 import { update as updateSchedule } from '@/routes/sources/schedule';
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -116,6 +117,105 @@ function ScheduleControl({ provider }: { provider: SourceProvider }) {
             onClick={submit}
         >
             {control.label}
+        </Button>
+    );
+}
+
+/**
+ * Run Now: queue one run of this provider, whatever its schedule says. The button stays focusable while a request or a
+ * run is in progress (aria-disabled rather than disabled), so keyboard focus is not lost when it changes state. The
+ * page polls while the run is queued or running and the result appears in Latest results; nothing here waits for it.
+ */
+function RunNowControl({ provider }: { provider: SourceProvider }) {
+    const [pending, setPending] = useState(false);
+    const run = provider.run_now;
+
+    if (run.active === 'running') {
+        return (
+            <>
+                <RunButton busy label="Running…" />
+                <span className="text-fg-subtle mt-1 block text-xs">
+                    Started <Time at={run.since} />. The result appears below
+                    when it finishes.
+                </span>
+            </>
+        );
+    }
+
+    if (run.active === 'queued') {
+        return (
+            <>
+                <RunButton busy label="Queued" />
+                <span className="text-fg-subtle mt-1 block text-xs">
+                    Waiting for a queue worker to pick it up. A worker has to be
+                    running for it to start (php artisan dev starts one).
+                </span>
+            </>
+        );
+    }
+
+    if (!run.available) {
+        return (
+            <span className="text-warn block text-xs">
+                Needs setup. {run.unavailable_reason}
+            </span>
+        );
+    }
+
+    const submit = () => {
+        if (pending) {
+            return;
+        }
+
+        setPending(true);
+        router.post(
+            runNow.url(provider.provider),
+            {},
+            {
+                preserveScroll: true,
+                preserveState: true,
+                onError: (errors) => {
+                    notify.error(`Couldn't run ${provider.label}`, {
+                        description: Object.values(errors)[0],
+                    });
+                },
+                onFinish: () => setPending(false),
+            },
+        );
+    };
+
+    return (
+        <RunButton
+            busy={pending}
+            label={pending ? 'Queuing…' : 'Run now'}
+            onClick={submit}
+        />
+    );
+}
+
+function RunButton({
+    label,
+    busy = false,
+    onClick,
+}: {
+    label: string;
+    busy?: boolean;
+    onClick?: () => void;
+}) {
+    return (
+        <Button
+            variant="secondary"
+            size="sm"
+            aria-disabled={busy}
+            aria-busy={busy}
+            className={busy ? 'cursor-not-allowed opacity-60' : undefined}
+            onClick={() => {
+                if (!busy) {
+                    onClick?.();
+                }
+            }}
+        >
+            {label}
         </Button>
     );
 }
@@ -274,6 +374,9 @@ export function ProviderDrawer({
                                 normal cadence old.
                             </span>
                         )}
+                    </Fact>
+                    <Fact label="Run">
+                        <RunNowControl provider={provider} />
                     </Fact>
                     <Fact label="Last attempt">{attemptSummary(latest)}</Fact>
                     <Fact label="Last success">
