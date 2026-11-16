@@ -13,3 +13,7 @@ Schedule::command('generations:recover-stale')->everyFiveMinutes();
 
 // Rejected-candidate records are diagnostics, kept 30 days after they were last seen. Independent of discovery itself.
 Schedule::command('discovery:prune-rejections')->daily();
+
+// A discovery attempt whose process or worker stopped is recorded as failed (interrupted / never started) so the provider
+// can be run again. Independent of the generation sweep above: it only touches discovery runs and attempts.
+Schedule::command('discovery:recover-stale')->everyFiveMinutes();
