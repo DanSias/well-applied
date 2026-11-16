@@ -26,10 +26,16 @@ function Count({ label, value }: { label: string; value: number | null }) {
 function ProviderRow({ provider }: { provider: DiscoveryProviderHealth }) {
     const badge = providerBadge(provider);
     const success = provider.last_success;
+    // A queued or running attempt is in progress, not a failure.
+    const inProgress =
+        provider.latest !== null &&
+        (provider.latest.status === 'queued' ||
+            provider.latest.status === 'running');
     const failedSince =
         provider.latest !== null &&
         !provider.latest.is_last_success &&
-        provider.latest.status !== 'succeeded';
+        provider.latest.status !== 'succeeded' &&
+        !inProgress;
 
     return (
         <li className="px-5 py-3.5">
@@ -89,6 +95,14 @@ function ProviderRow({ provider }: { provider: DiscoveryProviderHealth }) {
             {success?.status === 'partial' && success.partial_summary && (
                 <p className="text-fg-subtle mt-2 text-xs break-words">
                     Partial: {success.partial_summary}
+                </p>
+            )}
+
+            {inProgress && provider.latest && (
+                <p className="text-fg-subtle mt-2 text-xs">
+                    {provider.latest.status === 'queued'
+                        ? 'A run is queued, waiting for a queue worker.'
+                        : 'A run is in progress.'}
                 </p>
             )}
 

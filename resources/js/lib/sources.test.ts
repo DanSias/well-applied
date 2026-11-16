@@ -10,6 +10,8 @@ import {
     filteredCandidatesHref,
     formatDuration,
     outcomeChip,
+    failureLine,
+    systemFailureExplanation,
     providerOutcomeChip,
     runFinishedToast,
     runRequestToast,
@@ -358,5 +360,70 @@ describe('scheduler note', () => {
                 2,
             )?.text,
         ).toContain('not been seen yet');
+    });
+});
+
+describe('system failure wording', () => {
+    const failed = (category: string, message = 'stored message') =>
+        attempt({
+            status: 'failed',
+            failure: { category, message, exception_class: null },
+        });
+
+    it('gives each system-recorded failure its own chip, and never calls any of them a success', () => {
+        expect(outcomeChip(failed('interrupted'))).toEqual({
+            text: 'Interrupted',
+            tone: 'bad',
+        });
+        expect(outcomeChip(failed('lease_lost'))).toEqual({
+            text: 'Stopped early',
+            tone: 'bad',
+        });
+        expect(outcomeChip(failed('deadline_exceeded'))).toEqual({
+            text: 'Time limit reached',
+            tone: 'warn',
+        });
+        expect(outcomeChip(failed('not_started'))).toEqual({
+            text: 'Not started',
+            tone: 'warn',
+        });
+        expect(outcomeChip(failed('provider_unavailable')).text).toBe(
+            'Not started',
+        );
+
+        for (const category of [
+            'interrupted',
+            'lease_lost',
+            'deadline_exceeded',
+            'not_started',
+        ]) {
+            expect(outcomeChip(failed(category)).tone).not.toBe('ok');
+        }
+    });
+
+    it("leaves an ordinary provider failure as Failed, with the provider's own message", () => {
+        expect(outcomeChip(failed('provider_error'))).toEqual({
+            text: 'Failed',
+            tone: 'bad',
+        });
+        expect(failureLine(failed('provider_error', 'HTTP 500'))).toBe(
+            'HTTP 500',
+        );
+        expect(systemFailureExplanation('provider_error')).toBeNull();
+        expect(systemFailureExplanation(null)).toBeNull();
+    });
+
+    it('explains system failures in plain terms, says what was kept, and exposes no exception detail', () => {
+        const line = failureLine(
+            failed('lease_lost', 'The provider lease was lost.'),
+        );
+
+        expect(line).toContain('no longer held its claim');
+        expect(line).toContain('already added was kept');
+        expect(line).not.toContain('LeaseLost');
+        expect(failureLine(failed('deadline_exceeded'))).toContain(
+            'incomplete',
+        );
+        expect(failureLine(failed('not_started'))).toContain('Nothing was run');
     });
 });

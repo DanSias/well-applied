@@ -14,6 +14,7 @@ use App\Support\JobDiscovery\DiscoveryProviderInventory;
 use App\Support\JobDiscovery\Providers\UsajobsDiscoveryProvider;
 use App\Support\JobDiscovery\SchedulerHeartbeat;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Read-only presentation for the Sources page: every discovery provider, what discovery did recently, and one
@@ -74,7 +75,7 @@ final class PresentSources
             array_filter($providers, fn (array $p) => $p['never_run']),
         ));
 
-        $lastRun = DiscoveryRun::query()->orderByDesc('id')->first();
+        $lastRun = $this->executedRuns()->orderByDesc('id')->first();
         $count = fn (string $schedule) => count(array_filter($providers, fn (array $p) => $p['effective_schedule'] === $schedule));
 
         return [
@@ -90,13 +91,26 @@ final class PresentSources
             'attention_providers' => $attention,
             'never_run' => count($neverRun),
             'never_run_providers' => $neverRun,
-            'runs_in_window' => DiscoveryRun::query()->where('started_at', '>=', $since)->count(),
+            'runs_in_window' => $this->executedRuns()->where('started_at', '>=', $since)->count(),
             'last_run_at' => $lastRun === null ? null : ($lastRun->finished_at ?? $lastRun->started_at)?->toIso8601String(),
             'ever_ran' => $lastRun !== null,
             'jobs_added' => array_sum(array_column($providers, 'jobs_added')),
             // Whether a scheduler has actually been seen ticking. Separate from queue workers and from every provider.
             'scheduler' => SchedulerHeartbeat::status(),
         ];
+    }
+
+    /**
+     * Runs in which something actually executed. A Run Now request still waiting in the queue, or one that never
+     * started, is recorded as a run too, but it is not discovery having happened, so it must not read as "last discovery".
+     *
+     * @return Builder<DiscoveryRun>
+     */
+    private function executedRuns(): Builder
+    {
+        return DiscoveryRun::query()->whereHas('providerAttempts', fn ($attempts) => $attempts
+            ->where('status', '!=', DiscoveryStatus::Queued->value)
+            ->where(fn ($q) => $q->whereNull('failure_category')->orWhereNotIn('failure_category', [DiscoveryExecutionRecovery::NOT_STARTED, 'provider_unavailable'])));
     }
 
     /**

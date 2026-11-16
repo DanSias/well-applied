@@ -50,7 +50,8 @@ final class PresentDiscoveryHealth
             'providers' => $providers,
             'active_rejections' => DiscoveryRejection::query()->active()->count(),
             'stale' => array_filter($providers, fn (array $p) => $p['stale']) !== [],
-            'ever_ran' => array_filter($providers, fn (array $p) => $p['latest'] !== null) !== [],
+            // A request still waiting in the queue is not a run that happened.
+            'ever_ran' => array_filter($providers, fn (array $p) => $p['latest'] !== null && $p['latest']['status'] !== DiscoveryStatus::Queued->value) !== [],
         ];
     }
 

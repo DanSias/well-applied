@@ -5,6 +5,7 @@ import {
     formatDuration,
     outcomeChip,
     retrievedLabel,
+    systemFailureExplanation,
 } from '@/lib/sources';
 import type { SourceAttempt } from '@/types/sources';
 import { Time } from './time';
@@ -127,8 +128,24 @@ export function AttemptDetail({ attempt }: { attempt: SourceAttempt }) {
                         {attempt.failure.category !== null &&
                             ` · ${attempt.failure.category.replace(/_/g, ' ')}`}
                     </p>
-                    {attempt.failure.message !== null && (
-                        <p className="mt-0.5">{attempt.failure.message}</p>
+                    {systemFailureExplanation(attempt.failure.category) !==
+                    null ? (
+                        <>
+                            <p className="mt-0.5">
+                                {systemFailureExplanation(
+                                    attempt.failure.category,
+                                )}
+                            </p>
+                            {attempt.failure.message !== null && (
+                                <p className="text-fg-subtle mt-0.5">
+                                    Recorded: {attempt.failure.message}
+                                </p>
+                            )}
+                        </>
+                    ) : (
+                        attempt.failure.message !== null && (
+                            <p className="mt-0.5">{attempt.failure.message}</p>
+                        )
                     )}
                     {attempt.failure.exception_class !== null && (
                         <p className="text-fg-subtle mt-0.5">

@@ -100,3 +100,29 @@ it('does not expose credentials through the run fields', function () {
     $this->post('/sources/adzuna/run');
     $this->get('/sources?provider=adzuna')->assertDontSee('ADZ-ID-SECRET')->assertDontSee('ADZ-KEY-SECRET');
 });
+
+it('does not call a queued or never-started request "last discovery"', function () {
+    $this->post('/sources/jobicy/run');
+
+    $this->get('/sources')->assertInertia(fn (Assert $page) => $page
+        ->where('summary.ever_ran', false)
+        ->where('summary.last_run_at', null)
+        ->where('summary.runs_in_window', 0));
+
+    DiscoveryProviderAttempt::query()->update(['status' => DiscoveryStatus::Failed, 'failure_category' => 'not_started', 'finished_at' => now()]);
+    DiscoveryRun::query()->update(['status' => DiscoveryStatus::Failed, 'finished_at' => now()]);
+
+    $this->get('/sources')->assertInertia(fn (Assert $page) => $page->where('summary.ever_ran', false)->where('summary.runs_in_window', 0));
+
+    // A run that actually executed, even one that failed or was interrupted, is discovery having happened.
+    DiscoveryProviderAttempt::query()->update(['failure_category' => 'interrupted']);
+    $this->get('/sources')->assertInertia(fn (Assert $page) => $page->where('summary.ever_ran', true)->where('summary.runs_in_window', 1));
+});
+
+it('does not make Overview say discovery has run because a request is queued', function () {
+    $this->post('/sources/jobicy/run');
+
+    $this->get('/')->assertInertia(fn (Assert $page) => $page
+        ->where('discovery.ever_ran', false)
+        ->where('discovery.providers', fn ($providers) => collect($providers)->firstWhere('provider', 'jobicy')['latest']['status'] === 'queued'));
+});

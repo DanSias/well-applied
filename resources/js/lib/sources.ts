@@ -79,11 +79,65 @@ export function statusChip(status: AttemptStatus, noResults = false): Chip {
     }
 }
 
+/**
+ * Failures the system itself records, each with its own words: what happened, in terms of the run rather than the
+ * code. A stopped or abandoned run is never shown as a success, and says that what it already added was kept. These are
+ * the primary text; the stored message and the exception stay in the attempt's diagnostics.
+ */
+const SYSTEM_FAILURES: Record<string, { chip: Chip; explanation: string }> = {
+    interrupted: {
+        chip: { text: 'Interrupted', tone: 'bad' },
+        explanation:
+            'The run was abandoned: the process or worker stopped before it finished. Anything it had already added was kept.',
+    },
+    lease_lost: {
+        chip: { text: 'Stopped early', tone: 'bad' },
+        explanation:
+            'The run stopped because it no longer held its claim on this provider (it expired, or another run took over). Anything it had already added was kept.',
+    },
+    deadline_exceeded: {
+        chip: { text: 'Time limit reached', tone: 'warn' },
+        explanation:
+            'The run reached its time limit and was stopped, so it is incomplete. Anything it had already added was kept; run it again to continue.',
+    },
+    not_started: {
+        chip: { text: 'Not started', tone: 'warn' },
+        explanation:
+            'The request never began: no queue worker picked it up, or its job could not start. Nothing was run.',
+    },
+    provider_unavailable: {
+        chip: { text: 'Not started', tone: 'warn' },
+        explanation:
+            'The provider was no longer set up when a worker reached the request, so nothing was run.',
+    },
+};
+
+/** The user-facing explanation of a failure category the system records, or null for an ordinary provider failure. */
+export function systemFailureExplanation(
+    category: string | null,
+): string | null {
+    return category !== null && category in SYSTEM_FAILURES
+        ? SYSTEM_FAILURES[category].explanation
+        : null;
+}
+
 /** How the most recent attempt went; a provider that has never run is its own state. */
 export function outcomeChip(attempt: SourceAttempt | null): Chip {
-    return attempt === null
-        ? { text: 'Never run', tone: 'neutral' }
-        : statusChip(attempt.status, attempt.retrieved === 0);
+    if (attempt === null) {
+        return { text: 'Never run', tone: 'neutral' };
+    }
+
+    const category = attempt.failure?.category ?? null;
+
+    if (
+        attempt.status === 'failed' &&
+        category !== null &&
+        category in SYSTEM_FAILURES
+    ) {
+        return SYSTEM_FAILURES[category].chip;
+    }
+
+    return statusChip(attempt.status, attempt.retrieved === 0);
 }
 
 /** The provider's outcome chip: a never-run automatic source is flagged as warn, a manual one is just new. */
@@ -193,13 +247,17 @@ export function neverRunProviders(
         .map((p) => p.label);
 }
 
-/** Short failure text for a list line: category-free, the message the provider recorded. */
+/** Short failure text for a list line: our own wording for system failures, otherwise the message the provider recorded. */
 export function failureLine(attempt: SourceAttempt): string | null {
     if (attempt.failure === null) {
         return null;
     }
 
-    return attempt.failure.message ?? attempt.failure.category;
+    return (
+        systemFailureExplanation(attempt.failure.category) ??
+        attempt.failure.message ??
+        attempt.failure.category
+    );
 }
 
 export type SourcesQuery = {

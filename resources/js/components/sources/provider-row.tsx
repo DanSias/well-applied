@@ -4,6 +4,7 @@ import { isPlainClick } from '@/lib/opportunities-list';
 import {
     availabilityChip,
     count,
+    failureLine,
     providerOutcomeChip,
     retrievedLabel,
     scheduleChip,
@@ -127,17 +128,19 @@ export function ProviderRow({
                 </dl>
             )}
 
-            {attempt?.failure?.message && attempt.status !== 'succeeded' && (
-                <p
-                    className={
-                        attempt.status === 'failed'
-                            ? 'text-bad mt-2 line-clamp-2 text-xs break-words'
-                            : 'text-warn mt-2 line-clamp-2 text-xs break-words'
-                    }
-                >
-                    {attempt.failure.message}
-                </p>
-            )}
+            {attempt !== null &&
+                failureLine(attempt) &&
+                attempt.status !== 'succeeded' && (
+                    <p
+                        className={
+                            attempt.status === 'failed'
+                                ? 'text-bad mt-2 line-clamp-2 text-xs break-words'
+                                : 'text-warn mt-2 line-clamp-2 text-xs break-words'
+                        }
+                    >
+                        {failureLine(attempt)}
+                    </p>
+                )}
         </li>
     );
 }
