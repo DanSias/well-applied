@@ -15,8 +15,34 @@ running the scheduler, nothing is discovered: in the development database there 
 
 `--due` runs only providers that are individually due (`DiscoveryScheduleIsDue`): never attempted; last attempt succeeded
 and is older than `job_discovery.schedule.stale_after_hours` (23); or last attempt did not succeed and is older than
-`retry_after_hours` (6). Eightfold is registered but only scheduled when `job_discovery.eightfold.scheduled` is true
-(default off).
+`retry_after_hours` (6). Eightfold and USAJOBS are opt-in: scheduled only when their `scheduled` flag is on (default
+off).
+
+### Scheduling overrides
+
+The Sources page can pause a provider's automatic scheduling or switch on scheduling for an opt-in provider. The choice
+is stored in `discovery_provider_settings` (one row per provider, `schedule_override` = `default` | `paused` |
+`enabled`; no row means `default`). `DiscoveryProviderInventory::effectiveSchedule()` is the single place that resolves
+it, and `DiscoveryScheduleIsDue`, Overview and Sources all read it:
+
+| Provider | Override | Effective schedule |
+|---|---|---|
+| not registered, or not configured (Adzuna without both credentials; Eightfold off or with no tenants; USAJOBS without key and user agent) | any | `unavailable` |
+| configured | `paused` | `paused` |
+| configured | `enabled` | `automatic` |
+| configured | `default` / none | the code default: `automatic` (Himalayas, Adzuna, Jobicy) or `manual_only` (Eightfold and USAJOBS unless their `scheduled` flag is on) |
+
+- An override never bypasses configuration: an unconfigured provider stays unavailable and the controller refuses to
+  store an override for it.
+- `discovery:run --due` (and `--due --only=`) considers only `automatic` providers, then applies the usual cadence, so a
+  provider that failed before being paused is retried on the 6-hour retry cadence as soon as it is resumed.
+- `discovery:run` and `discovery:run --only=x` without `--due` are manual runs and ignore overrides entirely.
+- Scheduling is separate from health. A paused provider is never "overdue" for being paused, but its latest failure and
+  history stay visible; nothing here changes stored attempts.
+- Concurrency: a change affects only the next scheduler selection. Overrides are read when `discovery:run --due` builds
+  its list, so a pause made while a run is in progress does not cancel it (that run was already selected), and a provider
+  paused just before a tick may still run if that tick had already selected it. There are no execution locks yet; two
+  overlapping runs of the same provider (for example a manual run during a scheduled one) remain possible.
 
 ## Pipeline stages
 

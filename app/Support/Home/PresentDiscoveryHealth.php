@@ -28,22 +28,22 @@ final class PresentDiscoveryHealth
     public function present(): array
     {
         $overrides = DiscoveryProviderInventory::overrides();
-        $schedules = [];
-        foreach (DiscoveryProviderInventory::sources() as $source) {
-            $schedules[$source->value] = DiscoveryProviderInventory::effectiveSchedule($source, $overrides);
-        }
+        $resolved = array_map(
+            fn (JobDiscoverySource $source) => ['source' => $source, 'schedule' => DiscoveryProviderInventory::effectiveSchedule($source, $overrides)],
+            DiscoveryProviderInventory::sources(),
+        );
 
         // A provider is listed while the scheduler runs it, or once it has any history (so a paused or unavailable one
         // keeps its past visible).
-        $sources = array_values(array_filter(
-            DiscoveryProviderInventory::sources(),
-            fn (JobDiscoverySource $source) => $schedules[$source->value] === DiscoveryProviderInventory::SCHEDULE_AUTOMATIC
-                || DiscoveryProviderAttempt::query()->where('provider', $source)->exists(),
+        $listed = array_values(array_filter(
+            $resolved,
+            fn (array $entry) => $entry['schedule'] === DiscoveryProviderInventory::SCHEDULE_AUTOMATIC
+                || DiscoveryProviderAttempt::query()->where('provider', $entry['source'])->exists(),
         ));
 
         $providers = array_map(
-            fn (JobDiscoverySource $source) => $this->forProvider($source, $schedules[$source->value] === DiscoveryProviderInventory::SCHEDULE_AUTOMATIC, $schedules[$source->value]),
-            $sources,
+            fn (array $entry) => $this->forProvider($entry['source'], $entry['schedule'] === DiscoveryProviderInventory::SCHEDULE_AUTOMATIC, $entry['schedule']),
+            $listed,
         );
 
         return [
