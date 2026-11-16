@@ -14,6 +14,7 @@ import {
     filteredCandidatesHref,
     formatDuration,
     outcomeChip,
+    outcomeMark,
     scheduleChip,
 } from '@/lib/sources';
 import type {
@@ -22,6 +23,7 @@ import type {
     SourceProvider,
 } from '@/types/sources';
 import { AttemptDetail } from './attempt-detail';
+import { OutcomeIndicator } from './status-icons';
 import { Time } from './time';
 import { notify } from '@/lib/toast';
 import { store as runNow } from '@/routes/sources/run';
@@ -316,11 +318,20 @@ export function ProviderDrawer({
             onClose={onClose}
             header={
                 <p className="border-line flex flex-wrap items-center gap-1.5 border-b px-5 py-2.5">
-                    <Badge tone={availability.tone}>{availability.text}</Badge>
+                    {!provider.configured && (
+                        <Badge tone={availability.tone}>
+                            {availability.text}
+                        </Badge>
+                    )}
                     <Badge tone={schedule.tone}>{schedule.text}</Badge>
-                    <Badge tone={outcomeChip(latest).tone}>
-                        {outcomeChip(latest).text}
-                    </Badge>
+                    <OutcomeIndicator
+                        mark={outcomeMark(
+                            latest,
+                            'Last run',
+                            provider.never_run,
+                        )}
+                        withText
+                    />
                 </p>
             }
             footer={
@@ -351,7 +362,7 @@ export function ProviderDrawer({
                     <Fact label="Availability">
                         {provider.configured
                             ? provider.registered
-                                ? 'Configured and registered'
+                                ? 'Ready'
                                 : 'Configured'
                             : (provider.unavailable_reason ?? 'Not configured')}
                         {!provider.configured && provider.registered && (
@@ -381,7 +392,7 @@ export function ProviderDrawer({
                             <RunNowControl provider={provider} />
                         </div>
                     </Fact>
-                    <Fact label="Last attempt">{attemptSummary(latest)}</Fact>
+                    <Fact label="Last run">{attemptSummary(latest)}</Fact>
                     <Fact label="Last success">
                         {attemptSummary(provider.last_success)}
                     </Fact>
