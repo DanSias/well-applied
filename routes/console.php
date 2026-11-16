@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\JobDiscovery\SchedulerHeartbeat;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -17,3 +18,6 @@ Schedule::command('discovery:prune-rejections')->daily();
 // A discovery attempt whose process or worker stopped is recorded as failed (interrupted / never started) so the provider
 // can be run again. Independent of the generation sweep above: it only touches discovery runs and attempts.
 Schedule::command('discovery:recover-stale')->everyFiveMinutes();
+
+// Proof that a scheduler is ticking at all: the Sources page reports how long ago this last ran. Nothing else writes it.
+Schedule::call(fn () => SchedulerHeartbeat::record())->name('scheduler-heartbeat')->everyMinute();

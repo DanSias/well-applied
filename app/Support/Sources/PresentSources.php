@@ -11,6 +11,7 @@ use App\Support\CurrentCareerProfile;
 use App\Support\Home\PresentDiscoveryHealth;
 use App\Support\JobDiscovery\DiscoveryProviderInventory;
 use App\Support\JobDiscovery\Providers\UsajobsDiscoveryProvider;
+use App\Support\JobDiscovery\SchedulerHeartbeat;
 use Carbon\CarbonInterface;
 
 /**
@@ -91,6 +92,8 @@ final class PresentSources
             'last_run_at' => $lastRun === null ? null : ($lastRun->finished_at ?? $lastRun->started_at)?->toIso8601String(),
             'ever_ran' => $lastRun !== null,
             'jobs_added' => array_sum(array_column($providers, 'jobs_added')),
+            // Whether a scheduler has actually been seen ticking. Separate from queue workers and from every provider.
+            'scheduler' => SchedulerHeartbeat::status(),
         ];
     }
 
