@@ -45,7 +45,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
                     </div>
                     <nav
                         aria-label="Primary"
-                        className="order-3 col-span-2 -mx-1 flex max-w-full items-center gap-0.5 overflow-x-auto px-1 text-sm sm:gap-1 md:order-none md:col-span-1 md:mx-0 md:overflow-visible md:px-0"
+                        className="order-3 col-span-2 -mx-1 flex max-w-full items-center gap-0 overflow-x-auto px-1 text-[13px] sm:gap-1 sm:text-sm md:order-none md:col-span-1 md:mx-0 md:overflow-visible md:px-0"
                     >
                         {PRIMARY_NAV.map((item) => {
                             const isActive = active === item.key;
@@ -56,7 +56,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
                                     href={item.href}
                                     aria-current={isActive ? 'page' : undefined}
                                     className={cn(
-                                        'rounded-control focus-visible:ring-focus shrink-0 px-2 py-1.5 font-medium whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:outline-none sm:px-2.5',
+                                        'rounded-control focus-visible:ring-focus shrink-0 px-1 py-1.5 font-medium whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:outline-none sm:px-2.5',
                                         isActive
                                             ? 'bg-raised text-fg'
                                             : 'text-fg-muted hover:bg-raised/60 hover:text-fg',

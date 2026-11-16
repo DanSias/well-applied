@@ -376,7 +376,10 @@ export function ProviderDrawer({
                         )}
                     </Fact>
                     <Fact label="Run">
-                        <RunNowControl provider={provider} />
+                        {/* Announced politely as it moves from Queued to Running to done, so the change is not visual only. */}
+                        <div aria-live="polite">
+                            <RunNowControl provider={provider} />
+                        </div>
                     </Fact>
                     <Fact label="Last attempt">{attemptSummary(latest)}</Fact>
                     <Fact label="Last success">

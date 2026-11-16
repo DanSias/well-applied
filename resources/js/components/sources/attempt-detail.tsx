@@ -35,7 +35,8 @@ export function AttemptDetail({ attempt }: { attempt: SourceAttempt }) {
             <p className="text-fg-muted flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
                 <Badge tone={chip.tone}>{chip.text}</Badge>
                 <span>
-                    Started <Time at={attempt.started_at} />
+                    {attempt.status === 'queued' ? 'Requested' : 'Started'}{' '}
+                    <Time at={attempt.started_at} />
                 </span>
                 {attempt.finished_at !== null && (
                     <span>

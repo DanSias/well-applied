@@ -134,3 +134,14 @@ it('shows Overview the paused state, without calling the paused provider overdue
             && collect($providers)->firstWhere('provider', 'jobicy')['stale'] === false)
     );
 });
+
+it('has no automatic providers, so nothing for the scheduler warning to be about, when all are paused or manual', function () {
+    foreach (['himalayas', 'adzuna', 'jobicy'] as $provider) {
+        $this->patch("/sources/{$provider}/schedule", ['schedule_override' => 'paused']);
+    }
+
+    $this->get('/sources')->assertInertia(fn (Assert $page) => $page
+        ->where('summary.automatic', 0)
+        ->where('summary.paused', 3)
+        ->where('summary.scheduler.state', 'unknown'));
+});
