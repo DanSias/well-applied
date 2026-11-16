@@ -49,6 +49,10 @@ php artisan queue:listen --tries=1 --timeout=0 # the queue worker (Run Now needs
 php artisan schedule:work                      # the scheduler (automatic discovery, recovery and the heartbeat need it)
 ```
 
+Run Now needs an **asynchronous** queue connection: the supported setup is `QUEUE_CONNECTION=database` with a worker. With
+`QUEUE_CONNECTION=sync` the job would execute inline inside the web request, which defeats the "returns promptly" design (and
+holds the request open for the whole provider run); it is not a supported setup for this feature.
+
 Run exactly one queue worker: two workers popping the SQLite queue at once hit `database is locked`. The worker and
 scheduler are separate processes and neither implies the other: a healthy scheduler says nothing about the worker, and Run
 Now only starts when a worker picks it up. Do not run live discovery to try things out; `php artisan discovery:run` calls
@@ -56,9 +60,10 @@ the real providers.
 
 Values, all from code or `.env` (not hard-coded in the UI): `DB_QUEUE_RETRY_AFTER` 7200s (`config/queue.php`); the job
 `RunDiscoveryProviderJob::$timeout` 3600s and `$tries` 20; `job_discovery.execution.max_queued_run_seconds` 3000s;
-`lease_seconds` 900s; `queued_wait_seconds` 3600s; `queued_orphan_grace_seconds` 300s. All three execution values can be
-overridden with `JOB_DISCOVERY_LEASE_SECONDS`, `JOB_DISCOVERY_QUEUED_WAIT_SECONDS`, `JOB_DISCOVERY_QUEUED_ORPHAN_GRACE_SECONDS`
-and `JOB_DISCOVERY_MAX_QUEUED_RUN_SECONDS`; the defaults are right for local use and are not in `.env.example`. See
+`lease_seconds` 900s; `queued_wait_seconds` 14400s; `queued_defer_seconds` 3600s; `queued_orphan_grace_seconds` 300s. All five
+can be overridden with `JOB_DISCOVERY_LEASE_SECONDS`, `JOB_DISCOVERY_QUEUED_WAIT_SECONDS`, `JOB_DISCOVERY_QUEUED_DEFER_SECONDS`,
+`JOB_DISCOVERY_QUEUED_ORPHAN_GRACE_SECONDS` and `JOB_DISCOVERY_MAX_QUEUED_RUN_SECONDS`; the defaults are right for local use
+and are not in `.env.example`. See
 "Queue, worker and timeout contract" for why they must stay in that order.
 
 A long Eightfold run can reach the 3000s queued budget. It then stops itself, is shown as `Time limit reached` (incomplete),
@@ -69,7 +74,7 @@ keeps what it ingested, and can be run again.
 | What you see | Meaning | What to do |
 |---|---|---|
 | "The scheduler has not been seen yet" / "last seen N minutes ago" | no scheduler tick recorded (a tick is expected every minute; three minutes of silence is "stale") | start `php artisan schedule:work` (or `php artisan dev`). Shown only when a provider is meant to be automatic |
-| A run stays `Queued` | no queue worker has picked it up. It is not failed, and a scheduled run of that provider defers to it | start the worker; if none starts within an hour, or its job left the queue, it becomes `Not started` and Run Now is available again |
+| A run stays `Queued` | no queue worker has picked it up. It is not failed, and a scheduled run of that provider defers to it for up to an hour | start the worker; if none starts within four hours, or its job left the queue, it becomes `Not started` and Run Now is available again |
 | `Interrupted` | the process or worker stopped mid-run; recovery recorded it after a lease (15 min) | run it again; the worker or scheduler being killed is the usual cause |
 | `Stopped early` | the run lost its provider lease (it stalled for a lease, or another run took over) | run it again |
 | `Not started` | no worker, or the job failed before starting | start the worker and run it again |
@@ -158,9 +163,12 @@ execution (`discovery:run --due`) checks for a valid pending request after it ta
 recording nothing). So whichever arrives first wins and there is no check-then-claim gap: a request made while a scheduled
 run holds the provider is refused (`already_active`); a tick that starts after the request was recorded defers to it.
 `DiscoveryScheduleIsDue` also leaves such a provider out of the due list. A manual `discovery:run` is an explicit
-instruction and is not deferred (it still respects the lease). A request is *valid* while it is `queued`, younger than
-`queued_wait_seconds` and, on the database queue, its job is still in the queue (or is younger than the orphan grace);
-failed, recovered, expired and orphaned requests block nothing. A `not_started` attempt is ignored by the cadence logic,
+instruction and is not deferred (it still respects the lease). A scheduled run yields to a request only while it is
+younger than `queued_defer_seconds` (one hour) and, on the database queue, its job is still in the queue (or is younger than the
+orphan grace). The request itself stays queued, and keeps Run Now from being queued twice, for up to `queued_wait_seconds`
+(four hours). So a stalled worker can delay a scheduled run by an hour at most; after that the scheduler runs the provider itself
+(the lease still prevents overlap) and the queued request, if its worker ever arrives, runs once more. Failed, recovered, expired
+and orphaned requests block nothing. A `not_started` attempt is ignored by the cadence logic,
 so it never delays the next scheduled run to the retry cadence.
 
 ### Queue, worker and timeout contract
@@ -204,12 +212,15 @@ starts one); a request nobody picks up is shown as Queued, "waiting for a queue 
 
 `discovery:recover-stale` (every five minutes) records a `running` attempt silent for a whole lease, and whose lease is not
 held, as failed / `interrupted` (this also catches attempts left running by older CLI or scheduled runs), and a `queued` one
-as failed / `not_started` in two cases. (1) It has waited longer than `queued_wait_seconds` (default 3600): one worker runs
-jobs one at a time and another job may hold it for up to 3000s, so a healthy queue can make a request wait that long;
-the scheduler defers to a request only while it is valid, so this is also the longest a dead worker delays a scheduled run.
+as failed / `not_started` in two cases. (1) It has waited longer than `queued_wait_seconds` (default 14400, four hours). Waiting is not executing: one worker runs
+jobs one at a time, and the longest legitimate job is a resume generation of up to 5404s (2 x (3 x 900s model timeout + 2s), see
+`.env.example`), so a request can sit behind one or two of them. Four hours is two such jobs (10808s) plus a third of margin. It is
+a judgement, not a guarantee: more jobs queued ahead can still outlast it, and the request is then recorded as `not_started` and
+can simply be run again. The scheduler yields for a shorter time (`queued_defer_seconds`), so a dead worker never holds up scheduled
+discovery for more than an hour.
 (2) On the database queue, its job is no longer in the queue (cleared or lost) and it is older than
-`queued_orphan_grace_seconds` (300s): it can never start, so it does not wait out the hour. A request whose worker is merely
-slow to start is never marked while its job is still queued. Each update is conditional on the attempt still
+`queued_orphan_grace_seconds` (300s): it can never start, so it does not wait out the four hours. A request whose worker is merely
+slow to start is not marked before `queued_wait_seconds` while its job is still queued. Each update is conditional on the attempt still
 being queued or running, so it is idempotent, never overwrites a real outcome and never touches a job posting; counters an
 interrupted run had already written stay. The parent run is then settled from its attempts (an empty open run, silent for a
 lease, becomes failed). Retrying is just another Run Now or the next scheduled retry.
