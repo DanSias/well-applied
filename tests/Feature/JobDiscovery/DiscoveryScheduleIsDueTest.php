@@ -12,6 +12,9 @@ beforeEach(function () {
     config([
         'job_discovery.schedule.stale_after_hours' => 23,
         'job_discovery.schedule.retry_after_hours' => 6,
+        // Adzuna is scheduled only with credentials.
+        'services.adzuna.app_id' => 'id',
+        'services.adzuna.app_key' => 'key',
     ]);
 });
 

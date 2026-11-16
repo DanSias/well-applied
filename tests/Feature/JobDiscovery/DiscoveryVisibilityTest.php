@@ -31,7 +31,11 @@ function visRejection(string $id, string $title, string $company = 'Acme', array
     ]);
 }
 
-beforeEach(fn () => CareerProfile::factory()->create());
+beforeEach(function () {
+    CareerProfile::factory()->create();
+    // Adzuna is scheduled only with credentials; these tests are about scheduled providers.
+    config(['services.adzuna.app_id' => 'id', 'services.adzuna.app_key' => 'key']);
+});
 
 it('shows an honest empty state when discovery has never run', function () {
     $this->get('/')->assertInertia(fn (Assert $page) => $page

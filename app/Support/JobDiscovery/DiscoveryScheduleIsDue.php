@@ -5,8 +5,6 @@ namespace App\Support\JobDiscovery;
 use App\Enums\DiscoveryStatus;
 use App\Enums\JobDiscoverySource;
 use App\Models\DiscoveryProviderAttempt;
-use App\Support\JobDiscovery\Providers\EightfoldDiscoveryProvider;
-use App\Support\JobDiscovery\Providers\UsajobsDiscoveryProvider;
 
 /**
  * The per-provider eligibility check bootstrap/app.php's schedule
@@ -23,6 +21,9 @@ use App\Support\JobDiscovery\Providers\UsajobsDiscoveryProvider;
  * a single failing provider re-run EVERY provider on every hourly tick
  * until the failure cleared — hammering healthy and quota-limited
  * providers alike.
+ *
+ * Only providers whose effective schedule is automatic are considered at all (a paused or unavailable provider is never
+ * due), and the cadence below is unchanged: resuming a provider that last failed retries it on the retry cadence.
  *
  * A provider is due when:
  *
@@ -58,28 +59,14 @@ final class DiscoveryScheduleIsDue
     }
 
     /**
-     * Every real provider (everything but Manual, plus Eightfold only when
-     * explicitly scheduled) — kept in lockstep
-     * with App\Support\JobDiscovery\RunJobDiscovery's registered
-     * providers by a regression test.
+     * The providers the scheduler may run: DiscoveryProviderInventory's effective schedule is automatic. That already
+     * accounts for registration, configuration, the opt-in `scheduled` flags and the person's pause / enable override.
      *
      * @return JobDiscoverySource[]
      */
     public static function scheduledSources(): array
     {
-        return array_values(array_filter(
-            JobDiscoverySource::cases(),
-            fn (JobDiscoverySource $source): bool => match ($source) {
-                JobDiscoverySource::Manual => false,
-                // Opt-in: scheduling stays off until a manual run has been reviewed.
-                JobDiscoverySource::Eightfold => EightfoldDiscoveryProvider::isActive()
-                    && config('job_discovery.eightfold.scheduled') === true,
-                // Opt-in as well: credentials present AND scheduling switched on after a reviewed manual run.
-                JobDiscoverySource::Usajobs => UsajobsDiscoveryProvider::isActive()
-                    && config('job_discovery.usajobs.scheduled') === true,
-                default => true,
-            },
-        ));
+        return DiscoveryProviderInventory::scheduledSources();
     }
 
     private function isDue(JobDiscoverySource $source): bool

@@ -166,7 +166,7 @@ it('summarizes schedule states, attention and recent activity', function () {
 
     $summary = (new PresentSources)->summary();
 
-    expect($summary)->toMatchArray(['window_days' => 7, 'ever_ran' => true, 'runs_in_window' => 1, 'automatic' => 3, 'unavailable' => 2])
+    expect($summary)->toMatchArray(['window_days' => 7, 'ever_ran' => true, 'runs_in_window' => 1, 'automatic' => 2, 'unavailable' => 3, 'paused' => 0])
         ->and($summary['attention_providers'])->toContain('jobicy');
 });
 

@@ -81,6 +81,7 @@ final class PresentSources
             'configured' => count(array_filter($providers, fn (array $p) => $p['configured'])),
             'automatic' => $count(DiscoveryProviderInventory::SCHEDULE_AUTOMATIC),
             'manual_only' => $count(DiscoveryProviderInventory::SCHEDULE_MANUAL_ONLY),
+            'paused' => $count(DiscoveryProviderInventory::SCHEDULE_PAUSED),
             'unavailable' => $count(DiscoveryProviderInventory::SCHEDULE_UNAVAILABLE),
             'needs_attention' => count($attention),
             'attention_providers' => $attention,
@@ -196,7 +197,7 @@ final class PresentSources
         $latest = $this->health->latest($source);
         $success = $this->health->latestSuccess($source);
         $failure = $latest?->status === DiscoveryStatus::Failed ? $latest : $this->health->latest($source, [DiscoveryStatus::Failed]);
-        $health = $this->health->fromAttempts($source, $described['effective_schedule'] === DiscoveryProviderInventory::SCHEDULE_AUTOMATIC, $latest, $success);
+        $health = $this->health->fromAttempts($source, $described['effective_schedule'] === DiscoveryProviderInventory::SCHEDULE_AUTOMATIC, $latest, $success, $described['effective_schedule']);
 
         // Overview's health block, unchanged, so the pages agree; the full attempts sit beside it.
         return $described + [

@@ -36,8 +36,8 @@ it('reports Adzuna as registered but unconfigured without credentials, and says 
 
     expect(inventoryRow('adzuna'))->toMatchArray([
         'registered' => true, 'configured' => false, 'unavailable_reason' => 'Adzuna credentials are not configured.',
-        // Existing behaviour, deliberately unchanged: it is still scheduled.
-        'default_schedule' => 'automatic', 'effective_schedule' => 'automatic', 'manual_run_available' => false,
+        // Automatic by default, but nothing can be scheduled without credentials.
+        'default_schedule' => 'automatic', 'effective_schedule' => 'unavailable', 'schedule_control' => null, 'manual_run_available' => false,
     ]);
 });
 

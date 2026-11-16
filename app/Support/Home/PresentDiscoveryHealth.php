@@ -8,7 +8,6 @@ use App\Enums\JobDiscoverySource;
 use App\Models\DiscoveryProviderAttempt;
 use App\Models\DiscoveryRejection;
 use App\Support\JobDiscovery\DiscoveryProviderInventory;
-use App\Support\JobDiscovery\DiscoveryScheduleIsDue;
 
 /**
  * Overview's discovery-health summary: for each provider, its most recent successful attempt and whether anything has
@@ -28,14 +27,24 @@ final class PresentDiscoveryHealth
      */
     public function present(): array
     {
-        $scheduled = DiscoveryScheduleIsDue::scheduledSources();
+        $overrides = DiscoveryProviderInventory::overrides();
+        $schedules = [];
+        foreach (DiscoveryProviderInventory::sources() as $source) {
+            $schedules[$source->value] = DiscoveryProviderInventory::effectiveSchedule($source, $overrides);
+        }
+
+        // A provider is listed while the scheduler runs it, or once it has any history (so a paused or unavailable one
+        // keeps its past visible).
         $sources = array_values(array_filter(
-            JobDiscoverySource::cases(),
-            fn (JobDiscoverySource $source) => $source !== JobDiscoverySource::Manual
-                && (in_array($source, $scheduled, true) || DiscoveryProviderAttempt::query()->where('provider', $source)->exists()),
+            DiscoveryProviderInventory::sources(),
+            fn (JobDiscoverySource $source) => $schedules[$source->value] === DiscoveryProviderInventory::SCHEDULE_AUTOMATIC
+                || DiscoveryProviderAttempt::query()->where('provider', $source)->exists(),
         ));
 
-        $providers = array_map(fn (JobDiscoverySource $source) => $this->forProvider($source, in_array($source, $scheduled, true)), $sources);
+        $providers = array_map(
+            fn (JobDiscoverySource $source) => $this->forProvider($source, $schedules[$source->value] === DiscoveryProviderInventory::SCHEDULE_AUTOMATIC, $schedules[$source->value]),
+            $sources,
+        );
 
         return [
             'providers' => $providers,
@@ -51,9 +60,9 @@ final class PresentDiscoveryHealth
      *
      * @return array<string, mixed>
      */
-    public function forProvider(JobDiscoverySource $source, bool $scheduled): array
+    public function forProvider(JobDiscoverySource $source, bool $scheduled, ?string $schedule = null): array
     {
-        return $this->fromAttempts($source, $scheduled, $this->latest($source), $this->latestSuccess($source));
+        return $this->fromAttempts($source, $scheduled, $this->latest($source), $this->latestSuccess($source), $schedule);
     }
 
     /**
@@ -62,7 +71,7 @@ final class PresentDiscoveryHealth
      *
      * @return array<string, mixed>
      */
-    public function fromAttempts(JobDiscoverySource $source, bool $scheduled, ?DiscoveryProviderAttempt $latest, ?DiscoveryProviderAttempt $success): array
+    public function fromAttempts(JobDiscoverySource $source, bool $scheduled, ?DiscoveryProviderAttempt $latest, ?DiscoveryProviderAttempt $success, ?string $schedule = null): array
     {
         $reference = $success === null ? null : ($success->finished_at ?? $success->started_at);
         $ageHours = $reference === null ? null : (int) floor($reference->diffInHours(now(), true));
@@ -72,6 +81,9 @@ final class PresentDiscoveryHealth
             'provider' => $source->value,
             'label' => DiscoveryProviderInventory::label($source),
             'scheduled' => $scheduled,
+            // The effective schedule (automatic, paused, manual_only, unavailable) when the caller resolved it. Health
+            // is judged on its own: a paused provider keeps its history and is never "overdue" for being paused.
+            'schedule' => $schedule ?? ($scheduled ? DiscoveryProviderInventory::SCHEDULE_AUTOMATIC : DiscoveryProviderInventory::SCHEDULE_MANUAL_ONLY),
             // Only a provider the scheduler runs can be "overdue"; a manual-only one is just "last run".
             'stale' => $scheduled && ($ageHours === null || $ageHours >= $staleAfter),
             'last_success' => $success === null ? null : [

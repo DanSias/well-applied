@@ -1051,7 +1051,8 @@ it('registers when configured but stays out of the schedule until scheduling is 
     expect(array_keys($registered))->toContain('eightfold')
         ->and(DiscoveryScheduleIsDue::scheduledSources())->not->toContain(JobDiscoverySource::Eightfold);
 
-    config(['job_discovery.eightfold.scheduled' => true]);
+    // Adzuna is only scheduled once it has credentials, so give it some to compare with what is registered.
+    config(['services.adzuna.app_id' => 'id', 'services.adzuna.app_key' => 'key', 'job_discovery.eightfold.scheduled' => true]);
     expect(DiscoveryScheduleIsDue::scheduledSources())->toContain(JobDiscoverySource::Eightfold)
         ->and(array_map(fn ($s) => $s->value, DiscoveryScheduleIsDue::scheduledSources()))
         ->toEqualCanonicalizing(array_keys((new ReflectionProperty(RunJobDiscovery::class, 'providers'))->getValue(new RunJobDiscovery)));
