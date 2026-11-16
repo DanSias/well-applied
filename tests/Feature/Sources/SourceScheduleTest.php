@@ -136,6 +136,7 @@ it('shows Overview the paused state, without calling the paused provider overdue
 });
 
 it('has no automatic providers, so nothing for the scheduler warning to be about, when all are paused or manual', function () {
+    config(['services.adzuna.app_id' => 'id', 'services.adzuna.app_key' => 'key']);
     foreach (['himalayas', 'adzuna', 'jobicy'] as $provider) {
         $this->patch("/sources/{$provider}/schedule", ['schedule_override' => 'paused']);
     }
