@@ -4,12 +4,14 @@ import type { ReactNode } from 'react';
 import { ProviderDrawer } from '@/components/sources/provider-drawer';
 import { ProviderRow } from '@/components/sources/provider-row';
 import { RecentActivity } from '@/components/sources/recent-activity';
+import { InfoIcon, TriangleAlertIcon } from '@/components/sources/status-icons';
 import { Time } from '@/components/sources/time';
 import { Card, SectionTitle } from '@/components/ui/surface';
 import { useActiveRunPolling } from '@/hooks/use-active-run-polling';
 import AppShell from '@/layouts/app-shell';
 import {
     attentionNeeded,
+    attentionNote,
     neverRunProviders,
     schedulerNote,
     buildSourcesParams,
@@ -209,20 +211,13 @@ export default function SourcesIndex({
                 <h1 className="text-fg text-xl font-semibold tracking-tight sm:text-2xl">
                     Sources
                 </h1>
-                <p className="text-fg-muted mt-0.5 max-w-2xl text-sm">
-                    Where Well Applied looks for jobs, and how each source is
-                    doing. What discovery finds lands in your{' '}
-                    <Link
-                        href="/jobs"
-                        className="text-accent-text hover:text-fg underline underline-offset-2"
-                    >
-                        Jobs
-                    </Link>{' '}
-                    inbox.
+                <p className="text-fg-muted mt-1 text-sm">
+                    Manage where jobs come from, monitor discovery, and review
+                    recent activity.
                 </p>
             </header>
 
-            <section aria-label="Discovery summary" className="mt-5">
+            <section aria-label="Discovery summary" className="mt-4">
                 <Card className="overflow-hidden">
                     <dl className="bg-line grid grid-cols-2 gap-px sm:grid-cols-4">
                         <SummaryItem
@@ -231,25 +226,17 @@ export default function SourcesIndex({
                             note={
                                 setup.length > 0
                                     ? `Needs setup: ${setup.join(', ')}`
-                                    : 'All sources are set up'
+                                    : undefined
                             }
                         />
                         <SummaryItem
                             label={`Jobs added, ${summary.window_days} days`}
                             value={summary.jobs_added}
-                            note="Discovered postings, from all sources"
                         />
                         <SummaryItem
                             label="Needs attention"
                             value={summary.needs_attention}
-                            note={
-                                (attention.length > 0
-                                    ? `Failing, partial or overdue: ${attention.join(', ')}`
-                                    : 'No failures or overdue sources') +
-                                (neverRun.length > 0
-                                    ? `. Not run yet: ${neverRun.join(', ')}`
-                                    : '')
-                            }
+                            note={attentionNote(attention, neverRun)}
                         />
                         <SummaryItem
                             label="Last discovery"
@@ -276,16 +263,23 @@ export default function SourcesIndex({
                 <p
                     className={
                         schedulerLine.tone === 'warn'
-                            ? 'text-warn mt-2 text-xs'
-                            : 'text-fg-subtle mt-2 text-xs'
+                            ? 'text-warn mt-2 flex items-start gap-1.5 text-xs'
+                            : 'text-fg-subtle mt-2 flex items-start gap-1.5 text-xs'
                     }
                     role={schedulerLine.tone === 'warn' ? 'status' : undefined}
                 >
-                    {schedulerLine.text}
+                    <span className="mt-px">
+                        {schedulerLine.tone === 'warn' ? (
+                            <TriangleAlertIcon />
+                        ) : (
+                            <InfoIcon />
+                        )}
+                    </span>
+                    <span>{schedulerLine.text}</span>
                 </p>
             )}
 
-            <section aria-label="Discovery providers" className="mt-6">
+            <section aria-label="Discovery providers" className="mt-5">
                 <SectionTitle
                     aside={
                         <Link
