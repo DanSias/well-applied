@@ -17,6 +17,10 @@ import {
     runRequestToast,
     scheduleToast,
     schedulerNote,
+    outcomeMark,
+    providerStatus,
+    runMark,
+    attentionNote,
     retrievedLabel,
     runTotals,
     scheduleChip,
@@ -359,7 +363,7 @@ describe('scheduler note', () => {
                 { state: 'unknown', age_seconds: null, last_observed_at: null },
                 2,
             )?.text,
-        ).toContain('not been seen yet');
+        ).toContain('not detected');
     });
 });
 
@@ -425,5 +429,120 @@ describe('system failure wording', () => {
             'incomplete',
         );
         expect(failureLine(failed('not_started'))).toContain('Nothing was run');
+    });
+});
+
+describe('calm status presentation', () => {
+    const failed = (category: string | null) =>
+        attempt({
+            status: 'failed',
+            failure: { category, message: 'm', exception_class: null },
+        });
+
+    it('marks a plain success as a labelled icon, a zero-result success as a distinct icon, and never colour alone', () => {
+        expect(outcomeMark(attempt())).toEqual({
+            kind: 'icon',
+            icon: 'success',
+            label: 'Last run succeeded',
+            short: 'Succeeded',
+        });
+        expect(outcomeMark(attempt({ retrieved: 0 }))).toMatchObject({
+            kind: 'icon',
+            icon: 'success-empty',
+            label: 'Last run succeeded with no results',
+        });
+        expect(outcomeMark(attempt(), 'Run')).toMatchObject({
+            label: 'Run succeeded',
+        });
+    });
+
+    it('keeps every exceptional outcome as words', () => {
+        const text = (a: SourceAttempt | null) => {
+            const mark = outcomeMark(a);
+
+            return mark.kind === 'badge' ? mark.text : null;
+        };
+
+        expect(text(attempt({ status: 'partial' }))).toBe('Partial');
+        expect(text(failed('provider_error'))).toBe('Failed');
+        expect(text(failed('interrupted'))).toBe('Interrupted');
+        expect(text(failed('lease_lost'))).toBe('Stopped early');
+        expect(text(failed('deadline_exceeded'))).toBe('Time limit reached');
+        expect(text(failed('not_started'))).toBe('Not started');
+        expect(text(attempt({ status: 'queued' }))).toBe('Queued');
+        expect(text(attempt({ status: 'running' }))).toBe('Running');
+        expect(text(null)).toBe('Never run');
+    });
+
+    it('warns about a never-run automatic provider only', () => {
+        expect(outcomeMark(null, 'Last run', true)).toMatchObject({
+            tone: 'warn',
+        });
+        expect(outcomeMark(null, 'Last run', false)).toMatchObject({
+            tone: 'neutral',
+        });
+    });
+
+    it('describes a healthy configured provider without a setup flag or a configured badge', () => {
+        expect(providerStatus(provider())).toMatchObject({
+            needsSetup: false,
+            schedule: { text: 'Automatic' },
+            overdue: false,
+        });
+    });
+
+    it('says needs setup, with no schedule, for a provider that is not configured or unavailable', () => {
+        const status = providerStatus(
+            provider({ configured: false, effective_schedule: 'unavailable' }),
+        );
+
+        expect(status.needsSetup).toBe(true);
+        expect(status.schedule).toBeNull();
+    });
+
+    it('keeps the schedule states explicit: automatic, manual only and paused (a warning)', () => {
+        expect(
+            providerStatus(provider({ effective_schedule: 'manual_only' }))
+                .schedule,
+        ).toEqual({ text: 'Manual only', tone: 'neutral' });
+        expect(
+            providerStatus(provider({ effective_schedule: 'paused' })).schedule,
+        ).toEqual({ text: 'Paused', tone: 'warn' });
+    });
+
+    it('marks a run as one tick when it succeeded, and in words otherwise', () => {
+        const base = { id: 1, status: 'succeeded' } as unknown as SourceRun;
+
+        expect(runMark(base)).toMatchObject({
+            kind: 'icon',
+            label: 'Run succeeded',
+        });
+        expect(runMark({ ...base, status: 'partial' })).toMatchObject({
+            kind: 'badge',
+            text: 'Partial',
+        });
+        expect(runMark({ ...base, status: 'failed' })).toMatchObject({
+            kind: 'badge',
+            text: 'Failed',
+        });
+        expect(runMark({ ...base, status: 'queued' })).toMatchObject({
+            kind: 'badge',
+            text: 'Queued',
+        });
+        expect(runMark({ ...base, status: 'running' })).toMatchObject({
+            kind: 'badge',
+            text: 'Running',
+        });
+    });
+
+    it('is silent about attention when all is well, and names only what is exceptional', () => {
+        expect(attentionNote([], [])).toBeUndefined();
+        expect(attentionNote(['Jobicy'], [])).toBe(
+            'Failing, partial or overdue: Jobicy',
+        );
+        expect(attentionNote([], ['Eightfold'])).toBe('Not run yet: Eightfold');
+        expect(attentionNote(['Jobicy'], ['Eightfold'])).toBe(
+            'Failing, partial or overdue: Jobicy. Not run yet: Eightfold',
+        );
     });
 });

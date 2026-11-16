@@ -149,6 +149,94 @@ export function providerOutcomeChip(provider: SourceProvider): Chip {
         : chip;
 }
 
+/**
+ * How an outcome is marked. A plain success is a quiet icon (a tick, or a dash when it found nothing); everything else keeps
+ * a text badge, so a healthy list stays calm and a problem stands out without relying on colour. `label` is the accessible
+ * name of the icon and `short` the word shown beside it where there is room.
+ */
+export type OutcomeMark =
+    | {
+          kind: 'icon';
+          icon: 'success' | 'success-empty';
+          label: string;
+          short: string;
+      }
+    | { kind: 'badge'; text: string; tone: Tone };
+
+/** @param subject what succeeded, for the accessible name: "Last run", "Run". */
+export function outcomeMark(
+    attempt: SourceAttempt | null,
+    subject = 'Last run',
+    neverRunIsWarning = false,
+): OutcomeMark {
+    if (attempt === null) {
+        return {
+            kind: 'badge',
+            text: 'Never run',
+            tone: neverRunIsWarning ? 'warn' : 'neutral',
+        };
+    }
+
+    const chip = outcomeChip(attempt);
+
+    if (attempt.status === 'succeeded' && chip.tone === 'ok') {
+        return attempt.retrieved === 0
+            ? {
+                  kind: 'icon',
+                  icon: 'success-empty',
+                  label: `${subject} succeeded with no results`,
+                  short: 'Succeeded · no results',
+              }
+            : {
+                  kind: 'icon',
+                  icon: 'success',
+                  label: `${subject} succeeded`,
+                  short: 'Succeeded',
+              };
+    }
+
+    return { kind: 'badge', text: chip.text, tone: chip.tone };
+}
+
+/** A run's overall outcome, marked the same way (a run has no counters of its own, so a success is always a plain tick). */
+export function runMark(run: SourceRun): OutcomeMark {
+    if (run.status === 'succeeded') {
+        return {
+            kind: 'icon',
+            icon: 'success',
+            label: 'Run succeeded',
+            short: 'Succeeded',
+        };
+    }
+
+    const chip = statusChip(run.status);
+
+    return { kind: 'badge', text: chip.text, tone: chip.tone };
+}
+
+/** Everything a provider row shows about status, decided in one place so the page and its tests agree. */
+export function providerStatus(provider: SourceProvider): {
+    needsSetup: boolean;
+    schedule: Chip | null;
+    outcome: OutcomeMark;
+    overdue: boolean;
+} {
+    const needsSetup =
+        !provider.configured || provider.effective_schedule === 'unavailable';
+
+    return {
+        needsSetup,
+        // A provider that needs setup has no meaningful schedule to report.
+        schedule: needsSetup ? null : scheduleChip(provider),
+        outcome: outcomeMark(
+            provider.last_attempt,
+            'Last run',
+            provider.never_run,
+        ),
+        overdue: provider.overdue,
+    };
+}
+
 /** "42" or "—" for a counter that was never recorded. Never turns null into 0. */
 export function count(value: number | null): string {
     return value === null ? '—' : String(value);
@@ -245,6 +333,26 @@ export function neverRunProviders(
     return providers
         .filter((p) => summary.never_run_providers.includes(p.provider))
         .map((p) => p.label);
+}
+
+/**
+ * The note under "Needs attention": only for something exceptional, and silent when all is well (the number already says
+ * so). Setup is not an operational failure and is reported by the Configured figure, so it is not repeated here.
+ */
+export function attentionNote(
+    attention: string[],
+    neverRun: string[],
+): string | undefined {
+    const parts: string[] = [];
+
+    if (attention.length > 0) {
+        parts.push(`Failing, partial or overdue: ${attention.join(', ')}`);
+    }
+    if (neverRun.length > 0) {
+        parts.push(`Not run yet: ${neverRun.join(', ')}`);
+    }
+
+    return parts.length === 0 ? undefined : parts.join('. ');
 }
 
 /** Short failure text for a list line: our own wording for system failures, otherwise the message the provider recorded. */
@@ -440,7 +548,7 @@ export function schedulerNote(
     if (scheduler.state === 'recent') {
         return {
             tone: 'ok',
-            text: 'Scheduler running: last seen less than 3 minutes ago.',
+            text: 'Scheduler active. Last seen less than 3 minutes ago.',
         };
     }
 
@@ -451,12 +559,12 @@ export function schedulerNote(
     if (scheduler.state === 'stale') {
         return {
             tone: 'warn',
-            text: `The scheduler was last seen ${ago(scheduler.age_seconds ?? 0)} ago, so automatic discovery is not running. Start it with php artisan schedule:work (php artisan dev does).`,
+            text: `Scheduler not seen for ${ago(scheduler.age_seconds ?? 0)}. Automatic discovery runs only while it is active (php artisan schedule:work, or php artisan dev).`,
         };
     }
 
     return {
         tone: 'neutral',
-        text: 'The scheduler has not been seen yet. Automatic discovery only runs while it is running (php artisan dev starts it).',
+        text: 'Scheduler not detected. Automatic discovery runs when the scheduler is active (php artisan dev starts it).',
     };
 }

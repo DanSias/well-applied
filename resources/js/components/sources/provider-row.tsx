@@ -2,21 +2,21 @@ import type { MouseEvent } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { isPlainClick } from '@/lib/opportunities-list';
 import {
-    availabilityChip,
     count,
     failureLine,
-    providerOutcomeChip,
+    providerStatus,
     retrievedLabel,
-    scheduleChip,
 } from '@/lib/sources';
 import type { SourceProvider } from '@/types/sources';
+import { ChevronRightIcon, OutcomeIndicator } from './status-icons';
 import { Time } from './time';
 
-function Stat({ label, value }: { label: string; value: number | null }) {
+/** A figure with its label beneath it. The value comes first on screen; the label stays first in the markup. */
+function Metric({ label, value }: { label: string; value: number | null }) {
     return (
-        <div>
+        <div className="flex flex-col-reverse">
             <dt className="text-fg-subtle text-xs">{label}</dt>
-            <dd className="text-fg text-sm font-medium tabular-nums">
+            <dd className="text-fg text-base leading-tight font-semibold tabular-nums">
                 {count(value)}
                 {value === null && (
                     <span className="sr-only"> not recorded</span>
@@ -27,8 +27,9 @@ function Stat({ label, value }: { label: string; value: number | null }) {
 }
 
 /**
- * One provider on the list. Three separate questions get three separate chips: is it set up (availability), when does it
- * run (schedule) and how did its last run go (outcome). Only the name opens the drawer, as on the Jobs list.
+ * One provider on the list, written to be scanned: the name (which opens the drawer) with how it is scheduled and how it
+ * last went, when it last ran, and four figures. A healthy provider is a quiet tick and a schedule word; a provider that
+ * needs setup, has paused, or did not finish well says so in words. Only the name opens the drawer, as on the Jobs list.
  */
 export function ProviderRow({
     provider,
@@ -39,11 +40,8 @@ export function ProviderRow({
     href: string;
     onOpen: () => void;
 }) {
-    const availability = availabilityChip(provider);
-    const schedule = scheduleChip(provider);
+    const status = providerStatus(provider);
     const attempt = provider.last_attempt;
-    const outcome = providerOutcomeChip(provider);
-    const overdue = provider.overdue;
     // Show the last success separately only when the last attempt was not it.
     const lastSuccess =
         provider.last_success !== null &&
@@ -59,35 +57,52 @@ export function ProviderRow({
     };
 
     return (
-        <li className="px-5 py-3.5">
-            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <li className="px-4 py-3 sm:px-5">
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
                 <a
                     href={href}
                     onClick={open}
                     data-provider={provider.provider}
-                    className="row-link text-fg focus-visible:ring-focus rounded-sm text-sm font-semibold hover:underline focus-visible:ring-2 focus-visible:outline-none"
+                    className="row-link text-fg focus-visible:ring-focus group -mx-1 inline-flex items-center gap-1 rounded-sm px-1 text-sm font-semibold focus-visible:ring-2 focus-visible:outline-none"
                 >
-                    {provider.label}
+                    <span className="group-hover:underline">
+                        {provider.label}
+                    </span>
                     <span className="sr-only"> details</span>
+                    <span className="text-fg-subtle group-hover:text-fg">
+                        <ChevronRightIcon />
+                    </span>
                 </a>
-                <p className="flex flex-wrap items-center gap-1.5">
-                    <Badge tone={availability.tone}>{availability.text}</Badge>
-                    <Badge tone={schedule.tone}>{schedule.text}</Badge>
-                    <Badge tone={outcome.tone}>{outcome.text}</Badge>
-                    {overdue && <Badge tone="warn">Overdue</Badge>}
+                <p className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
+                    {status.needsSetup ? (
+                        <Badge tone="warn">Needs setup</Badge>
+                    ) : status.schedule !== null &&
+                      status.schedule.tone === 'warn' ? (
+                        <Badge tone="warn">{status.schedule.text}</Badge>
+                    ) : (
+                        <span className="text-fg-muted text-xs">
+                            {status.schedule?.text}
+                        </span>
+                    )}
+                    {status.overdue && <Badge tone="warn">Overdue</Badge>}
+                    <OutcomeIndicator mark={status.outcome} />
                 </p>
             </div>
 
-            <p className="text-fg-subtle mt-1.5 text-xs">
+            <p className="text-fg-subtle mt-0.5 text-xs">
                 {attempt === null ? (
-                    provider.configured ? (
-                        'Has not run yet.'
-                    ) : (
+                    status.needsSetup ? (
                         (provider.unavailable_reason ?? 'Not configured.')
+                    ) : (
+                        'Has not run yet.'
                     )
                 ) : (
                     <>
-                        Last attempt{' '}
+                        {attempt.status === 'queued'
+                            ? 'Requested'
+                            : attempt.status === 'running'
+                              ? 'Started'
+                              : 'Last run'}{' '}
                         <Time at={attempt.finished_at ?? attempt.started_at} />
                         {lastSuccess !== null && (
                             <>
@@ -104,27 +119,25 @@ export function ProviderRow({
                                 />
                             </>
                         )}
-                        {!provider.configured &&
-                            provider.unavailable_reason && (
-                                <> · {provider.unavailable_reason}</>
-                            )}
+                        {status.needsSetup && provider.unavailable_reason && (
+                            <> · {provider.unavailable_reason}</>
+                        )}
                     </>
                 )}
             </p>
 
             {attempt !== null && (
                 <dl
-                    className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-5"
-                    aria-label={`${provider.label} latest attempt counts`}
+                    className="mt-2.5 grid grid-cols-4 gap-x-3 sm:gap-x-4"
+                    aria-label={`${provider.label} latest run counts`}
                 >
-                    <Stat
+                    <Metric
                         label={retrievedLabel(attempt)}
                         value={attempt.retrieved}
                     />
-                    <Stat label="Accepted" value={attempt.accepted} />
-                    <Stat label="Created" value={attempt.created} />
-                    <Stat label="Updated" value={attempt.updated} />
-                    <Stat label="Filtered" value={attempt.filtered} />
+                    <Metric label="Accepted" value={attempt.accepted} />
+                    <Metric label="Created" value={attempt.created} />
+                    <Metric label="Filtered" value={attempt.filtered} />
                 </dl>
             )}
 
