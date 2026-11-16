@@ -2,6 +2,7 @@ import { router } from '@inertiajs/react';
 import { batchToast } from '@/lib/batch-toast';
 import { decisionToast, type ToastContent } from '@/lib/decision-toast';
 import { qualificationToast } from '@/lib/qualification';
+import { scheduleToast } from '@/lib/sources';
 import { notify } from '@/lib/toast';
 import { undo as decisionsUndo } from '@/routes/jobs/decisions';
 import type {
@@ -9,6 +10,7 @@ import type {
     DecisionResult,
     QualificationFlash,
 } from '@/types/job-posting';
+import type { ScheduleFlash } from '@/types/sources';
 
 /** One undo request at a time: a second click on Undo (or on a stale toast) while one is in flight is ignored. */
 let undoing = false;
@@ -55,6 +57,7 @@ export function showFlash(flash: {
     decision_result?: DecisionResult;
     batch_result?: BatchResult;
     qualification_result?: QualificationFlash;
+    schedule_result?: ScheduleFlash;
 }) {
     if (flash.decision_result !== undefined) {
         show(decisionToast(flash.decision_result));
@@ -66,6 +69,12 @@ export function showFlash(flash: {
 
     if (flash.qualification_result !== undefined) {
         show(qualificationToast(flash.qualification_result));
+    }
+
+    if (flash.schedule_result !== undefined) {
+        const toast = scheduleToast(flash.schedule_result);
+
+        notify.success(toast.title, { description: toast.description });
     }
 }
 

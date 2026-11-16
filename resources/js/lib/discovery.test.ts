@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { ageLabel, discoveryHeadline, providerBadge } from '@/lib/discovery';
+import {
+    ageLabel,
+    discoveryHeadline,
+    providerBadge,
+    scheduleNote,
+} from '@/lib/discovery';
 import type { DiscoveryProviderHealth, HomeDiscovery } from '@/types/home';
 
 function provider(
@@ -9,6 +14,7 @@ function provider(
         provider: 'jobicy',
         label: 'Jobicy',
         scheduled: true,
+        schedule: 'automatic',
         stale: false,
         last_success: {
             status: 'succeeded',
@@ -126,6 +132,40 @@ describe('providerBadge', () => {
         expect(providerBadge(provider()).text).toBe('Recent');
         expect(providerBadge(provider({ scheduled: false })).text).toBe(
             'Manual only',
+        );
+    });
+
+    it('puts scheduling state ahead of health: paused and needs-setup are not overdue', () => {
+        expect(
+            providerBadge(
+                provider({
+                    schedule: 'paused',
+                    scheduled: false,
+                    stale: false,
+                }),
+            ),
+        ).toEqual({ tone: 'neutral', text: 'Paused' });
+        expect(
+            providerBadge(
+                provider({
+                    schedule: 'unavailable',
+                    scheduled: false,
+                    last_success: null,
+                }),
+            ),
+        ).toEqual({ tone: 'warn', text: 'Needs setup' });
+    });
+
+    it('explains why a provider is off the schedule, and says nothing for a scheduled one', () => {
+        expect(scheduleNote(provider())).toBeNull();
+        expect(scheduleNote(provider({ schedule: 'paused' }))).toBe(
+            'scheduling paused',
+        );
+        expect(scheduleNote(provider({ schedule: 'unavailable' }))).toBe(
+            'needs setup',
+        );
+        expect(scheduleNote(provider({ schedule: 'manual_only' }))).toBe(
+            'manual only',
         );
     });
 });

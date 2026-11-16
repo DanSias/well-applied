@@ -4,6 +4,7 @@ import type {
     DecisionResult,
     QualificationFlash,
 } from '@/types/job-posting';
+import type { ScheduleFlash } from '@/types/sources';
 
 declare module 'react' {
     interface InputHTMLAttributes<T> {
@@ -23,6 +24,7 @@ declare module '@inertiajs/core' {
             batch_result?: BatchResult;
             decision_result?: DecisionResult;
             qualification_result?: QualificationFlash;
+            schedule_result?: ScheduleFlash;
         };
     }
 }

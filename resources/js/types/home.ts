@@ -52,6 +52,8 @@ export type DiscoveryProviderHealth = {
     label: string;
     /** Whether the hourly `discovery:run --due` schedule includes this provider. */
     scheduled: boolean;
+    /** The effective schedule, including a person's pause or enable. */
+    schedule: 'automatic' | 'paused' | 'manual_only' | 'unavailable';
     /** Scheduled, and its last success is missing or older than twice the daily cadence. */
     stale: boolean;
     last_success: {

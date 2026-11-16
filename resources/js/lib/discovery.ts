@@ -48,10 +48,31 @@ export function discoveryHeadline(discovery: HomeDiscovery): {
     };
 }
 
+/** Why a provider is not on the schedule, for the line after its name; null when it is. */
+export function scheduleNote(provider: DiscoveryProviderHealth): string | null {
+    switch (provider.schedule) {
+        case 'paused':
+            return 'scheduling paused';
+        case 'unavailable':
+            return 'needs setup';
+        case 'manual_only':
+            return 'manual only';
+        default:
+            return null;
+    }
+}
+
 export function providerBadge(provider: DiscoveryProviderHealth): {
     tone: Tone;
     text: string;
 } {
+    // Scheduling state first: a provider that cannot run, or is paused, is not overdue or failing for that reason.
+    if (provider.schedule === 'unavailable') {
+        return { tone: 'warn', text: 'Needs setup' };
+    }
+    if (provider.schedule === 'paused') {
+        return { tone: 'neutral', text: 'Paused' };
+    }
     if (provider.last_success === null && provider.latest === null) {
         return {
             tone: provider.scheduled ? 'warn' : 'neutral',

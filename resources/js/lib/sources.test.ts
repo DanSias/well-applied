@@ -11,6 +11,7 @@ import {
     formatDuration,
     outcomeChip,
     providerOutcomeChip,
+    scheduleToast,
     retrievedLabel,
     runTotals,
     scheduleChip,
@@ -50,6 +51,8 @@ const provider = (over: Partial<SourceProvider> = {}): SourceProvider => ({
     stale: false,
     overdue: false,
     never_run: false,
+    schedule_override: 'default',
+    schedule_control: { label: 'Pause scheduling', override: 'paused' },
     needs_attention: false,
     last_attempt: null,
     last_success: null,
@@ -236,5 +239,29 @@ describe('urls', () => {
         expect(filteredCandidatesHref('usajobs')).toBe(
             '/discovery/rejections?provider=usajobs',
         );
+    });
+});
+
+describe('scheduling', () => {
+    it('shows a paused provider in warning tone and the others neutral', () => {
+        expect(
+            scheduleChip(provider({ effective_schedule: 'paused' })),
+        ).toEqual({ text: 'Paused', tone: 'warn' });
+        expect(
+            scheduleChip(provider({ effective_schedule: 'automatic' })),
+        ).toEqual({ text: 'Automatic', tone: 'neutral' });
+    });
+
+    it('words the toast from the resulting schedule, and says a running run is not stopped', () => {
+        expect(
+            scheduleToast({ provider: 'Jobicy', schedule: 'paused' }),
+        ).toMatchObject({ title: 'Jobicy scheduling paused' });
+        expect(
+            scheduleToast({ provider: 'Jobicy', schedule: 'paused' })
+                .description,
+        ).toContain('not stopped');
+        expect(
+            scheduleToast({ provider: 'Jobicy', schedule: 'automatic' }).title,
+        ).toBe('Jobicy scheduling is on');
     });
 });

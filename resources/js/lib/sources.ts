@@ -1,6 +1,7 @@
 import type { Tone } from '@/components/ui/badge';
 import type {
     AttemptStatus,
+    ScheduleFlash,
     SourceAttempt,
     SourceConfiguration,
     SourceProvider,
@@ -21,14 +22,41 @@ export function availabilityChip(provider: SourceProvider): Chip {
 const SCHEDULE_TEXT: Record<SourceSchedule, string> = {
     automatic: 'Automatic',
     manual_only: 'Manual only',
+    paused: 'Paused',
     unavailable: 'Unavailable',
 };
 
 export function scheduleChip(provider: SourceProvider): Chip {
     return {
         text: SCHEDULE_TEXT[provider.effective_schedule],
-        tone: 'neutral',
+        tone: provider.effective_schedule === 'paused' ? 'warn' : 'neutral',
     };
+}
+
+/** The toast after a scheduling change, from the schedule it resulted in. */
+export function scheduleToast(flash: ScheduleFlash): {
+    title: string;
+    description: string;
+} {
+    switch (flash.schedule) {
+        case 'automatic':
+            return {
+                title: `${flash.provider} scheduling is on`,
+                description:
+                    'It runs automatically when due, while the scheduler is running.',
+            };
+        case 'paused':
+            return {
+                title: `${flash.provider} scheduling paused`,
+                description:
+                    'It will not be picked up automatically. A run already in progress is not stopped, and you can still run it manually.',
+            };
+        default:
+            return {
+                title: `${flash.provider} scheduling updated`,
+                description: 'It runs only when you run it manually.',
+            };
+    }
 }
 
 /** A run or attempt status as a labelled chip. A successful run that found nothing is still a success, and says so. */

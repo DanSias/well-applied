@@ -5,7 +5,19 @@ export type AttemptStatus =
     | 'partial'
     | 'failed';
 
-export type SourceSchedule = 'automatic' | 'manual_only' | 'unavailable';
+export type SourceSchedule =
+    | 'automatic'
+    | 'manual_only'
+    | 'paused'
+    | 'unavailable';
+
+export type ScheduleOverride = 'default' | 'paused' | 'enabled';
+
+/** The one scheduling action the server offers for a provider; null when it needs setup first. */
+export type ScheduleControl = { label: string; override: ScheduleOverride };
+
+/** Flashed once after a scheduling change. `schedule` is the resulting effective schedule. */
+export type ScheduleFlash = { provider: string; schedule: SourceSchedule };
 
 export type SourceFailure = {
     category: string | null;
@@ -45,7 +57,9 @@ export type SourceProvider = {
     configured: boolean;
     unavailable_reason: string | null;
     default_schedule: 'automatic' | 'manual_only';
+    schedule_override: ScheduleOverride;
     effective_schedule: SourceSchedule;
+    schedule_control: ScheduleControl | null;
     manual_run_available: boolean;
     stale: boolean;
     /** Scheduled, has succeeded before, and its last success is more than twice the normal cadence old. */
@@ -67,6 +81,7 @@ export type SourcesSummary = {
     configured: number;
     automatic: number;
     manual_only: number;
+    paused: number;
     unavailable: number;
     needs_attention: number;
     attention_providers: string[];

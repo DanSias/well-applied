@@ -1,6 +1,7 @@
-import type { ReactNode } from 'react';
+import { router } from '@inertiajs/react';
+import { useState, type ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { ButtonLink } from '@/components/ui/button';
+import { Button, ButtonLink } from '@/components/ui/button';
 import { Disclosure, SectionTitle } from '@/components/ui/surface';
 import { Drawer } from '@/components/ui/drawer';
 import { Pagination } from '@/components/ui/pagination';
@@ -22,6 +23,8 @@ import type {
 } from '@/types/sources';
 import { AttemptDetail } from './attempt-detail';
 import { Time } from './time';
+import { notify } from '@/lib/toast';
+import { update as updateSchedule } from '@/routes/sources/schedule';
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
     return (
@@ -59,6 +62,64 @@ function attemptSummary(attempt: SourceAttempt | null) {
     );
 }
 
+/**
+ * Pause, resume or enable scheduling. The server offers the one action that fits the provider's state, so nothing here
+ * repeats the scheduling rules. It is a plain PATCH that redirects back, so the open drawer, its history page and the
+ * activity page all stay as they are; the result arrives as a toast.
+ */
+function ScheduleControl({ provider }: { provider: SourceProvider }) {
+    const [pending, setPending] = useState(false);
+    const control = provider.schedule_control;
+
+    if (control === null) {
+        return (
+            <span className="text-warn mt-1 block text-xs">
+                Needs setup.{' '}
+                {provider.unavailable_reason ??
+                    'It cannot be scheduled until it is configured.'}
+            </span>
+        );
+    }
+
+    const submit = () => {
+        if (pending) {
+            return;
+        }
+
+        setPending(true);
+        router.patch(
+            updateSchedule.url(provider.provider),
+            { schedule_override: control.override },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                onError: (errors) => {
+                    notify.error(
+                        `Couldn't change ${provider.label} scheduling`,
+                        {
+                            description: Object.values(errors)[0],
+                        },
+                    );
+                },
+                onFinish: () => setPending(false),
+            },
+        );
+    };
+
+    return (
+        <Button
+            variant="secondary"
+            size="sm"
+            className="mt-2"
+            disabled={pending}
+            aria-busy={pending}
+            onClick={submit}
+        >
+            {control.label}
+        </Button>
+    );
+}
+
 const scheduleExplanation = (provider: SourceProvider) => {
     switch (provider.effective_schedule) {
         case 'automatic':
@@ -68,6 +129,8 @@ const scheduleExplanation = (provider: SourceProvider) => {
                 'Does not run on a schedule. Start it with php artisan discovery:run --only=' +
                 provider.provider
             );
+        case 'paused':
+            return 'Scheduling is paused. It is not picked up automatically; you can still run it manually. A run already in progress is not stopped.';
         case 'unavailable':
             return 'Cannot run until it is set up.';
     }
@@ -204,6 +267,7 @@ export function ProviderDrawer({
                         <span className="text-fg-subtle block text-xs">
                             {scheduleExplanation(provider)}
                         </span>
+                        <ScheduleControl provider={provider} />
                         {provider.overdue && (
                             <span className="text-warn block text-xs">
                                 Overdue: its last success is more than twice the

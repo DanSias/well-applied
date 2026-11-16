@@ -2,7 +2,12 @@ import { Link } from '@inertiajs/react';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Card, SectionTitle } from '@/components/ui/surface';
-import { ageLabel, discoveryHeadline, providerBadge } from '@/lib/discovery';
+import {
+    ageLabel,
+    discoveryHeadline,
+    providerBadge,
+    scheduleNote,
+} from '@/lib/discovery';
 import { relativeTimeFromNow } from '@/lib/relative-time';
 import { index as rejectionsIndex } from '@/routes/discovery/rejections';
 import type { DiscoveryProviderHealth, HomeDiscovery } from '@/types/home';
@@ -31,10 +36,10 @@ function ProviderRow({ provider }: { provider: DiscoveryProviderHealth }) {
             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
                 <p className="text-fg text-sm font-medium">
                     {provider.label}
-                    {!provider.scheduled && (
+                    {scheduleNote(provider) !== null && (
                         <span className="text-fg-subtle font-normal">
                             {' '}
-                            · not scheduled
+                            · {scheduleNote(provider)}
                         </span>
                     )}
                 </p>
