@@ -9,6 +9,7 @@ use App\Models\DiscoveryRun;
 use App\Models\JobPosting;
 use App\Support\CurrentCareerProfile;
 use App\Support\Home\PresentDiscoveryHealth;
+use App\Support\JobDiscovery\DiscoveryExecutionRecovery;
 use App\Support\JobDiscovery\DiscoveryProviderInventory;
 use App\Support\JobDiscovery\Providers\UsajobsDiscoveryProvider;
 use App\Support\JobDiscovery\SchedulerHeartbeat;
@@ -38,6 +39,7 @@ final class PresentSources
     public function __construct(
         private readonly DiscoveryProviderInventory $inventory = new DiscoveryProviderInventory,
         private readonly PresentDiscoveryHealth $health = new PresentDiscoveryHealth,
+        private readonly DiscoveryExecutionRecovery $executions = new DiscoveryExecutionRecovery,
     ) {}
 
     /**
@@ -216,8 +218,33 @@ final class PresentSources
             'never_run' => $latest === null
                 && $described['configured']
                 && $described['effective_schedule'] === DiscoveryProviderInventory::SCHEDULE_AUTOMATIC,
+            'run_now' => $this->runNow($source, $described),
             'needs_attention' => ($health['stale'] && $success !== null)
                 || ($latest !== null && in_array($latest->status, [DiscoveryStatus::Failed, DiscoveryStatus::Partial], true)),
+        ];
+    }
+
+    /**
+     * Whether Run Now can be offered, and the queued or running execution that rules it out. Independent of scheduling:
+     * a paused or manual-only provider can be run by hand whenever it is registered and configured.
+     *
+     * @param  array<string, mixed>  $described
+     * @return array{available: bool, active: 'queued'|'running'|null, attempt_id: int|null, since: string|null, unavailable_reason: string|null}
+     */
+    private function runNow(JobDiscoverySource $source, array $described): array
+    {
+        $active = $this->executions->activeAttempt($source);
+
+        return [
+            'available' => $described['manual_run_available'] === true && $active === null,
+            'active' => match ($active?->status) {
+                DiscoveryStatus::Queued => 'queued',
+                DiscoveryStatus::Running => 'running',
+                default => null,
+            },
+            'attempt_id' => $active?->id,
+            'since' => $active?->started_at?->toIso8601String(),
+            'unavailable_reason' => $described['manual_run_available'] === true ? null : ($described['unavailable_reason'] ?? 'Not configured.'),
         ];
     }
 
