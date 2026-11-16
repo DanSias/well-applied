@@ -351,12 +351,21 @@ return [
     | stops renewing, so its lease expires after at most this long, and the same figure is how long an attempt may be
     | silent before `discovery:recover-stale` calls it interrupted.
     |
-    | `queued_wait_seconds`: a Run Now request that no queue worker has picked up within this time is recorded as never
-    | started, so a stopped worker does not leave a provider "queued" forever.
+    | `queued_wait_seconds`: the longest a Run Now request may wait for a worker before it is recorded as never started.
+    | One worker processes jobs one at a time and the longest other job here may run 3000s (config of the generation jobs),
+    | so a healthy queue can legitimately make a request wait that long; one hour is that plus margin. While a request is
+    | valid the scheduler leaves that provider to it, so this is also the longest a dead worker can delay a scheduled run.
+    | `queued_orphan_grace_seconds`: on the database queue, a queued request whose job is no longer in the queue (cleared,
+    | lost) is recorded as never started after this grace, rather than waiting out the hour.
+    | `max_queued_run_seconds`: a queued run stops itself cooperatively at this time budget, before the worker's own job
+    | timeout (3600s, itself below the queue's `retry_after` of 7200s) could kill it. CLI and scheduled runs are not bounded
+    | by it.
     */
     'execution' => [
         'lease_seconds' => (int) env('JOB_DISCOVERY_LEASE_SECONDS', 900),
         'queued_wait_seconds' => (int) env('JOB_DISCOVERY_QUEUED_WAIT_SECONDS', 3600),
+        'queued_orphan_grace_seconds' => (int) env('JOB_DISCOVERY_QUEUED_ORPHAN_GRACE_SECONDS', 300),
+        'max_queued_run_seconds' => (int) env('JOB_DISCOVERY_MAX_QUEUED_RUN_SECONDS', 3000),
     ],
 
     /*

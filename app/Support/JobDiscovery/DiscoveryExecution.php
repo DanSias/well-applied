@@ -15,11 +15,13 @@ use App\Models\DiscoveryRun;
 final class DiscoveryExecution
 {
     /**
-     * @param  list<JobDiscoverySource>  $skipped
+     * @param  list<JobDiscoverySource>  $skipped  Another execution held the provider's lease.
+     * @param  list<JobDiscoverySource>  $deferred  A scheduled execution left the provider to its pending queued request.
      */
     public function __construct(
         public readonly DiscoveryRun $run,
         public readonly array $skipped = [],
+        public readonly array $deferred = [],
     ) {}
 
     public function recorded(): bool

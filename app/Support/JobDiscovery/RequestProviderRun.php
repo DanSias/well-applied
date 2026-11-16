@@ -7,7 +7,6 @@ use App\Enums\JobDiscoverySource;
 use App\Jobs\RunDiscoveryProviderJob;
 use App\Models\DiscoveryProviderAttempt;
 use App\Models\DiscoveryRun;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -48,13 +47,17 @@ final class RequestProviderRun
         // A claim abandoned long ago must not block a new request.
         $this->recovery->recover($source);
 
-        $gate = Cache::lock('discovery:run-request:'.$source->value, 10);
-        if (! $gate->get()) {
+        // The provider's own execution lease is the mutex: while it is held here no scheduled, CLI or queued execution can
+        // start this provider, and a second simultaneous request cannot get it. A scheduled tick that wins the lease first
+        // makes this request refuse (the provider is running); one that comes after sees the queued attempt recorded below
+        // and defers to it. There is no gap between "check" and "claim" for either ordering to slip through.
+        $gate = $this->leases->acquire($source);
+        if ($gate === null) {
             return self::ALREADY_ACTIVE;
         }
 
         try {
-            if ($this->recovery->activeAttempt($source) !== null || $this->leases->isHeld($source)) {
+            if ($this->recovery->activeAttempt($source) !== null) {
                 return self::ALREADY_ACTIVE;
             }
 

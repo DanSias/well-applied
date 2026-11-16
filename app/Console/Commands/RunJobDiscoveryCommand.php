@@ -56,7 +56,7 @@ class RunJobDiscoveryCommand extends Command
 
         $this->components->info('Running job discovery…');
 
-        $execution = $runJobDiscovery->execute($only);
+        $execution = $runJobDiscovery->execute($only, scheduled: (bool) $this->option('due'));
         $discoveryRun = $execution->run;
 
         // A provider another execution is already running is skipped, never recorded as an attempt. When that was
@@ -66,8 +66,13 @@ class RunJobDiscoveryCommand extends Command
             $this->components->warn("Skipped, already running elsewhere: {$names}.");
         }
 
+        if ($execution->deferred !== []) {
+            $names = implode(', ', array_map(fn (JobDiscoverySource $source) => $source->value, $execution->deferred));
+            $this->components->warn("Skipped, a queued run is already pending: {$names}.");
+        }
+
         if (! $execution->recorded()) {
-            $this->components->info('Nothing was run: every requested provider is already running.');
+            $this->components->info('Nothing was run: every requested provider is already running or has a queued run pending.');
 
             return $this->option('due') ? self::SUCCESS : self::FAILURE;
         }

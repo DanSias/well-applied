@@ -71,8 +71,16 @@ final class DiscoveryScheduleIsDue
 
     private function isDue(JobDiscoverySource $source): bool
     {
+        // A valid Run Now request is that provider's next run; a scheduled one would only duplicate it.
+        if ((new DiscoveryExecutionRecovery)->hasPendingRequest($source)) {
+            return false;
+        }
+
+        // A request that never started (nobody picked it up) says nothing about the provider, so it does not count as its
+        // latest attempt: it must not push the next scheduled run out to the retry cadence.
         $attempt = DiscoveryProviderAttempt::query()
             ->where('provider', $source)
+            ->where(fn ($query) => $query->whereNull('failure_category')->orWhere('failure_category', '!=', DiscoveryExecutionRecovery::NOT_STARTED))
             ->orderByDesc('started_at')
             ->orderByDesc('id')
             ->first();

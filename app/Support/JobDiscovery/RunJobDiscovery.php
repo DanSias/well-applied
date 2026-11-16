@@ -26,6 +26,8 @@ use App\Support\JobDiscovery\Providers\ProviderDiscoveryContext;
 use App\Support\JobDiscovery\Providers\ReportsPartialFailure;
 use App\Support\JobDiscovery\Providers\ReportsRetrievalDiagnostics;
 use App\Support\JobDiscovery\Providers\UsajobsDiscoveryProvider;
+use Carbon\CarbonInterface;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -59,6 +61,8 @@ final class RunJobDiscovery
 
     private readonly ExecutionHeartbeat $heartbeat;
 
+    private readonly DiscoveryExecutionRecovery $recovery;
+
     public function __construct(
         ?HimalayasDiscoveryProvider $himalayas = null,
         ?AdzunaDiscoveryProvider $adzuna = null,
@@ -75,9 +79,11 @@ final class RunJobDiscovery
         ?UsajobsDiscoveryProvider $usajobs = null,
         ?ProviderExecutionLeases $leases = null,
         ?ExecutionHeartbeat $heartbeat = null,
+        ?DiscoveryExecutionRecovery $recovery = null,
     ) {
         $this->leases = $leases ?? new ProviderExecutionLeases;
         $this->heartbeat = $heartbeat ?? app(ExecutionHeartbeat::class);
+        $this->recovery = $recovery ?? new DiscoveryExecutionRecovery($this->leases);
         $providers = [
             JobDiscoverySource::Himalayas->value => $himalayas ?? new HimalayasDiscoveryProvider,
             JobDiscoverySource::Adzuna->value => $adzuna ?? new AdzunaDiscoveryProvider,
@@ -129,8 +135,11 @@ final class RunJobDiscovery
      * skipped (no attempt, so never a false success), and the others carry on.
      *
      * @param  JobDiscoverySource[]|null  $only  See run().
+     * @param  bool  $scheduled  A scheduler tick (`--due`). A provider with a valid pending Run Now request is then left to
+     *                           that request (decided under the provider's lease, so a request recorded while this tick
+     *                           was selecting cannot be missed) instead of being run twice. A manual run is not deferred.
      */
-    public function execute(?array $only = null, ?ProviderDiscoveryContext $context = null): DiscoveryExecution
+    public function execute(?array $only = null, ?ProviderDiscoveryContext $context = null, bool $scheduled = false): DiscoveryExecution
     {
         $careerProfile = CurrentCareerProfile::resolve();
         $criteria = DiscoverySearchCriteria::fromConfig();
@@ -147,6 +156,7 @@ final class RunJobDiscovery
         $boardCache = [];
 
         $skipped = [];
+        $deferred = [];
         $orchestrationFailed = false;
         try {
             foreach ($this->providers as $source => $provider) {
@@ -157,6 +167,12 @@ final class RunJobDiscovery
                 $lease = $this->leases->acquire($discoverySource);
                 if ($lease === null) {
                     $skipped[] = $discoverySource;
+
+                    continue;
+                }
+                if ($scheduled && $this->recovery->hasPendingRequest($discoverySource)) {
+                    $lease->release();
+                    $deferred[] = $discoverySource;
 
                     continue;
                 }
@@ -177,14 +193,14 @@ final class RunJobDiscovery
             ]);
         }
 
-        if ($skipped !== [] && ! $discoveryRun->providerAttempts()->exists()) {
-            // Everything requested was busy: nothing ran, so there is no run to record.
+        if (($skipped !== [] || $deferred !== []) && ! $discoveryRun->providerAttempts()->exists()) {
+            // Everything requested was busy or deferred: nothing ran, so there is no run to record.
             $discoveryRun->delete();
 
-            return new DiscoveryExecution($discoveryRun, $skipped);
+            return new DiscoveryExecution($discoveryRun, $skipped, $deferred);
         }
 
-        return new DiscoveryExecution($this->settle($discoveryRun, $orchestrationFailed), $skipped);
+        return new DiscoveryExecution($this->settle($discoveryRun, $orchestrationFailed), $skipped, $deferred);
     }
 
     /**
@@ -230,7 +246,7 @@ final class RunJobDiscovery
                     $boardCache = [];
                     $this->runProviderAttempt(
                         $discoveryRun, $source, $provider, DiscoverySearchCriteria::fromConfig(), CurrentCareerProfile::resolve(),
-                        $boardCache, null, $lease, $attempt,
+                        $boardCache, null, $lease, $attempt, now()->addSeconds(max(60, (int) config('job_discovery.execution.max_queued_run_seconds', 3000))),
                     );
                 }
             } catch (Throwable) {
@@ -276,6 +292,7 @@ final class RunJobDiscovery
         ?ProviderDiscoveryContext $context = null,
         ?ExecutionLease $lease = null,
         ?DiscoveryProviderAttempt $claimed = null,
+        ?CarbonInterface $deadline = null,
     ): void {
         // A queued request is already an attempt (claimed by executeQueued); anything else creates it here, after the
         // lease is held.
@@ -285,7 +302,7 @@ final class RunJobDiscovery
             'started_at' => now(),
         ]);
         if ($lease !== null) {
-            $this->heartbeat->start($lease, $attempt);
+            $this->heartbeat->start($lease, $attempt, $deadline);
         }
 
         $retrieved = $accepted = $created = $updated = $canonicalized = 0;
@@ -299,6 +316,9 @@ final class RunJobDiscovery
 
         try {
             $candidates = $provider->retrieve($context);
+            // A request that was in flight when the lease was lost has returned; nothing from it is processed unless the
+            // lease is still ours.
+            $this->heartbeat->beat();
             $retrieved = count($candidates);
             $retrievalCompleted = true;
             if ($provider instanceof ReportsRetrievalDiagnostics) {
@@ -337,28 +357,49 @@ final class RunJobDiscovery
                     $updated++;
                 }
             }
-        } catch (DiscoveryProviderException $e) {
-            $failureCategory = 'provider_error';
-            $failureExceptionClass = $e::class;
-            $failureMessage = $e->getMessage();
         } catch (Throwable $e) {
-            // Arbitrary messages can contain credentials, SQL or full payloads.
-            // Keep structural diagnostics only; no exception object/trace arguments.
-            $failureCategory = 'unexpected_error';
-            $failureExceptionClass = $e::class;
-            $failureMessage = 'Unexpected discovery execution failure; completed candidate writes were retained.';
+            // Whatever the provider or an adapter made of it, a lost lease is reported as that, not as a provider error.
+            if ($e instanceof LeaseLostException || $this->heartbeat->lost()) {
+                [$failureCategory, $failureMessage] = $this->leaseLost($discoveryRun, $source);
+                $failureExceptionClass = LeaseLostException::class;
+            } elseif ($e instanceof ExecutionDeadlineException) {
+                $failureCategory = 'deadline_exceeded';
+                $failureExceptionClass = $e::class;
+                $failureMessage = 'This run reached its time limit and was stopped. Anything it had already added was kept; run it again to continue.';
+            } elseif ($e instanceof DiscoveryProviderException) {
+                $failureCategory = 'provider_error';
+                $failureExceptionClass = $e::class;
+                $failureMessage = $e->getMessage();
+            } else {
+                $failureCategory = 'unexpected_error';
+                $failureExceptionClass = $e::class;
+                $failureMessage = 'Unexpected discovery execution failure; completed candidate writes were retained.';
 
-            Log::error('Discovery provider attempt failed unexpectedly.', [
-                'discovery_run_id' => $discoveryRun->id,
-                'provider' => $source->value,
-                'exception' => $e::class,
-                'exception_file' => $e->getFile(),
-                'exception_line' => $e->getLine(),
-                'phase' => $candidate === null ? 'retrieval' : 'candidate_processing',
-                'candidate_identity_hash' => $candidate === null ? null : hash('sha256', $candidate->sourceJobId),
-                'candidates_retrieved' => $retrieved,
-                'candidates_accepted' => $accepted,
-            ]);
+                Log::error('Discovery provider attempt failed unexpectedly.', [
+                    'discovery_run_id' => $discoveryRun->id,
+                    'provider' => $source->value,
+                    'exception' => $e::class,
+                    'exception_file' => $e->getFile(),
+                    'exception_line' => $e->getLine(),
+                    'phase' => $candidate === null ? 'retrieval' : 'candidate_processing',
+                    'candidate_identity_hash' => $candidate === null ? null : hash('sha256', $candidate->sourceJobId),
+                    'candidates_retrieved' => $retrieved,
+                    'candidates_accepted' => $accepted,
+                ]);
+            }
+        }
+
+        // The last ownership check: an attempt that looks like a success but lost its lease on the way is not reported
+        // as one, because another execution may have overlapped it.
+        if ($failureCategory === null && $lease !== null) {
+            try {
+                $this->heartbeat->beat();
+            } catch (LeaseLostException) {
+                [$failureCategory, $failureMessage] = $this->leaseLost($discoveryRun, $source);
+                $failureExceptionClass = LeaseLostException::class;
+            } catch (ExecutionDeadlineException) {
+                // It finished; running out of time at the very end is not a failure.
+            }
         }
 
         // Failed beats Partial; a partial provider failure keeps its counts and
@@ -372,21 +413,53 @@ final class RunJobDiscovery
             $failureMessage = trim("{$failureMessage} {$partialSummary}");
         }
 
-        $attempt->update([
-            'status' => $status,
-            'finished_at' => now(),
-            'candidates_retrieved' => $retrieved,
-            'candidates_accepted' => $accepted,
-            'jobs_created' => $created,
-            'jobs_updated' => $updated,
-            'jobs_canonicalized' => $canonicalized,
-            // null = retrieval never completed, so the filter stage was never observed; [] = observed, nothing rejected.
-            'rejection_counts' => $retrievalCompleted ? $rejectionCounts : null,
-            'retrieval_diagnostics' => $diagnostics,
-            'failure_category' => $failureCategory,
-            'failure_message' => $failureMessage,
-            'failure_exception_class' => $failureExceptionClass,
+        // Only while the attempt is still ours to settle: recovery may already have recorded it as interrupted while this
+        // process was stalled, and that record (not this late one) stands. The row is locked for the check and the write.
+        $settled = DB::transaction(function () use ($attempt, $status, $retrieved, $accepted, $created, $updated, $canonicalized, $retrievalCompleted, $rejectionCounts, $diagnostics, $failureCategory, $failureMessage, $failureExceptionClass): bool {
+            $current = DiscoveryProviderAttempt::query()->lockForUpdate()->find($attempt->id);
+
+            if ($current === null || $current->status !== DiscoveryStatus::Running) {
+                return false;
+            }
+
+            $current->update([
+                'status' => $status,
+                'finished_at' => now(),
+                'candidates_retrieved' => $retrieved,
+                'candidates_accepted' => $accepted,
+                'jobs_created' => $created,
+                'jobs_updated' => $updated,
+                'jobs_canonicalized' => $canonicalized,
+                // null = retrieval never completed, so the filter stage was never observed; [] = observed, nothing rejected.
+                'rejection_counts' => $retrievalCompleted ? $rejectionCounts : null,
+                'retrieval_diagnostics' => $diagnostics,
+                'failure_category' => $failureCategory,
+                'failure_message' => $failureMessage,
+                'failure_exception_class' => $failureExceptionClass,
+            ]);
+
+            return true;
+        });
+
+        if (! $settled) {
+            Log::warning('Discovery attempt was already settled by someone else; its outcome was not overwritten.', [
+                'discovery_run_id' => $discoveryRun->id,
+                'provider' => $source->value,
+            ]);
+        }
+    }
+
+    /**
+     * @return array{0: string, 1: string}
+     */
+    private function leaseLost(DiscoveryRun $discoveryRun, JobDiscoverySource $source): array
+    {
+        Log::warning('Discovery execution lost its provider lease and stopped.', [
+            'discovery_run_id' => $discoveryRun->id,
+            'provider' => $source->value,
         ]);
+
+        return ['lease_lost', 'This run stopped because it lost its claim on the provider (it was too slow to renew it, or another run took over). Anything it had already added was kept; run it again if you still want it.'];
     }
 
     /**

@@ -20,7 +20,9 @@ final class SettleDiscoveryRun
         $degraded = $failures + $attempts->where('status', DiscoveryStatus::Partial)->count();
         $status = $degraded === 0 && ! $orchestrationFailed ? DiscoveryStatus::Succeeded
             : ($failures < $attempts->count() ? DiscoveryStatus::Partial : DiscoveryStatus::Failed);
-        $discoveryRun->update(['status' => $status, 'finished_at' => now()]);
+        // Only while the run is still open: a run recovery already settled keeps that outcome.
+        DiscoveryRun::query()->whereKey($discoveryRun->id)->whereIn('status', [DiscoveryStatus::Queued, DiscoveryStatus::Running])
+            ->update(['status' => $status, 'finished_at' => now(), 'updated_at' => now()]);
 
         return $discoveryRun->fresh('providerAttempts') ?? $discoveryRun;
     }

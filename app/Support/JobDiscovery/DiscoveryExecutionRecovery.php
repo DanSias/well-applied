@@ -7,6 +7,7 @@ use App\Enums\JobDiscoverySource;
 use App\Models\DiscoveryProviderAttempt;
 use App\Models\DiscoveryRun;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Tells a provider execution that is still alive from one that was abandoned, and records the second as failed. It is
@@ -42,6 +43,48 @@ final class DiscoveryExecutionRecovery
     public function queuedCutoff(): CarbonInterface
     {
         return now()->subSeconds(max(60, (int) config('job_discovery.execution.queued_wait_seconds', 3600)));
+    }
+
+    public function orphanCutoff(): CarbonInterface
+    {
+        return now()->subSeconds(max(0, (int) config('job_discovery.execution.queued_orphan_grace_seconds', 300)));
+    }
+
+    /**
+     * Whether a queued request's job is still in the queue. Only the database queue can be asked; for any other driver
+     * the answer is "unknown" (null) and callers fall back to time alone. The job carries the attempt id as its one
+     * property, so it is found in the serialized payload.
+     */
+    public function jobIsQueued(int $attemptId): ?bool
+    {
+        if (config('queue.default') !== 'database') {
+            return null;
+        }
+
+        $connection = config('queue.connections.database', []);
+
+        return DB::connection($connection['connection'] ?? null)->table($connection['table'] ?? 'jobs')
+            ->where('payload', 'like', '%RunDiscoveryProviderJob%attemptId%i:'.$attemptId.';%')
+            ->exists();
+    }
+
+    /**
+     * A valid pending Run Now request for the provider: a queued attempt that has not waited past `queued_wait_seconds`
+     * and, where it can be told, whose job is still in the queue (or is too new to have been lost). It is what a
+     * scheduled run defers to; an expired, orphaned, failed or recovered request is not valid and blocks nothing.
+     */
+    public function hasPendingRequest(JobDiscoverySource $source): bool
+    {
+        $queued = DiscoveryProviderAttempt::query()->where('provider', $source)->where('status', DiscoveryStatus::Queued)
+            ->where('updated_at', '>', $this->queuedCutoff())->get();
+
+        foreach ($queued as $attempt) {
+            if ($attempt->updated_at->greaterThan($this->orphanCutoff()) || $this->jobIsQueued($attempt->id) !== false) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** The provider's queued or running attempt that is still alive, if any. */
@@ -88,6 +131,19 @@ final class DiscoveryExecutionRecovery
 
         foreach ($queued as $attempt) {
             if ($this->fail($attempt->id, DiscoveryStatus::Queued, $this->queuedCutoff(), self::NOT_STARTED, 'This run was requested but never started: no queue worker picked it up. Start a worker and run it again.')) {
+                $recovered++;
+                $runIds[] = $attempt->discovery_run_id;
+            }
+        }
+
+        // A queued request whose job is gone from the queue will never start; do not make it wait out the hour.
+        $orphans = DiscoveryProviderAttempt::query()->where('status', DiscoveryStatus::Queued)
+            ->where('updated_at', '<=', $this->orphanCutoff())->where('updated_at', '>', $this->queuedCutoff())
+            ->when($only !== null, fn ($q) => $q->where('provider', $only))->get();
+
+        foreach ($orphans as $attempt) {
+            if ($this->jobIsQueued($attempt->id) === false
+                && $this->fail($attempt->id, DiscoveryStatus::Queued, $this->orphanCutoff(), self::NOT_STARTED, 'This run was requested but its job is no longer in the queue, so it never started. Run it again.')) {
                 $recovered++;
                 $runIds[] = $attempt->discovery_run_id;
             }
