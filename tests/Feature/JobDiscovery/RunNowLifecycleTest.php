@@ -13,6 +13,7 @@ use App\Support\JobDiscovery\RequestProviderRun;
 use App\Support\JobDiscovery\RunJobDiscovery;
 use App\Support\JobDiscovery\SettleDiscoveryRun;
 use Illuminate\Contracts\Queue\Factory;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Sleep;
@@ -239,6 +240,21 @@ it('records a queued request as never started when its job gives up waiting for 
     expect($attempt->fresh()->status)->toBe(DiscoveryStatus::Failed)
         ->and($attempt->fresh()->failure_category)->toBe('not_started')
         ->and($attempt->discoveryRun->fresh()->status)->toBe(DiscoveryStatus::Failed);
+});
+
+it('leaves a queued request alone when one failed delivery has another still waiting in the queue', function () {
+    config(['queue.default' => 'database']);
+    $attempt = DiscoveryProviderAttempt::factory()->create(['provider' => JobDiscoverySource::Himalayas, 'status' => DiscoveryStatus::Queued, 'finished_at' => null]);
+    RunDiscoveryProviderJob::dispatch($attempt->id);
+
+    (new RunDiscoveryProviderJob($attempt->id))->failed(new RuntimeException('database is locked'));
+
+    expect($attempt->fresh()->status)->toBe(DiscoveryStatus::Queued);
+
+    DB::table('jobs')->delete();
+    (new RunDiscoveryProviderJob($attempt->id))->failed(new RuntimeException('database is locked'));
+
+    expect($attempt->fresh()->status)->toBe(DiscoveryStatus::Failed);
 });
 
 it('records a killed worker\'s attempt as interrupted and frees only its own lease', function () {

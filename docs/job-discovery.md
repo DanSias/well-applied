@@ -57,13 +57,59 @@ Sources page) goes through `RunJobDiscovery`, which takes a **per-provider lease
   touched with it. `job_discovery.execution.lease_seconds` (default 900) therefore only has to exceed the longest silent
   gap: one request with its retries, at most about three minutes (Eightfold: 3 tries x 20s plus up to two waits of 60s;
   the public feeds 3 tries x 30s). A crashed process stops renewing, so its lease expires within 15 minutes.
+- **Ownership is an invariant, not a hint.** The same checkpoint that renews the lease runs before every outgoing HTTP
+  request, before every candidate, right after retrieval and once more before the outcome is written. If the renewal
+  fails (the lease expired, or another execution took it) the execution throws `LeaseLostException` and stops: nothing
+  further is processed, the attempt is recorded as failed with category `lease_lost` (never `provider_error`, even if a
+  provider or adapter swallowed the exception: the loss is sticky), and the lease the other owner now holds is left alone.
+  A request already in flight cannot be recalled, but its response is discarded because the next checkpoint stops the run
+  before anything is ingested. An attempt that looks complete but lost its lease on the way is also `lease_lost`, because
+  another execution may have overlapped it. Candidates committed before the loss stay committed and are counted.
+- The outcome write is conditional (under a row lock) on the attempt still being `running`, so it cannot overwrite what
+  recovery already recorded; the run is settled only while it is still open.
 - Release is owner-checked: an execution never frees a lease another owner has taken over. A queued request uses the
   owner token `queued-attempt-{id}`, so its job's failure handler can free exactly its own lease.
+- Every provider uses the `Http` facade (including each Eightfold search and detail request, and every retry, which is a
+  separate request), so the one global request middleware sees all of them; `ExecutionTransportTest` compares the number
+  of requests with the number of checkpoints through each real provider client.
 - If every requested provider is busy, no run is recorded at all (an empty successful run would be a lie).
 
 CLI results: busy providers are listed ("Skipped, already running elsewhere"). If nothing ran because everything was busy,
 `discovery:run --due` exits 0 (a scheduler tick that finds the work already underway is fine) and any other invocation
 exits 1. Otherwise exit codes are unchanged.
+
+### Queued requests and scheduled runs
+
+A valid pending Run Now request takes precedence over a scheduled run of the same provider. The provider's lease is the
+mutex for both sides: `RequestProviderRun` holds it while it checks and records the queued attempt, and a scheduled
+execution (`discovery:run --due`) checks for a valid pending request after it takes the lease and defers (releasing it,
+recording nothing). So whichever arrives first wins and there is no check-then-claim gap: a request made while a scheduled
+run holds the provider is refused (`already_active`); a tick that starts after the request was recorded defers to it.
+`DiscoveryScheduleIsDue` also leaves such a provider out of the due list. A manual `discovery:run` is an explicit
+instruction and is not deferred (it still respects the lease). A request is *valid* while it is `queued`, younger than
+`queued_wait_seconds` and, on the database queue, its job is still in the queue (or is younger than the orphan grace);
+failed, recovered, expired and orphaned requests block nothing. A `not_started` attempt is ignored by the cadence logic,
+so it never delays the next scheduled run to the retry cadence.
+
+### Queue, worker and timeout contract
+
+| Value | Where | Why |
+|---|---|---|
+| `retry_after` 7200s | `config/queue.php` (`DB_QUEUE_RETRY_AFTER`) | the queue hands a job it has held this long to another worker |
+| job `$timeout` 3600s | `RunDiscoveryProviderJob` | below `retry_after`, so a job the worker kills is never redelivered while still alive; overrides the worker's `--timeout` (the dev worker is `queue:listen --tries=1 --timeout=0`, so the property is what applies) |
+| run budget 3000s | `execution.max_queued_run_seconds` | a queued run stops itself (`deadline_exceeded`) before the worker would kill it, so the outcome is truthful |
+| lease 900s | `execution.lease_seconds` | renewed at every checkpoint; the longest silent gap is one request with its retries (about 3 minutes) |
+| job `$tries` 20, release 30s, `$maxExceptions` 1 | `RunDiscoveryProviderJob` | a busy provider is waited for about ten minutes; the job property overrides the worker's `--tries=1` |
+
+Longest realistic run: one request is bounded (30s timeouts, at most three tries; Eightfold 20s with waits of at most
+60s), and the number of requests is bounded by each provider's own budgets, but Eightfold's theoretical worst case
+(3 tenants x 32 requests x about three minutes) exceeds an hour, so the 3000s budget is a real bound, not a formality: a
+queued run that reaches it stops, keeps what it ingested and can be run again. CLI and scheduled runs are not bounded by
+the budget. If the worker is killed (SIGKILL), the lease expires and `discovery:recover-stale` records `interrupted`
+after one lease; the reserved job is redelivered after `retry_after` and finds its attempt no longer queued, so it does
+nothing. Use **one** queue worker with the SQLite database queue: two workers popping at once hit `database is locked`.
+Any worker that runs these jobs must allow them 3600s (`--timeout` of at least that, or `--timeout=0` as the dev command
+does, with the job property doing the bounding) and a `retry_after` above it.
 
 ### Run Now
 
@@ -86,7 +132,12 @@ starts one); a request nobody picks up is shown as Queued, "waiting for a queue 
 
 `discovery:recover-stale` (every five minutes) records a `running` attempt silent for a whole lease, and whose lease is not
 held, as failed / `interrupted` (this also catches attempts left running by older CLI or scheduled runs), and a `queued` one
-older than `queued_wait_seconds` (default 3600) as failed / `not_started`. Each update is conditional on the attempt still
+as failed / `not_started` in two cases. (1) It has waited longer than `queued_wait_seconds` (default 3600): one worker runs
+jobs one at a time and another job may hold it for up to 3000s, so a healthy queue can make a request wait that long;
+the scheduler defers to a request only while it is valid, so this is also the longest a dead worker delays a scheduled run.
+(2) On the database queue, its job is no longer in the queue (cleared or lost) and it is older than
+`queued_orphan_grace_seconds` (300s): it can never start, so it does not wait out the hour. A request whose worker is merely
+slow to start is never marked while its job is still queued. Each update is conditional on the attempt still
 being queued or running, so it is idempotent, never overwrites a real outcome and never touches a job posting; counters an
 interrupted run had already written stay. The parent run is then settled from its attempts (an empty open run, silent for a
 lease, becomes failed). Retrying is just another Run Now or the next scheduled retry.

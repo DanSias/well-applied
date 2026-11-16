@@ -60,7 +60,12 @@ final class RunDiscoveryProviderJob implements ShouldQueue
         $recovery = new DiscoveryExecutionRecovery;
 
         if ($attempt->status === DiscoveryStatus::Queued) {
-            $recovery->fail($attempt->id, DiscoveryStatus::Queued, null, DiscoveryExecutionRecovery::NOT_STARTED, 'This run was requested but never started: another run of this provider was still in progress. Run it again.');
+            // Another delivery of the same request still in the queue will start it; this one failing is not the end.
+            if ($recovery->jobIsQueued($attempt->id) === true) {
+                return;
+            }
+
+            $recovery->fail($attempt->id, DiscoveryStatus::Queued, null, DiscoveryExecutionRecovery::NOT_STARTED, 'This run was requested but never started: its job failed or ran out of attempts (for example while another run of this provider was in progress). Run it again.');
         } elseif ($attempt->status === DiscoveryStatus::Running) {
             $recovery->fail($attempt->id, DiscoveryStatus::Running, null, DiscoveryExecutionRecovery::INTERRUPTED, 'This run was interrupted before it finished: the worker stopped. Anything it had already added was kept.');
             // Only this request's own lease; a lease another execution has since taken is left alone.
