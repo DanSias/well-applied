@@ -53,6 +53,11 @@ php artisan serve       # backend at http://127.0.0.1:8000
 npm run dev              # Vite dev server (asset hot reload)
 ```
 
+`php artisan dev` (or `composer run dev`) starts the server, the queue worker, the scheduler, the log tail and Vite
+together. Discovery needs the last two kinds of process: the scheduler for automatic runs and the Sources page's
+scheduler status, the queue worker for Run Now. Run only one queue worker (SQLite). See `docs/job-discovery.md`
+"Operating it locally".
+
 Or build assets for production and serve normally:
 
 ```bash

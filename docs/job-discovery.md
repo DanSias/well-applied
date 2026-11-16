@@ -5,6 +5,78 @@ survivors as `JobPosting` rows in the Jobs inbox. It never scores fit, never qua
 calls a model. Qualification (`docs/job-qualification.md`) is a separate, manual step that runs on postings already in
 the inbox. The Eightfold provider has its own notes in `docs/eightfold-discovery.md`.
 
+## The Sources page
+
+`/sources` (primary navigation: Overview, Sources, Jobs, Opportunities, Applications) is where discovery is looked at and
+controlled. It answers three different questions about each provider, and keeps them apart:
+
+| Question | Shown as | Decided by |
+|---|---|---|
+| Is it **configured**? | `Configured` / `Not configured` (and why) | credentials and, for Eightfold, enabled tenants (`DiscoveryProviderInventory`) |
+| How is it **scheduled**? | `Automatic` / `Manual only` / `Paused` / `Unavailable` | the code default, then the person's override (`discovery_provider_settings`) |
+| How did it last **execute**? | `Succeeded` / `Partial` / `Failed` / `Interrupted` / ... / `Queued` / `Running` / `Never run` | the latest attempt |
+
+Scheduling is never health: a paused provider keeps its failure history and is never "overdue" for being paused; a failing
+provider is still scheduled. The page has a summary strip (configured, jobs added in 7 days, needs attention, last
+discovery), the providers, recent runs, and a drawer per provider (`?provider=`) with Overview, Latest results, Run history
+(10 per page, independent of the recent-activity page) and Configuration. "View discovered jobs" opens
+`/jobs?source=<provider>&disposition=all`; "View filtered candidates" opens `/discovery/rejections?provider=<provider>`.
+Credentials are only ever shown as present or missing.
+
+- **Needs attention** counts failed, partial and overdue providers. A configured automatic provider that has never run is
+  listed separately ("Not run yet") and is not counted as a failure. A queued request, or one that never started, is not
+  "last discovery".
+- **Run history limits:** history is the stored attempts (no per-tenant history for Eightfold); counters are per attempt and
+  are never summed across providers; "Jobs added" counts postings created in the window and includes ones later dismissed.
+
+Statuses a run can show: `Queued` (waiting for a queue worker), `Running`, `Succeeded` (a zero-result success says "no
+results"), `Partial` (some work failed, the rest was kept), `Failed` (the provider failed), and the system-recorded
+`Interrupted` (the process or worker stopped), `Stopped early` (`lease_lost`: it no longer held its claim on the provider),
+`Time limit reached` (`deadline_exceeded`: a queued run hit its budget, so it is incomplete) and `Not started`
+(`not_started`: no worker picked the request up, or its job failed before starting). None of these is ever shown as a
+success, and each says that what it had already added was kept. The exception class and the stored message stay in the
+attempt's details.
+
+## Operating it locally
+
+The supported local setup is SQLite for the database, the database queue, the database cache, **one** queue worker, and a
+scheduler process. `php artisan dev` (also `composer run dev`) starts all of them together; `php artisan dev:list` shows
+them. To start them separately:
+
+```bash
+php artisan serve                              # the application
+php artisan queue:listen --tries=1 --timeout=0 # the queue worker (Run Now needs it; the job sets its own tries and timeout)
+php artisan schedule:work                      # the scheduler (automatic discovery, recovery and the heartbeat need it)
+```
+
+Run exactly one queue worker: two workers popping the SQLite queue at once hit `database is locked`. The worker and
+scheduler are separate processes and neither implies the other: a healthy scheduler says nothing about the worker, and Run
+Now only starts when a worker picks it up. Do not run live discovery to try things out; `php artisan discovery:run` calls
+the real providers.
+
+Values, all from code or `.env` (not hard-coded in the UI): `DB_QUEUE_RETRY_AFTER` 7200s (`config/queue.php`); the job
+`RunDiscoveryProviderJob::$timeout` 3600s and `$tries` 20; `job_discovery.execution.max_queued_run_seconds` 3000s;
+`lease_seconds` 900s; `queued_wait_seconds` 3600s; `queued_orphan_grace_seconds` 300s. All three execution values can be
+overridden with `JOB_DISCOVERY_LEASE_SECONDS`, `JOB_DISCOVERY_QUEUED_WAIT_SECONDS`, `JOB_DISCOVERY_QUEUED_ORPHAN_GRACE_SECONDS`
+and `JOB_DISCOVERY_MAX_QUEUED_RUN_SECONDS`; the defaults are right for local use and are not in `.env.example`. See
+"Queue, worker and timeout contract" for why they must stay in that order.
+
+A long Eightfold run can reach the 3000s queued budget. It then stops itself, is shown as `Time limit reached` (incomplete),
+keeps what it ingested, and can be run again.
+
+### Troubleshooting
+
+| What you see | Meaning | What to do |
+|---|---|---|
+| "The scheduler has not been seen yet" / "last seen N minutes ago" | no scheduler tick recorded (a tick is expected every minute; three minutes of silence is "stale") | start `php artisan schedule:work` (or `php artisan dev`). Shown only when a provider is meant to be automatic |
+| A run stays `Queued` | no queue worker has picked it up. It is not failed, and a scheduled run of that provider defers to it | start the worker; if none starts within an hour, or its job left the queue, it becomes `Not started` and Run Now is available again |
+| `Interrupted` | the process or worker stopped mid-run; recovery recorded it after a lease (15 min) | run it again; the worker or scheduler being killed is the usual cause |
+| `Stopped early` | the run lost its provider lease (it stalled for a lease, or another run took over) | run it again |
+| `Not started` | no worker, or the job failed before starting | start the worker and run it again |
+| "needs setup" | Adzuna needs both credentials, USAJOBS a key and user agent, Eightfold at least one enabled tenant | configure it; an override can't make it run |
+| A paused provider is still runnable | by design: Run Now and the CLI ignore the schedule, not the lease | resume scheduling to make it automatic again |
+| `database is locked` | more than one SQLite writer, usually two workers | run one worker |
+
 ## Scheduling depends on a running scheduler process
 
 Discovery is **not** unattended. `bootstrap/app.php` registers `discovery:run --due` hourly, and `routes/console.php`
@@ -335,7 +407,10 @@ Overview shows, per provider, its **last successful attempt** (a Succeeded or Pa
 updated and filtered counts (with the reasons), plus a failure message when a later attempt failed. A scheduled provider is
 **overdue** when its last success is older than twice `stale_after_hours` (46 hours) or missing; manual-only providers
 (Eightfold unless scheduled) are listed but never flagged. The headline says discovery "has not run recently" or "has not run
-yet" and never says discovery is running. "Filtered candidates (N)" opens the rejection list.
+yet" and never says discovery is running. It reads the same effective schedule as the Sources page: a paused provider shows
+`Paused`, an unconfigured one `Needs setup`, a configured automatic one with no attempt `Never run`, and none of the
+first two is ever "overdue" for that reason. A queued or running attempt is shown as in progress, not as a failure.
+"Filtered candidates (N)" opens the rejection list.
 
 ## Inspecting rejected candidates
 
