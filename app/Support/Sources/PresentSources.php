@@ -110,7 +110,7 @@ final class PresentSources
     {
         return DiscoveryRun::query()->whereHas('providerAttempts', fn ($attempts) => $attempts
             ->where('status', '!=', DiscoveryStatus::Queued->value)
-            ->where(fn ($q) => $q->whereNull('failure_category')->orWhereNotIn('failure_category', [DiscoveryExecutionRecovery::NOT_STARTED, 'provider_unavailable'])));
+            ->where(fn ($q) => $q->whereNull('failure_category')->orWhereNotIn('failure_category', DiscoveryExecutionRecovery::NEVER_EXECUTED)));
     }
 
     /**

@@ -355,19 +355,20 @@ describe('the queue, worker and lease numbers form one contract', function () {
             ->and($job->tries * 30)->toBeLessThan((int) config('job_discovery.execution.queued_wait_seconds'));
     });
 
-    it('allows a queued request to wait behind the longest other job on the single worker', function () {
-        $longest = 0;
-        foreach (glob(app_path('Jobs/*.php')) as $file) {
-            $class = 'App\\Jobs\\'.basename($file, '.php');
-            if ($class === RunDiscoveryProviderJob::class) {
-                continue;
-            }
-            $property = (new ReflectionClass($class))->hasProperty('timeout') ? (new ReflectionClass($class))->getProperty('timeout')->getDefaultValue() : 0;
-            $longest = max($longest, (int) $property);
-        }
+    it('lets a queued request wait behind two of the longest legitimate jobs, and the scheduler yield for less than that', function () {
+        // The documented worst job: a resume generation, 2 x (3 attempts x the longest model timeout + 2s) = 5404s by default.
+        $worstJob = 2 * (3 * max((int) config('services.ollama.resume_selection_timeout'), (int) config('services.ollama.resume_wording_timeout')) + 2);
+        // The shipped defaults, not this file's per-test overrides.
+        $shipped = (require config_path('job_discovery.php'))['execution'];
+        $wait = $shipped['queued_wait_seconds'];
+        $defer = $shipped['queued_defer_seconds'];
 
-        expect($longest)->toBeGreaterThan(0)
-            ->and((int) config('job_discovery.execution.queued_wait_seconds'))->toBeGreaterThan($longest);
+        expect($worstJob)->toBe(5404)
+            ->and($wait)->toBeGreaterThan(2 * $worstJob)
+            ->and($defer)->toBeLessThan($wait)
+            ->and($defer)->toBeGreaterThan(0)
+            // The budget and the job timeout are about executing, not waiting, and stay below retry_after.
+            ->and($shipped['max_queued_run_seconds'])->toBeLessThan((new RunDiscoveryProviderJob(1))->timeout);
     });
 
     it('puts a busy provider\'s job back on the queue instead of running it, through a real worker', function () {
@@ -404,5 +405,63 @@ describe('the queue, worker and lease numbers form one contract', function () {
             ->and(lease()->isHeld(JobDiscoverySource::Himalayas))->toBeTrue(); // the scheduled holder is untouched
 
         $holder->release();
+    });
+});
+
+describe('waiting is not expiring', function () {
+    function waitingRequest(int $ageSeconds, JobDiscoverySource $source = JobDiscoverySource::Himalayas): DiscoveryProviderAttempt
+    {
+        Queue::fake();
+        app(RequestProviderRun::class)->request($source);
+        $attempt = DiscoveryProviderAttempt::query()->where('provider', $source)->latest('id')->firstOrFail();
+        DiscoveryProviderAttempt::query()->whereKey($attempt->id)->update(['updated_at' => now()->subSeconds($ageSeconds)]);
+        DiscoveryRun::query()->whereKey($attempt->discovery_run_id)->update(['updated_at' => now()->subSeconds($ageSeconds)]);
+
+        return $attempt;
+    }
+
+    beforeEach(function () {
+        config(['job_discovery.execution.queued_wait_seconds' => 14400, 'job_discovery.execution.queued_defer_seconds' => 3600]);
+    });
+
+    it('keeps a request that waited behind a legitimate long job queued, and keeps Run Now from queueing it twice', function () {
+        $attempt = waitingRequest(5500); // longer than the worst single job, shorter than the wait limit
+
+        expect((new DiscoveryExecutionRecovery)->recover())->toBe(0)
+            ->and($attempt->fresh()->status)->toBe(DiscoveryStatus::Queued)
+            ->and((new DiscoveryExecutionRecovery)->activeAttempt(JobDiscoverySource::Himalayas)?->id)->toBe($attempt->id)
+            ->and(app(RequestProviderRun::class)->request(JobDiscoverySource::Himalayas))->toBe('already_active');
+    });
+
+    it('lets the scheduler stop yielding after the deferral window while the request stays queued', function () {
+        $attempt = waitingRequest(5500);
+        Http::fake(['himalayas.app/*' => Http::response(['jobs' => []])]);
+
+        expect((new DiscoveryExecutionRecovery)->hasPendingRequest(JobDiscoverySource::Himalayas))->toBeFalse();
+        $execution = (new RunJobDiscovery)->execute([JobDiscoverySource::Himalayas], scheduled: true);
+
+        expect($execution->deferred)->toBe([])->and($execution->recorded())->toBeTrue()
+            ->and($attempt->fresh()->status)->toBe(DiscoveryStatus::Queued);
+    });
+
+    it('still defers to a request younger than the deferral window', function () {
+        waitingRequest(3000);
+
+        expect((new DiscoveryExecutionRecovery)->hasPendingRequest(JobDiscoverySource::Himalayas))->toBeTrue();
+    });
+
+    it('records a request as never started only after the wait limit, and then it blocks nothing', function () {
+        $attempt = waitingRequest(15000);
+
+        expect((new DiscoveryExecutionRecovery)->recover())->toBe(1)
+            ->and($attempt->fresh())->status->toBe(DiscoveryStatus::Failed)->failure_category->toBe('not_started')
+            ->and((new DiscoveryExecutionRecovery)->activeAttempt(JobDiscoverySource::Himalayas))->toBeNull()
+            ->and(app(RequestProviderRun::class)->request(JobDiscoverySource::Himalayas))->toBe('queued');
+    });
+
+    it('never lets the deferral window exceed the wait limit', function () {
+        config(['job_discovery.execution.queued_wait_seconds' => 1800, 'job_discovery.execution.queued_defer_seconds' => 99999]);
+
+        expect((new DiscoveryExecutionRecovery)->deferCutoff()->getTimestamp())->toBeGreaterThanOrEqual((new DiscoveryExecutionRecovery)->queuedCutoff()->getTimestamp() - 1);
     });
 });

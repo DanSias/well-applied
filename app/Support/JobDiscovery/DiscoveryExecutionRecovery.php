@@ -31,6 +31,11 @@ final class DiscoveryExecutionRecovery
 
     public const NOT_STARTED = 'not_started';
 
+    public const PROVIDER_UNAVAILABLE = 'provider_unavailable';
+
+    /** Failure categories of a request that never began executing: no discovery happened, whatever the status says. */
+    public const NEVER_EXECUTED = [self::NOT_STARTED, self::PROVIDER_UNAVAILABLE];
+
     public function __construct(
         private readonly ProviderExecutionLeases $leases = new ProviderExecutionLeases,
     ) {}
@@ -43,6 +48,12 @@ final class DiscoveryExecutionRecovery
     public function queuedCutoff(): CarbonInterface
     {
         return now()->subSeconds(max(60, (int) config('job_discovery.execution.queued_wait_seconds', 3600)));
+    }
+
+    /** How long a scheduled run keeps deferring to a pending request (see `queued_defer_seconds`). */
+    public function deferCutoff(): CarbonInterface
+    {
+        return now()->subSeconds(min(max(60, (int) config('job_discovery.execution.queued_defer_seconds', 3600)), max(60, (int) config('job_discovery.execution.queued_wait_seconds', 3600))));
     }
 
     public function orphanCutoff(): CarbonInterface
@@ -69,14 +80,16 @@ final class DiscoveryExecutionRecovery
     }
 
     /**
-     * A valid pending Run Now request for the provider: a queued attempt that has not waited past `queued_wait_seconds`
-     * and, where it can be told, whose job is still in the queue (or is too new to have been lost). It is what a
-     * scheduled run defers to; an expired, orphaned, failed or recovered request is not valid and blocks nothing.
+     * A pending Run Now request a scheduled run should defer to: a queued attempt that is younger than
+     * `queued_defer_seconds` and, where it can be told, whose job is still in the queue (or is too new to have been lost).
+     * The request itself stays valid, and keeps Run Now from being queued twice, until `queued_wait_seconds`; but the
+     * scheduler stops yielding to it after the shorter deferral window, so a stalled worker can delay a scheduled run by
+     * at most that long. An expired, orphaned, failed or recovered request blocks nothing.
      */
     public function hasPendingRequest(JobDiscoverySource $source): bool
     {
         $queued = DiscoveryProviderAttempt::query()->where('provider', $source)->where('status', DiscoveryStatus::Queued)
-            ->where('updated_at', '>', $this->queuedCutoff())->get();
+            ->where('updated_at', '>', $this->deferCutoff())->get();
 
         foreach ($queued as $attempt) {
             if ($attempt->updated_at->greaterThan($this->orphanCutoff()) || $this->jobIsQueued($attempt->id) !== false) {

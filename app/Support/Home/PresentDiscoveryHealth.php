@@ -7,6 +7,7 @@ use App\Enums\DiscoveryStatus;
 use App\Enums\JobDiscoverySource;
 use App\Models\DiscoveryProviderAttempt;
 use App\Models\DiscoveryRejection;
+use App\Support\JobDiscovery\DiscoveryExecutionRecovery;
 use App\Support\JobDiscovery\DiscoveryProviderInventory;
 
 /**
@@ -50,8 +51,8 @@ final class PresentDiscoveryHealth
             'providers' => $providers,
             'active_rejections' => DiscoveryRejection::query()->active()->count(),
             'stale' => array_filter($providers, fn (array $p) => $p['stale']) !== [],
-            // A request still waiting in the queue is not a run that happened.
-            'ever_ran' => array_filter($providers, fn (array $p) => $p['latest'] !== null && $p['latest']['status'] !== DiscoveryStatus::Queued->value) !== [],
+            // A request still waiting in the queue, or one that never began, is not a run that happened.
+            'ever_ran' => array_filter($providers, fn (array $p) => $p['latest'] !== null && ! $p['latest']['never_executed']) !== [],
         ];
     }
 
@@ -109,6 +110,9 @@ final class PresentDiscoveryHealth
                 'at' => ($latest->finished_at ?? $latest->started_at)?->toIso8601String(),
                 'failure' => $latest->status === DiscoveryStatus::Succeeded ? null : $latest->failure_message,
                 'is_last_success' => $success !== null && $latest->id === $success->id,
+                // Queued, or a failure recorded for a request that never began: no discovery happened.
+                'never_executed' => $latest->status === DiscoveryStatus::Queued
+                    || ($latest->status === DiscoveryStatus::Failed && in_array($latest->failure_category, DiscoveryExecutionRecovery::NEVER_EXECUTED, true)),
             ],
         ];
     }

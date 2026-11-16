@@ -352,9 +352,14 @@ return [
     | silent before `discovery:recover-stale` calls it interrupted.
     |
     | `queued_wait_seconds`: the longest a Run Now request may wait for a worker before it is recorded as never started.
-    | One worker processes jobs one at a time and the longest other job here may run 3000s (config of the generation jobs),
-    | so a healthy queue can legitimately make a request wait that long; one hour is that plus margin. While a request is
-    | valid the scheduler leaves that provider to it, so this is also the longest a dead worker can delay a scheduled run.
+    | Waiting is not executing: one worker runs jobs one at a time, and the longest legitimate job here is a resume
+    | generation of up to 5404s (2 x (3 attempts x 900s model timeout + 2s), see .env.example). The default is four hours,
+    | about two such jobs back to back (10808s) plus a third of margin. It is not a guarantee: more jobs can be queued
+    | ahead, and then the request is recorded as never started and can simply be run again. Lost jobs do not wait this
+    | long (see the orphan grace below).
+    | `queued_defer_seconds`: how long a *scheduled* run keeps yielding to such a request. Shorter than the wait on purpose,
+    | so a stalled worker can delay scheduled discovery by at most this long; after it the scheduler runs the provider
+    | itself (the lease still prevents overlap), and the queued request, if its worker ever arrives, runs once more.
     | `queued_orphan_grace_seconds`: on the database queue, a queued request whose job is no longer in the queue (cleared,
     | lost) is recorded as never started after this grace, rather than waiting out the hour.
     | `max_queued_run_seconds`: a queued run stops itself cooperatively at this time budget, before the worker's own job
@@ -363,7 +368,8 @@ return [
     */
     'execution' => [
         'lease_seconds' => (int) env('JOB_DISCOVERY_LEASE_SECONDS', 900),
-        'queued_wait_seconds' => (int) env('JOB_DISCOVERY_QUEUED_WAIT_SECONDS', 3600),
+        'queued_wait_seconds' => (int) env('JOB_DISCOVERY_QUEUED_WAIT_SECONDS', 14400),
+        'queued_defer_seconds' => (int) env('JOB_DISCOVERY_QUEUED_DEFER_SECONDS', 3600),
         'queued_orphan_grace_seconds' => (int) env('JOB_DISCOVERY_QUEUED_ORPHAN_GRACE_SECONDS', 300),
         'max_queued_run_seconds' => (int) env('JOB_DISCOVERY_MAX_QUEUED_RUN_SECONDS', 3000),
     ],

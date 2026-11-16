@@ -126,3 +126,25 @@ it('does not make Overview say discovery has run because a request is queued', f
         ->where('discovery.ever_ran', false)
         ->where('discovery.providers', fn ($providers) => collect($providers)->firstWhere('provider', 'jobicy')['latest']['status'] === 'queued'));
 });
+
+it('counts only discovery that actually began toward Overview\'s ever_ran', function (DiscoveryStatus $status, ?string $category, bool $expected) {
+    DiscoveryProviderAttempt::factory()->create([
+        'provider' => JobDiscoverySource::Jobicy, 'status' => $status, 'failure_category' => $category,
+        'finished_at' => in_array($status, [DiscoveryStatus::Queued, DiscoveryStatus::Running], true) ? null : now(),
+    ]);
+
+    $this->get('/')->assertInertia(fn (Assert $page) => $page->where('discovery.ever_ran', $expected));
+})->with([
+    'queued' => [DiscoveryStatus::Queued, null, false],
+    'never started' => [DiscoveryStatus::Failed, 'not_started', false],
+    'provider unavailable' => [DiscoveryStatus::Failed, 'provider_unavailable', false],
+    'running' => [DiscoveryStatus::Running, null, true],
+    'succeeded' => [DiscoveryStatus::Succeeded, null, true],
+    'partial' => [DiscoveryStatus::Partial, 'partial_provider_failure', true],
+    'provider failure' => [DiscoveryStatus::Failed, 'provider_error', true],
+    'interrupted' => [DiscoveryStatus::Failed, 'interrupted', true],
+]);
+
+it('reports a provider that has genuinely never run as not having run', function () {
+    $this->get('/')->assertInertia(fn (Assert $page) => $page->where('discovery.ever_ran', false));
+});
