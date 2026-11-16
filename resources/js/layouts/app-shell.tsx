@@ -25,15 +25,18 @@ export default function AppShell({ children }: { children: ReactNode }) {
     return (
         <div className="bg-canvas text-fg min-h-screen">
             <header className="border-line bg-canvas/90 sticky top-0 z-20 border-b backdrop-blur-sm">
-                <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 px-4 py-2 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-x-4 sm:px-6">
+                <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 px-4 py-2 sm:px-6 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-x-4">
                     <div className="flex min-w-0 items-center justify-start">
                         <Link
                             href={home.url()}
                             className="text-fg rounded-control hover:bg-raised/60 focus-visible:ring-focus -mx-1.5 flex shrink-0 items-center gap-2 px-1.5 py-1 text-lg leading-none font-semibold tracking-tight whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:outline-none"
                         >
-                            <span
+                            {/* The same file as the favicon, so the mark has one source. */}
+                            <img
+                                src="/favicon.svg?v=2"
+                                alt=""
                                 aria-hidden="true"
-                                className="bg-accent h-2.5 w-2.5 rounded-[3px]"
+                                className="h-4 w-4"
                             />
                             <span className="hidden sm:inline">
                                 Well Applied
