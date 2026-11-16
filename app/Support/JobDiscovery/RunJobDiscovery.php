@@ -6,6 +6,7 @@ use App\Enums\DiscoveryStatus;
 use App\Enums\JobCanonicalSource;
 use App\Enums\JobDiscoverySource;
 use App\Models\CareerProfile;
+use App\Models\DiscoveryProviderAttempt;
 use App\Models\DiscoveryRun;
 use App\Support\CurrentCareerProfile;
 use App\Support\JobDiscovery\Canonical\AshbyCanonicalAdapter;
@@ -54,6 +55,10 @@ final class RunJobDiscovery
      */
     private readonly array $canonicalAdapters;
 
+    private readonly ProviderExecutionLeases $leases;
+
+    private readonly ExecutionHeartbeat $heartbeat;
+
     public function __construct(
         ?HimalayasDiscoveryProvider $himalayas = null,
         ?AdzunaDiscoveryProvider $adzuna = null,
@@ -68,7 +73,11 @@ final class RunJobDiscovery
         ?JobicyDiscoveryProvider $jobicy = null,
         ?EightfoldDiscoveryProvider $eightfold = null,
         ?UsajobsDiscoveryProvider $usajobs = null,
+        ?ProviderExecutionLeases $leases = null,
+        ?ExecutionHeartbeat $heartbeat = null,
     ) {
+        $this->leases = $leases ?? new ProviderExecutionLeases;
+        $this->heartbeat = $heartbeat ?? app(ExecutionHeartbeat::class);
         $providers = [
             JobDiscoverySource::Himalayas->value => $himalayas ?? new HimalayasDiscoveryProvider,
             JobDiscoverySource::Adzuna->value => $adzuna ?? new AdzunaDiscoveryProvider,
@@ -111,6 +120,18 @@ final class RunJobDiscovery
      */
     public function run(?array $only = null, ?ProviderDiscoveryContext $context = null): DiscoveryRun
     {
+        return $this->execute($only, $context)->run;
+    }
+
+    /**
+     * Like run(), and also reports the providers that were not executed because another execution held their lease.
+     * Each provider is executed only while holding its own lease, taken before any attempt exists: a busy provider is
+     * skipped (no attempt, so never a false success), and the others carry on.
+     *
+     * @param  JobDiscoverySource[]|null  $only  See run().
+     */
+    public function execute(?array $only = null, ?ProviderDiscoveryContext $context = null): DiscoveryExecution
+    {
         $careerProfile = CurrentCareerProfile::resolve();
         $criteria = DiscoverySearchCriteria::fromConfig();
 
@@ -125,13 +146,26 @@ final class RunJobDiscovery
         // more than once per run.
         $boardCache = [];
 
+        $skipped = [];
         $orchestrationFailed = false;
         try {
             foreach ($this->providers as $source => $provider) {
                 if ($only !== null && ! in_array(JobDiscoverySource::from($source), $only, true)) {
                     continue;
                 }
-                $this->runProviderAttempt($discoveryRun, JobDiscoverySource::from($source), $provider, $criteria, $careerProfile, $boardCache, $context);
+                $discoverySource = JobDiscoverySource::from($source);
+                $lease = $this->leases->acquire($discoverySource);
+                if ($lease === null) {
+                    $skipped[] = $discoverySource;
+
+                    continue;
+                }
+                try {
+                    $this->runProviderAttempt($discoveryRun, $discoverySource, $provider, $criteria, $careerProfile, $boardCache, $context, $lease);
+                } finally {
+                    $this->heartbeat->stop();
+                    $lease->release();
+                }
             }
         } catch (Throwable) {
             $orchestrationFailed = true;
@@ -143,16 +177,90 @@ final class RunJobDiscovery
             ]);
         }
 
-        $attempts = $discoveryRun->providerAttempts()->get();
-        $failures = $attempts->where('status', DiscoveryStatus::Failed)->count();
-        // A provider that only partly succeeded (some Eightfold tenants failed)
-        // is not a clean success either.
-        $degraded = $failures + $attempts->where('status', DiscoveryStatus::Partial)->count();
-        $status = $degraded === 0 && ! $orchestrationFailed ? DiscoveryStatus::Succeeded
-            : ($failures < $attempts->count() ? DiscoveryStatus::Partial : DiscoveryStatus::Failed);
-        $discoveryRun->update(['status' => $status, 'finished_at' => now()]);
+        if ($skipped !== [] && ! $discoveryRun->providerAttempts()->exists()) {
+            // Everything requested was busy: nothing ran, so there is no run to record.
+            $discoveryRun->delete();
 
-        return $discoveryRun->fresh('providerAttempts');
+            return new DiscoveryExecution($discoveryRun, $skipped);
+        }
+
+        return new DiscoveryExecution($this->settle($discoveryRun, $orchestrationFailed), $skipped);
+    }
+
+    /**
+     * Executes a Run Now request that was recorded as a queued attempt, with the same pipeline as any other run. It
+     * takes the provider's lease first, then claims the attempt with one conditional UPDATE (queued -> running), so a
+     * job delivered twice, or a request already recovered as never started, is a no-op rather than a second run.
+     *
+     * @return 'executed'|'busy'|'not_queued' `busy`: another execution holds the provider's lease, nothing was started.
+     *                                        `not_queued`: the attempt was no longer queued (claimed by another delivery, or recovered).
+     */
+    public function executeQueued(DiscoveryProviderAttempt $queued): string
+    {
+        $source = $queued->provider;
+        $lease = $this->leases->acquire($source, self::queuedOwner($queued));
+        if ($lease === null) {
+            return 'busy';
+        }
+
+        $discoveryRun = null;
+        try {
+            $claimed = DiscoveryProviderAttempt::query()->whereKey($queued->id)->where('status', DiscoveryStatus::Queued)
+                ->update(['status' => DiscoveryStatus::Running, 'started_at' => now(), 'updated_at' => now()]);
+            if ($claimed === 0) {
+                return 'not_queued';
+            }
+
+            $discoveryRun = DiscoveryRun::query()->findOrFail($queued->discovery_run_id);
+            $discoveryRun->update(['status' => DiscoveryStatus::Running, 'started_at' => now()]);
+            $attempt = $queued->fresh() ?? $queued;
+            $provider = $this->providers[$source->value] ?? null;
+            $orchestrationFailed = false;
+
+            try {
+                if ($provider === null) {
+                    // Configured when requested, gone by the time a worker got to it.
+                    $attempt->update([
+                        'status' => DiscoveryStatus::Failed,
+                        'finished_at' => now(),
+                        'failure_category' => 'provider_unavailable',
+                        'failure_message' => 'The provider is no longer registered, so the queued run did not start.',
+                    ]);
+                } else {
+                    $boardCache = [];
+                    $this->runProviderAttempt(
+                        $discoveryRun, $source, $provider, DiscoverySearchCriteria::fromConfig(), CurrentCareerProfile::resolve(),
+                        $boardCache, null, $lease, $attempt,
+                    );
+                }
+            } catch (Throwable) {
+                $orchestrationFailed = true;
+                $discoveryRun->providerAttempts()->where('status', DiscoveryStatus::Running)->update([
+                    'status' => DiscoveryStatus::Failed,
+                    'finished_at' => now(),
+                    'failure_category' => 'unexpected_error',
+                    'failure_message' => 'Unexpected discovery orchestration failure.',
+                ]);
+            }
+
+            $this->settle($discoveryRun, $orchestrationFailed);
+
+            return 'executed';
+        } finally {
+            $this->heartbeat->stop();
+            $lease->release();
+        }
+    }
+
+    /** The owner token of the lease a queued request holds, so its job's failure handler can free exactly that lease. */
+    public static function queuedOwner(DiscoveryProviderAttempt $attempt): string
+    {
+        return 'queued-attempt-'.$attempt->id;
+    }
+
+    private function settle(DiscoveryRun $discoveryRun, bool $orchestrationFailed): DiscoveryRun
+    {
+        return SettleDiscoveryRun::settle($discoveryRun, $orchestrationFailed);
     }
 
     /**
@@ -166,12 +274,19 @@ final class RunJobDiscovery
         CareerProfile $careerProfile,
         array &$boardCache,
         ?ProviderDiscoveryContext $context = null,
+        ?ExecutionLease $lease = null,
+        ?DiscoveryProviderAttempt $claimed = null,
     ): void {
-        $attempt = $discoveryRun->providerAttempts()->create([
+        // A queued request is already an attempt (claimed by executeQueued); anything else creates it here, after the
+        // lease is held.
+        $attempt = $claimed ?? $discoveryRun->providerAttempts()->create([
             'provider' => $source,
             'status' => DiscoveryStatus::Running,
             'started_at' => now(),
         ]);
+        if ($lease !== null) {
+            $this->heartbeat->start($lease, $attempt);
+        }
 
         $retrieved = $accepted = $created = $updated = $canonicalized = 0;
         /** @var array<string, int> $rejectionCounts */
@@ -193,6 +308,7 @@ final class RunJobDiscovery
                 $partialSummary = $provider->partialFailureSummary();
             }
             foreach ($candidates as $candidate) {
+                $this->heartbeat->beat();
                 $decision = $this->filter->evaluate($candidate, $criteria);
                 if (! $decision->accepted) {
                     $reasonCode = $decision->reason->value ?? 'unknown';

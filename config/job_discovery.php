@@ -343,6 +343,23 @@ return [
     ],
 
     /*
+    | Execution safety (see docs/job-discovery.md "Execution safety"). One execution of a provider at a time, enforced by a
+    | per-provider cache lock that is a *renewable lease*: it is renewed on every outgoing HTTP request and every candidate,
+    | so `lease_seconds` only has to exceed the longest silent gap, not a whole run. The longest gap is one HTTP request
+    | with its retries: 3 tries x 30s timeouts for the public feeds, and for Eightfold 3 tries x 20s plus up to two
+    | Retry-After / backoff waits of at most 60s (about 3 minutes). Fifteen minutes is five times that. A crashed process
+    | stops renewing, so its lease expires after at most this long, and the same figure is how long an attempt may be
+    | silent before `discovery:recover-stale` calls it interrupted.
+    |
+    | `queued_wait_seconds`: a Run Now request that no queue worker has picked up within this time is recorded as never
+    | started, so a stopped worker does not leave a provider "queued" forever.
+    */
+    'execution' => [
+        'lease_seconds' => (int) env('JOB_DISCOVERY_LEASE_SECONDS', 900),
+        'queued_wait_seconds' => (int) env('JOB_DISCOVERY_QUEUED_WAIT_SECONDS', 3600),
+    ],
+
+    /*
     | Rejected-candidate log (discovery_rejections): rows not seen again for this many days are pruned by
     | `discovery:prune-rejections` (scheduled daily). See docs/job-discovery.md "Retention".
     */

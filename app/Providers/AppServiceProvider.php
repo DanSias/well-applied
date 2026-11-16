@@ -20,6 +20,7 @@ use App\Support\DisposableDatabase;
 use App\Support\GenerationAttempt\GenerationMetrics;
 use App\Support\JobAnalysis\Providers\OllamaJobAnalysisClient;
 use App\Support\JobAnalysis\Providers\OpenAIJobAnalysisClient;
+use App\Support\JobDiscovery\ExecutionHeartbeat;
 use App\Support\JobMatch\Providers\OllamaJobMatchClient;
 use App\Support\JobMatch\Providers\OpenAIJobMatchClient;
 use App\Support\JobQualification\Providers\OllamaJobQualificationClient;
@@ -50,6 +51,8 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(GenerationMetrics::class);
+        // One heartbeat per process: it registers a single global HTTP middleware, so it must not be built per run.
+        $this->app->singleton(ExecutionHeartbeat::class);
 
         $this->app->bind(GeneratesJobAnalysis::class, fn () => $this->resolveJobAnalysisProvider());
 
