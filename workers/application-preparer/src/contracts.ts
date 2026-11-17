@@ -102,6 +102,7 @@ export interface FieldResult extends DiscoveredField {
 export type SafetyEventKind =
     | 'blocked_mutating_request'
     | 'blocked_third_party_request'
+    | 'blocked_bot_detection_request'
     | 'submit_event_blocked'
     | 'unexpected_navigation'
     | 'suspected_submission'
@@ -116,9 +117,10 @@ export interface SafetyEvent {
 
 /**
  * Failures: every kind except allowed_exception_used (a tested, named
- * exception) and blocked_third_party_request (a non-ATS host such as an
- * analytics beacon; still blocked, but routine page noise, not a
- * submission signal).
+ * exception), blocked_third_party_request (a non-ATS host such as an
+ * analytics beacon) and blocked_bot_detection_request (one specific
+ * Cloudflare beacon). The last two are still blocked, but are routine page
+ * noise, not submission signals.
  */
 export const SAFETY_FAILURE_KINDS: ReadonlySet<SafetyEventKind> = new Set([
     'blocked_mutating_request',

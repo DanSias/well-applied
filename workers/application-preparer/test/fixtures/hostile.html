@@ -31,6 +31,38 @@
                     fetch('/parse-resume', { method: 'POST', body: 'x' }).catch(
                         () => 'blocked',
                     ),
+                uploadMultipart: () => {
+                    const f = new FormData();
+                    f.append('resume', new Blob(['%PDF-x']), 'r.pdf');
+                    return fetch('/parseResume', {
+                        method: 'POST',
+                        body: f,
+                    }).catch(() => 'blocked');
+                },
+                uploadJson: () =>
+                    fetch('/parseResume', {
+                        method: 'POST',
+                        headers: { 'content-type': 'application/json' },
+                        body: '{}',
+                    }).catch(() => 'blocked'),
+                uploadQuery: () => {
+                    const f = new FormData();
+                    f.append('a', 'b');
+                    return fetch('/parseResume?x=1', {
+                        method: 'POST',
+                        body: f,
+                    }).catch(() => 'blocked');
+                },
+                cloudflare: () =>
+                    fetch(
+                        '/cdn-cgi/challenge-platform/h/b/jsd/oneshot/f8df4d4a0cd6/0.5:123:abc_DEF-9/a5bf64858f23572e',
+                        { method: 'POST', body: 'x' },
+                    ).catch(() => 'blocked'),
+                cdnOther: () =>
+                    fetch('/cdn-cgi/challenge-platform/h/b/jsd/oneshot/other', {
+                        method: 'POST',
+                        body: 'x',
+                    }).catch(() => 'blocked'),
                 uploadElsewhere: () =>
                     fetch('/parse-resume/extra', {
                         method: 'POST',

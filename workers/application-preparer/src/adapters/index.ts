@@ -3,7 +3,7 @@
 // filling, verification and every safeguard are shared, so adding an ATS
 // never touches the safety path.
 import type { AtsName } from '../contracts.ts';
-import type { UploadException } from '../guard.ts';
+import type { UploadException } from '../request-policy.ts';
 
 export interface Adapter {
     name: AtsName;
@@ -15,6 +15,36 @@ export interface Adapter {
      * entry needs a justification and a test.
      */
     uploadExceptions(origin: string): UploadException[];
+}
+
+/** The only origin the Lever exception is ever granted for. EU and any other origin are NOT included: not observed. */
+export const LEVER_ORIGIN = 'https://jobs.lever.co';
+
+/**
+ * Lever's resume parse, observed in the first supervised run (the page
+ * POSTs the chosen file here to pre-fill name/email, and shows "Couldn't
+ * auto-read resume" if it is refused). Every constraint below must hold;
+ * the content type and resource type are the expected shape of a file
+ * upload, NOT yet observed (the first run did not record them), so a
+ * mismatch blocks the request and records exactly what was seen.
+ *
+ * This is a factory so tests can build the identical rule for a local
+ * origin; production grants it only for LEVER_ORIGIN (see uploadExceptions).
+ */
+export function leverResumeParseException(origin: string): UploadException {
+    return {
+        name: 'lever-resume-parse',
+        method: 'POST',
+        origin,
+        pathPattern: /^\/parseResume$/,
+        why: 'Lever posts the chosen resume file to /parseResume to pre-fill the form; observed in the first supervised run.',
+        resourceTypes: ['xhr', 'fetch'],
+        contentTypePrefix: 'multipart/form-data',
+        duringUploadOnly: true,
+        maxUses: 1,
+        maxBodyBytes: 12 * 1024 * 1024,
+        forbidQuery: true,
+    };
 }
 
 export const lever: Adapter = {
@@ -34,7 +64,10 @@ export const lever: Adapter = {
         next.hash = '';
         return next;
     },
-    uploadExceptions: () => [],
+    uploadExceptions: (origin) =>
+        origin === LEVER_ORIGIN
+            ? [leverResumeParseException(LEVER_ORIGIN)]
+            : [],
 };
 
 export const greenhouse: Adapter = {

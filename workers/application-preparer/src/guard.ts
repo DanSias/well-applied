@@ -20,21 +20,16 @@ import {
     type SafetyEventKind,
 } from './contracts.ts';
 import { GUARD_INIT_SCRIPT } from './guard-init.ts';
+import {
+    isCloudflareBotDetection,
+    matchException,
+    mediaType,
+    type RequestFacts,
+    type UploadException,
+} from './request-policy.ts';
 import { atsForHost } from './url-safety.ts';
 
-/**
- * A narrowly scoped permission for ONE non-GET request. Everything must
- * match: method, exact origin, and a fully anchored path pattern. Each one
- * needs a name and a justification, and a test in test/guard.test.ts.
- */
-export interface UploadException {
-    name: string;
-    method: 'POST' | 'PUT';
-    origin: string;
-    /** Must be anchored (^...$); enforced when the guard is constructed. */
-    pathPattern: RegExp;
-    why: string;
-}
+export type { UploadException } from './request-policy.ts';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
@@ -45,9 +40,13 @@ export class SubmissionGuard {
     private mainPage: Page | null = null;
     private readonly startHost: string;
     private readonly exceptions: readonly UploadException[];
+    private readonly startOrigin: string;
+    private uploadWindowOpen = false;
+    private readonly uses = new Map<string, number>();
 
     constructor(startUrl: URL, exceptions: readonly UploadException[] = []) {
         this.startHost = startUrl.hostname;
+        this.startOrigin = startUrl.origin;
         this.exceptions = exceptions;
         for (const e of exceptions) {
             const src = e.pathPattern.source;
@@ -128,25 +127,74 @@ export class SubmissionGuard {
 
         if (SAFE_METHODS.has(method)) return void (await route.continue());
 
-        const exception = this.exceptions.find(
-            (e) =>
-                e.method === method &&
-                e.origin === url.origin &&
-                e.pathPattern.test(url.pathname),
-        );
-        if (exception) {
+        const facts = this.factsFor(request, url);
+        let nearMiss: string | null = null;
+        for (const e of this.exceptions) {
+            const result = matchException(e, {
+                ...facts,
+                priorUses: this.uses.get(e.name) ?? 0,
+            });
+            if (result.matched) {
+                this.uses.set(e.name, (this.uses.get(e.name) ?? 0) + 1);
+                this.record(
+                    'allowed_exception_used',
+                    `${e.name}: ${describe(facts)}`,
+                );
+                return void (await route.continue());
+            }
+            nearMiss ??=
+                result.nearMiss === null
+                    ? null
+                    : `exception "${e.name}" refused: ${result.nearMiss}`;
+        }
+
+        // Recognised, still blocked, and not a submission signal.
+        if (isCloudflareBotDetection(method, url, this.startOrigin)) {
             this.record(
-                'allowed_exception_used',
-                `${exception.name}: ${method} ${redact(url)}`,
+                'blocked_bot_detection_request',
+                `cloudflare jsd oneshot beacon: ${describe(facts)}`,
             );
-            return void (await route.continue());
+            return void (await route.abort('blockedbyclient'));
         }
 
         const kind: SafetyEventKind = this.isAtsFamily(url.hostname)
             ? 'blocked_mutating_request'
             : 'blocked_third_party_request';
-        this.record(kind, `${method} ${redact(url)}`);
+        this.record(
+            kind,
+            `${describe(facts)}${nearMiss ? ` (${nearMiss})` : ''}`,
+        );
         await route.abort('blockedbyclient');
+    }
+
+    /** The worker is itself attaching the resume; exceptions marked duringUploadOnly may fire only now. */
+    openUploadWindow(): void {
+        this.uploadWindowOpen = true;
+    }
+
+    closeUploadWindow(): void {
+        this.uploadWindowOpen = false;
+    }
+
+    private factsFor(
+        request: Request,
+        url: URL,
+    ): Omit<RequestFacts, 'priorUses'> {
+        let isMainFrame = false;
+        try {
+            isMainFrame = request.frame().parentFrame() === null;
+        } catch {
+            isMainFrame = false;
+        }
+        return {
+            method: request.method().toUpperCase(),
+            url,
+            resourceType: request.resourceType(),
+            contentType: request.headers()['content-type'] ?? null,
+            bodyBytes: request.postDataBuffer()?.length ?? null,
+            isMainFrame,
+            uploadWindowOpen: this.uploadWindowOpen,
+        };
     }
 
     private isMainFrameNavigation(request: Request): boolean {
@@ -158,6 +206,11 @@ export class SubmissionGuard {
             return true;
         }
     }
+}
+
+/** Method, redacted URL and request shape (never the body, never the boundary). */
+function describe(f: Omit<RequestFacts, 'priorUses'>): string {
+    return `${f.method} ${redact(f.url)} [${f.resourceType}, ${mediaType(f.contentType) ?? 'no content-type'}, ${f.bodyBytes ?? '?'}B]`;
 }
 
 /** Never put query strings (which can carry tokens or applicant data) in a report. */

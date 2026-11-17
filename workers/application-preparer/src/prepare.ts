@@ -29,7 +29,8 @@ import {
     selectOption,
     uploadResumeFile,
 } from './fill.ts';
-import { SubmissionGuard, type UploadException } from './guard.ts';
+import { SubmissionGuard } from './guard.ts';
+import type { UploadException } from './request-policy.ts';
 import { adapterFor } from './adapters/index.ts';
 import { assertAllowedUrl, atsForHost } from './url-safety.ts';
 import {
@@ -200,6 +201,7 @@ export async function prepareApplication(
         // The resume goes first: some forms parse it and overwrite other fields.
         if (resumeField !== null) {
             report.resume.fieldId = resumeField.id;
+            guard.openUploadWindow(); // exceptions marked duringUploadOnly may fire only inside this window
             try {
                 await uploadResumeFile(
                     page,
@@ -211,6 +213,7 @@ export async function prepareApplication(
                 report.warnings.push(`resume upload failed: ${firstLine(e)}`);
             }
             await page.waitForTimeout(1_000);
+            guard.closeUploadWindow();
             discovery = await discoverForm(page);
         }
         report.warnings.push(...discovery.warnings);

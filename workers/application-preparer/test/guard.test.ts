@@ -1,6 +1,7 @@
 import { after, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { chromium, type Browser, type Page } from 'playwright';
+import { leverResumeParseException } from '../src/adapters/index.ts';
 import { SubmissionGuard, type UploadException } from '../src/guard.ts';
 import { startServer, type TestServer } from './support/server.ts';
 
@@ -220,5 +221,99 @@ describe('submission guard', () => {
                 /justification/,
             );
         });
+    });
+});
+
+describe('Lever-shaped exception through the real guard (local origin, identical constraints)', () => {
+    const rule = () => leverResumeParseException(server.origin);
+
+    it('allows a multipart XHR inside the upload window, once, and records it as an allowed upload', async () => {
+        const { page, guard } = await open([rule()]);
+        guard.openUploadWindow();
+        await attempt(page, 'uploadMultipart');
+        await settle(page);
+        guard.closeUploadWindow();
+        assert.deepEqual(server.mutations, ['POST /parseResume']);
+        assert.deepEqual(
+            guard.events.map((e) => e.kind),
+            ['allowed_exception_used'],
+        );
+        assert.match(
+            guard.events[0]!.detail,
+            /lever-resume-parse: POST .*\/parseResume \[(xhr|fetch), multipart\/form-data/,
+        );
+        assert.equal(guard.hasFailure(), false);
+
+        guard.openUploadWindow();
+        await attempt(page, 'uploadMultipart'); // second use
+        await settle(page);
+        assert.deepEqual(server.mutations, ['POST /parseResume'], 'maxUses: 1');
+        assert.match(guard.events.at(-1)!.detail, /already used/);
+        assert.equal(guard.hasFailure(), true);
+        await page.context().close();
+    });
+
+    it('refuses the same request outside the upload window, with a JSON body, or with a query string', async () => {
+        const { page, guard } = await open([rule()]);
+        await attempt(page, 'uploadMultipart'); // window closed
+        guard.openUploadWindow();
+        await attempt(page, 'uploadJson');
+        await attempt(page, 'uploadQuery');
+        await settle(page);
+        assert.deepEqual(server.mutations, []);
+        const details = guard.events.map((e) => e.detail).join('\n');
+        assert.match(details, /not during a worker-initiated/);
+        assert.match(details, /content-type application\/json/);
+        assert.match(details, /query string present/);
+        assert.equal(
+            guard.events.every((e) => e.kind === 'blocked_mutating_request'),
+            true,
+        );
+        await page.context().close();
+    });
+
+    it('does not extend to a longer path or any other POST', async () => {
+        const { page, guard } = await open([rule()]);
+        guard.openUploadWindow();
+        await attempt(page, 'uploadElsewhere'); // /parse-resume/extra
+        await attempt(page, 'fetchPost');
+        await attempt(page, 'beacon');
+        await settle(page);
+        assert.deepEqual(server.mutations, []);
+        assert.equal(
+            guard.events.filter((e) => e.kind === 'blocked_mutating_request')
+                .length,
+            3,
+        );
+        await page.context().close();
+    });
+});
+
+describe('Cloudflare bot-detection beacon through the real guard', () => {
+    it('stays blocked, is recorded under its own kind, and is not a safety failure', async () => {
+        const { page, guard } = await open();
+        await attempt(page, 'cloudflare');
+        await settle(page);
+        assert.deepEqual(server.mutations, [], 'never reaches the server');
+        assert.deepEqual(
+            guard.events.map((e) => e.kind),
+            ['blocked_bot_detection_request'],
+        );
+        assert.match(guard.events[0]!.detail, /cloudflare jsd oneshot beacon/);
+        assert.equal(guard.hasFailure(), false);
+        await page.context().close();
+    });
+
+    it('any other same-origin /cdn-cgi/ POST still fails closed', async () => {
+        const { page, guard } = await open();
+        await attempt(page, 'cdnOther');
+        await settle(page);
+        assert.deepEqual(server.mutations, []);
+        assert.deepEqual(
+            guard.events.map((e) => e.kind),
+            ['blocked_mutating_request'],
+        );
+        assert.equal(guard.hasFailure(), true);
+        await page.context().close();
     });
 });
