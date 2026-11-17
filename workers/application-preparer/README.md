@@ -175,14 +175,17 @@ Layers (`src/guard.ts`, `src/guard-init.ts`, `src/fill.ts`), each independent:
 4. **Navigation.** After the initial load (and its redirects) any main-frame
    navigation is aborted and popups are closed.
 5. **Outcome.** Any blocked mutation, blocked submit, navigation or
-   confirmation-looking page makes the run `safety_failure`. Two kinds of
+   confirmation-looking page makes the run `safety_failure`. Three kinds of
    blocked request are recorded but are not failures: third-party (non-ATS
-   host) requests such as analytics, and one specific Cloudflare beacon
-   (`blocked_bot_detection_request`). Everything else on the ATS host fails.
+   host) requests such as analytics, one specific Cloudflare beacon
+   (`blocked_bot_detection_request`), and one specific Greenhouse Snowplow
+   beacon (`blocked_telemetry_request`). Everything else on the ATS host fails.
 6. **Fail closed.** Uncertain label matches are not filled; checkboxes,
    free-text questions and demographic questions are never filled; multistep,
-   captcha and login stop the run; the resume must be verified by SHA-256 of
-   the browser's own copy (a widget that empties the input is `blocked`).
+   captcha and login stop the run; the resume must be verified: by SHA-256 of
+   the browser's own copy where the input remains, and where an upload step
+   removes it (Greenhouse) by a 2xx response to the authorised upload request plus
+   the widget showing the file name (see "Upload evidence").
 7. **Hold.** With `--hold` the guard stays on: even a human clicking Submit in
    that window is blocked and reported (`phase: human_hold`). Submit manually,
    elsewhere, after review.
@@ -242,20 +245,43 @@ exception does **not** rest on the hostname:
 | when          | only during the worker's own resume attachment; at most once per run                                                                                                                                                                                                                                                           |
 | who           | granted only when the page origin is `https://job-boards.greenhouse.io` or `https://boards.greenhouse.io`. Not the EU board, not employer-hosted pages, not other ATSs, not a different bucket                                                                                                                                 |
 
-**What it cannot check: the file's bytes.** Chromium's request instrumentation omits the
-bytes of `File` parts, so the guard sees the file part _empty_ and cannot hash the upload.
-(If the bytes are ever visible they must match the resume's SHA-256 exactly.) Content
-identity is established separately: right after selecting the file the worker hashes the
-copy the browser holds in the input, which is the same `File` the widget uploads. A page
-could in principle build a same-named `Blob` with other content and send it to the
+**What the guard cannot check: the file's bytes.** Chromium's request instrumentation omits
+the bytes of `File` parts, so the guard sees the file part _empty_ and cannot hash the
+upload. (If the bytes are ever visible they must match the resume's SHA-256 exactly.) A
+page could in principle build a same-named `Blob` with other content and send it to the
 authorised destination inside the one allowed window; that would only deliver data to
 Greenhouse's own upload target, and is a documented residual limitation.
 
-For an ATS whose attaching is a separate upload step, the resume counts as attached
-(`resume.verification: "upload_request"`) only when all three hold: the input held exactly
-the chosen resume at selection, the upload request was allowed, and the file name is
-visible on the page after the widget removes its input. A populated input alone is
-`input_only` and is **not** verified (a failed upload leaves the input populated).
+#### Upload evidence (`report.resume.upload`)
+
+Selecting a file, the page sending a permitted request, the server accepting it, and the
+widget showing it are four different facts, and each is reported separately. The worker
+hands the browser the **bytes it hashed when it loaded the resume** (not a path that could
+change), and records whether they equal the trusted SHA-256 (`artifactSha256Matches`). The
+guard records the **status** of the one authorised request's response (status, status text,
+`content-length`, duration or a network failure text; never a body, a header value beyond
+those, or a query). A 2xx response is evidence the upload was **accepted**; it is never
+evidence an application was submitted. The wait for it is bounded and event-driven (it
+returns when the response arrives), not a fixed delay, and a disappearing input is never
+treated as proof either way, because Greenhouse's widget removes it.
+
+| `upload.outcome`                | meaning                                                                                                                                                            |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `accepted_filename_visible`     | 2xx to the authorised request **and** the widget shows the file name (which was not on the page before). The only verified outcome                                 |
+| `accepted_confirmation_missing` | 2xx, but the widget never showed the name (or showed a different one, or the name was already on the page): not verified                                           |
+| `failed`                        | the response was not 2xx (including 3xx), or the request failed at the network: not verified                                                                       |
+| `unknown`                       | the request was sent but no response arrived within the bounded wait (`uploadWaitMs`, default 15 s): not verified                                                  |
+| `no_upload_request`             | selected, but the page sent no permitted request: not verified                                                                                                     |
+| `selection_failed`              | the file could not be handed to the page, or the bytes handed over do not hash to the trusted resume                                                               |
+| `unauthorized_request`          | an upload-like request (a partial match of the exception, or multipart) was refused by the guard while the window was open; the run also fails as a safety failure |
+| `not_applicable`                | the ATS has no separate upload step (Lever attaches the file to the form)                                                                                          |
+
+`resume.verification` is `upload_accepted` only for `accepted_filename_visible` when the
+input is gone, and `content_sha256` when the input remains and the upload was accepted. A
+populated input alone is `input_only`, and an emptied input with the name shown but no
+accepted upload is `page_text`; neither is verified. `resume.inputHeldChosenResume` (a hash
+of the input right after selection) is informational only: a widget may remove its input
+first, and that never decides verification.
 
 A request that matches method, origin and path but fails another constraint is
 blocked and the reason is recorded (`exception "lever-resume-parse" refused:
@@ -263,13 +289,44 @@ blocked and the reason is recorded (`exception "lever-resume-parse" refused:
 <12 hex>/<token>/<16 hex>` on the page's own origin) stays blocked; it is only
 classified differently. Any other `/cdn-cgi/` path still fails closed.
 
+### Greenhouse analytics beacon (classified, still blocked)
+
+Live Greenhouse boards send one Snowplow tracker request, which the guard blocks:
+`POST https://c.spl.greenhouse.io/com.snowplowanalytics.snowplow/tp2` (a `fetch`, JSON body).
+It is recorded as `blocked_telemetry_request`, which is **not** a safety failure, so a run is
+no longer ended by it. Nothing is allowed: it is only reported as page noise instead of a
+possible submission. Every part must match: HTTPS, exactly this host and pathname, `POST`, resource
+type `fetch`, media type `application/json`, no credentials in the URL. Any other host,
+path, method, resource type or content type, anywhere on `greenhouse.io`, remains
+`blocked_mutating_request` and fails closed. The query string is never written to a report.
+
+## Pre-selected values and file labels
+
+- **Combobox selections.** A react-select-style control (role `combobox` / `aria-haspopup` /
+  `aria-autocomplete`) is read for what it _displays_: a rendered selected-value element is a
+  selection; a placeholder (including placeholder-looking text such as "Select...") or a
+  dialing code drawn as decoration is not. A required, unmapped field that already shows a
+  selection is reported as `preselected_by_page` (review `needs_check`, counted in
+  `summary.preselectedByPage`): it is not an unanswered required question, and it is **not**
+  completed by the worker or attributed to the applicant. The displayed value is neither
+  chosen nor interpreted; for instance a phone dialing code is never taken as the
+  applicant's country, residence or work authorisation. Sensitive questions record no value.
+- **File labels.** A file control whose own label is only its button ("Attach", "Upload",
+  "Dropbox"...) takes the heading from its widget container: a `role=group`/`fieldset`
+  naming it, otherwise exactly one distinct heading-like element before it, and only when
+  that container holds exactly one file input. Two uploads sharing a container, or two
+  different candidate headings, are ambiguous and keep the original label. The label source
+  is recorded (`inferred_proximity` unless the group names it), and identity keys follow the label
+  consistently across re-discovery.
+
 ## Layout
 
 ```
 src/contracts.ts     input/report types (hand-synced vocabulary, like inspector's result.js)
 src/url-safety.ts    https + supported-host policy
 src/guard*.ts        submission safeguards
-src/request-policy.ts  pure request rules: UploadException matching, Cloudflare beacon
+src/request-policy.ts  pure request rules: UploadException matching, Cloudflare and Greenhouse telemetry beacons
+src/upload-outcome.ts  pure: what a resume upload's independent facts add up to
 src/discover.ts      read-only form discovery (tags controls with data-wa-id)
 src/classify.ts      deterministic field -> applicant-fact mapping
 src/verdict.ts       pure judgement of the user-visible control's value
