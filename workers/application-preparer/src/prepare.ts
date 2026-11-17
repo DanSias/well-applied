@@ -116,7 +116,12 @@ export async function prepareApplication(
             observedFilename: null,
         },
         controls: [],
-        blockers: { captcha: false, authentication: false, multistep: false },
+        blockers: {
+            captcha: 'none',
+            captchaDetails: [],
+            authentication: false,
+            multistep: false,
+        },
         submission: {
             assertion: 'worker_did_not_submit',
             blockedAttempts: 0,
@@ -228,13 +233,14 @@ export async function prepareApplication(
 
         report.controls = discovery.controls;
         report.blockers = {
-            captcha: discovery.captchaVisible,
+            captcha: discovery.captcha.state,
+            captchaDetails: discovery.captcha.details,
             authentication: discovery.passwordField,
             multistep: discovery.controls.some((c) => c.role === 'navigation'),
         };
-        if (discovery.captchaInvisible)
+        if (discovery.captcha.state === 'inactive_markup')
             report.warnings.push(
-                'invisible captcha markup present (expected at submission time; not attempted)',
+                'captcha markup present but inactive (hidden/zero-size/off-screen/invisible); nothing was attempted',
             );
 
         await page.waitForTimeout(500); // let any blocked request register
@@ -426,8 +432,12 @@ export function decide(report: PrepareReport): {
         };
 
     const blocked: string[] = [];
-    if (report.blockers.captcha)
-        blocked.push('a visible captcha needs a human');
+    if (report.blockers.captcha === 'challenge_visible')
+        blocked.push('a visible captcha challenge needs a human');
+    else if (report.blockers.captcha === 'uncertain')
+        blocked.push(
+            'captcha state is uncertain (displayed markup that could not be classified); check the page by eye',
+        );
     if (report.blockers.authentication)
         blocked.push('a login/password field is present');
     if (report.blockers.multistep)

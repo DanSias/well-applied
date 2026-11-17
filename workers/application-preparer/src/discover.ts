@@ -3,7 +3,11 @@
 // data-wa-id attribute (the only DOM mutation) so later steps can address
 // it without a free-form selector.
 import type { Page } from 'playwright';
-import type { DiscoveredField } from './contracts.ts';
+import type {
+    CaptchaDetail,
+    CaptchaState,
+    DiscoveredField,
+} from './contracts.ts';
 
 export interface DiscoveredControl {
     text: string;
@@ -15,8 +19,7 @@ export interface Discovery {
     fields: DiscoveredField[];
     /** For radio groups: the data-wa-opt index is the index into field.options. */
     controls: DiscoveredControl[];
-    captchaVisible: boolean;
-    captchaInvisible: boolean;
+    captcha: { state: CaptchaState; details: CaptchaDetail[] };
     passwordField: boolean;
     warnings: string[];
 }
@@ -30,10 +33,15 @@ export async function discoverForm(page: Page): Promise<Discovery> {
         const stripMarks = (s: string) => clean(s.replace(/[✱*]/g, ' '));
         const warnings: string[] = [];
 
+        // Strict: also honours visibility:hidden and opacity:0 (the default
+        // checkVisibility() does not), and rejects zero-size boxes.
         const visible = (el: Element) => {
             const anyEl = el as HTMLElement;
             if (typeof anyEl.checkVisibility === 'function')
-                return anyEl.checkVisibility();
+                return anyEl.checkVisibility({
+                    checkOpacity: true,
+                    checkVisibilityCSS: true,
+                });
             return el.getClientRects().length > 0;
         };
 
@@ -301,16 +309,112 @@ export async function discoverForm(page: Page): Promise<Discovery> {
                 };
             });
 
-        const captchaEls = [
+        // CAPTCHA: three states, never a bare "present". Markup that is
+        // hidden, zero-sized, off-screen, aria-hidden or declared invisible
+        // is inactive (a normal page initialising hCaptcha/reCAPTCHA). Only
+        // an actually displayed challenge or checkbox needs a human.
+        const strictVisible = visible;
+        const describeCaptcha = (el: Element) => {
+            const r = el.getBoundingClientRect();
+            const w = Math.round(r.width);
+            const h = Math.round(r.height);
+            const top = r.top + window.scrollY;
+            const left = r.left + window.scrollX;
+            const title = clean(el.getAttribute('title'));
+            const src = el.getAttribute('src') ?? '';
+            let srcHost = '';
+            try {
+                srcHost = new URL(src, location.href).host;
+            } catch {
+                srcHost = '';
+            }
+            const haystack = `${title} ${src} ${el.className?.toString?.() ?? ''}`;
+            const isFrame = el.tagName === 'IFRAME';
+            const role: CaptchaDetail['role'] = /grecaptcha-badge/.test(
+                haystack,
+            )
+                ? 'badge'
+                : // Checkbox first: hCaptcha's checkbox title also says "security challenge".
+                  isFrame &&
+                    /checkbox|api2\/anchor|widget containing/i.test(haystack)
+                  ? 'checkbox_widget'
+                  : isFrame && /main content|bframe|challenge/i.test(haystack)
+                    ? 'challenge_frame'
+                    : isFrame
+                      ? 'frame_other'
+                      : 'container';
+            const declaredInvisible =
+                el.getAttribute('data-size') === 'invisible' ||
+                !!el.closest('[data-size="invisible"]') ||
+                /invisible/i.test(el.className?.toString?.() ?? '');
+            const signals: string[] = [];
+            if (!strictVisible(el)) signals.push('not_rendered_visible');
+            if (w < 1 || h < 1) signals.push('zero_size');
+            if (left + w <= 0 || top + h <= 0) signals.push('offscreen');
+            if (el.closest('[aria-hidden="true"]')) signals.push('aria_hidden');
+            if (declaredInvisible) signals.push('declared_invisible');
+            const inactive =
+                role === 'badge' ||
+                signals.some((x) =>
+                    [
+                        'not_rendered_visible',
+                        'zero_size',
+                        'offscreen',
+                        'aria_hidden',
+                        'declared_invisible',
+                    ].includes(x),
+                );
+            let verdict: 'inactive' | 'challenge' | 'uncertain';
+            if (inactive) verdict = 'inactive';
+            else if (role === 'challenge_frame')
+                verdict = w >= 200 && h >= 200 ? 'challenge' : 'uncertain';
+            else if (role === 'checkbox_widget')
+                verdict = w >= 100 && h >= 40 ? 'challenge' : 'uncertain';
+            else if (role === 'container')
+                // A displayed container is judged by the frames inside it; with none, we cannot tell.
+                verdict = el.querySelector('iframe')
+                    ? 'inactive'
+                    : w >= 100 && h >= 40
+                      ? 'uncertain'
+                      : 'inactive';
+            else verdict = 'uncertain';
+            return {
+                tag: el.tagName.toLowerCase(),
+                role,
+                title: title.slice(0, 80),
+                srcHost,
+                width: w,
+                height: h,
+                signals,
+                verdict,
+            };
+        };
+        const captchaDetails = [
             ...document.querySelectorAll(
-                'iframe[src*="recaptcha"], iframe[src*="hcaptcha"], iframe[title*="captcha" i], .g-recaptcha, .h-captcha, [data-sitekey]',
+                'iframe, .g-recaptcha, .h-captcha, [data-sitekey], [data-hcaptcha-widget-id], .grecaptcha-badge',
             ),
-        ];
-        const bigCaptcha = captchaEls.some((c) => {
-            if (!visible(c)) return false;
-            const r = c.getBoundingClientRect();
-            return r.width >= 100 && r.height >= 40;
-        });
+        ]
+            .filter(
+                (el) =>
+                    el.tagName !== 'IFRAME' ||
+                    /captcha/i.test(
+                        `${el.getAttribute('src') ?? ''} ${el.getAttribute('title') ?? ''}`,
+                    ),
+            )
+            .map(describeCaptcha);
+        const captchaState:
+            | 'none'
+            | 'inactive_markup'
+            | 'challenge_visible'
+            | 'uncertain' = captchaDetails.some(
+            (d) => d.verdict === 'challenge',
+        )
+            ? 'challenge_visible'
+            : captchaDetails.some((d) => d.verdict === 'uncertain')
+              ? 'uncertain'
+              : captchaDetails.length > 0
+                ? 'inactive_markup'
+                : 'none';
         const passwordField = [
             ...document.querySelectorAll('input[type="password"]'),
         ].some((p) => visible(p));
@@ -318,8 +422,7 @@ export async function discoverForm(page: Page): Promise<Discovery> {
         return {
             fields,
             controls,
-            captchaVisible: bigCaptcha,
-            captchaInvisible: captchaEls.length > 0 && !bigCaptcha,
+            captcha: { state: captchaState, details: captchaDetails },
             passwordField,
             warnings,
         };

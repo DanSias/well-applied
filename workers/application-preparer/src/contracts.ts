@@ -129,6 +129,36 @@ export const SAFETY_FAILURE_KINDS: ReadonlySet<SafetyEventKind> = new Set([
     'suspected_submission',
 ]);
 
+/**
+ * none: no captcha markup. inactive_markup: present but hidden/zero-size/
+ * off-screen/declared invisible (a page initialising a widget; nothing for a
+ * person to do yet). challenge_visible: a displayed challenge or checkbox
+ * that needs a person. uncertain: displayed markup that could not be
+ * classified; reported as such, never as a confirmed blocker or a confirmed
+ * absence.
+ */
+export type CaptchaState =
+    | 'none'
+    | 'inactive_markup'
+    | 'challenge_visible'
+    | 'uncertain';
+
+export interface CaptchaDetail {
+    tag: string;
+    role:
+        | 'badge'
+        | 'challenge_frame'
+        | 'checkbox_widget'
+        | 'frame_other'
+        | 'container';
+    title: string;
+    srcHost: string;
+    width: number;
+    height: number;
+    signals: string[];
+    verdict: 'inactive' | 'challenge' | 'uncertain';
+}
+
 export type Outcome =
     /** Every required field verified. Optional fields may be unanswered (see summary). */
     | 'ready_for_review'
@@ -176,7 +206,13 @@ export interface PrepareReport {
         type: string;
         role: 'submit' | 'navigation' | 'other';
     }>;
-    blockers: { captcha: boolean; authentication: boolean; multistep: boolean };
+    blockers: {
+        captcha: CaptchaState;
+        /** Per-element evidence behind `captcha` (tag, title, host, size, why inactive). No page text. */
+        captchaDetails: CaptchaDetail[];
+        authentication: boolean;
+        multistep: boolean;
+    };
     /**
      * `assertion` records only what THIS worker did: it never invoked a
      * submit capability (none exists). It is not proof that nothing was

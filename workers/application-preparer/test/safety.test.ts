@@ -120,33 +120,158 @@ describe('hostile or unexpected pages', () => {
 });
 
 describe('fail closed on ambiguity', () => {
-    it('a visible captcha is a blocker; the run does not try to pass it', async () => {
-        const path = variant('/captcha.html', (h) =>
-            h.replace(
-                '<div id="hcaptchaResponseInput"></div>',
-                '<div class="h-captcha" style="width:300px;height:80px" data-sitekey="x"></div>',
-            ),
-        );
-        const { report } = await ready(path);
-        assert.equal(report.outcome, 'blocked');
-        assert.equal(report.blockers.captcha, true);
-        assert.deepEqual(server.mutations, []);
-    });
+    describe('captcha states', () => {
+        const slot = '<div id="hcaptchaResponseInput"></div>';
+        const withCaptcha = (path: string, markup: string) =>
+            variant(path, (h) => h.replace(slot, markup));
+        const frame = (title: string, style: string) =>
+            `<iframe title="${title}" srcdoc="<p>captcha</p>" style="${style}"></iframe>`;
+        const CHECKBOX =
+            'Widget containing checkbox for hCaptcha security challenge';
+        const CHALLENGE = 'Main content of the hCaptcha challenge';
 
-    it('invisible captcha markup is only a warning', async () => {
-        const path = variant('/captcha-invisible.html', (h) =>
-            h.replace(
-                '<div id="hcaptchaResponseInput"></div>',
-                '<div class="h-captcha" style="width:0;height:0" data-sitekey="x"></div>',
-            ),
-        );
-        const { report } = await ready(path);
-        assert.equal(
-            report.outcome,
-            'ready_for_review',
-            JSON.stringify(report.reasons),
-        );
-        assert.ok(report.warnings.some((w) => /invisible captcha/.test(w)));
+        it('REGRESSION: sized but hidden/off-screen hCaptcha markup is inactive, not a blocker', async () => {
+            // The first live Lever run flagged the page as having a blocking captcha although
+            // none was visible. The old check ignored visibility:hidden, opacity and position.
+            const path = withCaptcha(
+                '/captcha-inactive.html',
+                [
+                    // sized container, hidden by visibility
+                    '<div class="h-captcha" data-sitekey="x" style="width:303px;height:78px;visibility:hidden"></div>',
+                    // sized iframe pushed off-screen, as hCaptcha does for its challenge
+                    `<div style="position:absolute;top:-10000px;left:-10000px">${frame(CHALLENGE, 'width:400px;height:600px')}</div>`,
+                    // opacity 0, display none, aria-hidden, declared invisible, zero size
+                    `<div style="opacity:0">${frame(CHECKBOX, 'width:303px;height:78px')}</div>`,
+                    `<div style="display:none">${frame(CHECKBOX, 'width:303px;height:78px')}</div>`,
+                    `<div aria-hidden="true">${frame(CHECKBOX, 'width:303px;height:78px')}</div>`,
+                    '<div class="h-captcha" data-size="invisible" data-sitekey="x" style="width:303px;height:78px"></div>',
+                    frame(CHECKBOX, 'width:0;height:0;border:0'),
+                    '<div class="grecaptcha-badge" style="width:256px;height:60px"></div>',
+                ].join(''),
+            );
+            const { report } = await ready(path);
+            assert.equal(
+                report.blockers.captcha,
+                'inactive_markup',
+                JSON.stringify(report.blockers.captchaDetails),
+            );
+            assert.equal(report.blockers.captchaDetails.length >= 8, true);
+            assert.ok(
+                report.blockers.captchaDetails.every(
+                    (d) => d.verdict === 'inactive',
+                ),
+            );
+            assert.ok(
+                report.blockers.captchaDetails.some((d) =>
+                    d.signals.includes('not_rendered_visible'),
+                ),
+            );
+            assert.ok(
+                report.blockers.captchaDetails.some((d) =>
+                    d.signals.includes('offscreen'),
+                ),
+            );
+            assert.ok(
+                report.blockers.captchaDetails.some((d) =>
+                    d.signals.includes('declared_invisible'),
+                ),
+            );
+            assert.ok(
+                report.blockers.captchaDetails.some((d) =>
+                    d.signals.includes('aria_hidden'),
+                ),
+            );
+            assert.ok(
+                report.blockers.captchaDetails.some((d) =>
+                    d.signals.includes('zero_size'),
+                ),
+            );
+            assert.equal(
+                report.outcome,
+                'ready_for_review',
+                JSON.stringify(report.reasons),
+            );
+            assert.ok(
+                report.warnings.some((w) =>
+                    /captcha markup present but inactive/.test(w),
+                ),
+            );
+        });
+
+        it('a displayed checkbox widget is a confirmed blocker', async () => {
+            const path = withCaptcha(
+                '/captcha-checkbox.html',
+                frame(CHECKBOX, 'width:303px;height:78px;border:0'),
+            );
+            const { report } = await ready(path);
+            assert.equal(report.blockers.captcha, 'challenge_visible');
+            assert.equal(report.outcome, 'blocked');
+            assert.match(
+                report.reasons.join(' '),
+                /visible captcha challenge needs a human/,
+            );
+            assert.equal(
+                report.blockers.captchaDetails[0]?.role,
+                'checkbox_widget',
+            );
+            assert.deepEqual(server.mutations, []);
+        });
+
+        it('a displayed challenge frame is a confirmed blocker', async () => {
+            const path = withCaptcha(
+                '/captcha-challenge.html',
+                frame(CHALLENGE, 'width:400px;height:520px;border:0'),
+            );
+            const { report } = await ready(path);
+            assert.equal(report.blockers.captcha, 'challenge_visible');
+            assert.equal(
+                report.blockers.captchaDetails[0]?.role,
+                'challenge_frame',
+            );
+            assert.equal(report.outcome, 'blocked');
+        });
+
+        it('displayed markup that cannot be classified is reported as uncertain, not as a blocker or as absent', async () => {
+            const path = withCaptcha(
+                '/captcha-uncertain.html',
+                '<div class="h-captcha" data-sitekey="x" style="width:300px;height:80px"></div>',
+            );
+            const { report } = await ready(path);
+            assert.equal(report.blockers.captcha, 'uncertain');
+            assert.equal(report.outcome, 'blocked');
+            assert.match(
+                report.reasons.join(' '),
+                /captcha state is uncertain/,
+            );
+            assert.doesNotMatch(report.reasons.join(' '), /needs a human/);
+        });
+
+        it('no captcha markup is "none"', async () => {
+            const { report } = await ready('/lever-form.html');
+            assert.equal(report.blockers.captcha, 'none');
+            assert.deepEqual(report.blockers.captchaDetails, []);
+        });
+
+        it('never records page text, only tag, title, host, size and signals', async () => {
+            const path = withCaptcha(
+                '/captcha-fields.html',
+                frame(CHECKBOX, 'width:303px;height:78px;border:0'),
+            );
+            const { report } = await ready(path);
+            assert.deepEqual(
+                Object.keys(report.blockers.captchaDetails[0]!).sort(),
+                [
+                    'height',
+                    'role',
+                    'signals',
+                    'srcHost',
+                    'tag',
+                    'title',
+                    'verdict',
+                    'width',
+                ],
+            );
+        });
     });
 
     it('Next/Continue (multistep) is a blocker; it is never clicked', async () => {
