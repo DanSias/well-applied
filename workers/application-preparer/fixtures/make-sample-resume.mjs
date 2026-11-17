@@ -23,4 +23,8 @@ objs.forEach((o, i) => {
 const xref = pdf.length;
 pdf += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n${offsets.map((o) => `${String(o).padStart(10, '0')} 00000 n \n`).join('')}`;
 pdf += `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
-writeFileSync(join(dirname(fileURLToPath(import.meta.url)), 'sample-resume.pdf'), pdf, 'latin1');
+writeFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), 'sample-resume.pdf'),
+    pdf,
+    'latin1',
+);

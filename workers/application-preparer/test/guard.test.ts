@@ -16,7 +16,9 @@ after(async () => {
     await server.close();
 });
 
-async function open(exceptions: UploadException[] = []): Promise<{ page: Page; guard: SubmissionGuard }> {
+async function open(
+    exceptions: UploadException[] = [],
+): Promise<{ page: Page; guard: SubmissionGuard }> {
     const guard = new SubmissionGuard(new URL(server.origin), exceptions);
     const context = await browser.newContext();
     await guard.install(context);
@@ -30,7 +32,8 @@ async function open(exceptions: UploadException[] = []): Promise<{ page: Page; g
 
 const attempt = (page: Page, name: string) =>
     page.evaluate(async (n) => {
-        await (window as unknown as { __tryAll: Record<string, () => unknown> }).__tryAll[n]!();
+        await (window as unknown as { __tryAll: Record<string, () => unknown> })
+            .__tryAll[n]!();
     }, name);
 const settle = (page: Page) => page.waitForTimeout(300);
 
@@ -51,7 +54,11 @@ describe('submission guard', () => {
         await attempt(page, 'requestSubmit');
         await settle(page);
         assert.deepEqual(server.mutations, []);
-        assert.equal(guard.events.filter((e) => e.kind === 'submit_event_blocked').length >= 2, true);
+        assert.equal(
+            guard.events.filter((e) => e.kind === 'submit_event_blocked')
+                .length >= 2,
+            true,
+        );
         await page.context().close();
     });
 
@@ -59,8 +66,15 @@ describe('submission guard', () => {
         const { page, guard } = await open();
         await attempt(page, 'fetchPost');
         await settle(page);
-        assert.deepEqual(server.mutations, [], 'the server must never see the request');
-        assert.deepEqual(guard.events.map((e) => e.kind), ['blocked_mutating_request']);
+        assert.deepEqual(
+            server.mutations,
+            [],
+            'the server must never see the request',
+        );
+        assert.deepEqual(
+            guard.events.map((e) => e.kind),
+            ['blocked_mutating_request'],
+        );
         await page.context().close();
     });
 
@@ -81,8 +95,15 @@ describe('submission guard', () => {
         await settle(page);
         // An aborted main-frame navigation leaves Chromium on its error page (documented in the README: fail closed,
         // the form state is lost, nothing is submitted). What matters is that the target was never reached.
-        assert.ok(!page.url().includes('elsewhere') && !page.url().includes('get-form'), `navigated to ${page.url()}`);
-        assert.ok(guard.events.filter((e) => e.kind === 'unexpected_navigation').length >= 1);
+        assert.ok(
+            !page.url().includes('elsewhere') &&
+                !page.url().includes('get-form'),
+            `navigated to ${page.url()}`,
+        );
+        assert.ok(
+            guard.events.filter((e) => e.kind === 'unexpected_navigation')
+                .length >= 1,
+        );
         await page.context().close();
     });
 
@@ -96,25 +117,45 @@ describe('submission guard', () => {
     });
 
     it('records third-party mutations as blocked, but not as a safety failure', async () => {
-        const guard = new SubmissionGuard(new URL('https://jobs.lever.co/x/1/apply'));
+        const guard = new SubmissionGuard(
+            new URL('https://jobs.lever.co/x/1/apply'),
+        );
         const context = await browser.newContext();
         await guard.install(context);
         const page = await context.newPage();
         guard.setMainPage(page);
-        await context.route('https://jobs.lever.co/x/1/apply', (r) => r.fulfill({ contentType: 'text/html', body: '<html><body>form</body></html>' }), {});
+        await context.route(
+            'https://jobs.lever.co/x/1/apply',
+            (r) =>
+                r.fulfill({
+                    contentType: 'text/html',
+                    body: '<html><body>form</body></html>',
+                }),
+            {},
+        );
         // The guard's catch-all route was registered first; Playwright runs the most recently
         // registered matching route first, so the fulfil above serves the page and the guard
         // still sees every other request.
         await page.goto('https://jobs.lever.co/x/1/apply');
         guard.lockNavigation();
-        await page.evaluate(() => fetch('https://analytics.example.test/collect', { method: 'POST', body: 'x' }).catch(() => 0));
-        assert.deepEqual(guard.events.map((e) => e.kind), ['blocked_third_party_request']);
+        await page.evaluate(() =>
+            fetch('https://analytics.example.test/collect', {
+                method: 'POST',
+                body: 'x',
+            }).catch(() => 0),
+        );
+        assert.deepEqual(
+            guard.events.map((e) => e.kind),
+            ['blocked_third_party_request'],
+        );
         assert.equal(guard.hasFailure(), false);
         await context.close();
     });
 
     describe('upload exceptions', () => {
-        const exception = (over: Partial<UploadException> = {}): UploadException => ({
+        const exception = (
+            over: Partial<UploadException> = {},
+        ): UploadException => ({
             name: 'test-resume-parse',
             method: 'POST',
             origin: '',
@@ -124,24 +165,38 @@ describe('submission guard', () => {
         });
 
         it('allows exactly the named method + origin + path, and records its use', async () => {
-            const { page, guard } = await open([exception({ origin: server.origin })]);
+            const { page, guard } = await open([
+                exception({ origin: server.origin }),
+            ]);
             await attempt(page, 'upload');
             await settle(page);
             assert.deepEqual(server.mutations, ['POST /parse-resume']);
-            assert.deepEqual(guard.events.map((e) => e.kind), ['allowed_exception_used']);
+            assert.deepEqual(
+                guard.events.map((e) => e.kind),
+                ['allowed_exception_used'],
+            );
             assert.equal(guard.hasFailure(), false);
             await page.context().close();
         });
 
         it('does not allow a longer path, another path, another method or another origin', async () => {
-            const { page, guard } = await open([exception({ origin: server.origin })]);
+            const { page, guard } = await open([
+                exception({ origin: server.origin }),
+            ]);
             await attempt(page, 'uploadElsewhere'); // /parse-resume/extra
             await attempt(page, 'fetchPost'); // /fetch-post
             await settle(page);
             assert.deepEqual(server.mutations, []);
-            assert.equal(guard.events.filter((e) => e.kind === 'blocked_mutating_request').length, 2);
+            assert.equal(
+                guard.events.filter(
+                    (e) => e.kind === 'blocked_mutating_request',
+                ).length,
+                2,
+            );
 
-            const wrongOrigin = await open([exception({ origin: 'http://127.0.0.1:1' })]);
+            const wrongOrigin = await open([
+                exception({ origin: 'http://127.0.0.1:1' }),
+            ]);
             await attempt(wrongOrigin.page, 'upload');
             await settle(wrongOrigin.page);
             assert.deepEqual(server.mutations, []);
@@ -150,8 +205,20 @@ describe('submission guard', () => {
         });
 
         it('refuses an unanchored pattern or a missing justification at construction time', () => {
-            assert.throws(() => new SubmissionGuard(new URL(server.origin), [exception({ pathPattern: /parse-resume/ })]), /anchored/);
-            assert.throws(() => new SubmissionGuard(new URL(server.origin), [exception({ why: ' ' })]), /justification/);
+            assert.throws(
+                () =>
+                    new SubmissionGuard(new URL(server.origin), [
+                        exception({ pathPattern: /parse-resume/ }),
+                    ]),
+                /anchored/,
+            );
+            assert.throws(
+                () =>
+                    new SubmissionGuard(new URL(server.origin), [
+                        exception({ why: ' ' }),
+                    ]),
+                /justification/,
+            );
         });
     });
 });

@@ -5,7 +5,10 @@ import { join } from 'node:path';
 import type { Page } from 'playwright';
 import type { PrepareReport } from './contracts.ts';
 
-export async function createRunDir(runsDir: string, runId: string): Promise<string> {
+export async function createRunDir(
+    runsDir: string,
+    runId: string,
+): Promise<string> {
     const dir = join(runsDir, runId);
     // Not recursive on the final segment: refuses to reuse an existing run.
     await mkdir(runsDir, { recursive: true });
@@ -13,7 +16,11 @@ export async function createRunDir(runsDir: string, runId: string): Promise<stri
     return dir;
 }
 
-export async function screenshot(page: Page, dir: string, name: string): Promise<string | null> {
+export async function screenshot(
+    page: Page,
+    dir: string,
+    name: string,
+): Promise<string | null> {
     const path = join(dir, `${name}.png`);
     try {
         await page.screenshot({ path, fullPage: true, timeout: 15_000 });
@@ -23,8 +30,13 @@ export async function screenshot(page: Page, dir: string, name: string): Promise
     }
 }
 
-export async function writeReport(dir: string, report: PrepareReport): Promise<string> {
+export async function writeReport(
+    dir: string,
+    report: PrepareReport,
+): Promise<string> {
     const path = join(dir, 'report.json');
-    await writeFile(path, JSON.stringify(report, null, 2) + '\n', { mode: 0o600 });
+    await writeFile(path, JSON.stringify(report, null, 2) + '\n', {
+        mode: 0o600,
+    });
     return path;
 }

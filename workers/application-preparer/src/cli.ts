@@ -16,7 +16,9 @@ const value = (name: string) => {
 };
 
 if (!file) {
-    process.stderr.write('usage: node src/cli.ts <input.json> [--hold] [--headless] [--runs-dir DIR]\n');
+    process.stderr.write(
+        'usage: node src/cli.ts <input.json> [--hold] [--headless] [--runs-dir DIR]\n',
+    );
     process.exit(1);
 }
 
@@ -25,7 +27,8 @@ try {
     // A relative resume path is relative to the input file, not the cwd.
     input.resumePdfPath = resolve(dirname(resolve(file)), input.resumePdfPath);
     const ats = value('ats');
-    if (ats !== undefined && ats !== 'lever' && ats !== 'greenhouse') throw new Error('--ats must be lever or greenhouse');
+    if (ats !== undefined && ats !== 'lever' && ats !== 'greenhouse')
+        throw new Error('--ats must be lever or greenhouse');
 
     const { report, reportPath } = await prepareApplication(input, {
         hold: flag('hold'),
@@ -37,7 +40,15 @@ try {
     process.stdout.write(
         `${JSON.stringify({ runId: report.runId, outcome: report.outcome, reasons: report.reasons, summary: report.summary, resume: report.resume.verification, reportPath }, null, 2)}\n`,
     );
-    process.exit(report.outcome === 'ready_for_review' ? 0 : report.outcome === 'safety_failure' ? 4 : report.outcome === 'failed' ? 1 : 3);
+    process.exit(
+        report.outcome === 'ready_for_review'
+            ? 0
+            : report.outcome === 'safety_failure'
+              ? 4
+              : report.outcome === 'failed'
+                ? 1
+                : 3,
+    );
 } catch (e) {
     process.stderr.write(`error: ${(e as Error).message}\n`);
     process.exit(1);

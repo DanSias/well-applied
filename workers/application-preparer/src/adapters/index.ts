@@ -22,7 +22,12 @@ export const lever: Adapter = {
     formUrl(url) {
         // jobs.lever.co/{company}/{uuid} shows the posting; the form is at .../apply.
         // Only that exact shape is rewritten; anything else is opened as given.
-        if (!/^\/[^/]+\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/?$/i.test(url.pathname)) return url;
+        if (
+            !/^\/[^/]+\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/?$/i.test(
+                url.pathname,
+            )
+        )
+            return url;
         const next = new URL(url.toString());
         next.pathname = `${url.pathname.replace(/\/$/, '')}/apply`;
         next.search = '';

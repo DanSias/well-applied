@@ -3,7 +3,11 @@
 import type { AtsName } from './contracts.ts';
 
 const LEVER_HOSTS = new Set(['jobs.lever.co', 'jobs.eu.lever.co']);
-const GREENHOUSE_HOSTS = new Set(['boards.greenhouse.io', 'job-boards.greenhouse.io', 'job-boards.eu.greenhouse.io']);
+const GREENHOUSE_HOSTS = new Set([
+    'boards.greenhouse.io',
+    'job-boards.greenhouse.io',
+    'job-boards.eu.greenhouse.io',
+]);
 
 export interface UrlPolicy {
     /** Test/fixture use only: also accept http://127.0.0.1 or localhost (any port). */
@@ -24,13 +28,17 @@ export function assertAllowedUrl(raw: string, policy: UrlPolicy = {}): URL {
     } catch {
         throw new Error('applicationUrl is not a valid URL');
     }
-    if (url.username || url.password) throw new Error('applicationUrl must not contain credentials');
+    if (url.username || url.password)
+        throw new Error('applicationUrl must not contain credentials');
 
     const local = url.hostname === '127.0.0.1' || url.hostname === 'localhost';
-    if (policy.allowLocalFixture && local && url.protocol === 'http:') return url;
+    if (policy.allowLocalFixture && local && url.protocol === 'http:')
+        return url;
 
-    if (url.protocol !== 'https:') throw new Error('applicationUrl must be https');
+    if (url.protocol !== 'https:')
+        throw new Error('applicationUrl must be https');
     if (url.port) throw new Error('applicationUrl must not specify a port');
-    if (atsForHost(url.hostname) === null) throw new Error(`host ${url.hostname} is not a supported ATS host`);
+    if (atsForHost(url.hostname) === null)
+        throw new Error(`host ${url.hostname} is not a supported ATS host`);
     return url;
 }

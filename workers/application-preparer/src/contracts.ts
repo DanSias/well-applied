@@ -48,7 +48,13 @@ export interface PrepareInput {
     answers?: Record<string, string>;
 }
 
-export type FieldKind = 'text' | 'textarea' | 'select' | 'radio' | 'checkbox' | 'file';
+export type FieldKind =
+    | 'text'
+    | 'textarea'
+    | 'select'
+    | 'radio'
+    | 'checkbox'
+    | 'file';
 
 /** known = mapped to a supplied value; uncertain = ambiguous match; unknown = no mapping. */
 export type Classification = 'known' | 'uncertain' | 'unknown';
@@ -60,7 +66,12 @@ export type Classification = 'known' | 'uncertain' | 'unknown';
  * unresolved_uncertain: an ambiguous mapping was refused rather than guessed.
  * error: an attempted fill failed, or read-back did not match.
  */
-export type FieldStatus = 'filled_verified' | 'unanswered_optional' | 'unresolved_required' | 'unresolved_uncertain' | 'error';
+export type FieldStatus =
+    | 'filled_verified'
+    | 'unanswered_optional'
+    | 'unresolved_required'
+    | 'unresolved_uncertain'
+    | 'error';
 
 export interface DiscoveredField {
     /** Stable within a run; assigned by discovery, e.g. "f3". */
@@ -158,7 +169,11 @@ export interface PrepareReport {
         verified: boolean;
         observedFilename: string | null;
     };
-    controls: Array<{ text: string; type: string; role: 'submit' | 'navigation' | 'other' }>;
+    controls: Array<{
+        text: string;
+        type: string;
+        role: 'submit' | 'navigation' | 'other';
+    }>;
     blockers: { captcha: boolean; authentication: boolean; multistep: boolean };
     /**
      * `assertion` records only what THIS worker did: it never invoked a

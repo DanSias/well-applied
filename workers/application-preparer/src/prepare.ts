@@ -23,11 +23,22 @@ import {
 } from './contracts.ts';
 import { discoverForm, type Discovery } from './discover.ts';
 import { createRunDir, screenshot, writeReport } from './evidence.ts';
-import { chooseRadio, fillText, selectOption, uploadResumeFile } from './fill.ts';
+import {
+    chooseRadio,
+    fillText,
+    selectOption,
+    uploadResumeFile,
+} from './fill.ts';
 import { SubmissionGuard, type UploadException } from './guard.ts';
 import { adapterFor } from './adapters/index.ts';
 import { assertAllowedUrl, atsForHost } from './url-safety.ts';
-import { observeFileInput, readCheckedRadio, readPageSignals, readSelectedOption, readTextValue } from './verify.ts';
+import {
+    observeFileInput,
+    readCheckedRadio,
+    readPageSignals,
+    readSelectedOption,
+    readTextValue,
+} from './verify.ts';
 
 export interface PrepareOptions {
     headless?: boolean;
@@ -52,11 +63,23 @@ export interface PrepareResult {
     runDir: string;
 }
 
-export async function prepareApplication(input: PrepareInput, options: PrepareOptions = {}): Promise<PrepareResult> {
+export async function prepareApplication(
+    input: PrepareInput,
+    options: PrepareOptions = {},
+): Promise<PrepareResult> {
     const startedAt = new Date();
-    const runId = input.runId ?? `run-${startedAt.toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}-${randomBytes(3).toString('hex')}`;
-    if (!RUN_ID.test(runId)) throw new Error('runId must match [A-Za-z0-9_-]{1,64}');
-    if (input.schemaVersion !== SCHEMA_VERSION) throw new Error(`unsupported schemaVersion ${String(input.schemaVersion)}`);
+    const runId =
+        input.runId ??
+        `run-${startedAt
+            .toISOString()
+            .replace(/[-:.TZ]/g, '')
+            .slice(0, 14)}-${randomBytes(3).toString('hex')}`;
+    if (!RUN_ID.test(runId))
+        throw new Error('runId must match [A-Za-z0-9_-]{1,64}');
+    if (input.schemaVersion !== SCHEMA_VERSION)
+        throw new Error(
+            `unsupported schemaVersion ${String(input.schemaVersion)}`,
+        );
 
     const resume = await loadResume(input.resumePdfPath);
     const runsDir = options.runsDir ?? 'runs';
@@ -74,37 +97,73 @@ export async function prepareApplication(input: PrepareInput, options: PrepareOp
         outcome: 'failed',
         reasons: [],
         fields: [],
-        summary: { total: 0, filledVerified: 0, unansweredOptional: 0, unresolvedRequired: 0, unresolvedUncertain: 0, errors: 0 },
-        resume: { sha256: resume.sha256, bytes: resume.bytes.length, fieldId: null, uploaded: false, verification: 'none', verified: false, observedFilename: null },
+        summary: {
+            total: 0,
+            filledVerified: 0,
+            unansweredOptional: 0,
+            unresolvedRequired: 0,
+            unresolvedUncertain: 0,
+            errors: 0,
+        },
+        resume: {
+            sha256: resume.sha256,
+            bytes: resume.bytes.length,
+            fieldId: null,
+            uploaded: false,
+            verification: 'none',
+            verified: false,
+            observedFilename: null,
+        },
         controls: [],
         blockers: { captcha: false, authentication: false, multistep: false },
-        submission: { assertion: 'worker_did_not_submit', blockedAttempts: 0, suspected: false },
+        submission: {
+            assertion: 'worker_did_not_submit',
+            blockedAttempts: 0,
+            suspected: false,
+        },
         safetyEvents: [],
         screenshots: [],
         warnings: [],
         diagnostics: { durationMs: 0, headless, held: false },
     };
-    const finish = async (outcome: Outcome, reasons: string[]): Promise<PrepareResult> => {
+    const finish = async (
+        outcome: Outcome,
+        reasons: string[],
+    ): Promise<PrepareResult> => {
         report.outcome = outcome;
         report.reasons = reasons;
         report.finishedAt = new Date().toISOString();
         report.diagnostics.durationMs = Date.now() - startedAt.getTime();
-        return { report, reportPath: await writeReport(runDir, report), runDir };
+        return {
+            report,
+            reportPath: await writeReport(runDir, report),
+            runDir,
+        };
     };
 
     let url: URL;
     try {
-        url = assertAllowedUrl(input.applicationUrl, { allowLocalFixture: options.allowLocalFixture });
+        url = assertAllowedUrl(input.applicationUrl, {
+            allowLocalFixture: options.allowLocalFixture,
+        });
     } catch (e) {
         return finish('unsupported', [(e as Error).message]);
     }
-    const ats = options.allowLocalFixture ? options.ats ?? null : atsForHost(url.hostname);
-    if (ats === null) return finish('unsupported', ['no ATS adapter for this URL (local fixtures must pass `ats`)']);
+    const ats = options.allowLocalFixture
+        ? (options.ats ?? null)
+        : atsForHost(url.hostname);
+    if (ats === null)
+        return finish('unsupported', [
+            'no ATS adapter for this URL (local fixtures must pass `ats`)',
+        ]);
     report.ats = ats;
     const adapter = adapterFor(ats);
     const formUrl = adapter.formUrl(url);
 
-    const guard = new SubmissionGuard(formUrl, options.uploadExceptions ?? adapter.uploadExceptions(formUrl.origin));
+    const guard = new SubmissionGuard(
+        formUrl,
+        options.uploadExceptions ?? adapter.uploadExceptions(formUrl.origin),
+    );
     const browser = await chromium.launch({ headless });
     try {
         const context = await browser.newContext({
@@ -116,21 +175,37 @@ export async function prepareApplication(input: PrepareInput, options: PrepareOp
         const page = await context.newPage();
         guard.setMainPage(page);
 
-        await page.goto(formUrl.toString(), { waitUntil: 'domcontentloaded', timeout: 45_000 });
-        await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => report.warnings.push('networkidle_timeout'));
-        await page.waitForTimeout(1_500); // let SPA forms render
+        await page.goto(formUrl.toString(), {
+            waitUntil: 'domcontentloaded',
+            timeout: 45_000,
+        });
+        // Locked immediately: the only main-frame navigation this run ever allows is the initial one
+        // (including its redirects). Anything a script does afterwards is a safety event.
         guard.lockNavigation();
+        await page
+            .waitForLoadState('networkidle', { timeout: 15_000 })
+            .catch(() => report.warnings.push('networkidle_timeout'));
+        await page.waitForTimeout(1_500); // let SPA forms render
 
         report.screenshots.push(...(await shot(page, runDir, '01-before')));
 
         let discovery = await discoverForm(page);
-        const resumeField = discovery.fields.find((f) => f.kind === 'file' && classify(f, input).mappedTo === 'resume') ?? null;
+        const resumeField =
+            discovery.fields.find(
+                (f) =>
+                    f.kind === 'file' &&
+                    classify(f, input).mappedTo === 'resume',
+            ) ?? null;
 
         // The resume goes first: some forms parse it and overwrite other fields.
         if (resumeField !== null) {
             report.resume.fieldId = resumeField.id;
             try {
-                await uploadResumeFile(page, resumeField.id, input.resumePdfPath);
+                await uploadResumeFile(
+                    page,
+                    resumeField.id,
+                    input.resumePdfPath,
+                );
                 report.resume.uploaded = true;
             } catch (e) {
                 report.warnings.push(`resume upload failed: ${firstLine(e)}`);
@@ -140,7 +215,12 @@ export async function prepareApplication(input: PrepareInput, options: PrepareOp
         }
         report.warnings.push(...discovery.warnings);
 
-        report.fields = await processFields(page, input, discovery, report.resume.fieldId);
+        report.fields = await processFields(
+            page,
+            input,
+            discovery,
+            report.resume.fieldId,
+        );
         await verifyResume(page, report, resume.sha256, input.resumePdfPath);
 
         report.controls = discovery.controls;
@@ -149,14 +229,27 @@ export async function prepareApplication(input: PrepareInput, options: PrepareOp
             authentication: discovery.passwordField,
             multistep: discovery.controls.some((c) => c.role === 'navigation'),
         };
-        if (discovery.captchaInvisible) report.warnings.push('invisible captcha markup present (expected at submission time; not attempted)');
+        if (discovery.captchaInvisible)
+            report.warnings.push(
+                'invisible captcha markup present (expected at submission time; not attempted)',
+            );
 
         await page.waitForTimeout(500); // let any blocked request register
         const signals = await readPageSignals(page);
         report.finalUrl = redactUrl(signals.url);
-        if (signals.confirmationText) guard.record('suspected_submission', `confirmation-style text on page: "${signals.confirmationText}"`);
-        else if (!signals.url.startsWith('chrome-error:') && new URL(signals.url).pathname !== formUrl.pathname) {
-            guard.record('suspected_submission', `page path changed from ${formUrl.pathname} to ${new URL(signals.url).pathname}`);
+        if (signals.confirmationText)
+            guard.record(
+                'suspected_submission',
+                `confirmation-style text on page: "${signals.confirmationText}"`,
+            );
+        else if (
+            !signals.url.startsWith('chrome-error:') &&
+            new URL(signals.url).pathname !== formUrl.pathname
+        ) {
+            guard.record(
+                'suspected_submission',
+                `page path changed from ${formUrl.pathname} to ${new URL(signals.url).pathname}`,
+            );
         }
         report.screenshots.push(...(await shot(page, runDir, '02-after-fill')));
 
@@ -173,7 +266,9 @@ export async function prepareApplication(input: PrepareInput, options: PrepareOp
                     `Close the browser window or press Enter here to end.\n\n`,
             );
             await (options.holdUntil ?? defaultHold)(page, browser);
-            report.screenshots.push(...(await shot(page, runDir, '03-end-of-hold').catch(() => [])));
+            report.screenshots.push(
+                ...(await shot(page, runDir, '03-end-of-hold').catch(() => [])),
+            );
             syncSafety(report, guard);
             const final = decide(report);
             return finish(final.outcome, final.reasons);
@@ -181,13 +276,20 @@ export async function prepareApplication(input: PrepareInput, options: PrepareOp
         return result;
     } catch (e) {
         syncSafety(report, guard);
-        return finish(guard.hasFailure() ? 'safety_failure' : 'failed', [firstLine(e)]);
+        return finish(guard.hasFailure() ? 'safety_failure' : 'failed', [
+            firstLine(e),
+        ]);
     } finally {
         await browser.close().catch(() => {});
     }
 }
 
-async function processFields(page: Page, input: PrepareInput, discovery: Discovery, resumeFieldId: string | null): Promise<FieldResult[]> {
+async function processFields(
+    page: Page,
+    input: PrepareInput,
+    discovery: Discovery,
+    resumeFieldId: string | null,
+): Promise<FieldResult[]> {
     const results: FieldResult[] = [];
     for (const field of discovery.fields) {
         const c = classify(field, input);
@@ -207,31 +309,49 @@ async function processFields(page: Page, input: PrepareInput, discovery: Discove
             continue;
         }
         if (c.classification !== 'known') {
-            if (c.classification === 'uncertain') result.status = required ? 'unresolved_uncertain' : 'unanswered_optional';
-            else result.status = required ? 'unresolved_required' : 'unanswered_optional';
+            if (c.classification === 'uncertain')
+                result.status = required
+                    ? 'unresolved_uncertain'
+                    : 'unanswered_optional';
+            else
+                result.status = required
+                    ? 'unresolved_required'
+                    : 'unanswered_optional';
             continue;
         }
 
         try {
-            if ((field.kind === 'text' || field.kind === 'textarea') && c.value !== undefined) {
+            if (
+                (field.kind === 'text' || field.kind === 'textarea') &&
+                c.value !== undefined
+            ) {
                 await fillText(page, field.id, c.value);
                 const actual = await readTextValue(page, field.id);
                 result.expected = c.value;
                 result.actual = actual;
-                result.status = actual === c.value ? 'filled_verified' : 'error';
-                if (result.status === 'error') result.note = 'value read back does not match';
+                result.status =
+                    actual === c.value ? 'filled_verified' : 'error';
+                if (result.status === 'error')
+                    result.note = 'value read back does not match';
             } else if (field.kind === 'select' && c.value !== undefined) {
                 await selectOption(page, field.id, c.value);
                 const actual = await readSelectedOption(page, field.id);
                 result.expected = c.value;
                 result.actual = actual ?? '';
-                result.status = actual === c.value ? 'filled_verified' : 'error';
-            } else if (field.kind === 'radio' && c.optionIndex !== undefined && c.value !== undefined) {
+                result.status =
+                    actual === c.value ? 'filled_verified' : 'error';
+            } else if (
+                field.kind === 'radio' &&
+                c.optionIndex !== undefined &&
+                c.value !== undefined
+            ) {
                 await chooseRadio(page, field.id, c.optionIndex);
                 const checked = await readCheckedRadio(page, field.id);
                 result.expected = c.value;
-                result.actual = checked >= 0 ? (field.options?.[checked] ?? '') : '';
-                result.status = checked === c.optionIndex ? 'filled_verified' : 'error';
+                result.actual =
+                    checked >= 0 ? (field.options?.[checked] ?? '') : '';
+                result.status =
+                    checked === c.optionIndex ? 'filled_verified' : 'error';
             } else {
                 result.status = 'error';
                 result.note = 'no fill action for this field kind';
@@ -244,18 +364,29 @@ async function processFields(page: Page, input: PrepareInput, discovery: Discove
     return results;
 }
 
-async function verifyResume(page: Page, report: PrepareReport, expectedSha: string, path: string): Promise<void> {
+async function verifyResume(
+    page: Page,
+    report: PrepareReport,
+    expectedSha: string,
+    path: string,
+): Promise<void> {
     const id = report.resume.fieldId;
     if (id === null) return;
     const expectedName = basename(path);
     const field = report.fields.find((f) => f.id === id);
-    const obs = await observeFileInput(page, id, expectedName).catch(() => null);
+    const obs = await observeFileInput(page, id, expectedName).catch(
+        () => null,
+    );
     if (obs === null || !report.resume.uploaded) {
         report.resume.verification = 'none';
     } else if (obs.sha256 === expectedSha) {
         report.resume.verification = 'content_sha256';
         report.resume.verified = true;
-    } else if (obs.sha256 === null && obs.name === expectedName && obs.size === report.resume.bytes) {
+    } else if (
+        obs.sha256 === null &&
+        obs.name === expectedName &&
+        obs.size === report.resume.bytes
+    ) {
         report.resume.verification = 'name_size';
         report.resume.verified = true;
     } else if (obs.name === null && obs.nameInPageText) {
@@ -266,50 +397,100 @@ async function verifyResume(page: Page, report: PrepareReport, expectedSha: stri
         field.expected = expectedName;
         field.actual = obs?.name ?? '';
         field.status = report.resume.verified ? 'filled_verified' : 'error';
-        if (!report.resume.verified) field.note = `resume not verified (${report.resume.verification})`;
+        if (!report.resume.verified)
+            field.note = `resume not verified (${report.resume.verification})`;
     }
 }
 
 /** Pure: exported for tests. Priority: safety > unsupported > blocked > input_required > ready. */
-export function decide(report: PrepareReport): { outcome: Outcome; reasons: string[] } {
-    const failures = report.safetyEvents.filter((e) => SAFETY_FAILURE_KINDS.has(e.kind));
+export function decide(report: PrepareReport): {
+    outcome: Outcome;
+    reasons: string[];
+} {
+    const failures = report.safetyEvents.filter((e) =>
+        SAFETY_FAILURE_KINDS.has(e.kind),
+    );
     if (failures.length > 0) {
-        return { outcome: 'safety_failure', reasons: failures.map((f) => `${f.kind}: ${f.detail}`) };
+        return {
+            outcome: 'safety_failure',
+            reasons: failures.map((f) => `${f.kind}: ${f.detail}`),
+        };
     }
-    if (report.fields.length === 0) return { outcome: 'unsupported', reasons: ['no form fields were found'] };
+    if (report.fields.length === 0)
+        return {
+            outcome: 'unsupported',
+            reasons: ['no form fields were found'],
+        };
 
     const blocked: string[] = [];
-    if (report.blockers.captcha) blocked.push('a visible captcha needs a human');
-    if (report.blockers.authentication) blocked.push('a login/password field is present');
-    if (report.blockers.multistep) blocked.push('the form has Next/Continue steps; multistep forms are not handled');
-    if (report.resume.fieldId === null) blocked.push('no resume upload field was recognised');
-    else if (!report.resume.verified) blocked.push(`resume upload could not be verified (${report.resume.verification})`);
+    if (report.blockers.captcha)
+        blocked.push('a visible captcha needs a human');
+    if (report.blockers.authentication)
+        blocked.push('a login/password field is present');
+    if (report.blockers.multistep)
+        blocked.push(
+            'the form has Next/Continue steps; multistep forms are not handled',
+        );
+    if (report.resume.fieldId === null)
+        blocked.push('no resume upload field was recognised');
+    else if (!report.resume.verified)
+        blocked.push(
+            `resume upload could not be verified (${report.resume.verification})`,
+        );
     if (blocked.length > 0) return { outcome: 'blocked', reasons: blocked };
 
-    const input = report.fields.filter((f) => f.status === 'unresolved_required' || f.status === 'unresolved_uncertain' || f.status === 'error');
+    const input = report.fields.filter(
+        (f) =>
+            f.status === 'unresolved_required' ||
+            f.status === 'unresolved_uncertain' ||
+            f.status === 'error',
+    );
     if (input.length > 0) {
-        return { outcome: 'input_required', reasons: input.map((f) => `${f.status}: ${f.label ?? f.name ?? f.id}`) };
+        return {
+            outcome: 'input_required',
+            reasons: input.map(
+                (f) => `${f.status}: ${f.label ?? f.name ?? f.id}`,
+            ),
+        };
     }
     return { outcome: 'ready_for_review', reasons: [] };
 }
 
 function syncSafety(report: PrepareReport, guard: SubmissionGuard): void {
     report.safetyEvents = [...guard.events];
-    report.submission.blockedAttempts = guard.events.filter((e) => SAFETY_FAILURE_KINDS.has(e.kind) && e.kind !== 'suspected_submission').length;
-    report.submission.suspected = guard.events.some((e) => e.kind === 'suspected_submission');
+    report.submission.blockedAttempts = guard.events.filter(
+        (e) =>
+            SAFETY_FAILURE_KINDS.has(e.kind) &&
+            e.kind !== 'suspected_submission',
+    ).length;
+    report.submission.suspected = guard.events.some(
+        (e) => e.kind === 'suspected_submission',
+    );
     const s = report.summary;
     s.total = report.fields.length;
-    s.filledVerified = report.fields.filter((f) => f.status === 'filled_verified').length;
-    s.unansweredOptional = report.fields.filter((f) => f.status === 'unanswered_optional').length;
-    s.unresolvedRequired = report.fields.filter((f) => f.status === 'unresolved_required').length;
-    s.unresolvedUncertain = report.fields.filter((f) => f.status === 'unresolved_uncertain').length;
+    s.filledVerified = report.fields.filter(
+        (f) => f.status === 'filled_verified',
+    ).length;
+    s.unansweredOptional = report.fields.filter(
+        (f) => f.status === 'unanswered_optional',
+    ).length;
+    s.unresolvedRequired = report.fields.filter(
+        (f) => f.status === 'unresolved_required',
+    ).length;
+    s.unresolvedUncertain = report.fields.filter(
+        (f) => f.status === 'unresolved_uncertain',
+    ).length;
     s.errors = report.fields.filter((f) => f.status === 'error').length;
 }
 
-async function loadResume(path: string): Promise<{ bytes: Buffer; sha256: string }> {
+async function loadResume(
+    path: string,
+): Promise<{ bytes: Buffer; sha256: string }> {
     const bytes = await readFile(path);
-    if (bytes.length === 0 || bytes.length > MAX_RESUME_BYTES) throw new Error('resume PDF is empty or larger than 10 MB');
-    if (bytes.subarray(0, 5).toString('latin1') !== '%PDF-') throw new Error('resume file is not a PDF');
+    if (bytes.length === 0 || bytes.length > MAX_RESUME_BYTES)
+        throw new Error('resume PDF is empty or larger than 10 MB');
+    if (bytes.subarray(0, 5).toString('latin1') !== '%PDF-')
+        throw new Error('resume file is not a PDF');
     return { bytes, sha256: createHash('sha256').update(bytes).digest('hex') };
 }
 

@@ -14,7 +14,11 @@
 //
 // Limitations are listed in README.md "Safety controls and limits".
 import type { BrowserContext, Page, Request, Route } from 'playwright';
-import { SAFETY_FAILURE_KINDS, type SafetyEvent, type SafetyEventKind } from './contracts.ts';
+import {
+    SAFETY_FAILURE_KINDS,
+    type SafetyEvent,
+    type SafetyEventKind,
+} from './contracts.ts';
 import { GUARD_INIT_SCRIPT } from './guard-init.ts';
 import { atsForHost } from './url-safety.ts';
 
@@ -48,21 +52,32 @@ export class SubmissionGuard {
         for (const e of exceptions) {
             const src = e.pathPattern.source;
             if (!src.startsWith('^') || !src.endsWith('$')) {
-                throw new Error(`UploadException "${e.name}": pathPattern must be anchored with ^ and $`);
+                throw new Error(
+                    `UploadException "${e.name}": pathPattern must be anchored with ^ and $`,
+                );
             }
-            if (!e.why.trim()) throw new Error(`UploadException "${e.name}": a justification is required`);
+            if (!e.why.trim())
+                throw new Error(
+                    `UploadException "${e.name}": a justification is required`,
+                );
         }
     }
 
     async install(context: BrowserContext): Promise<void> {
-        await context.exposeBinding('__waSubmitBlocked', (_source, detail: unknown) => {
-            this.record('submit_event_blocked', String(detail));
-        });
+        await context.exposeBinding(
+            '__waSubmitBlocked',
+            (_source, detail: unknown) => {
+                this.record('submit_event_blocked', String(detail));
+            },
+        );
         await context.addInitScript(GUARD_INIT_SCRIPT);
         await context.route('**/*', (route) => this.handle(route));
         context.on('page', (page) => {
             if (this.mainPage !== null && page !== this.mainPage) {
-                this.record('unexpected_navigation', 'a popup/new page was opened and closed');
+                this.record(
+                    'unexpected_navigation',
+                    'a popup/new page was opened and closed',
+                );
                 void page.close().catch(() => {});
             }
         });
@@ -83,11 +98,20 @@ export class SubmissionGuard {
     }
 
     record(kind: SafetyEventKind, detail: string): void {
-        this.events.push({ kind, detail, at: new Date().toISOString(), phase: this.phase });
+        this.events.push({
+            kind,
+            detail,
+            at: new Date().toISOString(),
+            phase: this.phase,
+        });
     }
 
     private isAtsFamily(host: string): boolean {
-        return host === this.startHost || atsForHost(host) !== null || /(^|\.)(lever\.co|greenhouse\.io)$/.test(host);
+        return (
+            host === this.startHost ||
+            atsForHost(host) !== null ||
+            /(^|\.)(lever\.co|greenhouse\.io)$/.test(host)
+        );
     }
 
     private async handle(route: Route): Promise<void> {
@@ -96,7 +120,8 @@ export class SubmissionGuard {
         const method = request.method().toUpperCase();
 
         if (this.isMainFrameNavigation(request)) {
-            if (this.navigationOpen && this.isAtsFamily(url.hostname)) return void (await route.continue());
+            if (this.navigationOpen && this.isAtsFamily(url.hostname))
+                return void (await route.continue());
             this.record('unexpected_navigation', `${method} ${redact(url)}`);
             return void (await route.abort('blockedbyclient'));
         }
@@ -104,14 +129,22 @@ export class SubmissionGuard {
         if (SAFE_METHODS.has(method)) return void (await route.continue());
 
         const exception = this.exceptions.find(
-            (e) => e.method === method && e.origin === url.origin && e.pathPattern.test(url.pathname),
+            (e) =>
+                e.method === method &&
+                e.origin === url.origin &&
+                e.pathPattern.test(url.pathname),
         );
         if (exception) {
-            this.record('allowed_exception_used', `${exception.name}: ${method} ${redact(url)}`);
+            this.record(
+                'allowed_exception_used',
+                `${exception.name}: ${method} ${redact(url)}`,
+            );
             return void (await route.continue());
         }
 
-        const kind: SafetyEventKind = this.isAtsFamily(url.hostname) ? 'blocked_mutating_request' : 'blocked_third_party_request';
+        const kind: SafetyEventKind = this.isAtsFamily(url.hostname)
+            ? 'blocked_mutating_request'
+            : 'blocked_third_party_request';
         this.record(kind, `${method} ${redact(url)}`);
         await route.abort('blockedbyclient');
     }

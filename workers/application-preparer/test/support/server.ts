@@ -6,7 +6,11 @@ import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), '..', 'fixtures');
+const FIXTURES = join(
+    dirname(fileURLToPath(import.meta.url)),
+    '..',
+    'fixtures',
+);
 
 export interface TestServer {
     origin: string;
@@ -25,24 +29,36 @@ export async function startServer(): Promise<TestServer> {
         if (req.method !== 'GET' && req.method !== 'HEAD') {
             mutations.push(`${req.method} ${url.pathname}`);
             req.resume();
-            res.writeHead(200, { 'content-type': 'text/html' }).end('<html><body><h1>Thank you for applying</h1></body></html>');
+            res.writeHead(200, { 'content-type': 'text/html' }).end(
+                '<html><body><h1>Thank you for applying</h1></body></html>',
+            );
             return;
         }
         const extra = pages.get(url.pathname);
         if (extra !== undefined) {
-            res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }).end(extra);
+            res.writeHead(200, {
+                'content-type': 'text/html; charset=utf-8',
+            }).end(extra);
             return;
         }
         try {
-            const body = await readFile(join(FIXTURES, url.pathname.replace(/^\/+/, '') || 'index.html'));
-            res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }).end(body);
+            const body = await readFile(
+                join(
+                    FIXTURES,
+                    url.pathname.replace(/^\/+/, '') || 'index.html',
+                ),
+            );
+            res.writeHead(200, {
+                'content-type': 'text/html; charset=utf-8',
+            }).end(body);
         } catch {
             res.writeHead(404).end('not found');
         }
     });
     await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
     const address = server.address();
-    if (address === null || typeof address === 'string') throw new Error('no address');
+    if (address === null || typeof address === 'string')
+        throw new Error('no address');
     return {
         origin: `http://127.0.0.1:${address.port}`,
         mutations,

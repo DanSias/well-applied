@@ -14,18 +14,42 @@ const SRC = join(dirname(fileURLToPath(import.meta.url)), '..', 'src');
 
 function sources(dir = SRC): string[] {
     return readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
-        e.isDirectory() ? sources(join(dir, e.name)) : e.name.endsWith('.ts') ? [join(dir, e.name)] : [],
+        e.isDirectory()
+            ? sources(join(dir, e.name))
+            : e.name.endsWith('.ts')
+              ? [join(dir, e.name)]
+              : [],
     );
 }
 
 // Forbidden everywhere except guard-init.ts (which neutralises, never invokes, them).
 const FORBIDDEN = [
-    /\.click\s*\(/, /\.dblclick\s*\(/, /\.tap\s*\(/, /\.press\s*\(/, /\.type\s*\(/, /\.pressSequentially\s*\(/,
-    /\.keyboard\b/, /\.mouse\b/, /\.touchscreen\b/, /\.dragTo\s*\(/, /\.dispatchEvent\s*\(/,
-    /\.submit\s*\(/, /requestSubmit/, /\.requestSubmit/, /evaluateHandle/, /\.\$eval/, /\.\$\$eval/,
-    /new Function\b/, /\beval\s*\(/, /\.setContent\s*\(/, /\.route\.fulfill|route\.fulfill/,
-    /\.request\.(post|put|patch|delete|fetch)\b/, /APIRequestContext|request\.newContext/,
-    /\.waitForNavigation|\.goBack|\.goForward|\.reload\s*\(/, /\.hover\s*\(/, /\.focus\s*\(/,
+    /\.click\s*\(/,
+    /\.dblclick\s*\(/,
+    /\.tap\s*\(/,
+    /\.press\s*\(/,
+    /\.type\s*\(/,
+    /\.pressSequentially\s*\(/,
+    /\.keyboard\b/,
+    /\.mouse\b/,
+    /\.touchscreen\b/,
+    /\.dragTo\s*\(/,
+    /\.dispatchEvent\s*\(/,
+    /\.submit\s*\(/,
+    /requestSubmit/,
+    /\.requestSubmit/,
+    /evaluateHandle/,
+    /\.\$eval/,
+    /\.\$\$eval/,
+    /new Function\b/,
+    /\beval\s*\(/,
+    /\.setContent\s*\(/,
+    /\.route\.fulfill|route\.fulfill/,
+    /\.request\.(post|put|patch|delete|fetch)\b/,
+    /APIRequestContext|request\.newContext/,
+    /\.waitForNavigation|\.goBack|\.goForward|\.reload\s*\(/,
+    /\.hover\s*\(/,
+    /\.focus\s*\(/,
 ];
 
 // Primitive -> the only modules allowed to use it.
@@ -44,15 +68,22 @@ describe('absent capabilities', () => {
     for (const file of sources()) {
         const name = relative(SRC, file);
         if (name === 'guard-init.ts') continue;
-        const text = readFileSync(file, 'utf8').replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+        const text = readFileSync(file, 'utf8')
+            .replace(/\/\/.*$/gm, '')
+            .replace(/\/\*[\s\S]*?\*\//g, '');
 
         it(`${name} contains no click/key/submit primitive`, () => {
-            for (const pattern of FORBIDDEN) assert.doesNotMatch(text, pattern, `${name} uses ${pattern}`);
+            for (const pattern of FORBIDDEN)
+                assert.doesNotMatch(text, pattern, `${name} uses ${pattern}`);
         });
 
         it(`${name} only uses confined primitives where allowed`, () => {
             for (const [pattern, allowed] of CONFINED) {
-                if (pattern.test(text)) assert.ok(allowed.includes(name.split('/').pop()!), `${name} uses ${pattern}; allowed only in ${allowed.join(', ')}`);
+                if (pattern.test(text))
+                    assert.ok(
+                        allowed.includes(name.split('/').pop()!),
+                        `${name} uses ${pattern}; allowed only in ${allowed.join(', ')}`,
+                    );
             }
         });
     }
@@ -64,7 +95,14 @@ describe('absent capabilities', () => {
         } catch {
             return; // fill.ts not written yet
         }
-        const exported = [...text.matchAll(/export (?:async )?function (\w+)/g)].map((m) => m[1]);
-        for (const fn of exported) assert.match(fn!, /^(fill|select|choose|upload)\w*$/, `unexpected export ${fn}`);
+        const exported = [
+            ...text.matchAll(/export (?:async )?function (\w+)/g),
+        ].map((m) => m[1]);
+        for (const fn of exported)
+            assert.match(
+                fn!,
+                /^(fill|select|choose|upload)\w*$/,
+                `unexpected export ${fn}`,
+            );
     });
 });

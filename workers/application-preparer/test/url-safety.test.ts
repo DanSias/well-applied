@@ -5,7 +5,9 @@ import { assertAllowedUrl } from '../src/url-safety.ts';
 describe('url safety', () => {
     it('accepts supported ATS hosts over https', () => {
         assert.ok(assertAllowedUrl('https://jobs.lever.co/acme/1234/apply'));
-        assert.ok(assertAllowedUrl('https://job-boards.greenhouse.io/acme/jobs/1'));
+        assert.ok(
+            assertAllowedUrl('https://job-boards.greenhouse.io/acme/jobs/1'),
+        );
     });
     for (const bad of [
         'http://jobs.lever.co/acme/1',
@@ -20,7 +22,15 @@ describe('url safety', () => {
         it(`rejects ${bad}`, () => assert.throws(() => assertAllowedUrl(bad)));
     }
     it('accepts a local fixture server only when explicitly allowed', () => {
-        assert.ok(assertAllowedUrl('http://127.0.0.1:3000/x', { allowLocalFixture: true }));
-        assert.throws(() => assertAllowedUrl('http://example.com/x', { allowLocalFixture: true }));
+        assert.ok(
+            assertAllowedUrl('http://127.0.0.1:3000/x', {
+                allowLocalFixture: true,
+            }),
+        );
+        assert.throws(() =>
+            assertAllowedUrl('http://example.com/x', {
+                allowLocalFixture: true,
+            }),
+        );
     });
 });
