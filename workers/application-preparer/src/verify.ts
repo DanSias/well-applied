@@ -1,11 +1,109 @@
 // Read-only verification of what is actually in the page after filling.
 import type { Page } from 'playwright';
+import type { ControlState } from './verdict.ts';
 
 export async function readTextValue(page: Page, id: string): Promise<string> {
     return page
         .locator(`[data-wa-id="${id}"]`)
         .first()
         .inputValue({ timeout: 5_000 });
+}
+
+/**
+ * State of the user-visible control for a text field, read from the page:
+ * strict visibility, the displayed value, generic composite/autocomplete
+ * traits, and the values of hidden inputs that belong to it. No selector is
+ * specific to any ATS.
+ */
+export async function readControlState(
+    page: Page,
+    id: string,
+): Promise<ControlState> {
+    return page.evaluate((fid) => {
+        const el = document.querySelector(
+            `input[data-wa-id="${fid}"], textarea[data-wa-id="${fid}"]`,
+        ) as HTMLInputElement | HTMLTextAreaElement | null;
+        if (!el)
+            return {
+                visible: false,
+                visibleValue: '',
+                composite: false,
+                signals: ['control_missing'],
+                hiddenValues: [],
+            };
+
+        const r = el.getBoundingClientRect();
+        const offscreen =
+            r.left + window.scrollX + r.width <= 0 ||
+            r.top + window.scrollY + r.height <= 0;
+        const visible =
+            el.checkVisibility({
+                checkOpacity: true,
+                checkVisibilityCSS: true,
+            }) &&
+            r.width >= 1 &&
+            r.height >= 1 &&
+            !offscreen;
+
+        const signals: string[] = [];
+        const combo = el.closest('[role="combobox"]');
+        if (el.getAttribute('role') === 'combobox' || combo)
+            signals.push('role_combobox');
+        const ac = el.getAttribute('aria-autocomplete');
+        if (ac && ac !== 'none') signals.push('aria_autocomplete');
+        const popup = el.getAttribute('aria-haspopup');
+        if (popup && popup !== 'false') signals.push('aria_haspopup');
+        if (el.hasAttribute('aria-controls') || el.hasAttribute('aria-owns'))
+            signals.push('aria_controls');
+        if (el.hasAttribute('aria-expanded')) signals.push('aria_expanded');
+        if (el.hasAttribute('list')) signals.push('datalist');
+        let widgetClass = false;
+        for (
+            let a: Element | null = el, depth = 0;
+            a && depth < 4;
+            a = a.parentElement, depth++
+        ) {
+            if (
+                /autocomplete|typeahead|combobox|suggest/i.test(
+                    a.className?.toString?.() ?? '',
+                )
+            )
+                widgetClass = true;
+        }
+        if (widgetClass) signals.push('widget_class');
+
+        // Hidden inputs near the control that belong to it: same name stem.
+        const stem = (n: string | null) =>
+            (n ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const mine = stem(el.getAttribute('name')) || stem(el.id);
+        const hidden: HTMLInputElement[] = [];
+        for (
+            let a: Element | null = el.parentElement, depth = 0;
+            a && depth < 3;
+            a = a.parentElement, depth++
+        ) {
+            for (const h of a.querySelectorAll(
+                'input[type="hidden"]',
+            ) as NodeListOf<HTMLInputElement>) {
+                const theirs = stem(h.getAttribute('name')) || stem(h.id);
+                const related =
+                    theirs !== '' &&
+                    mine !== '' &&
+                    (mine.includes(theirs) || theirs.includes(mine));
+                if (related && !hidden.includes(h)) hidden.push(h);
+            }
+        }
+        if (hidden.length > 0) signals.push('related_hidden_input');
+
+        // A related hidden input implies a composite; pure ARIA traits do too.
+        return {
+            visible,
+            visibleValue: el.value,
+            composite: signals.length > 0,
+            signals,
+            hiddenValues: hidden.map((h) => h.value),
+        };
+    }, id);
 }
 
 export async function readSelectedOption(

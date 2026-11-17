@@ -64,6 +64,9 @@ export type Classification = 'known' | 'uncertain' | 'unknown';
  * unanswered_optional: nothing to enter, field is not required. Not a problem.
  * unresolved_required: nothing (or nothing trustworthy) to enter, field IS required.
  * unresolved_uncertain: an ambiguous mapping was refused rather than guessed.
+ * unverified: a value was entered but what a person sees could not be confirmed
+ * (control not visible, or a composite/autocomplete widget whose committed value
+ * could not be established). Never reported as filled_verified.
  * error: an attempted fill failed, or read-back did not match.
  */
 export type FieldStatus =
@@ -71,6 +74,7 @@ export type FieldStatus =
     | 'unanswered_optional'
     | 'unresolved_required'
     | 'unresolved_uncertain'
+    | 'unverified'
     | 'error';
 
 export interface DiscoveredField {
@@ -97,6 +101,13 @@ export interface FieldResult extends DiscoveredField {
     expected?: string;
     actual?: string;
     note?: string;
+    /** Evidence about the user-visible control behind a text field (no values). */
+    control?: {
+        visible: boolean;
+        composite: boolean;
+        signals: string[];
+        hiddenValueMatches: boolean | null;
+    };
 }
 
 export type SafetyEventKind =
@@ -189,6 +200,7 @@ export interface PrepareReport {
         unansweredOptional: number;
         unresolvedRequired: number;
         unresolvedUncertain: number;
+        unverified: number;
         errors: number;
     };
     resume: {

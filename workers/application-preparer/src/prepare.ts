@@ -34,11 +34,17 @@ import type { UploadException } from './request-policy.ts';
 import { adapterFor } from './adapters/index.ts';
 import { assertAllowedUrl, atsForHost } from './url-safety.ts';
 import {
+    judgeText,
+    worse,
+    type ControlState,
+    type TextVerdict,
+} from './verdict.ts';
+import {
     observeFileInput,
     readCheckedRadio,
+    readControlState,
     readPageSignals,
     readSelectedOption,
-    readTextValue,
 } from './verify.ts';
 
 export interface PrepareOptions {
@@ -104,6 +110,7 @@ export async function prepareApplication(
             unansweredOptional: 0,
             unresolvedRequired: 0,
             unresolvedUncertain: 0,
+            unverified: 0,
             errors: 0,
         },
         resume: {
@@ -231,6 +238,11 @@ export async function prepareApplication(
         );
         await verifyResume(page, report, resume.sha256, input.resumePdfPath);
 
+        // Re-read every filled field after all the others were filled and the page settled:
+        // a widget that clears or replaces a value when focus moves on is caught here.
+        await page.waitForTimeout(800);
+        await reverifyFields(page, report);
+
         report.controls = discovery.controls;
         report.blockers = {
             captcha: discovery.captcha.state,
@@ -335,13 +347,14 @@ async function processFields(
                 c.value !== undefined
             ) {
                 await fillText(page, field.id, c.value);
-                const actual = await readTextValue(page, field.id);
+                // The evidence is the user-visible control, never a hidden input alone.
+                const state = await readControlState(page, field.id);
+                const verdict = judgeText(c.value, state);
                 result.expected = c.value;
-                result.actual = actual;
-                result.status =
-                    actual === c.value ? 'filled_verified' : 'error';
-                if (result.status === 'error')
-                    result.note = 'value read back does not match';
+                result.actual = state.visibleValue;
+                result.status = verdict.status;
+                if (verdict.note) result.note = verdict.note;
+                result.control = controlEvidence(c.value, state);
             } else if (field.kind === 'select' && c.value !== undefined) {
                 await selectOption(page, field.id, c.value);
                 const actual = await readSelectedOption(page, field.id);
@@ -371,6 +384,77 @@ async function processFields(
         }
     }
     return results;
+}
+
+function controlEvidence(
+    expected: string,
+    state: ControlState,
+): NonNullable<FieldResult['control']> {
+    return {
+        visible: state.visible,
+        composite: state.composite,
+        signals: state.signals,
+        hiddenValueMatches:
+            state.hiddenValues.length > 0
+                ? state.hiddenValues.includes(expected)
+                : null,
+    };
+}
+
+/**
+ * Final pass over fields that were filled. A change since the immediate
+ * read-back (widget reset, replaced, hidden) downgrades the field.
+ */
+async function reverifyFields(
+    page: Page,
+    report: PrepareReport,
+): Promise<void> {
+    for (const f of report.fields) {
+        if (f.expected === undefined || f.id === report.resume.fieldId)
+            continue;
+        if (f.status !== 'filled_verified' && f.status !== 'unverified')
+            continue;
+        try {
+            if (f.kind === 'text' || f.kind === 'textarea') {
+                const state = await readControlState(page, f.id);
+                const before: TextVerdict =
+                    f.status === 'unverified'
+                        ? { status: 'unverified', note: f.note ?? '' }
+                        : { status: 'filled_verified' };
+                const now = judgeText(f.expected, state);
+                const combined = worse(before, now);
+                if (now.status !== 'filled_verified' && combined === now) {
+                    f.status = now.status;
+                    f.note = `final check after the other fields were filled: ${now.note}`;
+                }
+                f.actual = state.visibleValue;
+                f.control = controlEvidence(f.expected, state);
+            } else if (f.kind === 'select') {
+                const actual = await readSelectedOption(page, f.id);
+                f.actual = actual ?? '';
+                if (actual !== f.expected) {
+                    f.status = 'error';
+                    f.note = 'final check: selected option changed after fill';
+                }
+            } else if (f.kind === 'radio') {
+                const checked = await readCheckedRadio(page, f.id);
+                const actual = checked >= 0 ? (f.options?.[checked] ?? '') : '';
+                f.actual = actual;
+                if (actual !== f.expected) {
+                    f.status = 'error';
+                    f.note = 'final check: chosen option changed after fill';
+                }
+            }
+        } catch (e) {
+            f.status = 'error';
+            f.note = `final check failed: ${firstLine(e)}`;
+        }
+        if (f.status === 'unverified' && f.required !== true) {
+            report.warnings.push(
+                `optional field "${f.label ?? f.name ?? f.id}" is unverified: ${f.note ?? ''}`,
+            );
+        }
+    }
 }
 
 async function verifyResume(
@@ -456,6 +540,8 @@ export function decide(report: PrepareReport): {
         (f) =>
             f.status === 'unresolved_required' ||
             f.status === 'unresolved_uncertain' ||
+            // A required value we could not confirm a person would see is not done.
+            (f.status === 'unverified' && f.required === true) ||
             f.status === 'error',
     );
     if (input.length > 0) {
@@ -492,6 +578,9 @@ function syncSafety(report: PrepareReport, guard: SubmissionGuard): void {
     ).length;
     s.unresolvedUncertain = report.fields.filter(
         (f) => f.status === 'unresolved_uncertain',
+    ).length;
+    s.unverified = report.fields.filter(
+        (f) => f.status === 'unverified',
     ).length;
     s.errors = report.fields.filter((f) => f.status === 'error').length;
 }
