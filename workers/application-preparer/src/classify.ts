@@ -28,6 +28,7 @@ const NAME_HINTS: Record<string, ApplicantKey> = {
     location: 'location',
     'urls[LinkedIn]': 'linkedin_url',
     'urls[GitHub]': 'github_url',
+    'urls[Github]': 'github_url', // the spelling observed on a live Lever form
     'urls[Portfolio]': 'portfolio_url',
     first_name: 'first_name',
     last_name: 'last_name',

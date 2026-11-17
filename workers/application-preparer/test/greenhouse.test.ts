@@ -52,7 +52,7 @@ describe('Greenhouse-style form (same engine, different adapter)', () => {
         );
 
         assert.equal(report.resume.verification, 'content_sha256');
-        assert.deepEqual(server.mutations, []);
+        assert.deepEqual(server.unexpected(), []);
     });
 
     it('is ready_for_review once the only required gaps are approved answers', async () => {
@@ -78,6 +78,6 @@ describe('Greenhouse-style form (same engine, different adapter)', () => {
             report.fields.find((f) => f.name === 'gender')?.sensitive,
             true,
         );
-        assert.deepEqual(server.mutations, []);
+        assert.deepEqual(server.unexpected(), []);
     });
 });

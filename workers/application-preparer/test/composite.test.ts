@@ -34,7 +34,7 @@ const label = (text: string, required = false) =>
 const run = (path: string, options = {}) =>
     runOn(server, path, 'lever', {
         input: { answers: ANSWERS },
-        options: { uploadExceptions: [], ...options },
+        options,
     });
 
 describe('composite and hidden-input location fields', () => {

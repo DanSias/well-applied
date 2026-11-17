@@ -2,32 +2,141 @@
 <html lang="en">
     <head>
         <meta charset="utf-8" />
-        <title>Example Co - Application (synthetic Lever-style fixture)</title>
+        <title>
+            Example Co - Senior Developer - Application (synthetic Lever-style
+            fixture)
+        </title>
+        <style>
+            body {
+                font-family: sans-serif;
+                margin: 0;
+            }
+            .site-header {
+                position: sticky;
+                top: 0;
+                z-index: 20;
+                height: 72px;
+                background: #fff;
+                border-bottom: 1px solid #ddd;
+                display: flex;
+                align-items: center;
+                padding: 0 24px;
+            }
+            .logo {
+                font-weight: bold;
+                letter-spacing: 3px;
+            }
+            .content {
+                max-width: 760px;
+                margin: 0 auto;
+                padding: 24px;
+            }
+            ul {
+                list-style: none;
+                padding-left: 0;
+            }
+            .application-question {
+                margin: 14px 0;
+            }
+            .application-label {
+                font-weight: 600;
+                margin-bottom: 4px;
+            }
+            .required {
+                color: #c00;
+            }
+            .application-answer-description {
+                display: block;
+                font-size: 12px;
+                color: #555;
+            }
+            .file-btn {
+                display: inline-block;
+                border: 1px solid #888;
+                padding: 4px 10px;
+            }
+            #resume-upload-input {
+                position: absolute;
+                opacity: 0;
+                width: 1px;
+                height: 1px;
+            }
+            .cookie-banner {
+                position: fixed;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                z-index: 30;
+                height: 52px;
+                background: #222;
+                color: #fff;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0 24px;
+            }
+            .eeo {
+                margin-top: 40px;
+                font-size: 13px;
+            }
+            #btn-submit {
+                background: #1a7f37;
+                color: #fff;
+                border: 0;
+                padding: 12px 28px;
+                font-weight: bold;
+            }
+        </style>
     </head>
     <body class="application-page">
-        <!-- SYNTHETIC APPROXIMATION of a Lever application form (field names and
-     markup patterns: label > .application-label + .application-field, a
-     "✱" required mark, urls[...] fields, cards[...] custom questions).
-     Replace/augment with a captured real page after the first supervised run. -->
+        <!--
+  SYNTHETIC APPROXIMATION of a Lever application form. This is NOT captured
+  production HTML. It was written after the first supervised run against a
+  Lever tenant, from that run's report and screenshots only.
+
+  Reflects what that run showed: sticky header with a logo; a fixed cookie
+  ("Privacy Notice") banner with Deny/Accept; a pronoun checkbox group plus
+  "Custom"; Full name, Email, Phone and Current company marked required (✱)
+  while Resume/CV is not; a resume widget whose file chooser is a button and
+  which POSTs the chosen file to /parseResume (and says "Couldn't auto-read
+  resume" when refused); link fields (LinkedIn, Github, Other Website, Video
+  Link) with the observed name attributes, including the lowercase-h
+  "urls[Github]" and the trailing space in "urls[Video Link ]"; a long EEO
+  block (gender select, race radio group with descriptive option text,
+  veteran and disability selects); a demographic survey (age radios, gender
+  radios, race checkboxes); a "Submit application" control that is
+  type="button" (it asks the form to submit via script); and inactive
+  (hidden) hCaptcha markup.
+
+  Invented for these tests, NOT observed: the "Custom questions" block (a
+  required radio, an optional select, a textarea) and the exact markup,
+  classes and scripts. The real DOM was not captured. Replace or augment
+  this file with a captured page after an authorized DOM inspection.
+-->
+        <header class="site-header">
+            <span class="logo">EXAMPLE CO</span>
+        </header>
         <div class="content">
+            <h2>Senior Developer</h2>
             <form
                 id="application-form"
                 method="POST"
                 action="/example-company/0000/apply"
                 enctype="multipart/form-data"
             >
+                <h4>Submit your application</h4>
                 <ul>
                     <li class="application-question resume">
                         <label
-                            ><div class="application-label">
-                                Resume/CV <span class="required">✱</span>
-                            </div>
+                            ><div class="application-label">Resume/CV</div>
                             <div class="application-field">
+                                <span class="file-btn">ATTACH RESUME/CV</span>
+                                <span id="resume-name"></span>
+                                <span id="resume-msg"></span>
                                 <input
                                     type="file"
                                     name="resume"
                                     id="resume-upload-input"
-                                    required
                                 /></div
                         ></label>
                     </li>
@@ -42,6 +151,97 @@
                     </li>
                     <li class="application-question">
                         <label
+                            ><div class="application-label">Pronouns</div>
+                            <div class="application-field">
+                                <label class="pronoun"
+                                    ><input
+                                        type="checkbox"
+                                        name="pronouns"
+                                        value="He/him"
+                                    />
+                                    He/him</label
+                                >
+                                <label class="pronoun"
+                                    ><input
+                                        type="checkbox"
+                                        name="pronouns"
+                                        value="She/her"
+                                    />
+                                    She/her</label
+                                >
+                                <label class="pronoun"
+                                    ><input
+                                        type="checkbox"
+                                        name="pronouns"
+                                        value="They/them"
+                                    />
+                                    They/them</label
+                                >
+                                <label class="pronoun"
+                                    ><input
+                                        type="checkbox"
+                                        name="pronouns"
+                                        value="Xe/xem"
+                                    />
+                                    Xe/xem</label
+                                >
+                                <label class="pronoun"
+                                    ><input
+                                        type="checkbox"
+                                        name="pronouns"
+                                        value="Ze/hir"
+                                    />
+                                    Ze/hir</label
+                                >
+                                <label class="pronoun"
+                                    ><input
+                                        type="checkbox"
+                                        name="pronouns"
+                                        value="Ey/em"
+                                    />
+                                    Ey/em</label
+                                >
+                                <label class="pronoun"
+                                    ><input
+                                        type="checkbox"
+                                        name="pronouns"
+                                        value="Hir/hir"
+                                    />
+                                    Hir/hir</label
+                                >
+                                <label class="pronoun"
+                                    ><input
+                                        type="checkbox"
+                                        name="pronouns"
+                                        value="Fae/faer"
+                                    />
+                                    Fae/faer</label
+                                >
+                                <label class="pronoun"
+                                    ><input
+                                        type="checkbox"
+                                        name="pronouns"
+                                        value="Hu/hu"
+                                    />
+                                    Hu/hu</label
+                                >
+                                <label class="pronoun"
+                                    ><input
+                                        type="checkbox"
+                                        name="pronouns"
+                                        value="Use name only"
+                                    />
+                                    Use name only</label
+                                >
+                                <label class="pronoun"
+                                    ><input type="checkbox" value="Custom" />
+                                    Custom</label
+                                >
+                            </div></label
+                        >
+                    </li>
+                    <li class="application-question">
+                        <label
                             ><div class="application-label">
                                 Email <span class="required">✱</span>
                             </div>
@@ -51,9 +251,11 @@
                     </li>
                     <li class="application-question">
                         <label
-                            ><div class="application-label">Phone</div>
+                            ><div class="application-label">
+                                Phone <span class="required">✱</span>
+                            </div>
                             <div class="application-field">
-                                <input type="text" name="phone" /></div
+                                <input type="text" name="phone" required /></div
                         ></label>
                     </li>
                     <li class="application-question">
@@ -68,10 +270,10 @@
                     <li class="application-question">
                         <label
                             ><div class="application-label">
-                                Current company
+                                Current company <span class="required">✱</span>
                             </div>
                             <div class="application-field">
-                                <input type="text" name="org" /></div
+                                <input type="text" name="org" required /></div
                         ></label>
                     </li>
                 </ul>
@@ -86,26 +288,31 @@
                     </li>
                     <li class="application-question">
                         <label
-                            ><div class="application-label">GitHub URL</div>
+                            ><div class="application-label">Github URL</div>
                             <div class="application-field">
-                                <input type="text" name="urls[GitHub]" /></div
+                                <input type="text" name="urls[Github]" /></div
                         ></label>
                     </li>
                     <li class="application-question">
                         <label
-                            ><div class="application-label">Portfolio URL</div>
+                            ><div class="application-label">
+                                Other Website URL
+                            </div>
                             <div class="application-field">
                                 <input
                                     type="text"
-                                    name="urls[Portfolio]"
+                                    name="urls[Other Website]"
                                 /></div
                         ></label>
                     </li>
                     <li class="application-question">
                         <label
-                            ><div class="application-label">Other website</div>
+                            ><div class="application-label">Video Link URL</div>
                             <div class="application-field">
-                                <input type="text" name="urls[Other]" /></div
+                                <input
+                                    type="text"
+                                    name="urls[Video Link ]"
+                                /></div
                         ></label>
                     </li>
                 </ul>
@@ -174,25 +381,537 @@
                         ></label>
                     </li>
                 </ul>
-                <h4>Voluntary self-identification</h4>
-                <ul>
-                    <li class="application-question">
-                        <label
-                            ><div class="application-label">Gender</div>
-                            <div class="application-field">
-                                <select name="eeo[gender]">
-                                    <option value="">Select...</option>
-                                    <option>Female</option>
-                                    <option>Male</option>
-                                    <option>Decline to self-identify</option>
-                                </select>
-                            </div></label
-                        >
-                    </li>
-                </ul>
+                <div class="eeo">
+                    <h4>U.S. Equal Employment Opportunity Information</h4>
+                    <p>
+                        Lever Demo provides equal employment opportunities to
+                        applicants and employees without regard to race, color,
+                        religion, sex, sexual orientation, gender identity,
+                        national origin, age, disability, protected veteran
+                        status, or genetic information. Lever Demo provides
+                        equal employment opportunities to applicants and
+                        employees without regard to race, color, religion, sex,
+                        sexual orientation, gender identity, national origin,
+                        age, disability, protected veteran status, or genetic
+                        information. Lever Demo provides equal employment
+                        opportunities to applicants and employees without regard
+                        to race, color, religion, sex, sexual orientation,
+                        gender identity, national origin, age, disability,
+                        protected veteran status, or genetic information.
+                    </p>
+                    <ul>
+                        <li class="application-question">
+                            <label
+                                ><div class="application-label">Gender</div>
+                                <div class="application-field">
+                                    <select name="eeo[gender]">
+                                        <option value="">Select...</option>
+                                        <option>Male</option>
+                                        <option>Female</option>
+                                        <option>
+                                            Decline to self-identify
+                                        </option>
+                                    </select>
+                                </div></label
+                            >
+                        </li>
+                        <li class="application-question">
+                            <label
+                                ><div class="application-label">Race</div>
+                                <div class="application-field">
+                                    <ul>
+                                        <li>
+                                            <label
+                                                ><input
+                                                    type="radio"
+                                                    name="eeo[race]"
+                                                    value="Hispanic or Latino"
+                                                /><span
+                                                    class="application-answer-alternative"
+                                                    >Hispanic or Latino<span
+                                                        class="application-answer-description"
+                                                        >A person of Cuban,
+                                                        Mexican, Puerto Rican,
+                                                        South or Central
+                                                        American, or other
+                                                        Spanish culture or
+                                                        origin regardless of
+                                                        race.</span
+                                                    ></span
+                                                ></label
+                                            >
+                                        </li>
+                                        <li>
+                                            <label
+                                                ><input
+                                                    type="radio"
+                                                    name="eeo[race]"
+                                                    value="White (Not Hispanic or Latino)"
+                                                /><span
+                                                    class="application-answer-alternative"
+                                                    >White (Not Hispanic or
+                                                    Latino)<span
+                                                        class="application-answer-description"
+                                                        >A person having origins
+                                                        in any of the original
+                                                        peoples of Europe, the
+                                                        Middle East, or North
+                                                        Africa.</span
+                                                    ></span
+                                                ></label
+                                            >
+                                        </li>
+                                        <li>
+                                            <label
+                                                ><input
+                                                    type="radio"
+                                                    name="eeo[race]"
+                                                    value="Black or African American (Not Hispanic or Latino)"
+                                                /><span
+                                                    class="application-answer-alternative"
+                                                    >Black or African American
+                                                    (Not Hispanic or
+                                                    Latino)<span
+                                                        class="application-answer-description"
+                                                        >A person having origins
+                                                        in any of the black
+                                                        racial groups of
+                                                        Africa.</span
+                                                    ></span
+                                                ></label
+                                            >
+                                        </li>
+                                        <li>
+                                            <label
+                                                ><input
+                                                    type="radio"
+                                                    name="eeo[race]"
+                                                    value="Native Hawaiian or Other Pacific Islander (Not Hispanic or Latino)"
+                                                /><span
+                                                    class="application-answer-alternative"
+                                                    >Native Hawaiian or Other
+                                                    Pacific Islander (Not
+                                                    Hispanic or Latino)<span
+                                                        class="application-answer-description"
+                                                        >A person having origins
+                                                        in any of the peoples of
+                                                        Hawaii, Guam, Samoa, or
+                                                        other Pacific
+                                                        Islands.</span
+                                                    ></span
+                                                ></label
+                                            >
+                                        </li>
+                                        <li>
+                                            <label
+                                                ><input
+                                                    type="radio"
+                                                    name="eeo[race]"
+                                                    value="Asian (Not Hispanic or Latino)"
+                                                /><span
+                                                    class="application-answer-alternative"
+                                                    >Asian (Not Hispanic or
+                                                    Latino)<span
+                                                        class="application-answer-description"
+                                                        >A person having origins
+                                                        in any of the original
+                                                        peoples of the Far East,
+                                                        Southeast Asia, or the
+                                                        Indian
+                                                        Subcontinent.</span
+                                                    ></span
+                                                ></label
+                                            >
+                                        </li>
+                                        <li>
+                                            <label
+                                                ><input
+                                                    type="radio"
+                                                    name="eeo[race]"
+                                                    value="Two or More Races (Not Hispanic or Latino)"
+                                                /><span
+                                                    class="application-answer-alternative"
+                                                    >Two or More Races (Not
+                                                    Hispanic or Latino)<span
+                                                        class="application-answer-description"
+                                                        >All persons who
+                                                        identify with more than
+                                                        one of the above five
+                                                        races.</span
+                                                    ></span
+                                                ></label
+                                            >
+                                        </li>
+                                        <li>
+                                            <label
+                                                ><input
+                                                    type="radio"
+                                                    name="eeo[race]"
+                                                    value="Decline to self-identify" /><span
+                                                    class="application-answer-alternative"
+                                                    >Decline to
+                                                    self-identify<span
+                                                        class="application-answer-description"
+                                                    ></span></span
+                                            ></label>
+                                        </li>
+                                    </ul></div
+                            ></label>
+                        </li>
+                    </ul>
+                    <h4>Self-identification of veteran status</h4>
+                    <p>
+                        Lever Demo provides equal employment opportunities to
+                        applicants and employees without regard to race, color,
+                        religion, sex, sexual orientation, gender identity,
+                        national origin, age, disability, protected veteran
+                        status, or genetic information. Lever Demo provides
+                        equal employment opportunities to applicants and
+                        employees without regard to race, color, religion, sex,
+                        sexual orientation, gender identity, national origin,
+                        age, disability, protected veteran status, or genetic
+                        information. Lever Demo provides equal employment
+                        opportunities to applicants and employees without regard
+                        to race, color, religion, sex, sexual orientation,
+                        gender identity, national origin, age, disability,
+                        protected veteran status, or genetic information.
+                    </p>
+                    <ul>
+                        <li class="application-question">
+                            <label
+                                ><div class="application-label">
+                                    Veteran status
+                                </div>
+                                <div class="application-field">
+                                    <select name="eeo[veteran]">
+                                        <option value="">Select...</option>
+                                        <option>
+                                            I identify as one or more of the
+                                            classifications of protected veteran
+                                            listed above
+                                        </option>
+                                        <option>
+                                            I am not a protected veteran
+                                        </option>
+                                        <option>
+                                            I decline to self-identify for
+                                            protected veteran status
+                                        </option>
+                                    </select>
+                                </div></label
+                            >
+                        </li>
+                    </ul>
+                    <h4>Voluntary self-identification of disability</h4>
+                    <p>
+                        Lever Demo provides equal employment opportunities to
+                        applicants and employees without regard to race, color,
+                        religion, sex, sexual orientation, gender identity,
+                        national origin, age, disability, protected veteran
+                        status, or genetic information. Lever Demo provides
+                        equal employment opportunities to applicants and
+                        employees without regard to race, color, religion, sex,
+                        sexual orientation, gender identity, national origin,
+                        age, disability, protected veteran status, or genetic
+                        information. Lever Demo provides equal employment
+                        opportunities to applicants and employees without regard
+                        to race, color, religion, sex, sexual orientation,
+                        gender identity, national origin, age, disability,
+                        protected veteran status, or genetic information.
+                    </p>
+                    <ul>
+                        <li class="application-question">
+                            <label
+                                ><div class="application-label">
+                                    Disability status
+                                </div>
+                                <div class="application-field">
+                                    <select name="eeo[disability]">
+                                        <option value="">Select...</option>
+                                        <option>
+                                            Yes, I have a disability, or have
+                                            had one in the past
+                                        </option>
+                                        <option>
+                                            No, I do not have a disability and
+                                            have not had one in the past
+                                        </option>
+                                        <option>I do not want to answer</option>
+                                    </select>
+                                </div></label
+                            >
+                        </li>
+                    </ul>
+                    <h4>Demographic survey</h4>
+                    <ul>
+                        <li class="application-question">
+                            <label
+                                ><div class="application-label">
+                                    What is your age range?
+                                </div>
+                                <div class="application-field">
+                                    <ul>
+                                        <li>
+                                            <label
+                                                ><input
+                                                    type="radio"
+                                                    name="surveysResponses[s1][responses][field0]"
+                                                    value="17 or younger"
+                                                /><span
+                                                    class="application-answer-alternative"
+                                                    >17 or younger</span
+                                                ></label
+                                            >
+                                        </li>
+                                        <li>
+                                            <label
+                                                ><input
+                                                    type="radio"
+                                                    name="surveysResponses[s1][responses][field0]"
+                                                    value="18-20"
+                                                /><span
+                                                    class="application-answer-alternative"
+                                                    >18-20</span
+                                                ></label
+                                            >
+                                        </li>
+                                        <li>
+                                            <label
+                                                ><input
+                                                    type="radio"
+                                                    name="surveysResponses[s1][responses][field0]"
+                                                    value="21-29"
+                                                /><span
+                                                    class="application-answer-alternative"
+                                                    >21-29</span
+                                                ></label
+                                            >
+                                        </li>
+                                        <li>
+                                            <label
+                                                ><input
+                                                    type="radio"
+                                                    name="surveysResponses[s1][responses][field0]"
+                                                    value="30-39"
+                                                /><span
+                                                    class="application-answer-alternative"
+                                                    >30-39</span
+                                                ></label
+                                            >
+                                        </li>
+                                        <li>
+                                            <label
+                                                ><input
+                                                    type="radio"
+                                                    name="surveysResponses[s1][responses][field0]"
+                                                    value="40-49"
+                                                /><span
+                                                    class="application-answer-alternative"
+                                                    >40-49</span
+                                                ></label
+                                            >
+                                        </li>
+                                        <li>
+                                            <label
+                                                ><input
+                                                    type="radio"
+                                                    name="surveysResponses[s1][responses][field0]"
+                                                    value="50-59"
+                                                /><span
+                                                    class="application-answer-alternative"
+                                                    >50-59</span
+                                                ></label
+                                            >
+                                        </li>
+                                        <li>
+                                            <label
+                                                ><input
+                                                    type="radio"
+                                                    name="surveysResponses[s1][responses][field0]"
+                                                    value="60 or older"
+                                                /><span
+                                                    class="application-answer-alternative"
+                                                    >60 or older</span
+                                                ></label
+                                            >
+                                        </li>
+                                    </ul>
+                                </div></label
+                            >
+                        </li>
+                        <li class="application-question">
+                            <label
+                                ><div class="application-label">
+                                    What gender do you identify as?
+                                </div>
+                                <div class="application-field">
+                                    <ul>
+                                        <li>
+                                            <label
+                                                ><input
+                                                    type="radio"
+                                                    name="surveysResponses[s1][responses][field1]"
+                                                    value="Female"
+                                                /><span
+                                                    class="application-answer-alternative"
+                                                    >Female</span
+                                                ></label
+                                            >
+                                        </li>
+                                        <li>
+                                            <label
+                                                ><input
+                                                    type="radio"
+                                                    name="surveysResponses[s1][responses][field1]"
+                                                    value="Male"
+                                                /><span
+                                                    class="application-answer-alternative"
+                                                    >Male</span
+                                                ></label
+                                            >
+                                        </li>
+                                        <li>
+                                            <label
+                                                ><input
+                                                    type="radio"
+                                                    name="surveysResponses[s1][responses][field1]"
+                                                    value="Non-binary"
+                                                /><span
+                                                    class="application-answer-alternative"
+                                                    >Non-binary</span
+                                                ></label
+                                            >
+                                        </li>
+                                    </ul>
+                                </div></label
+                            >
+                        </li>
+                        <li class="application-question">
+                            <label
+                                ><div class="application-label">
+                                    I identify my ethnicity as...
+                                </div>
+                                <div class="application-field">
+                                    <ul>
+                                        <li>
+                                            <label
+                                                ><input
+                                                    type="checkbox"
+                                                    name="surveysResponses[s1][responses][field2]"
+                                                    value="White / Caucasian"
+                                                /><span
+                                                    class="application-answer-alternative"
+                                                    >White / Caucasian</span
+                                                ></label
+                                            >
+                                        </li>
+                                        <li>
+                                            <label
+                                                ><input
+                                                    type="checkbox"
+                                                    name="surveysResponses[s1][responses][field2]"
+                                                    value="Hispanic, Latino, or Spanish origin"
+                                                /><span
+                                                    class="application-answer-alternative"
+                                                    >Hispanic, Latino, or
+                                                    Spanish origin</span
+                                                ></label
+                                            >
+                                        </li>
+                                        <li>
+                                            <label
+                                                ><input
+                                                    type="checkbox"
+                                                    name="surveysResponses[s1][responses][field2]"
+                                                    value="Black or African American"
+                                                /><span
+                                                    class="application-answer-alternative"
+                                                    >Black or African
+                                                    American</span
+                                                ></label
+                                            >
+                                        </li>
+                                        <li>
+                                            <label
+                                                ><input
+                                                    type="checkbox"
+                                                    name="surveysResponses[s1][responses][field2]"
+                                                    value="Asian"
+                                                /><span
+                                                    class="application-answer-alternative"
+                                                    >Asian</span
+                                                ></label
+                                            >
+                                        </li>
+                                        <li>
+                                            <label
+                                                ><input
+                                                    type="checkbox"
+                                                    name="surveysResponses[s1][responses][field2]"
+                                                    value="Native Hawaiian or other Pacific Islander"
+                                                /><span
+                                                    class="application-answer-alternative"
+                                                    >Native Hawaiian or other
+                                                    Pacific Islander</span
+                                                ></label
+                                            >
+                                        </li>
+                                        <li>
+                                            <label
+                                                ><input
+                                                    type="checkbox"
+                                                    name="surveysResponses[s1][responses][field2]"
+                                                    value="Indigenous Peoples, First Nations, Native American, or Alaska Native"
+                                                /><span
+                                                    class="application-answer-alternative"
+                                                    >Indigenous Peoples, First
+                                                    Nations, Native American, or
+                                                    Alaska Native</span
+                                                ></label
+                                            >
+                                        </li>
+                                        <li>
+                                            <label
+                                                ><input
+                                                    type="checkbox"
+                                                    name="surveysResponses[s1][responses][field2]"
+                                                    value="Middle Eastern or North African"
+                                                /><span
+                                                    class="application-answer-alternative"
+                                                    >Middle Eastern or North
+                                                    African</span
+                                                ></label
+                                            >
+                                        </li>
+                                        <li>
+                                            <label
+                                                ><input
+                                                    type="checkbox"
+                                                    name="surveysResponses[s1][responses][field2]"
+                                                    value="Some other race, ethnicity, or origin"
+                                                /><span
+                                                    class="application-answer-alternative"
+                                                    >Some other race, ethnicity,
+                                                    or origin</span
+                                                ></label
+                                            >
+                                        </li>
+                                    </ul>
+                                </div></label
+                            >
+                        </li>
+                    </ul>
+                </div>
+                <!-- Inactive captcha markup, as a page initialising an invisible widget: sized but hidden. -->
+                <div
+                    class="h-captcha"
+                    data-size="invisible"
+                    data-sitekey="synthetic"
+                    style="width: 303px; height: 78px; visibility: hidden"
+                ></div>
                 <div id="hcaptchaResponseInput"></div>
                 <button
-                    type="submit"
+                    type="button"
                     id="btn-submit"
                     class="postings-btn template-btn-submit"
                 >
@@ -200,5 +919,42 @@
                 </button>
             </form>
         </div>
+        <div class="cookie-banner">
+            <span
+                >Privacy Notice: this website uses cookies. By clicking Accept,
+                you agree to the use of cookies.</span
+            ><span
+                ><button type="button">Deny</button>
+                <button type="button">Accept</button></span
+            >
+        </div>
+        <script>
+            // The submit control is a plain button that asks the form to submit via script.
+            document
+                .getElementById('btn-submit')
+                .addEventListener('click', () =>
+                    document.getElementById('application-form').requestSubmit(),
+                );
+            // Resume widget: shows the chosen name, then posts the file to be parsed.
+            const input = document.getElementById('resume-upload-input');
+            input.addEventListener('change', async () => {
+                const file = input.files[0];
+                document.getElementById('resume-name').textContent = file.name;
+                const body = new FormData();
+                body.append('resume', file);
+                try {
+                    const response = await fetch('/parseResume', {
+                        method: 'POST',
+                        body,
+                    });
+                    if (!response.ok) throw new Error('refused');
+                    document.getElementById('resume-msg').textContent =
+                        'Resume parsed';
+                } catch (_) {
+                    document.getElementById('resume-msg').textContent =
+                        "Couldn't auto-read resume";
+                }
+            });
+        </script>
     </body>
 </html>

@@ -67,11 +67,7 @@ describe('submission guard', () => {
         const { page, guard } = await open();
         await attempt(page, 'fetchPost');
         await settle(page);
-        assert.deepEqual(
-            server.mutations,
-            [],
-            'the server must never see the request',
-        );
+        assert.deepEqual(server.mutations, []);
         assert.deepEqual(
             guard.events.map((e) => e.kind),
             ['blocked_mutating_request'],
@@ -294,7 +290,7 @@ describe('Cloudflare bot-detection beacon through the real guard', () => {
         const { page, guard } = await open();
         await attempt(page, 'cloudflare');
         await settle(page);
-        assert.deepEqual(server.mutations, [], 'never reaches the server');
+        assert.deepEqual(server.mutations, []);
         assert.deepEqual(
             guard.events.map((e) => e.kind),
             ['blocked_bot_detection_request'],

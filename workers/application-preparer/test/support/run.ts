@@ -2,6 +2,7 @@ import { mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { leverResumeParseException } from '../../src/adapters/index.ts';
 import type { AtsName, PrepareInput } from '../../src/contracts.ts';
 import {
     prepareApplication,
@@ -51,11 +52,18 @@ export async function runOn(
     const runsDir = await mkdtemp(join(tmpdir(), 'preparer-test-'));
     const input = await syntheticInput(`${server.origin}${path}`, over.input);
     server.mutations.length = 0;
+    // Mirrors production: the Lever adapter grants its (identical) resume-parse exception.
+    // Tests pass options.uploadExceptions to override it (e.g. [] to prove the guard blocks).
+    const uploadExceptions =
+        ats === 'lever'
+            ? [leverResumeParseException(server.origin)]
+            : undefined;
     const result = await prepareApplication(input, {
         headless: true,
         allowLocalFixture: true,
         ats,
         runsDir,
+        ...(uploadExceptions ? { uploadExceptions } : {}),
         ...over.options,
     });
     return { ...result, runsDir };

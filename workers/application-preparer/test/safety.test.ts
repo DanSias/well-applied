@@ -51,7 +51,7 @@ describe('hostile or unexpected pages', () => {
             report.safetyEvents.some((e) => e.kind === 'submit_event_blocked'),
         );
         assert.equal(report.submission.blockedAttempts >= 1, true);
-        assert.deepEqual(server.mutations, []);
+        assert.deepEqual(server.unexpected(), []);
     });
 
     it('a page that POSTs when a field is filled is a safety failure even though every field verified', async () => {
@@ -72,7 +72,7 @@ describe('hostile or unexpected pages', () => {
             report.fields.find((f) => f.name === 'email')?.status,
             'filled_verified',
         );
-        assert.deepEqual(server.mutations, []);
+        assert.deepEqual(server.unexpected(), []);
     });
 
     it('a page that navigates away is a safety failure', async () => {
@@ -211,10 +211,12 @@ describe('fail closed on ambiguity', () => {
                 /visible captcha challenge needs a human/,
             );
             assert.equal(
-                report.blockers.captchaDetails[0]?.role,
+                report.blockers.captchaDetails.find(
+                    (d) => d.verdict === 'challenge',
+                )?.role,
                 'checkbox_widget',
             );
-            assert.deepEqual(server.mutations, []);
+            assert.deepEqual(server.unexpected(), []);
         });
 
         it('a displayed challenge frame is a confirmed blocker', async () => {
@@ -225,7 +227,9 @@ describe('fail closed on ambiguity', () => {
             const { report } = await ready(path);
             assert.equal(report.blockers.captcha, 'challenge_visible');
             assert.equal(
-                report.blockers.captchaDetails[0]?.role,
+                report.blockers.captchaDetails.find(
+                    (d) => d.verdict === 'challenge',
+                )?.role,
                 'challenge_frame',
             );
             assert.equal(report.outcome, 'blocked');
@@ -246,8 +250,13 @@ describe('fail closed on ambiguity', () => {
             assert.doesNotMatch(report.reasons.join(' '), /needs a human/);
         });
 
-        it('no captcha markup is "none"', async () => {
-            const { report } = await ready('/lever-form.html');
+        it('the fixture\'s own hidden hCaptcha-style markup is inactive_markup; with no markup at all it is "none"', async () => {
+            const withMarkup = await ready('/lever-form.html');
+            assert.equal(withMarkup.report.blockers.captcha, 'inactive_markup');
+            const path = variant('/no-captcha.html', (h) =>
+                h.replace(/<div\s+class="h-captcha"[^>]*><\/div>/, ''),
+            );
+            const { report } = await ready(path);
             assert.equal(report.blockers.captcha, 'none');
             assert.deepEqual(report.blockers.captchaDetails, []);
         });
@@ -277,8 +286,8 @@ describe('fail closed on ambiguity', () => {
     it('Next/Continue (multistep) is a blocker; it is never clicked', async () => {
         const path = variant('/multistep.html', (h) =>
             h.replace(
-                /<button\s+type="submit"/,
-                '<button type="button" id="next">Continue</button><button type="submit"',
+                /<button\s+type="button"\s+id="btn-submit"/,
+                '<button type="button" id="next">Continue</button><button type="button" id="btn-submit"',
             ),
         );
         const { report } = await ready(path);
@@ -344,47 +353,157 @@ describe('fail closed on ambiguity', () => {
     });
 });
 
-describe('upload endpoint exceptions', () => {
-    const parsing = (h: string) =>
-        h.replace(
-            '</body>',
-            `<script>document.getElementById('resume-upload-input').addEventListener('change', () => fetch('/parse-resume', { method: 'POST', body: 'x' }))</script></body>`,
+describe('resume-parse exception through the engine (the Lever rule, local origin)', () => {
+    it('the fixture parses on file select; with the Lever exception the run is ready and exactly that POST reached the server', async () => {
+        const r = await ready('/lever-form.html');
+        assert.equal(
+            r.report.outcome,
+            'ready_for_review',
+            JSON.stringify(r.report.reasons),
         );
+        assert.deepEqual(server.mutations, ['POST /parseResume']);
+        assert.deepEqual(
+            r.report.safetyEvents.map((e) => e.kind),
+            ['allowed_exception_used'],
+        );
+        assert.match(
+            r.report.safetyEvents[0]!.detail,
+            /lever-resume-parse: POST .*\/parseResume \[(xhr|fetch), multipart\/form-data/,
+        );
+        assert.equal(r.report.resume.verification, 'content_sha256');
+    });
 
-    it('without an exception, a resume-parse POST is blocked and fails the run', async () => {
-        const path = variant('/parse-resume-form.html', parsing);
-        const { report } = await ready(path);
+    it('without the exception the same request is blocked and fails the run; nothing reaches the server', async () => {
+        const { report } = await ready('/lever-form.html', {
+            uploadExceptions: [],
+        });
         assert.equal(report.outcome, 'safety_failure');
         assert.deepEqual(server.mutations, []);
+        assert.ok(
+            report.safetyEvents.some(
+                (e) =>
+                    e.kind === 'blocked_mutating_request' &&
+                    /\/parseResume \[/.test(e.detail),
+            ),
+        );
         assert.equal(
             report.resume.verified,
             true,
-            'the upload itself still verified; the blocked request is what failed the run',
+            'the upload verified; the blocked request is what failed the run',
         );
     });
 
-    it('a narrow exception lets exactly that request through, records it, and does not fail the run', async () => {
-        const { report } = await ready('/parse-resume-form.html', {
-            uploadExceptions: [
-                {
-                    name: 'fixture-resume-parse',
-                    method: 'POST',
-                    origin: server.origin,
-                    pathPattern: /^\/parse-resume$/,
-                    why: 'fixture form pre-fills from the chosen resume',
-                },
-            ],
-        });
+    it('a parse sent with a JSON body is refused, and the reason names what was seen', async () => {
+        const path = variant('/parse-json.html', (h) =>
+            h.replace(
+                /\{\s*method:\s*'POST',\s*body,?\s*\}/,
+                "{ method: 'POST', body: '{}', headers: { 'content-type': 'application/json' } }",
+            ),
+        );
+        const { report } = await ready(path);
+        assert.equal(report.outcome, 'safety_failure');
+        assert.deepEqual(server.mutations, []);
+        assert.match(
+            report.safetyEvents.map((e) => e.detail).join(' '),
+            /refused: content-type application\/json/,
+        );
+    });
+
+    it('a parse sent to a near-matching path is refused', async () => {
+        for (const [name, from, to] of [
+            ['longer', "'/parseResume'", "'/parseResume/extra'"],
+            ['query', "'/parseResume'", "'/parseResume?x=1'"],
+            ['case', "'/parseResume'", "'/parseresume'"],
+        ] as const) {
+            const path = variant(`/parse-${name}.html`, (h) =>
+                h.replace(from, to),
+            );
+            const { report } = await ready(path);
+            assert.equal(report.outcome, 'safety_failure', name);
+            assert.deepEqual(server.mutations, [], name);
+        }
+    });
+
+    it("a parse the PAGE sends on its own, outside the worker's upload, is refused", async () => {
+        const path = variant('/parse-early.html', (h) =>
+            h.replace(
+                '</body>',
+                `<script>setTimeout(() => { const b = new FormData(); b.append('x', new Blob(['y'])); fetch('/parseResume', { method: 'POST', body: b }).catch(() => {}); }, 100)</script></body>`,
+            ),
+        );
+        const { report } = await ready(path);
+        // The early POST is refused; the worker's own upload-time parse is still allowed once.
+        assert.equal(report.outcome, 'safety_failure');
+        assert.match(
+            report.safetyEvents.map((e) => e.detail).join(' '),
+            /not during a worker-initiated resume attach/,
+        );
+        assert.deepEqual(
+            server.mutations,
+            ['POST /parseResume'],
+            'only the allowed upload-time request arrived',
+        );
+    });
+
+    it('a second parse in the same run is refused (maxUses: 1)', async () => {
+        const path = variant('/parse-twice.html', (h) =>
+            h.replace(
+                "document.getElementById('resume-name').textContent = file.name;",
+                "document.getElementById('resume-name').textContent = file.name; fetch('/parseResume', { method: 'POST', body: (() => { const b = new FormData(); b.append('r', file); return b; })() }).catch(() => {});",
+            ),
+        );
+        const { report } = await ready(path);
+        assert.equal(report.outcome, 'safety_failure');
+        assert.match(
+            report.safetyEvents.map((e) => e.detail).join(' '),
+            /already used 1x/,
+        );
+        assert.deepEqual(server.mutations, ['POST /parseResume']);
+    });
+
+    it('does not authorise submission: the form POST to its apply endpoint stays blocked even with the exception', async () => {
+        const path = variant('/parse-plus-submit.html', (h) =>
+            h.replace(
+                '</body>',
+                `<script>document.getElementById('resume-upload-input').addEventListener('change', () => setTimeout(() => fetch('/example-company/0000/apply', { method: 'POST', body: new FormData(document.getElementById('application-form')) }).catch(() => {}), 50))</script></body>`,
+            ),
+        );
+        const { report } = await ready(path);
+        assert.equal(report.outcome, 'safety_failure');
+        assert.ok(
+            report.safetyEvents.some(
+                (e) =>
+                    e.kind === 'blocked_mutating_request' &&
+                    /example-company\/0000\/apply/.test(e.detail),
+            ),
+        );
+        assert.deepEqual(
+            server.unexpected(),
+            [],
+            'the apply endpoint never received anything',
+        );
+    });
+
+    it('the Cloudflare beacon is recorded as a bot-detection request, stays blocked and does not fail the run', async () => {
+        const path = variant('/cloudflare.html', (h) =>
+            h.replace(
+                '</body>',
+                `<script>setTimeout(() => fetch('/cdn-cgi/challenge-platform/h/b/jsd/oneshot/f8df4d4a0cd6/0.5:123:abc_DEF-9/a5bf64858f23572e', { method: 'POST', body: 'x' }).catch(() => {}), 200)</script></body>`,
+            ),
+        );
+        const { report } = await ready(path);
         assert.equal(
             report.outcome,
             'ready_for_review',
             JSON.stringify(report.reasons),
         );
-        assert.deepEqual(server.mutations, ['POST /parse-resume']);
-        assert.deepEqual(
-            report.safetyEvents.map((e) => e.kind),
-            ['allowed_exception_used'],
+        assert.ok(
+            report.safetyEvents.some(
+                (e) => e.kind === 'blocked_bot_detection_request',
+            ),
+            'preserved in the report',
         );
+        assert.deepEqual(server.unexpected(), [], 'still blocked');
     });
 });
 
@@ -393,7 +512,11 @@ describe('human hold', () => {
         const result = await ready('/lever-form.html', {
             hold: true,
             holdUntil: async (page: import('playwright').Page) => {
-                await page.click('#btn-submit'); // the "human"
+                // The "human" presses Submit. (A fixed cookie banner can intercept a coordinate click, so
+                // press it through the DOM; the guard must catch the resulting submit either way.)
+                await page.evaluate(() =>
+                    document.getElementById('btn-submit')!.click(),
+                );
                 await page.waitForTimeout(500);
             },
         });
@@ -404,7 +527,7 @@ describe('human hold', () => {
             (e) => e.kind === 'submit_event_blocked',
         );
         assert.equal(ev?.phase, 'human_hold');
-        assert.deepEqual(server.mutations, []);
+        assert.deepEqual(server.unexpected(), []);
         const onDisk = JSON.parse(await readFile(result.reportPath, 'utf8'));
         assert.equal(
             onDisk.outcome,
