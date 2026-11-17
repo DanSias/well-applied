@@ -7,6 +7,8 @@ const state = (over: Partial<ControlState> = {}): ControlState => ({
     visibleValue: 'Springfield',
     composite: false,
     signals: [],
+    requiresSelection: false,
+    selectionSignals: [],
     hiddenValues: [],
     ...over,
 });

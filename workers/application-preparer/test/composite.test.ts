@@ -56,47 +56,6 @@ describe('composite and hidden-input location fields', () => {
         assert.equal(f.control?.composite, false);
     });
 
-    it('ARIA combobox with no confirmable committed value is unverified (optional: warns, does not block)', async () => {
-        const path = location(
-            '/loc-combobox.html',
-            `<label>${label('Current location')}<div class="application-field"><input type="text" name="location" role="combobox" aria-autocomplete="list" aria-expanded="false"></div></label>`,
-        );
-        const r = await run(path);
-        const f = field(r, 'location');
-        assert.equal(f.status, 'unverified');
-        assert.equal(
-            f.actual,
-            'Springfield, Exampleland',
-            'the displayed text is what was read',
-        );
-        assert.ok(f.control?.signals.includes('role_combobox'));
-        assert.equal(r.report.summary.unverified, 1);
-        assert.ok(
-            r.report.warnings.some((w) =>
-                /optional field "Current location" is unverified/.test(w),
-            ),
-        );
-        assert.equal(
-            r.report.outcome,
-            'ready_for_review',
-            'optional, so it does not block; the report says so plainly',
-        );
-    });
-
-    it('a REQUIRED composite field that cannot be confirmed makes the run input_required', async () => {
-        const path = location(
-            '/loc-combobox-required.html',
-            `<label>${label('Current location', true)}<div class="application-field"><input type="text" name="location" role="combobox" aria-autocomplete="list" required></div></label>`,
-        );
-        const r = await run(path);
-        assert.equal(field(r, 'location').status, 'unverified');
-        assert.equal(r.report.outcome, 'input_required');
-        assert.match(
-            r.report.reasons.join(' '),
-            /unverified: Current location/,
-        );
-    });
-
     it('visible text plus a related hidden input that stays empty is unverified', async () => {
         const path = location(
             '/loc-hidden-empty.html',
@@ -168,5 +127,214 @@ describe('composite and hidden-input location fields', () => {
         assert.equal(f.status, 'unverified');
         assert.match(f.note!, /not visible/);
         assert.equal(f.control?.visible, false);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Typeaheads that need a suggestion chosen: skipped BEFORE typing.
+// ---------------------------------------------------------------------------
+const PROBE = `<script>document.getElementById('locq').addEventListener('input', () => fetch('/typed-probe').catch(() => {}))</script>`;
+const typed = () => server.hits.includes('/typed-probe');
+const EXPECTED = 'Springfield, Exampleland';
+
+describe('typeahead / combobox controls are not typed into', () => {
+    it('ARIA combobox: skipped before filling, value kept for review, optional so not input_required', async () => {
+        server.hits.length = 0;
+        const path = location(
+            '/ta-combobox.html',
+            `<label>${label('Current location')}<div class="application-field"><input type="text" id="locq" name="location" role="combobox" aria-autocomplete="list" aria-expanded="false"></div></label>`,
+            PROBE,
+        );
+        const r = await run(path);
+        const f = field(r, 'location');
+        assert.equal(f.status, 'manual_action_required');
+        assert.equal(
+            f.expected,
+            EXPECTED,
+            'the intended value stays available for manual review',
+        );
+        assert.equal(
+            f.actual,
+            undefined,
+            'nothing was read back because nothing was typed',
+        );
+        assert.match(f.note!, /suggestion must be selected by a person/);
+        assert.match(f.note!, /role_combobox/);
+        assert.equal(typed(), false, 'no input event ever reached the control');
+        assert.equal(r.report.summary.manualAction, 1);
+        assert.equal(r.report.summary.errors, 0);
+        assert.equal(r.report.summary.unverified, 0);
+        assert.equal(
+            r.report.outcome,
+            'ready_for_review',
+            JSON.stringify(r.report.reasons),
+        );
+        assert.ok(
+            r.report.warnings.some((w) =>
+                /optional field "Current location" needs a person to select a suggestion/.test(
+                    w,
+                ),
+            ),
+        );
+    });
+
+    it('a REQUIRED typeahead prevents ready_for_review', async () => {
+        const path = location(
+            '/ta-combobox-required.html',
+            `<label>${label('Current location', true)}<div class="application-field"><input type="text" id="locq" name="location" role="combobox" aria-autocomplete="list" required></div></label>`,
+        );
+        const r = await run(path);
+        const f = field(r, 'location');
+        assert.equal(f.status, 'manual_action_required');
+        assert.equal(f.expected, EXPECTED);
+        assert.equal(r.report.outcome, 'input_required');
+        assert.match(
+            r.report.reasons.join(' '),
+            /manual_action_required: Current location/,
+        );
+    });
+
+    it('other fields are still filled around a skipped typeahead', async () => {
+        const path = location(
+            '/ta-others.html',
+            `<label>${label('Current location')}<div class="application-field"><input type="text" id="locq" name="location" role="combobox" aria-autocomplete="list"></div></label>`,
+        );
+        const r = await run(path);
+        for (const name of ['name', 'email', 'phone', 'org', 'urls[LinkedIn]'])
+            assert.equal(field(r, name).status, 'filled_verified', name);
+        assert.equal(r.report.resume.verified, true);
+    });
+
+    it('the Lever-shaped pairing (visible text + hidden selected-value input + hidden suggestion dropdown), clearing unselected text on blur, is skipped and left empty', async () => {
+        server.hits.length = 0;
+        const path = location(
+            '/ta-lever-shape.html',
+            `<label>${label('Current location')}<div class="application-field">
+               <input class="location-input" id="locq" type="text" maxlength="100" name="location">
+               <input id="selected-location" type="hidden" name="selectedLocation" value="">
+               <div class="dropdown-container" style="display:none"><div class="dropdown-results"></div><div class="dropdown-no-results">No location found.</div></div>
+             </div></label>`,
+            `${PROBE}<script>document.getElementById('locq').addEventListener('blur', (e) => { if (!document.getElementById('selected-location').value) e.target.value = ''; })</script>`,
+        );
+        const r = await run(path);
+        const f = field(r, 'location');
+        assert.equal(f.status, 'manual_action_required');
+        assert.equal(f.expected, EXPECTED);
+        assert.ok(f.control?.signals.includes('selected_value_input'));
+        assert.ok(
+            f.control?.signals.includes('hidden_input_with_suggestion_list'),
+        );
+        assert.equal(typed(), false);
+        assert.equal(
+            r.report.outcome,
+            'ready_for_review',
+            JSON.stringify(r.report.reasons),
+        );
+    });
+
+    it('a listbox relationship (aria-controls pointing at a listbox) is recognised', async () => {
+        const path = location(
+            '/ta-listbox.html',
+            `<label>${label('Current location')}<div class="application-field"><input type="text" id="locq" name="location" aria-controls="sugg"><ul id="sugg" role="listbox" hidden></ul></div></label>`,
+        );
+        const f = field(await run(path), 'location');
+        assert.equal(f.status, 'manual_action_required');
+        assert.ok(f.control?.signals.includes('listbox_relationship'));
+    });
+
+    it('a hidden selected-value input alone is enough (a lookup that stores the chosen id)', async () => {
+        const path = location(
+            '/ta-selected-only.html',
+            `<label>${label('Current location')}<div class="application-field"><input type="text" id="locq" name="location"><input type="hidden" name="selectedLocation" value=""></div></label>`,
+        );
+        assert.equal(
+            field(await run(path), 'location').status,
+            'manual_action_required',
+        );
+    });
+});
+
+describe('ordinary inputs are never mistaken for typeaheads', () => {
+    const ordinary = async (path: string, markup: string) => {
+        server.hits.length = 0;
+        const p = location(
+            path,
+            `<label>${label('Current location')}<div class="application-field">${markup}</div></label>`,
+        );
+        const f = field(await run(p), 'location');
+        assert.equal(f.status, 'filled_verified', JSON.stringify(f));
+        assert.equal(f.actual, EXPECTED);
+        assert.equal(f.control?.composite, false);
+        return f;
+    };
+
+    it('the base fixture before this change: a plain text input', async () => {
+        await ordinary(
+            '/ord-plain.html',
+            '<input type="text" name="location">',
+        );
+    });
+    it('autocomplete="off" (a browser hint, not a widget)', async () => {
+        await ordinary(
+            '/ord-ac-off.html',
+            '<input type="text" name="location" autocomplete="off">',
+        );
+    });
+    it('autocomplete="address-level2" / "email"-style tokens', async () => {
+        await ordinary(
+            '/ord-ac-token.html',
+            '<input type="text" name="location" autocomplete="address-level2">',
+        );
+    });
+    it('a native datalist (free text works)', async () => {
+        await ordinary(
+            '/ord-datalist.html',
+            '<input type="text" name="location" list="cities"><datalist id="cities"><option value="Springfield"></option></datalist>',
+        );
+    });
+    it('a wrapper whose class merely mentions autocomplete', async () => {
+        await ordinary(
+            '/ord-wrapper-class.html',
+            '<div class="autocomplete-wrapper"><input type="text" name="location"></div>',
+        );
+    });
+    it('aria-expanded alone', async () => {
+        await ordinary(
+            '/ord-aria-expanded.html',
+            '<input type="text" name="location" aria-expanded="false">',
+        );
+    });
+
+    it('an unrelated hidden input (e.g. a confirmation or token field) does not trigger it', async () => {
+        const f = await ordinary(
+            '/ord-unrelated-hidden.html',
+            '<input type="text" name="location"><input type="hidden" name="csrf_token" value="x">',
+        );
+        assert.deepEqual(f.control?.signals, []);
+    });
+
+    it('a related hidden input with no selected-value naming and no suggestion list is not enough to skip (it is typed, then verified)', async () => {
+        const path = location(
+            '/ord-related-hidden-only.html',
+            `<label>${label('Current location')}<div class="application-field"><input type="text" name="location-search"><input type="hidden" name="location" value=""></div></label>`,
+        );
+        const f = field(await run(path), 'location-search');
+        assert.notEqual(f.status, 'manual_action_required');
+        assert.equal(
+            f.status,
+            'unverified',
+            'typed, but the underlying value does not agree',
+        );
+    });
+
+    it('an email field with a hidden confirmation twin is still filled', async () => {
+        const html = base.replace(
+            /(<input\s+type="email"[^>]*name="email"[^>]*>|<input[^>]*name="email"[^>]*>)/,
+            '$1<input type="hidden" name="email_confirmation" value="">',
+        );
+        server.add('/ord-email-twin.html', html);
+        assert.notEqual(html, base);
+        const r = await run('/ord-email-twin.html');
+        assert.equal(field(r, 'email').status, 'filled_verified');
     });
 });

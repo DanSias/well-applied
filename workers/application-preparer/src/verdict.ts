@@ -8,9 +8,18 @@ export interface ControlState {
     visible: boolean;
     /** What the visible control displays (its value). */
     visibleValue: string;
-    /** Generic autocomplete/combobox traits (ARIA, list=, widget-ish class names) and related hidden inputs. */
+    /** Any composite/autocomplete trait, strong or weak (see verify.ts). */
     composite: boolean;
     signals: string[];
+    /**
+     * Strong structural evidence that a suggestion must be explicitly chosen
+     * (ARIA combobox/listbox semantics, a listbox relationship, a hidden
+     * selected-value input, or a related hidden input beside a suggestion
+     * container). Weak traits (autocomplete="off", a native list= datalist,
+     * class names, aria-expanded) never set this: typing into those works.
+     */
+    requiresSelection: boolean;
+    selectionSignals: string[];
     /** Values of hidden inputs that belong to this control (related by name), not unrelated hidden fields. */
     hiddenValues: string[];
 }

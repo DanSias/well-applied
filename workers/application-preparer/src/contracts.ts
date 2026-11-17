@@ -70,7 +70,16 @@ export type Classification = 'known' | 'uncertain' | 'unknown';
  * unverified: a value was entered but what a person sees could not be confirmed
  * (control not visible, or a composite/autocomplete widget whose committed value
  * could not be established). Never reported as filled_verified.
+ * manual_action_required: deliberately NOT filled. The control is a typeahead/
+ * combobox where a suggestion must be chosen, which this worker cannot do (it
+ * has no click). The intended value stays in `expected`; a person completes it.
+
  * error: an attempted fill failed, or read-back did not match.
+ *
+ * The four are distinct: a missing approved answer is unanswered_optional /
+ * unresolved_required; an intentionally skipped interactive control is
+ * manual_action_required; a value written but not confirmed is unverified; an
+ * execution failure or changed value is error.
  */
 export type FieldStatus =
     | 'filled_verified'
@@ -78,6 +87,7 @@ export type FieldStatus =
     | 'unresolved_required'
     | 'unresolved_uncertain'
     | 'unverified'
+    | 'manual_action_required'
     | 'error';
 
 export interface DiscoveredField {
@@ -232,6 +242,7 @@ export interface PrepareReport {
         unresolvedRequired: number;
         unresolvedUncertain: number;
         unverified: number;
+        manualAction: number;
         errors: number;
     };
     resume: {
@@ -248,6 +259,8 @@ export interface PrepareReport {
         text: string;
         type: string;
         role: 'submit' | 'navigation' | 'other';
+        /** Not rendered visible (e.g. a hidden type=submit a page script clicks). Reported, never activated. */
+        hidden: boolean;
     }>;
     blockers: {
         captcha: CaptchaState;

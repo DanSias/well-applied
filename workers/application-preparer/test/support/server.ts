@@ -16,6 +16,8 @@ export interface TestServer {
     origin: string;
     /** Every request that was not a GET/HEAD, e.g. "POST /apply". */
     mutations: string[];
+    /** Every request path seen (any method): lets a test prove an input event never fired. */
+    hits: string[];
     /** Mutations other than the one allowed resume-parse POST. Must be [] in every test. */
     unexpected(): string[];
     /** Serve extra in-memory pages (e.g. a fixture variant) at a path. */
@@ -25,9 +27,11 @@ export interface TestServer {
 
 export async function startServer(): Promise<TestServer> {
     const mutations: string[] = [];
+    const hits: string[] = [];
     const pages = new Map<string, string>();
     const server: Server = createServer(async (req, res) => {
         const url = new URL(req.url ?? '/', 'http://x');
+        hits.push(url.pathname);
         if (req.method !== 'GET' && req.method !== 'HEAD') {
             mutations.push(`${req.method} ${url.pathname}`);
             req.resume();
@@ -70,6 +74,7 @@ export async function startServer(): Promise<TestServer> {
     return {
         origin: `http://127.0.0.1:${address.port}`,
         mutations,
+        hits,
         add: (path, html) => void pages.set(path, html),
         unexpected: () => mutations.filter((m) => m !== 'POST /parseResume'),
         close: () => new Promise<void>((r) => server.close(() => r())),

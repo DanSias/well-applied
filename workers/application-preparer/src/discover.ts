@@ -13,6 +13,7 @@ export interface DiscoveredControl {
     text: string;
     type: string;
     role: 'submit' | 'navigation' | 'other';
+    hidden: boolean;
 }
 
 export interface Discovery {
@@ -277,37 +278,36 @@ export async function discoverForm(page: Page): Promise<Discovery> {
             ...document.querySelectorAll(
                 'button, input[type="submit"], input[type="button"], [role="button"], a.postings-btn',
             ),
-        ]
-            .filter((b) => visible(b))
-            .map((b) => {
-                const el = b as HTMLButtonElement;
-                const text = clean(
-                    b.tagName === 'INPUT'
-                        ? (b as HTMLInputElement).value
-                        : b.textContent,
-                );
-                const declared = (el.getAttribute('type') || '').toLowerCase();
-                const inForm = !!el.closest('form');
-                const type =
-                    declared ||
-                    (b.tagName === 'BUTTON' && inForm ? 'submit' : 'button');
-                const navigation =
-                    /^(next|continue|save (and|&) continue|proceed)\b/i.test(
-                        text,
-                    );
-                const submit =
-                    !navigation &&
-                    (type === 'submit' || /\b(submit|apply)\b/i.test(text));
-                return {
-                    text,
-                    type,
-                    role: (navigation
-                        ? 'navigation'
-                        : submit
-                          ? 'submit'
-                          : 'other') as 'submit' | 'navigation' | 'other',
-                };
-            });
+        ].map((b) => {
+            const el = b as HTMLButtonElement;
+            const text = clean(
+                b.tagName === 'INPUT'
+                    ? (b as HTMLInputElement).value
+                    : b.textContent,
+            );
+            const declared = (el.getAttribute('type') || '').toLowerCase();
+            const inForm = !!el.closest('form');
+            const type =
+                declared ||
+                (b.tagName === 'BUTTON' && inForm ? 'submit' : 'button');
+            const navigation =
+                /^(next|continue|save (and|&) continue|proceed)\b/i.test(text);
+            const submit =
+                !navigation &&
+                (type === 'submit' || /\b(submit|apply)\b/i.test(text));
+            return {
+                text,
+                type,
+                role: (navigation
+                    ? 'navigation'
+                    : submit
+                      ? 'submit'
+                      : 'other') as 'submit' | 'navigation' | 'other',
+                // Reported even when hidden: a hidden type=submit is exactly what a page
+                // script clicks to submit. The worker never activates any control.
+                hidden: !visible(b),
+            };
+        });
 
         // CAPTCHA: three states, never a bare "present". Markup that is
         // hidden, zero-sized, off-screen, aria-hidden or declared invisible

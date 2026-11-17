@@ -113,6 +113,7 @@ export async function prepareApplication(
             unresolvedRequired: 0,
             unresolvedUncertain: 0,
             unverified: 0,
+            manualAction: 0,
             errors: 0,
         },
         resume: {
@@ -237,6 +238,7 @@ export async function prepareApplication(
             input,
             discovery,
             report.resume.fieldId,
+            report.warnings,
         );
         await verifyResume(page, report, resume.sha256, input.resumePdfPath);
 
@@ -250,7 +252,9 @@ export async function prepareApplication(
             captcha: discovery.captcha.state,
             captchaDetails: discovery.captcha.details,
             authentication: discovery.passwordField,
-            multistep: discovery.controls.some((c) => c.role === 'navigation'),
+            multistep: discovery.controls.some(
+                (c) => c.role === 'navigation' && !c.hidden,
+            ),
         };
         if (discovery.captcha.state === 'inactive_markup')
             report.warnings.push(
@@ -310,6 +314,7 @@ async function processFields(
     input: PrepareInput,
     discovery: Discovery,
     resumeFieldId: string | null,
+    warnings: string[],
 ): Promise<FieldResult[]> {
     const results: FieldResult[] = [];
     for (const field of discovery.fields) {
@@ -346,6 +351,21 @@ async function processFields(
                 (field.kind === 'text' || field.kind === 'textarea') &&
                 c.value !== undefined
             ) {
+                // Before typing anything: is this a typeahead/combobox that needs a suggestion
+                // chosen? The worker has no click, and unselected text is discarded by such
+                // widgets, so it is left alone and handed to a person with the value intact.
+                const pre = await readControlState(page, field.id);
+                if (pre.requiresSelection) {
+                    result.status = 'manual_action_required';
+                    result.expected = c.value;
+                    result.note = `typeahead/combobox: a suggestion must be selected by a person, so the value was not typed (${pre.selectionSignals.join(', ')})`;
+                    result.control = controlEvidence(c.value, pre);
+                    if (!required)
+                        warnings.push(
+                            `optional field "${field.label ?? field.name ?? field.id}" needs a person to select a suggestion; it was not typed`,
+                        );
+                    continue;
+                }
                 await fillText(page, field.id, c.value);
                 // The evidence is the user-visible control, never a hidden input alone.
                 const state = await readControlState(page, field.id);
@@ -542,6 +562,8 @@ export function decide(report: PrepareReport): {
             f.status === 'unresolved_uncertain' ||
             // A required value we could not confirm a person would see is not done.
             (f.status === 'unverified' && f.required === true) ||
+            // A required typeahead only a person can complete is not done either.
+            (f.status === 'manual_action_required' && f.required === true) ||
             f.status === 'error',
     );
     if (input.length > 0) {
@@ -581,6 +603,9 @@ function syncSafety(report: PrepareReport, guard: SubmissionGuard): void {
     ).length;
     s.unverified = report.fields.filter(
         (f) => f.status === 'unverified',
+    ).length;
+    s.manualAction = report.fields.filter(
+        (f) => f.status === 'manual_action_required',
     ).length;
     s.errors = report.fields.filter((f) => f.status === 'error').length;
 }
