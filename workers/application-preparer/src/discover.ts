@@ -185,6 +185,33 @@ export async function discoverForm(page: Page): Promise<Discovery> {
         const radioGroups = new Map<string, DiscoveredField>();
         let position = 0;
 
+        // Checkbox grouping: a shared non-empty name, else a common fieldset / role=group.
+        // Never guessed from option text.
+        const checkboxNames = new Map<string, number>();
+        for (const cb of document.querySelectorAll(
+            'input[type="checkbox"][name]',
+        )) {
+            const n = (cb as HTMLInputElement).name;
+            if (n) checkboxNames.set(n, (checkboxNames.get(n) ?? 0) + 1);
+        }
+        const containerIds = new Map<Element, number>();
+        const checkboxGroupKey = (el: HTMLInputElement): string | null => {
+            if (el.name && (checkboxNames.get(el.name) ?? 0) >= 2)
+                return `name:${el.name}`;
+            const cont = el.closest(
+                'fieldset, [role="group"], [role="radiogroup"]',
+            );
+            if (
+                cont &&
+                cont.querySelectorAll('input[type="checkbox"]').length >= 2
+            ) {
+                if (!containerIds.has(cont))
+                    containerIds.set(cont, containerIds.size);
+                return `container:${containerIds.get(cont)}`;
+            }
+            return null;
+        };
+
         // Stable ids: an element that already carries a data-wa-id from an earlier
         // discovery keeps it, so ids never depend on position. New elements get
         // fresh ids from a counter that only grows, so the id of a removed element
@@ -233,6 +260,9 @@ export async function discoverForm(page: Page): Promise<Discovery> {
                     const g = groupLabel(el);
                     field = {
                         id: assignId(el),
+                        group: null,
+                        checked: null,
+                        selected: [],
                         autocomplete: null,
                         key: '',
                         occurrence: 0,
@@ -259,11 +289,23 @@ export async function discoverForm(page: Page): Promise<Discovery> {
                 el.setAttribute('data-wa-id', field.id);
                 el.setAttribute('data-wa-opt', String(field.options!.length));
                 field.options!.push(optionText);
+                if (el.checked) field.selected!.push(optionText);
                 if (el.required) field.required = true;
                 continue;
             }
 
-            const resolved = resolveLabel(el);
+            let resolved = resolveLabel(el);
+            if (resolved.label === null && type !== 'file') {
+                // No label tied to the control: fall back to the question container nearby. This is
+                // weaker evidence and is recorded as such (inferred_proximity), never as a real label.
+                const near = groupLabel(el);
+                if (near.label)
+                    resolved = {
+                        label: near.label,
+                        source: 'inferred_proximity',
+                        marked: near.marked,
+                    };
+            }
             const id = assignId(el);
             let kind: DiscoveredField['kind'] = 'text';
             let options: string[] | null = null;
@@ -281,8 +323,31 @@ export async function discoverForm(page: Page): Promise<Discovery> {
             else if (type === 'checkbox') kind = 'checkbox';
             else if (type === 'file') kind = 'file';
 
+            let group: DiscoveredField['group'] = null;
+            if (type === 'checkbox') {
+                const key = checkboxGroupKey(el);
+                if (key !== null) {
+                    const g = groupLabel(el);
+                    group = {
+                        key,
+                        label: g.label,
+                        labelSource: g.source as DiscoveredField['labelSource'],
+                        marked: g.marked,
+                    };
+                }
+            }
+            const selected =
+                tag === 'select'
+                    ? [...el.selectedOptions]
+                          .filter((o) => o.value !== '')
+                          .map((o) => clean(o.textContent))
+                    : null;
+
             fields.push({
                 id,
+                group,
+                checked: type === 'checkbox' ? el.checked : null,
+                selected,
                 autocomplete:
                     el.getAttribute('autocomplete')?.toLowerCase().trim() ||
                     null,

@@ -27,6 +27,7 @@ import {
 } from './contracts.ts';
 import { discoverForm, type Discovery } from './discover.ts';
 import { locateField, type Located } from './identity.ts';
+import { buildQuestions } from './questions.ts';
 import { captureViewports, createRunDir, writeReport } from './evidence.ts';
 import { stopFilePath, waitForHoldEnd } from './hold.ts';
 import { observeParser } from './parser.ts';
@@ -126,6 +127,17 @@ export async function prepareApplication(
         outcome: 'failed',
         reasons: [],
         fields: [],
+        questions: [],
+        questionSummary: {
+            total: 0,
+            complete: 0,
+            optionalSkipped: 0,
+            needsAnswer: 0,
+            needsPerson: 0,
+            needsCheck: 0,
+            failed: 0,
+            unlabelled: 0,
+        },
         summary: {
             total: 0,
             filledVerified: 0,
@@ -807,21 +819,23 @@ export function decide(report: PrepareReport): {
         );
     if (blocked.length > 0) return { outcome: 'blocked', reasons: blocked };
 
-    const input = report.fields.filter(
-        (f) =>
-            f.status === 'unresolved_required' ||
-            f.status === 'unresolved_uncertain' ||
+    // Reasons are per QUESTION, so a checkbox group is one entry, not one per option.
+    const input = report.questions.filter(
+        (q) =>
+            q.status === 'unresolved_required' ||
+            q.status === 'unresolved_uncertain' ||
             // A required value we could not confirm a person would see is not done.
-            (f.status === 'unverified' && f.required === true) ||
+            (q.status === 'unverified' && q.required === true) ||
             // A required typeahead only a person can complete is not done either.
-            (f.status === 'manual_action_required' && f.required === true) ||
-            f.status === 'error',
+            (q.status === 'manual_action_required' && q.required === true) ||
+            q.status === 'error',
     );
     if (input.length > 0) {
         return {
             outcome: 'input_required',
             reasons: input.map(
-                (f) => `${f.status}: ${f.label ?? f.name ?? f.id}`,
+                (q) =>
+                    `${q.status}: ${q.label ?? `(no label found: ${q.name ?? q.id})`}`,
             ),
         };
     }
@@ -838,6 +852,9 @@ function syncSafety(report: PrepareReport, guard: SubmissionGuard): void {
     report.submission.suspected = guard.events.some(
         (e) => e.kind === 'suspected_submission',
     );
+    const grouped = buildQuestions(report.fields);
+    report.questions = grouped.questions;
+    report.questionSummary = grouped.summary;
     const s = report.summary;
     s.total = report.fields.length;
     s.filledVerified = report.fields.filter(

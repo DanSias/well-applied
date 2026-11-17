@@ -169,11 +169,10 @@ describe('resume parser status', () => {
         assert.equal(report.resume.parser.observable, false);
         assert.equal(report.resume.parser.status, 'not_observable');
         assert.equal(report.resume.parser.requestAllowed, false);
-        assert.equal(
-            report.resume.verified,
-            true,
-            'bytes are still verified by hash',
-        );
+        // The browser held exactly the chosen resume; for an upload-step ATS that alone is not an
+        // attachment (see greenhouse-upload.test.ts), so `verified` is not what this test is about.
+        assert.equal(report.resume.inputHeldChosenResume, true);
+        assert.equal(report.resume.verification, 'input_only');
     });
 });
 

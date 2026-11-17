@@ -15,6 +15,8 @@ export const LabelSource = {
     DomAriaLabel: 'dom_aria_label',
     DomAriaLabelledby: 'dom_aria_labelledby',
     DomPlaceholder: 'dom_placeholder',
+    /** The label came from the question container near the control, not from a label tied to it. Weaker evidence. */
+    InferredProximity: 'inferred_proximity',
     Unresolved: 'unresolved',
 } as const;
 export type LabelSource = (typeof LabelSource)[keyof typeof LabelSource];
@@ -121,6 +123,21 @@ export interface DiscoveredField {
     options: string[] | null;
     /** true for demographic/EEO style questions: never auto-filled, values never recorded. */
     sensitive: boolean;
+    /**
+     * For a checkbox that belongs to a group (shared name, or a common fieldset / role=group): the group's
+     * identity and the question label the page provides for it. `label` is null when the page gives
+     * insufficient evidence; it is never invented from an option's text.
+     */
+    group: {
+        key: string;
+        label: string | null;
+        labelSource: LabelSource;
+        marked: boolean;
+    } | null;
+    /** A checkbox's own checked state at discovery (null for other controls). */
+    checked: boolean | null;
+    /** The option labels already selected at discovery for radio groups and selects (null otherwise). */
+    selected: string[] | null;
 }
 
 export interface FieldResult extends DiscoveredField {
@@ -208,6 +225,76 @@ export interface CaptchaDetail {
     height: number;
     signals: string[];
     verdict: 'inactive' | 'challenge' | 'uncertain';
+}
+
+export type QuestionKind =
+    | 'text'
+    | 'textarea'
+    | 'select'
+    | 'radio'
+    | 'checkbox'
+    | 'checkbox_group'
+    | 'file';
+
+/** How a question's label was found: from structure the page provides, or not at all. */
+export type LabelConfidence = 'structural' | 'inferred' | 'unresolved';
+
+export type AnswerProvenance =
+    | { source: 'applicant_fact'; key: ApplicantKey }
+    | { source: 'approved_answer' }
+    | { source: 'chosen_resume' }
+    | { source: 'none' };
+
+/** What a reviewer should do about a question. */
+export type QuestionReview =
+    | 'complete'
+    | 'optional_skipped'
+    | 'needs_answer'
+    | 'needs_person'
+    | 'needs_check'
+    | 'failed';
+
+/**
+ * One logical question as a person sees it. A checkbox or radio group is ONE question with its
+ * options, however many controls render it; nothing here is invented when the page gave no evidence.
+ */
+export interface QuestionResult {
+    /** The id of the first control; stable (see DiscoveredField.id). */
+    id: string;
+    label: string | null;
+    labelSource: LabelSource;
+    labelConfidence: LabelConfidence;
+    /** The first control's name attribute: the only handle for a question the page left unlabelled. */
+    name: string | null;
+    kind: QuestionKind;
+    required: boolean | null;
+    options: string[] | null;
+    /** Options already selected on the page (never chosen by the worker for groups). */
+    selected: string[];
+    /** Ids of the controls that make up the question. */
+    controls: string[];
+    provenance: AnswerProvenance;
+    status: FieldStatus;
+    review: QuestionReview;
+    sensitive: boolean;
+    /** The intended value, when one was mapped (never for sensitive questions). */
+    expected?: string;
+    note?: string;
+    presence?: FieldResult['presence'];
+}
+
+export interface QuestionSummary {
+    total: number;
+    complete: number;
+    optionalSkipped: number;
+    /** Required, with no approved answer (or an uncertain mapping). */
+    needsAnswer: number;
+    /** A person must act (a typeahead). */
+    needsPerson: number;
+    needsCheck: number;
+    failed: number;
+    /** Questions whose label the page did not provide. */
+    unlabelled: number;
 }
 
 export type ScreenshotPhase = 'before' | 'after_fill' | 'end_of_hold';
@@ -314,6 +401,13 @@ export interface PrepareReport {
     /** Why the outcome is not ready_for_review (empty when it is). */
     reasons: string[];
     fields: FieldResult[];
+    /**
+     * The same form as questions a person would recognise: groups of controls collapsed into one
+     * question, with label, required status, options, selected values, provenance and review status.
+     * `fields` remains the per-control evidence.
+     */
+    questions: QuestionResult[];
+    questionSummary: QuestionSummary;
     summary: {
         total: number;
         filledVerified: number;

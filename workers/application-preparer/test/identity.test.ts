@@ -7,6 +7,9 @@ const field = (
     over: Partial<DiscoveredField> & { id: string },
 ): DiscoveredField => ({
     autocomplete: null,
+    group: null,
+    checked: null,
+    selected: null,
     key: `file|file||${over.id}|attach`,
     occurrence: 0,
     ambiguous: false,

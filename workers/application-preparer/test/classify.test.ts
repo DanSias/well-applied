@@ -20,6 +20,9 @@ const input: PrepareInput = {
 const field = (over: Partial<DiscoveredField>): DiscoveredField => ({
     id: 'f0',
     autocomplete: null,
+    group: null,
+    checked: null,
+    selected: null,
     key: 'k',
     occurrence: 0,
     ambiguous: false,
