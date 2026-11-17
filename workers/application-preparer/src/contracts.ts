@@ -153,8 +153,8 @@ export interface PrepareReport {
         bytes: number;
         fieldId: string | null;
         uploaded: boolean;
-        /** content_sha256 = hash re-computed from the browser's copy; name_size = weaker fallback. */
-        verification: 'content_sha256' | 'name_size' | 'none';
+        /** content_sha256: hash re-computed from the browser's copy. name_size: weaker. page_text: input was emptied but the name is shown; NOT counted as verified. */
+        verification: 'content_sha256' | 'name_size' | 'page_text' | 'none';
         verified: boolean;
         observedFilename: string | null;
     };

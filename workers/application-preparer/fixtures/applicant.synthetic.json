@@ -1,0 +1,17 @@
+{
+    "schemaVersion": 1,
+    "applicationUrl": "https://jobs.lever.co/example-company/00000000-0000-0000-0000-000000000000",
+    "resumePdfPath": "sample-resume.pdf",
+    "applicant": {
+        "first_name": "Alex",
+        "last_name": "Example",
+        "email": "alex.example@example.test",
+        "phone": "+1 555 010 0199",
+        "location": "Springfield, Exampleland",
+        "current_company": "Example Co",
+        "linkedin_url": "https://www.linkedin.com/in/alex-example-test",
+        "github_url": "https://github.com/alex-example-test",
+        "portfolio_url": "https://alex.example.test"
+    },
+    "answers": {}
+}
