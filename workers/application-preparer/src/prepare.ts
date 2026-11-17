@@ -31,6 +31,7 @@ import { buildQuestions } from './questions.ts';
 import { captureViewports, createRunDir, writeReport } from './evidence.ts';
 import { stopFilePath, waitForHoldEnd } from './hold.ts';
 import { observeParser } from './parser.ts';
+import { classifyUpload } from './upload-outcome.ts';
 import {
     chooseRadio,
     fillText,
@@ -54,6 +55,8 @@ import {
     readDisplayedValue,
     readPageSignals,
     readSelectedOption,
+    textOnPage,
+    waitForTextOnPage,
 } from './verify.ts';
 
 export interface PrepareOptions {
@@ -82,6 +85,10 @@ export interface PrepareOptions {
     parserWaitMs?: number;
     /** Bounded wait at the end of a hold if the parser was still unresolved. Default 5000. */
     finishParserWaitMs?: number;
+    /** Bounded wait for the response to the allowed resume-upload request (event-driven, not a delay). Default 15000. */
+    uploadWaitMs?: number;
+    /** Bounded wait for the widget to show the file name once the upload was accepted. Default 5000. */
+    uploadConfirmWaitMs?: number;
 }
 
 const MAX_RESUME_BYTES = 10 * 1024 * 1024;
@@ -144,6 +151,7 @@ export async function prepareApplication(
             unansweredOptional: 0,
             unresolvedRequired: 0,
             unresolvedUncertain: 0,
+            preselectedByPage: 0,
             unverified: 0,
             manualAction: 0,
             errors: 0,
@@ -155,6 +163,15 @@ export async function prepareApplication(
             uploaded: false,
             uploadRequestAllowed: false,
             inputHeldChosenResume: false,
+            upload: {
+                outcome: 'not_applicable',
+                artifactSha256Matches: false,
+                response: null,
+                filenameVisibleBefore: false,
+                filenameVisible: false,
+                refusals: [],
+                detail: 'no resume was attached',
+            },
             verification: 'none',
             verified: false,
             observedFilename: null,
@@ -280,28 +297,54 @@ export async function prepareApplication(
                 tracking: 'same_element',
                 note: 'the same element is still present',
             };
+            const uploadStep = adapter.resumeUpload;
+            const resumeName = basename(input.resumePdfPath);
+            // Was the name already on the page? Then seeing it afterwards would prove nothing.
+            report.resume.upload.filenameVisibleBefore = await textOnPage(
+                page,
+                resumeName,
+            );
             guard.openUploadWindow(); // exceptions marked duringUploadOnly may fire only inside this window
             try {
-                await uploadResumeFile(
-                    page,
-                    resumeField.id,
-                    input.resumePdfPath,
-                );
+                // The bytes handed to the browser are the bytes that were hashed at load: not a path re-read.
+                const handedSha = await uploadResumeFile(page, resumeField.id, {
+                    name: resumeName,
+                    bytes: resume.bytes,
+                });
                 report.resume.uploaded = true;
-                // Right after selection, before any widget can remove the input: does the browser
-                // hold exactly the chosen resume? This is the same File the widget goes on to upload,
-                // and the only content check available when the guard cannot see file bytes.
+                report.resume.upload.artifactSha256Matches =
+                    handedSha === resume.sha256;
+                // Informational: right after selection the input may still hold the file. A widget can
+                // remove it first (Greenhouse does), so this is never required for verification.
                 const held = await observeFileInput(
                     page,
                     resumeField.id,
-                    basename(input.resumePdfPath),
+                    resumeName,
                 ).catch(() => null);
                 report.resume.inputHeldChosenResume =
                     held !== null && held.sha256 === resume.sha256;
             } catch (e) {
                 report.warnings.push(`resume upload failed: ${firstLine(e)}`);
             }
-            await page.waitForTimeout(1_000);
+            if (uploadStep !== undefined && report.resume.uploaded) {
+                // Event-driven and bounded: returns as soon as the request has a response, failed, or
+                // an upload-like request was refused. Then, if accepted, wait for the widget to say so.
+                await guard.awaitUploadSettled(
+                    uploadStep.exceptionName,
+                    options.uploadWaitMs ?? 15_000,
+                );
+                if (
+                    isAccepted(guard.uploadResponse(uploadStep.exceptionName))
+                ) {
+                    await waitForTextOnPage(
+                        page,
+                        resumeName,
+                        options.uploadConfirmWaitMs ?? 5_000,
+                    );
+                }
+            } else {
+                await page.waitForTimeout(1_000);
+            }
             guard.closeUploadWindow();
             // Wait (bounded) for the parser's visible terminal state BEFORE reading the form: a parse
             // can autofill fields, and the later fill/verify must see the settled page. Success is
@@ -362,11 +405,10 @@ export async function prepareApplication(
         await verifyResume(
             page,
             report,
+            guard,
+            adapter.resumeUpload?.exceptionName ?? null,
             resume.sha256,
             input.resumePdfPath,
-            adapter.resumeUpload !== undefined &&
-                guard.exceptionUses(adapter.resumeUpload.exceptionName) > 0,
-            adapter.resumeUpload !== undefined,
         );
 
         // Re-read every filled field after all the others were filled and the page settled:
@@ -492,6 +534,20 @@ async function processFields(
             continue;
         }
         if (c.classification !== 'known') {
+            if (
+                field.selection?.state === 'selected' &&
+                c.classification === 'unknown'
+            ) {
+                // The page's own control already displays a selected value. The worker did not choose
+                // it and does not interpret it (a dialing code is not a country of residence, and
+                // neither is work authorisation); a person should look at it.
+                result.status = 'preselected_by_page';
+                result.actual = c.sensitive
+                    ? undefined
+                    : (field.selection.text ?? undefined);
+                result.note = `the page already shows a selected value${c.sensitive ? '' : ` ("${field.selection.text ?? ''}")`}; it was neither chosen nor interpreted by the worker`;
+                continue;
+            }
             if (c.classification === 'uncertain')
                 result.status = required
                     ? 'unresolved_uncertain'
@@ -713,30 +769,56 @@ async function finalizeHold(
     }
 }
 
+function isAccepted(r: { status: number | null } | null): boolean {
+    return r !== null && r.status !== null && r.status >= 200 && r.status < 300;
+}
+
 async function verifyResume(
     page: Page,
     report: PrepareReport,
+    guard: SubmissionGuard,
+    exceptionName: string | null,
     expectedSha: string,
     path: string,
-    uploadRequestAllowed: boolean,
-    uploadNeedsConfirmation: boolean,
 ): Promise<void> {
     const id = report.resume.fieldId;
     if (id === null) return;
-    report.resume.uploadRequestAllowed = uploadRequestAllowed;
+    // Where attaching is a separate upload step (Greenhouse), a populated input is not an attachment.
+    const uploadStep = exceptionName !== null;
+    const requestAllowed = uploadStep && guard.exceptionUses(exceptionName) > 0;
+    report.resume.uploadRequestAllowed = requestAllowed;
     const expectedName = basename(path);
     const field = report.fields.find((f) => f.id === id);
     const obs = await observeFileInput(page, id, expectedName).catch(
         () => null,
     );
+
+    // The upload as separate facts; only a 2xx response to the authorised request plus the widget
+    // showing the file name counts as accepted. Never a disappearing input, never a delay.
+    const verdict = classifyUpload({
+        applicable: uploadStep,
+        selected: report.resume.uploaded,
+        artifactSha256Matches: report.resume.upload.artifactSha256Matches,
+        response: uploadStep ? guard.uploadResponse(exceptionName) : null,
+        requestAllowed,
+        refusals: uploadStep ? guard.uploadRefusals().length : 0,
+        filenameVisibleBefore: report.resume.upload.filenameVisibleBefore,
+        filenameVisible: obs?.nameInPageText ?? false,
+    });
+    report.resume.upload = {
+        ...report.resume.upload,
+        outcome: verdict.outcome,
+        detail: verdict.detail,
+        response: uploadStep ? guard.uploadResponse(exceptionName) : null,
+        filenameVisible: obs?.nameInPageText ?? false,
+        refusals: uploadStep ? guard.uploadRefusals() : [],
+    };
+    const accepted = verdict.outcome === 'accepted_filename_visible';
+
     if (obs === null || !report.resume.uploaded) {
         report.resume.verification = 'none';
     } else if (obs.sha256 === expectedSha) {
-        // Where attaching is a separate upload step (Greenhouse), a populated input is not an
-        // attachment: the upload request must have been allowed and the page must show the file name.
-        const confirmed =
-            !uploadNeedsConfirmation ||
-            (uploadRequestAllowed && obs.nameInPageText);
+        const confirmed = !uploadStep || accepted;
         report.resume.verification = confirmed
             ? 'content_sha256'
             : 'input_only';
@@ -746,23 +828,15 @@ async function verifyResume(
         obs.name === expectedName &&
         obs.size === report.resume.bytes
     ) {
-        const confirmed =
-            !uploadNeedsConfirmation ||
-            (uploadRequestAllowed && obs.nameInPageText);
+        const confirmed = !uploadStep || accepted;
         report.resume.verification = confirmed ? 'name_size' : 'input_only';
         report.resume.verified = confirmed;
-    } else if (
-        obs.name === null &&
-        uploadRequestAllowed &&
-        report.resume.inputHeldChosenResume &&
-        obs.nameInPageText
-    ) {
-        // The widget took the file and removed its input (Greenhouse). Three independent facts:
-        // the input held exactly the chosen resume when the upload was triggered (SHA-256 of the
-        // browser's own copy), the guard allowed the one validated upload request to the destination
-        // the page's own presign response named, and the page now shows the resume's file name.
-        // The guard cannot see the file's bytes in transit, so this is not a content hash of the upload.
-        report.resume.verification = 'upload_request';
+    } else if (obs.name === null && uploadStep && accepted) {
+        // The widget took the file and removed its input (Greenhouse). Independent facts: the bytes
+        // handed to the browser hashed to the trusted resume, the guard allowed the one validated
+        // request to the destination the page's own presign response named, that request got a 2xx,
+        // and the widget shows a file name that was not there before. Acceptance of the upload only.
+        report.resume.verification = 'upload_accepted';
         report.resume.verified = true;
     } else if (obs.name === null && obs.nameInPageText) {
         report.resume.verification = 'page_text';
@@ -774,7 +848,7 @@ async function verifyResume(
         field.status = report.resume.verified ? 'filled_verified' : 'error';
         if (!report.resume.verified)
             field.note =
-                `${field.presence ? `${field.note ?? ''} ` : ''}resume not verified (${report.resume.verification})`.trim();
+                `${field.presence ? `${field.note ?? ''} ` : ''}resume not verified (${report.resume.verification}; upload: ${verdict.outcome})`.trim();
     }
 }
 
@@ -815,7 +889,7 @@ export function decide(report: PrepareReport): {
         blocked.push('no resume upload field was recognised');
     else if (!report.resume.verified)
         blocked.push(
-            `resume upload could not be verified (${report.resume.verification})`,
+            `resume upload could not be verified (${report.resume.verification}; upload ${report.resume.upload.outcome})`,
         );
     if (blocked.length > 0) return { outcome: 'blocked', reasons: blocked };
 
@@ -868,6 +942,9 @@ function syncSafety(report: PrepareReport, guard: SubmissionGuard): void {
     ).length;
     s.unresolvedUncertain = report.fields.filter(
         (f) => f.status === 'unresolved_uncertain',
+    ).length;
+    s.preselectedByPage = report.fields.filter(
+        (f) => f.status === 'preselected_by_page',
     ).length;
     s.unverified = report.fields.filter(
         (f) => f.status === 'unverified',

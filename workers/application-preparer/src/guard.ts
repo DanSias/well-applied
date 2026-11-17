@@ -23,11 +23,13 @@ import type {
 import {
     SAFETY_FAILURE_KINDS,
     type SafetyEvent,
+    type UploadResponseEvidence,
     type SafetyEventKind,
 } from './contracts.ts';
 import { GUARD_INIT_SCRIPT } from './guard-init.ts';
 import {
     isCloudflareBotDetection,
+    isGreenhouseTelemetry,
     matchException,
     mediaType,
     type LearnRule,
@@ -39,6 +41,12 @@ import { atsForHost } from './url-safety.ts';
 export type { LearnRule, UploadException } from './request-policy.ts';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+/** One request an exception let through, and what became of it. Facts only: no body, no headers but length. */
+interface UploadAttempt extends UploadResponseEvidence {
+    startedAt: number;
+    settled: boolean;
+}
 
 export class SubmissionGuard {
     readonly events: SafetyEvent[] = [];
@@ -54,6 +62,9 @@ export class SubmissionGuard {
     /** Destinations (origin + pathname) named by the page's own authorisation responses. */
     private readonly learned: Record<string, string[]> = {};
     private readonly learning: Promise<void>[] = [];
+    private readonly attempts = new Map<Request, UploadAttempt>();
+    private readonly refusals: string[] = [];
+    private readonly waiters = new Set<() => void>();
 
     constructor(
         startUrl: URL,
@@ -87,12 +98,20 @@ export class SubmissionGuard {
         );
         await context.addInitScript(GUARD_INIT_SCRIPT);
         await context.route('**/*', (route) => this.handle(route));
-        if (this.learnRules.length > 0) {
-            context.on('response', (response) => {
-                const learning = this.learnFrom(response);
-                if (learning) this.learning.push(learning);
-            });
-        }
+        context.on('response', (response) => {
+            this.noteResponse(response);
+            if (this.learnRules.length === 0) return;
+            const learning = this.learnFrom(response);
+            if (learning) this.learning.push(learning);
+        });
+        context.on('requestfailed', (request) => {
+            const attempt = this.attempts.get(request);
+            if (!attempt || attempt.settled) return;
+            attempt.settled = true;
+            attempt.failure = request.failure()?.errorText ?? 'request failed';
+            attempt.durationMs = Date.now() - attempt.startedAt;
+            this.wake();
+        });
         context.on('page', (page) => {
             if (this.mainPage !== null && page !== this.mainPage) {
                 this.record(
@@ -163,6 +182,17 @@ export class SubmissionGuard {
                     'allowed_exception_used',
                     `${e.name}: ${describe(facts)}`,
                 );
+                this.attempts.set(request, {
+                    exception: e.name,
+                    destination: redact(url),
+                    status: null,
+                    statusText: null,
+                    contentLength: null,
+                    failure: null,
+                    durationMs: null,
+                    startedAt: Date.now(),
+                    settled: false,
+                });
                 return void (await route.continue());
             }
             nearMiss ??=
@@ -178,6 +208,34 @@ export class SubmissionGuard {
                 `cloudflare jsd oneshot beacon: ${describe(facts)}`,
             );
             return void (await route.abort('blockedbyclient'));
+        }
+
+        // Still blocked, and reported as noise rather than as a possible submission: the single
+        // analytics beacon observed on live Greenhouse boards. Nothing else on that host qualifies.
+        if (
+            isGreenhouseTelemetry(
+                method,
+                url,
+                facts.resourceType,
+                facts.contentType,
+            )
+        ) {
+            this.record(
+                'blocked_telemetry_request',
+                `greenhouse snowplow analytics beacon: ${describe(facts)}`,
+            );
+            return void (await route.abort('blockedbyclient'));
+        }
+
+        // A refused request that looks like an upload, while the worker is attaching the resume,
+        // is reported as such (never loosened): a partial match of an exception, or a multipart body.
+        if (
+            this.uploadWindowOpen &&
+            (nearMiss !== null ||
+                mediaType(facts.contentType) === 'multipart/form-data')
+        ) {
+            this.refusals.push(`${method} ${redact(url)}`);
+            this.wake();
         }
 
         const kind: SafetyEventKind = this.isAtsFamily(url.hostname)
@@ -242,6 +300,70 @@ export class SubmissionGuard {
 
     closeUploadWindow(): void {
         this.uploadWindowOpen = false;
+    }
+
+    private noteResponse(response: Response): void {
+        const attempt = this.attempts.get(response.request());
+        if (!attempt || attempt.settled) return;
+        attempt.settled = true;
+        attempt.status = response.status();
+        attempt.statusText = response.statusText() || null;
+        const length = Number(response.headers()['content-length']);
+        attempt.contentLength = Number.isFinite(length) ? length : null;
+        attempt.durationMs = Date.now() - attempt.startedAt;
+        this.wake();
+    }
+
+    private wake(): void {
+        for (const w of [...this.waiters]) w();
+    }
+
+    /** What the allowed upload request(s) of the named exception got back so far. */
+    uploadResponse(name: string): UploadResponseEvidence | null {
+        const mine = [...this.attempts.values()].filter(
+            (a) => a.exception === name,
+        );
+        const a = mine[mine.length - 1];
+        if (!a) return null;
+        return {
+            exception: a.exception,
+            destination: a.destination,
+            status: a.status,
+            statusText: a.statusText,
+            contentLength: a.contentLength,
+            failure: a.failure,
+            durationMs: a.durationMs,
+        };
+    }
+
+    /** Upload-like requests refused since the window opened (method, origin and path only). */
+    uploadRefusals(): string[] {
+        return [...this.refusals];
+    }
+
+    /**
+     * Resolves as soon as the named exception's request has a response or failed, or an upload-like
+     * request was refused, whichever is first; otherwise after `timeoutMs`. Event-driven: no fixed delay.
+     */
+    async awaitUploadSettled(name: string, timeoutMs: number): Promise<void> {
+        const done = () =>
+            this.refusals.length > 0 ||
+            [...this.attempts.values()].some(
+                (a) => a.exception === name && a.settled,
+            );
+        if (done()) return;
+        await new Promise<void>((resolve) => {
+            const finish = () => {
+                clearTimeout(timer);
+                this.waiters.delete(check);
+                resolve();
+            };
+            const check = () => {
+                if (done()) finish();
+            };
+            const timer = setTimeout(finish, timeoutMs);
+            this.waiters.add(check);
+        });
     }
 
     /** How many times the named exception has let a request through (read-only; used for reporting). */

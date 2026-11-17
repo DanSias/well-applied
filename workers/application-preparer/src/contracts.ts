@@ -90,6 +90,11 @@ export type FieldStatus =
     | 'unresolved_uncertain'
     | 'unverified'
     | 'manual_action_required'
+    /**
+     * The page itself already shows a selected value in this control (a default or an earlier choice).
+     * The worker did not choose it and does not interpret it; a person should look at it.
+     */
+    | 'preselected_by_page'
     | 'error';
 
 export interface DiscoveredField {
@@ -138,6 +143,12 @@ export interface DiscoveredField {
     checked: boolean | null;
     /** The option labels already selected at discovery for radio groups and selects (null otherwise). */
     selected: string[] | null;
+    /** What a combobox-style control displays: a real selected value, its placeholder, or nothing. */
+    selection?: {
+        state: 'selected' | 'placeholder' | 'none';
+        text: string | null;
+        hiddenValue: boolean;
+    } | null;
 }
 
 export interface FieldResult extends DiscoveredField {
@@ -161,10 +172,58 @@ export interface FieldResult extends DiscoveredField {
     };
 }
 
+/**
+ * What is known about the resume upload, in order of strength. Each state names the weakest fact it rests on.
+ *  not_applicable: this ATS has no separate upload step (the file is simply attached to the form).
+ *  selection_failed: the file could not be handed to the page, or what was handed did not hash to the trusted resume.
+ *  no_upload_request: selected, but the page never sent an upload request within the bounded wait.
+ *  unauthorized_request: an upload-like request was refused by the guard (wrong destination, shape or count).
+ *  failed: the allowed upload request got a non-2xx response or failed at the network.
+ *  unknown: the allowed request was sent but no response arrived within the bounded wait.
+ *  accepted_confirmation_missing: the server answered 2xx but the widget never showed the file name.
+ *  accepted_filename_visible: the server answered 2xx and the widget shows the file name.
+ */
+export type UploadOutcome =
+    | 'not_applicable'
+    | 'selection_failed'
+    | 'no_upload_request'
+    | 'unauthorized_request'
+    | 'failed'
+    | 'unknown'
+    | 'accepted_confirmation_missing'
+    | 'accepted_filename_visible';
+
+/** Non-sensitive facts about the response to the allowed upload request. Never a body, header values beyond these, or a URL query. */
+export interface UploadResponseEvidence {
+    exception: string;
+    /** Origin + pathname only. */
+    destination: string;
+    status: number | null;
+    statusText: string | null;
+    contentLength: number | null;
+    /** Network-level failure text (e.g. net::ERR_...), when there was no response. */
+    failure: string | null;
+    durationMs: number | null;
+}
+
+export interface UploadEvidence {
+    outcome: UploadOutcome;
+    /** SHA-256 of the exact bytes handed to the browser equals the trusted resume's SHA-256. */
+    artifactSha256Matches: boolean;
+    response: UploadResponseEvidence | null;
+    /** The resume's file name was on the page before the upload (so seeing it afterwards proves nothing). */
+    filenameVisibleBefore: boolean;
+    filenameVisible: boolean;
+    /** Refusals of upload-like requests during the upload window (method, origin, path only). */
+    refusals: string[];
+    detail: string;
+}
+
 export type SafetyEventKind =
     | 'blocked_mutating_request'
     | 'blocked_third_party_request'
     | 'blocked_bot_detection_request'
+    | 'blocked_telemetry_request'
     | 'submit_event_blocked'
     | 'unexpected_navigation'
     | 'suspected_submission'
@@ -180,9 +239,10 @@ export interface SafetyEvent {
 /**
  * Failures: every kind except allowed_exception_used (a tested, named
  * exception), blocked_third_party_request (a non-ATS host such as an
- * analytics beacon) and blocked_bot_detection_request (one specific
- * Cloudflare beacon). The last two are still blocked, but are routine page
- * noise, not submission signals.
+ * analytics beacon), blocked_bot_detection_request (one specific
+ * Cloudflare beacon) and blocked_telemetry_request (one specific Greenhouse
+ * Snowplow analytics POST). The last three are still blocked, but are routine
+ * page noise, not submission signals.
  */
 export const SAFETY_FAILURE_KINDS: ReadonlySet<SafetyEventKind> = new Set([
     'blocked_mutating_request',
@@ -414,6 +474,8 @@ export interface PrepareReport {
         unansweredOptional: number;
         unresolvedRequired: number;
         unresolvedUncertain: number;
+        /** The page already showed a selected value the worker neither chose nor interpreted. */
+        preselectedByPage: number;
         unverified: number;
         manualAction: number;
         errors: number;
@@ -425,14 +487,20 @@ export interface PrepareReport {
         uploaded: boolean;
         /** The guard let the adapter's resume-upload request through (structure, destination, window and count validated). */
         uploadRequestAllowed: boolean;
-        /** Right after selection, the browser's own copy of the file in the input hashed equal to the chosen resume. */
+        /**
+         * Informational only. Right after selection, the browser's own copy of the file in the input hashed equal to
+         * the chosen resume. A widget may remove its input first, so false does NOT mean the upload was wrong; the
+         * independent evidence is `upload.artifactSha256Matches`.
+         */
         inputHeldChosenResume: boolean;
+        /** The upload as a sequence of separate facts: selection, the allowed request, the server's response, the widget. */
+        upload: UploadEvidence;
         /**
          * content_sha256: hash re-computed from the browser's copy of the file input.
-         * upload_request: the widget removed its input after the upload. Verified from three facts: the input held
-         * exactly the chosen resume (SHA-256) when the upload was triggered, the guard allowed the one validated
-         * upload request, and the page shows the resume's file name. Not a content hash of the bytes in transit
-         * (the guard cannot see them).
+         * upload_accepted: the widget removed its input after the upload (Greenhouse). Verified from independent
+         * facts: the bytes handed to the browser hashed to the trusted resume's SHA-256, the guard allowed the one
+         * validated upload request, the server answered it with a 2xx, and the widget shows the file name that was
+         * not on the page before. Acceptance of the upload; never proof that an application was submitted.
          * input_only: the input holds the chosen resume, but for an ATS whose attachment is a separate upload step the
          * upload was not confirmed (no allowed upload request, or the file name never appeared); NOT verified.
          * name_size: weaker. page_text: input emptied, name shown, no validated upload request; NOT verified.
@@ -440,7 +508,7 @@ export interface PrepareReport {
         verification:
             | 'content_sha256'
             | 'name_size'
-            | 'upload_request'
+            | 'upload_accepted'
             | 'input_only'
             | 'page_text'
             | 'none';

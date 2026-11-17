@@ -178,6 +178,127 @@ export async function discoverForm(page: Page): Promise<Discovery> {
             return { label: null, source: 'unresolved', marked: false };
         };
 
+        // What a combobox-style control (react-select and the like) is displaying. A selected value
+        // renders in its own element; an unselected one renders a placeholder instead. Only a
+        // rendered selected value counts, and only for controls that declare combobox semantics.
+        const readSelection = (
+            el: HTMLInputElement,
+        ): NonNullable<DiscoveredField['selection']> | null => {
+            const haspopup = el.getAttribute('aria-haspopup');
+            const combo =
+                el.getAttribute('role') === 'combobox' ||
+                (haspopup !== null && haspopup !== 'false') ||
+                el.hasAttribute('aria-autocomplete');
+            if (!combo) return null;
+            let level: Element | null = el.parentElement;
+            for (let depth = 0; level && depth < 4; depth++) {
+                const single = level.querySelector(
+                    '[class*="single-value" i], [class*="singlevalue" i]',
+                );
+                const placeholder = level.querySelector(
+                    '[class*="placeholder" i]',
+                );
+                if (single || placeholder) {
+                    const hiddenValue = [
+                        ...level.querySelectorAll('input[type="hidden"]'),
+                    ].some((h) => (h as HTMLInputElement).value !== '');
+                    const text = single ? clean(single.textContent) : '';
+                    const looksLikePlaceholder =
+                        /^(select|choose|pick|search|type)\b/i.test(text);
+                    if (
+                        single &&
+                        visible(single) &&
+                        text !== '' &&
+                        !looksLikePlaceholder
+                    )
+                        return {
+                            state: 'selected',
+                            text: text.slice(0, 80),
+                            hiddenValue,
+                        };
+                    return {
+                        state:
+                            placeholder || looksLikePlaceholder
+                                ? 'placeholder'
+                                : 'none',
+                        text: null,
+                        hiddenValue,
+                    };
+                }
+                level = level.parentElement;
+            }
+            return { state: 'none', text: null, hiddenValue: false };
+        };
+
+        // A file control's own label is often only the action on its button ("Attach"). The question
+        // heading lives in the widget's container. Used only when exactly one file input shares that
+        // container and exactly one distinct heading precedes it; otherwise the original label stands.
+        const GENERIC_FILE_LABEL =
+            /^(attach|upload|choose|browse|select|add)( a)?( file| files| document)?s?$|^(drop ?box|google drive|enter manually|attach file)$/i;
+        const fileHeading = (el: Element): Resolved | null => {
+            let a: Element | null = el.parentElement;
+            for (
+                let depth = 0;
+                a && a !== document.body && depth < 4;
+                depth++
+            ) {
+                if (a.tagName === 'FORM') break;
+                if (a.querySelectorAll('input[type="file"]').length !== 1) {
+                    return null; // another upload shares this container: do not guess which heading is whose
+                }
+                const own = (el as HTMLInputElement).id;
+                const found = new Map<string, Resolved>();
+                const add = (raw: string, source: string) => {
+                    const text = stripMarks(raw);
+                    if (
+                        text !== '' &&
+                        text.length <= 80 &&
+                        !GENERIC_FILE_LABEL.test(text)
+                    )
+                        found.set(text.toLowerCase(), {
+                            label: text,
+                            source,
+                            marked: /[✱*]/.test(raw),
+                        });
+                };
+                const by = a.getAttribute('aria-labelledby');
+                if (a.matches('[role="group"], fieldset') && by)
+                    add(
+                        by
+                            .split(/\s+/)
+                            .map((i) =>
+                                clean(document.getElementById(i)?.textContent),
+                            )
+                            .join(' '),
+                        'dom_aria_labelledby',
+                    );
+                if (found.size === 0) {
+                    for (const h of a.querySelectorAll(
+                        'legend, label, [role="heading"], h1, h2, h3, h4, h5, h6, [class*="label" i]',
+                    )) {
+                        if (h.contains(el)) continue;
+                        if (
+                            !(
+                                h.compareDocumentPosition(el) &
+                                Node.DOCUMENT_POSITION_FOLLOWING
+                            )
+                        )
+                            continue;
+                        if (
+                            h.tagName === 'LABEL' &&
+                            (h as HTMLLabelElement).htmlFor === own
+                        )
+                            continue;
+                        add(textWithout(h), 'inferred_proximity');
+                    }
+                }
+                if (found.size === 1) return [...found.values()][0]!;
+                if (found.size > 1) return null;
+                a = a.parentElement;
+            }
+            return null;
+        };
+
         const elements = [
             ...document.querySelectorAll('input, select, textarea'),
         ] as Array<HTMLInputElement & HTMLSelectElement & HTMLTextAreaElement>;
@@ -295,6 +416,14 @@ export async function discoverForm(page: Page): Promise<Discovery> {
             }
 
             let resolved = resolveLabel(el);
+            if (
+                type === 'file' &&
+                (resolved.label === null ||
+                    GENERIC_FILE_LABEL.test(resolved.label))
+            ) {
+                const heading = fileHeading(el);
+                if (heading) resolved = heading;
+            }
             if (resolved.label === null && type !== 'file') {
                 // No label tied to the control: fall back to the question container nearby. This is
                 // weaker evidence and is recorded as such (inferred_proximity), never as a real label.
@@ -368,6 +497,10 @@ export async function discoverForm(page: Page): Promise<Discovery> {
                     resolved.marked,
                 options,
                 sensitive: false,
+                selection:
+                    tag === 'input' && type !== 'file' && type !== 'checkbox'
+                        ? readSelection(el)
+                        : null,
             });
         }
 

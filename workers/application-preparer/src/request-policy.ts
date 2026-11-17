@@ -165,6 +165,33 @@ export function isCloudflareBotDetection(
     );
 }
 
+/**
+ * The one analytics beacon observed on live Greenhouse boards (Figma): a Snowplow tracker POST.
+ * Recognising it only changes how a request that is STILL BLOCKED is reported: as page noise
+ * rather than as a possible submission. It authorises nothing. Every part must match exactly:
+ * HTTPS, this host, this path, POST, a fetch, and a JSON body. Anything else on this host, or
+ * anywhere on greenhouse.io, stays an unexplained mutation and fails closed.
+ */
+export const GREENHOUSE_TELEMETRY_ORIGIN = 'https://c.spl.greenhouse.io';
+export const GREENHOUSE_TELEMETRY_PATH = '/com.snowplowanalytics.snowplow/tp2';
+
+export function isGreenhouseTelemetry(
+    method: string,
+    url: URL,
+    resourceType: string,
+    contentType: string | null,
+): boolean {
+    return (
+        method.toUpperCase() === 'POST' &&
+        url.origin === GREENHOUSE_TELEMETRY_ORIGIN &&
+        url.pathname === GREENHOUSE_TELEMETRY_PATH &&
+        url.username === '' &&
+        url.password === '' &&
+        resourceType === 'fetch' &&
+        mediaType(contentType) === 'application/json'
+    );
+}
+
 // ---------------------------------------------------------------------------
 // Multipart parsing and the Greenhouse resume-upload body check (pure).
 // ---------------------------------------------------------------------------

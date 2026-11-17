@@ -82,7 +82,7 @@ describe('Greenhouse-style form (same engine, different adapter)', () => {
             'sponsorship needs an approved answer',
         );
 
-        assert.equal(report.resume.verification, 'upload_request');
+        assert.equal(report.resume.verification, 'upload_accepted');
         assert.equal(report.resume.verified, true);
         assert.deepEqual(server.unexpected(), []);
     });

@@ -37,6 +37,7 @@ after(async () => {
 const reset = (presign = true) => {
     s3.uploads.length = 0;
     s3.status = 204;
+    s3.delayMs = 0;
     server.presignUrl = presign ? `${s3.origin}/` : null;
 };
 const policy = () => ({
@@ -48,7 +49,12 @@ const run = (
     options: Record<string, unknown> = policy(),
 ) =>
     runOn(server, path, 'greenhouse', {
-        options: { parserWaitMs: 300, ...options },
+        options: {
+            parserWaitMs: 300,
+            uploadWaitMs: 3_000,
+            uploadConfirmWaitMs: 1_000,
+            ...options,
+        },
     });
 const byDomId = (r: Awaited<ReturnType<typeof run>>, id: string) =>
     r.report.fields.find((f) => f.domId === id);
@@ -79,18 +85,16 @@ describe('Greenhouse-style resume upload through the engine', () => {
             /^greenhouse-resume-upload: POST http:\/\/127\.0\.0\.1:\d+\/ \[xhr, multipart\/form-data, \d+B\]$/,
         );
 
-        // The three facts behind the verification, each reported separately.
-        assert.equal(
-            report.resume.inputHeldChosenResume,
-            true,
-            'the browser held exactly the resume when the upload started',
-        );
+        // The independent facts behind the verification, each reported separately.
+        assert.equal(report.resume.upload.artifactSha256Matches, true);
+        assert.equal(report.resume.upload.response?.status, 204);
+        assert.equal(report.resume.upload.outcome, 'accepted_filename_visible');
         assert.equal(
             report.resume.uploadRequestAllowed,
             true,
             'the one validated upload request was allowed',
         );
-        assert.equal(report.resume.verification, 'upload_request');
+        assert.equal(report.resume.verification, 'upload_accepted');
         assert.equal(report.resume.verified, true);
 
         // The widget removed the resume input; the result stays the resume's, and the cover letter is untouched.
@@ -129,8 +133,10 @@ describe('Greenhouse-style resume upload through the engine', () => {
             false,
             'the page never showed the file name',
         );
-        assert.notEqual(report.resume.verification, 'upload_request');
+        assert.notEqual(report.resume.verification, 'upload_accepted');
         assert.equal(report.outcome, 'blocked');
+        assert.equal(report.resume.upload.outcome, 'failed');
+        assert.equal(report.resume.upload.response?.status, 403);
         assert.match(
             report.reasons.join(' '),
             /resume upload could not be verified/,
@@ -143,6 +149,7 @@ describe('Greenhouse-style resume upload through the engine', () => {
         assert.equal(s3.uploads.length, 0);
         assert.equal(report.resume.verified, false);
         assert.equal(report.resume.uploadRequestAllowed, false);
+        assert.equal(report.resume.upload.outcome, 'no_upload_request');
         assert.equal(report.outcome, 'blocked');
     });
 
@@ -178,6 +185,7 @@ describe('Greenhouse-style resume upload through the engine', () => {
             const { report } = await run(path);
             assert.equal(s3.uploads.length, 0);
             assert.equal(report.resume.uploadRequestAllowed, false);
+            assert.equal(report.resume.upload.outcome, 'unauthorized_request');
             assert.equal(report.outcome, 'safety_failure');
         });
 
@@ -210,7 +218,7 @@ describe('Greenhouse-style resume upload through the engine', () => {
             );
             assert.match(
                 report.safetyEvents.map((e) => e.detail).join(' '),
-                /already used 1x/,
+                /already used 1x|not during a worker-initiated resume attach/,
             );
             assert.equal(report.outcome, 'safety_failure');
         });

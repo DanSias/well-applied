@@ -19,12 +19,14 @@ export interface S3Standin {
     uploads: S3Upload[];
     /** Status the bucket answers with (204 like S3, or an error). */
     status: number;
+    /** Hold the answer back this long (ms) to model a response that is slow or never useful. */
+    delayMs: number;
     close(): Promise<void>;
 }
 
 export async function startS3Standin(): Promise<S3Standin> {
     const uploads: S3Upload[] = [];
-    const state = { status: 204 };
+    const state = { status: 204, delayMs: 0 };
     const server: Server = createServer((req, res) => {
         const chunks: Buffer[] = [];
         req.on('data', (c: Buffer) => chunks.push(c));
@@ -48,9 +50,11 @@ export async function startS3Standin(): Promise<S3Standin> {
                     : null,
                 bytes: body.length,
             });
-            res.writeHead(state.status, {
-                'access-control-allow-origin': '*',
-            }).end();
+            setTimeout(() => {
+                res.writeHead(state.status, {
+                    'access-control-allow-origin': '*',
+                }).end();
+            }, state.delayMs);
         });
     });
     await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
@@ -65,6 +69,12 @@ export async function startS3Standin(): Promise<S3Standin> {
         },
         set status(v: number) {
             state.status = v;
+        },
+        get delayMs() {
+            return state.delayMs;
+        },
+        set delayMs(v: number) {
+            state.delayMs = v;
         },
         close: () => new Promise<void>((r) => server.close(() => r())),
     };

@@ -3,6 +3,7 @@
 // and each limited to one element type. There is deliberately no generic
 // click, key press, or submit here; test/no-capability.test.ts enforces
 // that nothing else in src/ gains one.
+import { createHash } from 'node:crypto';
 import type { Page } from 'playwright';
 
 const ID = /^f\d+$/;
@@ -49,12 +50,24 @@ export async function chooseRadio(
         .check({ timeout: STEP_TIMEOUT_MS });
 }
 
+/** The exact bytes handed to the browser, and their hash: never the path, which could change between reads. */
+export interface ResumeArtifact {
+    name: string;
+    bytes: Buffer;
+}
+
 export async function uploadResumeFile(
     page: Page,
     id: string,
-    pdfPath: string,
-): Promise<void> {
-    await page
-        .locator(target(id, 'input[type="file"]'))
-        .setInputFiles(pdfPath, { timeout: STEP_TIMEOUT_MS });
+    file: ResumeArtifact,
+): Promise<string> {
+    await page.locator(target(id, 'input[type="file"]')).setInputFiles(
+        {
+            name: file.name,
+            mimeType: 'application/pdf',
+            buffer: file.bytes,
+        },
+        { timeout: STEP_TIMEOUT_MS },
+    );
+    return createHash('sha256').update(file.bytes).digest('hex');
 }

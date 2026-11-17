@@ -26,6 +26,7 @@ const REVIEW: Record<FieldStatus, QuestionReview> = {
     unresolved_uncertain: 'needs_answer',
     manual_action_required: 'needs_person',
     unverified: 'needs_check',
+    preselected_by_page: 'needs_check',
     error: 'failed',
 };
 

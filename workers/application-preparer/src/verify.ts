@@ -277,6 +277,29 @@ export async function observeFileInput(
     );
 }
 
+/** Is this text (a file name) in the page's visible text right now? */
+export async function textOnPage(page: Page, text: string): Promise<boolean> {
+    return page
+        .evaluate((t) => (document.body?.innerText ?? '').includes(t), text)
+        .catch(() => false);
+}
+
+/** Bounded, event-driven wait (not a fixed delay) for the text to appear; resolves false on timeout. */
+export async function waitForTextOnPage(
+    page: Page,
+    text: string,
+    timeoutMs: number,
+): Promise<boolean> {
+    return page
+        .waitForFunction(
+            (t) => (document.body?.innerText ?? '').includes(t),
+            text,
+            { timeout: timeoutMs },
+        )
+        .then(() => true)
+        .catch(() => false);
+}
+
 const CONFIRMATION =
     /thank you for (applying|your application|submitting)|application (has been )?(submitted|received|sent)|we(?:'ve| have) received your application|successfully (applied|submitted)/i;
 
