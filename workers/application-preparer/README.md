@@ -79,6 +79,30 @@ query strings. Report schema version 2.
   browser autofill token, a native `list=` datalist (free text works), class
   names, `aria-expanded` alone, or a hidden input that merely overlaps the name
   (`email` / `email_confirmation`).
+- **Questions** (`questions[]`, `questionSummary`): the form as a person sees it. A
+  checkbox group (shared name, or one fieldset / `role=group`) is **one** question with
+  its options, however many controls render it, so a 33-language list is one entry, not 33. Each question carries `label` (+ `labelSource`, `labelConfidence`:
+  `structural` | `inferred` | `unresolved`), `required`, `kind`, `options`, `selected`
+  (the page's, or the worker's verified read-back), `provenance` (`applicant_fact` |
+  `approved_answer` | `chosen_resume` | `none`), `status` and a `review` hint
+  (`complete`, `optional_skipped`, `needs_answer`, `needs_person`, `needs_check`,
+  `failed`). When the page gives no question label the label is `null`, never taken from
+  an option; `name` is then the only handle. A label taken from a nearby question
+  container is marked `inferred_proximity`. Checkbox groups are still never selected.
+  Outcome `reasons` are listed per question. `fields[]` stays as per-control evidence.
+- **Field identity**: `id` is per DOM element and never positional (an element keeps its id
+  when others are inserted, removed or reordered; a removed element's id is never reused;
+  a cloned duplicate gets its own). `key` + `occurrence` + `ambiguous` give a logical
+  identity (kind, input type, name, id attribute, normalised label) for re-finding a field
+  a framework re-rendered. The resume is tracked this way across its own upload
+  (`resume.identity.tracking`: `same_element`, `rematched_by_key`, `ambiguous`,
+  `removed`); if its input disappears the result is kept on the resume
+  (`presence: "removed_after_upload"`) and never blamed on another control.
+- **Standard-field matching** uses exact labels, observed `name` attributes, input types
+  and the standardised HTML `autocomplete` purpose tokens (`given-name`, `family-name`,
+  `name`, `email`, `tel`, `tel-national`, `organization`; `off` and the rest are ignored).
+  A short, non-question label that only _resembles_ one is `uncertain`; a question or
+  sentence that merely mentions "Company" or "address" is just unmapped.
 - **Controls** (`controls[]`) include hidden ones (`hidden: true`), such as a
   hidden `type=submit` that a page script clicks. They are reported, never
   activated, and never count as a Next/Continue step.
@@ -112,12 +136,17 @@ query strings. Report schema version 2.
   fields are filled, every one is re-read, which catches widgets that clear a
   value when focus moves on. No selector is ATS-specific.
 - **Captcha** (`blockers.captcha`): `none`; `inactive_markup` (hidden,
-  zero-size, off-screen, aria-hidden or declared invisible: a page
-  initialising a widget; a warning only); `challenge_visible` (a displayed
+  zero-size, off-screen, aria-hidden or declared invisible, or a **passive reCAPTCHA
+  badge**: a page initialising a widget; a warning only); `challenge_visible` (a displayed
   challenge or checkbox: `blocked`); `uncertain` (displayed markup that could
   not be classified: `blocked`, and reported as uncertain, not as a confirmed
-  blocker). `blockers.captchaDetails` records per element the tag, title,
-  host, size and why (no page text). Nothing is clicked, solved or suppressed.
+  blocker). reCAPTCHA frames are judged by their own `src`: an `anchor` with
+  `size=invisible` (or inside `.grecaptcha-badge`) is the passive badge; an `anchor` with
+  `size=normal`/`compact`/absent is the interactive checkbox; a `bframe` is the challenge,
+  and is never excused by sitting in a badge container; a "badge" displayed far larger than
+  a badge, or any unrecognised displayed frame, stays `uncertain`.
+  `blockers.captchaDetails` records per element the tag, title,
+  host, frame path, size parameter, size and why (no page text). Nothing is clicked, solved or suppressed.
 - **Screenshots** (`screenshots[]`): viewport-sized shots at scroll positions
   that overlap by more than the measured sticky/fixed overlays, so content
   behind a header or cookie banner appears unobscured in a neighbouring shot.
@@ -181,9 +210,9 @@ Limits, stated plainly:
 
 ## Network exceptions
 
-Exactly one, granted only by the Lever adapter and only for
-`https://jobs.lever.co` (not the EU host, not `http`, not any other origin;
-Greenhouse inherits nothing):
+Two, each granted only by its own adapter and neither inherited by the other.
+First, Lever's, only for `https://jobs.lever.co` (not the EU host, not `http`, not
+any other origin):
 
 |             |                                                                                                                                                                     |
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -193,6 +222,40 @@ Greenhouse inherits nothing):
 | when        | only while the worker itself is attaching the resume (`openUploadWindow`); at most once per run                                                                     |
 | recorded as | `allowed_exception_used` with the redacted URL and `[resource type, content-type, bytes]`; never the body                                                           |
 | never       | an application submission endpoint, any other POST, or anything outside the above                                                                                   |
+
+### Greenhouse resume upload (`greenhouse-resume-upload`)
+
+Observed in the first Greenhouse run: the widget XHR-POSTs multipart form data to
+`https://grnhse-prod-jben-us-east-1.s3.amazonaws.com/`. Greenhouse's public client code
+shows how the page gets that destination: it `GET`s
+`<page>/uncacheable_attributes/presigned_fields?fields[]=resume…` and the JSON answer names
+the S3 `url` and the signed form fields; the upload is then an XHR `POST` of `utf8`, the
+signed fields, `key`, `authenticity_token`, `Content-Type` and finally `file`. So the
+exception does **not** rest on the hostname:
+
+|               |                                                                                                                                                                                                                                                                                                                                |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| request       | `POST https://grnhse-prod-jben-us-east-1.s3.amazonaws.com/`: exact origin, pathname exactly `/`, no query, from the main frame                                                                                                                                                                                                 |
+| type          | resource type `xhr` only; `Content-Type` `multipart/form-data`; instrumented body at most 32 KB                                                                                                                                                                                                                                |
+| authorised by | the destination (origin + pathname) must equal one the page's **own** presign response named earlier in this run. The guard keeps only that URL; the signed fields are never stored or reported                                                                                                                                |
+| body          | exactly one file part, named `file`, last, carrying the chosen resume's **file name**; every other part's name must be on a short S3-field allowlist (`utf8`, `key`, `policy`, `acl`, `authenticity_token`, `Content-Type`, `x-amz-*`, …), none repeated, none over 4 KB, and `key` present. Reasons name fields, never values |
+| when          | only during the worker's own resume attachment; at most once per run                                                                                                                                                                                                                                                           |
+| who           | granted only when the page origin is `https://job-boards.greenhouse.io` or `https://boards.greenhouse.io`. Not the EU board, not employer-hosted pages, not other ATSs, not a different bucket                                                                                                                                 |
+
+**What it cannot check: the file's bytes.** Chromium's request instrumentation omits the
+bytes of `File` parts, so the guard sees the file part _empty_ and cannot hash the upload.
+(If the bytes are ever visible they must match the resume's SHA-256 exactly.) Content
+identity is established separately: right after selecting the file the worker hashes the
+copy the browser holds in the input, which is the same `File` the widget uploads. A page
+could in principle build a same-named `Blob` with other content and send it to the
+authorised destination inside the one allowed window; that would only deliver data to
+Greenhouse's own upload target, and is a documented residual limitation.
+
+For an ATS whose attaching is a separate upload step, the resume counts as attached
+(`resume.verification: "upload_request"`) only when all three hold: the input held exactly
+the chosen resume at selection, the upload request was allowed, and the file name is
+visible on the page after the widget removes its input. A populated input alone is
+`input_only` and is **not** verified (a failed upload leaves the input populated).
 
 A request that matches method, origin and path but fails another constraint is
 blocked and the reason is recorded (`exception "lever-resume-parse" refused:
@@ -210,6 +273,8 @@ src/request-policy.ts  pure request rules: UploadException matching, Cloudflare 
 src/discover.ts      read-only form discovery (tags controls with data-wa-id)
 src/classify.ts      deterministic field -> applicant-fact mapping
 src/verdict.ts       pure judgement of the user-visible control's value
+src/identity.ts      tracking one logical field across DOM changes
+src/questions.ts     report-layer grouping of controls into questions
 src/hold.ts          how a hold ends: Enter, STOP file, window/browser close
 src/parser.ts        resume-parser status from a visible indicator, bounded wait
 src/fill.ts          the whole write surface
