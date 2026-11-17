@@ -4,7 +4,10 @@
 // ApplicationQuestionLabelSource.php so a later mapping onto
 // ApplicationQuestion needs no translation.
 
+/** Input schema version. */
 export const SCHEMA_VERSION = 1;
+/** Report schema version. 2: screenshots are structured records (was a list of file names). */
+export const REPORT_SCHEMA_VERSION = 2;
 
 export const LabelSource = {
     DomLabelFor: 'dom_label_for',
@@ -170,6 +173,34 @@ export interface CaptchaDetail {
     verdict: 'inactive' | 'challenge' | 'uncertain';
 }
 
+export type ScreenshotPhase = 'before' | 'after_fill' | 'end_of_hold';
+
+/** A sticky/fixed element on screen when a shot was taken (what could obscure content). */
+export interface FixedOverlay {
+    tag: string;
+    id: string | null;
+    className: string | null;
+    position: 'fixed' | 'sticky';
+    /** Viewport-relative top and height in px. */
+    top: number;
+    height: number;
+    anchored: 'top' | 'bottom' | 'floating';
+}
+
+/** One viewport-sized capture: which shot it is and exactly where on the page. */
+export interface ScreenshotRecord {
+    file: string;
+    phase: ScreenshotPhase;
+    /** 1-based position within this phase's sequence, and the sequence length. */
+    index: number;
+    of: number;
+    scrollY: number;
+    viewportWidth: number;
+    viewportHeight: number;
+    documentHeight: number;
+    fixedOverlays: FixedOverlay[];
+}
+
 export type Outcome =
     /** Every required field verified. Optional fields may be unanswered (see summary). */
     | 'ready_for_review'
@@ -183,7 +214,7 @@ export type Outcome =
     | 'failed';
 
 export interface PrepareReport {
-    schemaVersion: 1;
+    schemaVersion: 2;
     runId: string;
     startedAt: string;
     finishedAt: string;
@@ -236,7 +267,7 @@ export interface PrepareReport {
         suspected: boolean;
     };
     safetyEvents: SafetyEvent[];
-    screenshots: string[];
+    screenshots: ScreenshotRecord[];
     warnings: string[];
     diagnostics: { durationMs: number; headless: boolean; held: boolean };
 }

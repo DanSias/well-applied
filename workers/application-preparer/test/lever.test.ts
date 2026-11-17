@@ -126,12 +126,12 @@ describe('Lever-style form', () => {
             '/lever-form.html',
             'lever',
         );
-        assert.deepEqual(report.screenshots, [
-            '01-before.png',
-            '02-after-fill.png',
-        ]);
+        assert.deepEqual(
+            [...new Set(report.screenshots.map((s) => s.phase))],
+            ['before', 'after_fill'],
+        );
         for (const s of report.screenshots)
-            assert.ok(statSync(join(runDir, s)).size > 1000, s);
+            assert.ok(statSync(join(runDir, s.file)).size > 1000, s.file);
         assert.ok(existsSync(reportPath));
         assert.equal(
             statSync(reportPath).mode & 0o077,

@@ -59,7 +59,7 @@ const CONFINED: Array<[RegExp, string[]]> = [
     [/\.check\s*\(/, ['fill.ts']],
     [/\.setInputFiles\s*\(/, ['fill.ts']],
     [/\.goto\s*\(/, ['prepare.ts']],
-    [/\.evaluate\s*\(/, ['discover.ts', 'verify.ts']],
+    [/\.evaluate\s*\(/, ['discover.ts', 'verify.ts', 'evidence.ts']],
     [/\.screenshot\s*\(/, ['evidence.ts']],
     [/\.route\s*\(/, ['guard.ts']],
 ];

@@ -14,15 +14,17 @@ import { chromium, type Browser, type Page } from 'playwright';
 import { classify } from './classify.ts';
 import {
     SAFETY_FAILURE_KINDS,
+    REPORT_SCHEMA_VERSION,
     SCHEMA_VERSION,
     type AtsName,
     type FieldResult,
     type Outcome,
+    type ScreenshotPhase,
     type PrepareInput,
     type PrepareReport,
 } from './contracts.ts';
 import { discoverForm, type Discovery } from './discover.ts';
-import { createRunDir, screenshot, writeReport } from './evidence.ts';
+import { captureViewports, createRunDir, writeReport } from './evidence.ts';
 import {
     chooseRadio,
     fillText,
@@ -94,7 +96,7 @@ export async function prepareApplication(
     const headless = options.headless ?? false;
 
     const report: PrepareReport = {
-        schemaVersion: SCHEMA_VERSION,
+        schemaVersion: REPORT_SCHEMA_VERSION,
         runId,
         startedAt: startedAt.toISOString(),
         finishedAt: startedAt.toISOString(),
@@ -200,7 +202,7 @@ export async function prepareApplication(
             .catch(() => report.warnings.push('networkidle_timeout'));
         await page.waitForTimeout(1_500); // let SPA forms render
 
-        report.screenshots.push(...(await shot(page, runDir, '01-before')));
+        await capture(page, runDir, report, 'before');
 
         let discovery = await discoverForm(page);
         const resumeField =
@@ -272,7 +274,7 @@ export async function prepareApplication(
                 `page path changed from ${formUrl.pathname} to ${new URL(signals.url).pathname}`,
             );
         }
-        report.screenshots.push(...(await shot(page, runDir, '02-after-fill')));
+        await capture(page, runDir, report, 'after_fill');
 
         syncSafety(report, guard);
         const decision = decide(report);
@@ -287,9 +289,7 @@ export async function prepareApplication(
                     `Close the browser window or press Enter here to end.\n\n`,
             );
             await (options.holdUntil ?? defaultHold)(page, browser);
-            report.screenshots.push(
-                ...(await shot(page, runDir, '03-end-of-hold').catch(() => [])),
-            );
+            await capture(page, runDir, report, 'end_of_hold');
             syncSafety(report, guard);
             const final = decide(report);
             return finish(final.outcome, final.reasons);
@@ -596,9 +596,15 @@ async function loadResume(
     return { bytes, sha256: createHash('sha256').update(bytes).digest('hex') };
 }
 
-async function shot(page: Page, dir: string, name: string): Promise<string[]> {
-    const file = await screenshot(page, dir, name);
-    return file ? [file] : [];
+async function capture(
+    page: Page,
+    dir: string,
+    report: PrepareReport,
+    phase: ScreenshotPhase,
+): Promise<void> {
+    const { records, warnings } = await captureViewports(page, dir, phase);
+    report.screenshots.push(...records);
+    report.warnings.push(...warnings);
 }
 
 /** Query strings can carry tokens; reports keep origin + path only. */
