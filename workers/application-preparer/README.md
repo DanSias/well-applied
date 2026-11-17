@@ -51,8 +51,13 @@ Outcomes, in priority order:
 | `ready_for_review` | every required field verified. Optional fields may be unanswered; see `summary.unansweredOptional`                     |
 
 Per field: `filled_verified`, `unanswered_optional`, `unresolved_required`,
-`unresolved_uncertain`, `unverified`, `error`, with `expected`/`actual` (never
-recorded for demographic/EEO fields). Reports keep origin + path only, never
+`unresolved_uncertain`, `unverified`, `manual_action_required`, `error`, with
+`expected`/`actual` (never recorded for demographic/EEO fields). The four
+non-success situations are kept apart: a **missing approved answer**
+(`unanswered_optional` / `unresolved_required`), an **intentionally skipped
+interactive control** (`manual_action_required`), a **value written but not
+confirmed** (`unverified`), and an **execution failure or changed value**
+(`error`). Reports keep origin + path only, never
 query strings. Report schema version 2.
 
 - **`unverified`**: a value was entered but what a _person sees_ could not be
@@ -60,6 +65,23 @@ query strings. Report schema version 2.
   widget whose committed value could not be established. A required
   `unverified` field makes the run `input_required`; an optional one is listed
   in `summary.unverified` and `warnings` and does not block.
+- **`manual_action_required`**: a typeahead/combobox where a suggestion must
+  be chosen. The worker has no click, and such widgets discard text that was
+  not selected, so it does **not type into it**. The intended applicant value
+  stays in `expected`; `note` says a suggestion must be selected by a person;
+  other fields are still filled. A required one makes the run
+  `input_required`; an optional one only adds a warning (and
+  `summary.manualAction`). Detection happens _before_ filling, from structure
+  only: ARIA combobox / `aria-autocomplete=list|both` / `aria-haspopup=listbox`,
+  an `aria-controls`/`aria-owns` pointing at a listbox, a hidden
+  selected-value input (`selected…`, `…id`, `…place`), or a related hidden input
+  beside a suggestion container. **Not** triggers: `autocomplete="off"` or any
+  browser autofill token, a native `list=` datalist (free text works), class
+  names, `aria-expanded` alone, or a hidden input that merely overlaps the name
+  (`email` / `email_confirmation`).
+- **Controls** (`controls[]`) include hidden ones (`hidden: true`), such as a
+  hidden `type=submit` that a page script clicks. They are reported, never
+  activated, and never count as a Next/Continue step.
 - **Verification rule**: the user-visible control is the evidence. A hidden
   input holding the right value never verifies, and never rescues a differing
   display. Composite controls (ARIA combobox/autocomplete/haspopup/controls,
@@ -127,10 +149,13 @@ Limits, stated plainly:
   constraints are the _expected_ shape of a file upload; the first live run
   did not record them. If real Lever differs, the request stays blocked and the
   event records exactly what was seen (`[resource type, content-type, size]`).
-- Fixtures are synthetic approximations of Lever and Greenhouse markup, not
-  captures; real forms will differ (see the supervised test below). The Lever
-  fixture was rebuilt from the first live run's report and screenshots and
-  says, in its header, which parts were observed and which are invented.
+- Fixtures are synthetic, hand-written approximations of Lever and Greenhouse
+  markup, not captures; real forms will differ (see the supervised test below).
+  The Lever fixture mirrors the structure seen in two supervised runs (reports,
+  screenshots and one sanitized DOM snapshot that is deliberately **not**
+  committed) and says, in its header, which parts are observed, which are
+  approximations (e.g. the clear-on-blur script is inferred from the observed
+  empty field) and which are invented (the custom-questions block).
 
 ## Network exceptions
 
