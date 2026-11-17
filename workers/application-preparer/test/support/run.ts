@@ -1,9 +1,16 @@
-import { mkdtemp, readFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { leverResumeParseException } from '../../src/adapters/index.ts';
-import type { AtsName, PrepareInput } from '../../src/contracts.ts';
+import type {
+    AtsName,
+    PrepareInput,
+    PrepareReport,
+} from '../../src/contracts.ts';
 import {
     prepareApplication,
     type PrepareOptions,
@@ -67,4 +74,81 @@ export async function runOn(
         ...over.options,
     });
     return { ...result, runsDir };
+}
+
+/**
+ * Starts a HELD run (default hold, no holdUntil override unless given) and hands back what a
+ * non-interactive supervisor needs: the run directory, a way to wait until preparation has
+ * written its report, and a way to drop the STOP file.
+ */
+export async function startHeld(
+    server: TestServer,
+    path: string,
+    ats: AtsName,
+    over: { input?: Partial<PrepareInput>; options?: PrepareOptions } = {},
+) {
+    const runsDir = await mkdtemp(join(tmpdir(), 'preparer-held-'));
+    const runId = `held-${randomBytes(3).toString('hex')}`;
+    const input = await syntheticInput(`${server.origin}${path}`, {
+        runId,
+        ...over.input,
+    });
+    server.mutations.length = 0;
+    server.hits.length = 0;
+    const uploadExceptions =
+        ats === 'lever'
+            ? [leverResumeParseException(server.origin)]
+            : undefined;
+    const promise = prepareApplication(input, {
+        headless: true,
+        allowLocalFixture: true,
+        ats,
+        runsDir,
+        hold: true,
+        ...(uploadExceptions ? { uploadExceptions } : {}),
+        ...over.options,
+    });
+    const runDir = join(runsDir, runId);
+    const reportPath = join(runDir, 'report.json');
+    return {
+        promise,
+        runDir,
+        runsDir,
+        /** Resolves with the report preparation wrote (the hold has begun or is about to). */
+        async waitForPreparation(): Promise<PrepareReport> {
+            const deadline = Date.now() + 90_000;
+            for (;;) {
+                try {
+                    return JSON.parse(
+                        await readFile(reportPath, 'utf8'),
+                    ) as PrepareReport;
+                } catch {
+                    if (Date.now() > deadline)
+                        throw new Error('preparation did not finish');
+                    await new Promise((r) => setTimeout(r, 100));
+                }
+            }
+        },
+        /** The supervisor's stop signal. */
+        stop: async (content = '') => {
+            // The run directory is created by the worker moments after start; wait for it.
+            for (let i = 0; i < 200 && !existsSync(runDir); i++)
+                await new Promise((r) => setTimeout(r, 50));
+            await writeFile(join(runDir, 'STOP'), content);
+        },
+    };
+}
+
+/** Number of child processes of this test process (Chromium is spawned as one). */
+export function childProcessCount(): number {
+    try {
+        return execFileSync('pgrep', ['-P', String(process.pid)], {
+            encoding: 'utf8',
+        })
+            .trim()
+            .split('\n')
+            .filter(Boolean).length;
+    } catch {
+        return 0; // pgrep exits 1 when there are none
+    }
 }

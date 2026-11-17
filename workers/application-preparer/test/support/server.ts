@@ -20,6 +20,8 @@ export interface TestServer {
     hits: string[];
     /** Milliseconds to delay the /parseResume response (lets a test observe the loading state). */
     parseDelayMs: number;
+    /** HTTP status the /parseResume response uses (default 200). */
+    parseStatus: number;
     /** Mutations other than the one allowed resume-parse POST. Must be [] in every test. */
     unexpected(): string[];
     /** Serve extra in-memory pages (e.g. a fixture variant) at a path. */
@@ -30,7 +32,7 @@ export interface TestServer {
 export async function startServer(): Promise<TestServer> {
     const mutations: string[] = [];
     const hits: string[] = [];
-    const state = { parseDelayMs: 0 };
+    const state = { parseDelayMs: 0, parseStatus: 200 };
     const pages = new Map<string, string>();
     const server: Server = createServer(async (req, res) => {
         const url = new URL(req.url ?? '/', 'http://x');
@@ -41,9 +43,9 @@ export async function startServer(): Promise<TestServer> {
             if (url.pathname === '/parseResume') {
                 if (state.parseDelayMs > 0)
                     await new Promise((r) => setTimeout(r, state.parseDelayMs));
-                res.writeHead(200, { 'content-type': 'application/json' }).end(
-                    '{}',
-                );
+                res.writeHead(state.parseStatus, {
+                    'content-type': 'application/json',
+                }).end('{}');
                 return;
             }
             res.writeHead(200, { 'content-type': 'text/html' }).end(
@@ -85,6 +87,12 @@ export async function startServer(): Promise<TestServer> {
         },
         set parseDelayMs(v: number) {
             state.parseDelayMs = v;
+        },
+        get parseStatus() {
+            return state.parseStatus;
+        },
+        set parseStatus(v: number) {
+            state.parseStatus = v;
         },
         add: (path, html) => void pages.set(path, html),
         unexpected: () => mutations.filter((m) => m !== 'POST /parseResume'),

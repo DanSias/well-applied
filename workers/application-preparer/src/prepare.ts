@@ -18,6 +18,8 @@ import {
     SCHEMA_VERSION,
     type AtsName,
     type FieldResult,
+    type FinalState,
+    type HoldEnd,
     type Outcome,
     type ScreenshotPhase,
     type PrepareInput,
@@ -25,6 +27,8 @@ import {
 } from './contracts.ts';
 import { discoverForm, type Discovery } from './discover.ts';
 import { captureViewports, createRunDir, writeReport } from './evidence.ts';
+import { stopFilePath, waitForHoldEnd } from './hold.ts';
+import { observeParser } from './parser.ts';
 import {
     chooseRadio,
     fillText,
@@ -45,6 +49,7 @@ import {
     observeFileInput,
     readCheckedRadio,
     readControlState,
+    readDisplayedValue,
     readPageSignals,
     readSelectedOption,
 } from './verify.ts';
@@ -59,8 +64,20 @@ export interface PrepareOptions {
     ats?: AtsName;
     /** Test-only override of the adapter's (normally empty) upload exceptions. */
     uploadExceptions?: UploadException[];
-    /** Resolves when a held session should end. Defaults to browser close / Enter. */
-    holdUntil?: (page: Page, browser: Browser) => Promise<void>;
+    /**
+     * Resolves when a held session should end. The default waits for Enter (interactive),
+     * the STOP file in the run directory, or the window/browser closing (see hold.ts).
+     * Returns how it ended, or nothing (recorded as 'callback').
+     */
+    holdUntil?: (
+        page: Page,
+        browser: Browser,
+        ctx: { stopFile: string },
+    ) => Promise<HoldEnd | void>;
+    /** Bounded wait for the resume parser's visible terminal state during preparation. Default 15000. */
+    parserWaitMs?: number;
+    /** Bounded wait at the end of a hold if the parser was still unresolved. Default 5000. */
+    finishParserWaitMs?: number;
 }
 
 const MAX_RESUME_BYTES = 10 * 1024 * 1024;
@@ -124,6 +141,14 @@ export async function prepareApplication(
             verification: 'none',
             verified: false,
             observedFilename: null,
+            parser: {
+                observable: false,
+                requestAllowed: false,
+                status: 'not_attempted',
+                detail: 'no resume was attached',
+                waitedMs: 0,
+                atPreparation: 'not_attempted',
+            },
         },
         controls: [],
         blockers: {
@@ -140,7 +165,8 @@ export async function prepareApplication(
         safetyEvents: [],
         screenshots: [],
         warnings: [],
-        diagnostics: { durationMs: 0, headless, held: false },
+        diagnostics: { durationMs: 0, headless, held: false, hold: null },
+        finalState: null,
     };
     const finish = async (
         outcome: Outcome,
@@ -174,6 +200,7 @@ export async function prepareApplication(
         ]);
     report.ats = ats;
     const adapter = adapterFor(ats);
+    report.resume.parser.observable = adapter.resumeParser !== undefined;
     const formUrl = adapter.formUrl(url);
 
     const guard = new SubmissionGuard(
@@ -229,6 +256,17 @@ export async function prepareApplication(
             }
             await page.waitForTimeout(1_000);
             guard.closeUploadWindow();
+            // Wait (bounded) for the parser's visible terminal state BEFORE reading the form: a parse
+            // can autofill fields, and the later fill/verify must see the settled page. Success is
+            // claimed only from a visible indicator, never from the request or the file hash.
+            await refreshParser(
+                page,
+                report,
+                guard,
+                adapter,
+                options.parserWaitMs ?? 15_000,
+            );
+            report.resume.parser.atPreparation = report.resume.parser.status;
             discovery = await discoverForm(page);
         }
         report.warnings.push(...discovery.warnings);
@@ -287,13 +325,33 @@ export async function prepareApplication(
         if (options.hold) {
             report.diagnostics.held = true;
             guard.phase = 'human_hold';
+            const stopFile = stopFilePath(runDir);
             process.stderr.write(
                 `\nHOLD: run ${runId} outcome=${report.outcome}. Review the form in the browser window.\n` +
                     `The guard stays active: submitting from this window is blocked by design.\n` +
-                    `Close the browser window or press Enter here to end.\n\n`,
+                    `End the hold by: pressing Enter here, closing the window, or creating the file\n` +
+                    `  ${stopFile}\n` +
+                    `(the file only ends the hold; its contents are never read).\n\n`,
             );
-            await (options.holdUntil ?? defaultHold)(page, browser);
-            await capture(page, runDir, report, 'end_of_hold');
+            const heldAt = Date.now();
+            const endedBy: HoldEnd =
+                (await (options.holdUntil
+                    ? options.holdUntil(page, browser, { stopFile })
+                    : waitForHoldEnd(page, browser, { stopFile }))) ??
+                'callback';
+            report.diagnostics.hold = {
+                endedBy,
+                durationMs: Date.now() - heldAt,
+            };
+            await finalizeHold(
+                page,
+                runDir,
+                report,
+                guard,
+                adapter,
+                options.finishParserWaitMs ?? 5_000,
+            );
+            // Earlier safety events are never replaced: the report always carries the guard's full log.
             syncSafety(report, guard);
             const final = decide(report);
             return finish(final.outcome, final.reasons);
@@ -477,6 +535,85 @@ async function reverifyFields(
     }
 }
 
+/** Re-observes the resume parser (bounded) and stores the result on the report. */
+async function refreshParser(
+    page: Page,
+    report: PrepareReport,
+    guard: SubmissionGuard,
+    adapter: ReturnType<typeof adapterFor>,
+    timeoutMs: number,
+): Promise<void> {
+    const probe = adapter.resumeParser;
+    const parser = report.resume.parser;
+    const requestAllowed = () =>
+        probe !== undefined && guard.exceptionUses(probe.exceptionName) > 0;
+    parser.requestAllowed = requestAllowed();
+    if (probe === undefined) {
+        parser.status = 'not_observable';
+        parser.detail = 'no parser status indicator is known for this ATS';
+        parser.waitedMs = 0;
+        return;
+    }
+    const observed = await observeParser(page, probe, {
+        requestAllowed,
+        attached: report.resume.uploaded,
+        timeoutMs,
+    });
+    parser.requestAllowed = requestAllowed();
+    parser.status = observed.status;
+    parser.detail = observed.detail;
+    parser.waitedMs = observed.waitedMs;
+    if (parser.status === 'failure' || parser.status === 'unknown') {
+        const warning = `resume parser: ${parser.status} (${parser.detail})`;
+        if (!report.warnings.includes(warning)) report.warnings.push(warning);
+    }
+}
+
+/**
+ * Graceful end of a hold: re-observe the parser (bounded), capture the final
+ * viewport screenshots and the form's current displayed values. Everything
+ * is additive: statuses decided during preparation, and the guard's events,
+ * are left exactly as they were.
+ */
+async function finalizeHold(
+    page: Page,
+    runDir: string,
+    report: PrepareReport,
+    guard: SubmissionGuard,
+    adapter: ReturnType<typeof adapterFor>,
+    parserWaitMs: number,
+): Promise<void> {
+    if (page.isClosed()) {
+        report.warnings.push(
+            'the browser window was closed before the final capture; no end-of-hold evidence',
+        );
+        return;
+    }
+    try {
+        await refreshParser(page, report, guard, adapter, parserWaitMs);
+        await capture(page, runDir, report, 'end_of_hold');
+        const fieldValues: FinalState['fieldValues'] = [];
+        for (const f of report.fields) {
+            if (f.sensitive || f.kind === 'file' || f.kind === 'checkbox')
+                continue;
+            fieldValues.push({
+                id: f.id,
+                label: f.label,
+                kind: f.kind,
+                statusAtPreparation: f.status,
+                displayed: await readDisplayedValue(page, f),
+            });
+        }
+        report.finalState = {
+            capturedAt: new Date().toISOString(),
+            url: redactUrl(page.url()),
+            fieldValues,
+        };
+    } catch (e) {
+        report.warnings.push(`final capture failed: ${firstLine(e)}`);
+    }
+}
+
 async function verifyResume(
     page: Page,
     report: PrepareReport,
@@ -644,13 +781,4 @@ function redactUrl(raw: string): string {
 
 function firstLine(e: unknown): string {
     return String((e as Error)?.message ?? e).split('\n')[0] ?? 'unknown error';
-}
-
-function defaultHold(page: Page, browser: Browser): Promise<void> {
-    return new Promise((resolve) => {
-        const done = () => resolve();
-        page.once('close', done);
-        browser.once('disconnected', done);
-        if (process.stdin.isTTY) process.stdin.once('data', done);
-    });
 }

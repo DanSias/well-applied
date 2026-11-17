@@ -292,3 +292,65 @@ export async function readPageSignals(page: Page): Promise<PageSignals> {
     const m = CONFIRMATION.exec(text);
     return { url: page.url(), confirmationText: m ? m[0] : null };
 }
+
+export type ParserObservation =
+    | 'success'
+    | 'failure'
+    | 'working'
+    | 'none'
+    | 'conflict';
+
+/**
+ * Reads (never acts on) a resume-parser indicator: which of the adapter's
+ * success / failure / working elements is visibly displayed right now.
+ */
+export async function readParserObservation(
+    page: Page,
+    probe: { success: string; failure: string; working: string },
+): Promise<ParserObservation> {
+    return page.evaluate(
+        ([success, failure, working]) => {
+            const shown = (sel: string) => {
+                const el = document.querySelector(sel);
+                if (!el) return false;
+                const r = el.getBoundingClientRect();
+                return (
+                    el.checkVisibility({
+                        checkOpacity: true,
+                        checkVisibilityCSS: true,
+                    }) &&
+                    r.width >= 1 &&
+                    r.height >= 1
+                );
+            };
+            const s = shown(success as string);
+            const f = shown(failure as string);
+            if (s && f) return 'conflict';
+            if (s) return 'success';
+            if (f) return 'failure';
+            if (shown(working as string)) return 'working';
+            return 'none';
+        },
+        [probe.success, probe.failure, probe.working] as const,
+    );
+}
+
+/** Non-sensitive field values as the form displays them now. Read-only. */
+export async function readDisplayedValue(
+    page: Page,
+    field: { id: string; kind: string; options: string[] | null },
+): Promise<string | null> {
+    try {
+        if (field.kind === 'text' || field.kind === 'textarea')
+            return (await readControlState(page, field.id)).visibleValue;
+        if (field.kind === 'select')
+            return await readSelectedOption(page, field.id);
+        if (field.kind === 'radio') {
+            const i = await readCheckedRadio(page, field.id);
+            return i >= 0 ? (field.options?.[i] ?? '') : null;
+        }
+    } catch {
+        return null;
+    }
+    return null;
+}

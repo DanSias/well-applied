@@ -176,6 +176,11 @@ export class SubmissionGuard {
         this.uploadWindowOpen = false;
     }
 
+    /** How many times the named exception has let a request through (read-only; used for reporting). */
+    exceptionUses(name: string): number {
+        return this.uses.get(name) ?? 0;
+    }
+
     private factsFor(
         request: Request,
         url: URL,

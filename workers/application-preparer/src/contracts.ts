@@ -211,6 +211,58 @@ export interface ScreenshotRecord {
     fixedOverlays: FixedOverlay[];
 }
 
+/**
+ * What the page visibly says about the resume parser, never inferred from the
+ * request being allowed or from the file hash:
+ *  success: a visible success indicator.   failure: a visible failure indicator.
+ *  unknown: no terminal indicator within the bounded wait (still working, none
+ *           visible, or conflicting indicators): neither success nor failure is claimed.
+ *  not_observable: this ATS has no known parser indicator.
+ *  not_attempted: no resume was attached, or no parse request was allowed and nothing appeared.
+ */
+export type ResumeParserStatus =
+    | 'success'
+    | 'failure'
+    | 'unknown'
+    | 'not_observable'
+    | 'not_attempted';
+
+export interface ResumeParserReport {
+    /** The adapter knows how to read this ATS's parser indicator. */
+    observable: boolean;
+    /** The parse request was permitted by the adapter's named exception (counted by the guard). */
+    requestAllowed: boolean;
+    /** Latest observed state (updated at the end of a hold). */
+    status: ResumeParserStatus;
+    detail: string;
+    /** Milliseconds spent waiting for a terminal state in the latest observation. */
+    waitedMs: number;
+    /** The state when preparation ended, kept after the hold updates `status`. */
+    atPreparation: ResumeParserStatus;
+}
+
+export type HoldEnd =
+    | 'enter'
+    | 'stop_file'
+    | 'window_closed'
+    | 'browser_disconnected'
+    | 'callback';
+
+/** The applicant-facing state of the form when a hold ended (values of non-sensitive fields only). */
+export interface FinalState {
+    capturedAt: string;
+    url: string;
+    fieldValues: Array<{
+        id: string;
+        label: string | null;
+        kind: FieldKind;
+        /** The field's status at the end of preparation (unchanged by anything a person did). */
+        statusAtPreparation: FieldStatus;
+        /** What the form displays now; null if it could not be read. */
+        displayed: string | null;
+    }>;
+}
+
 export type Outcome =
     /** Every required field verified. Optional fields may be unanswered (see summary). */
     | 'ready_for_review'
@@ -254,6 +306,11 @@ export interface PrepareReport {
         verification: 'content_sha256' | 'name_size' | 'page_text' | 'none';
         verified: boolean;
         observedFilename: string | null;
+        /**
+         * Four separate facts: bytes attached and verified (`verified` above), the parse
+         * request allowed, the parser visibly succeeded, or it failed / is unresolved.
+         */
+        parser: ResumeParserReport;
     };
     controls: Array<{
         text: string;
@@ -282,5 +339,13 @@ export interface PrepareReport {
     safetyEvents: SafetyEvent[];
     screenshots: ScreenshotRecord[];
     warnings: string[];
-    diagnostics: { durationMs: number; headless: boolean; held: boolean };
+    diagnostics: {
+        durationMs: number;
+        headless: boolean;
+        held: boolean;
+        /** How and when a hold ended; null when there was no hold. */
+        hold: { endedBy: HoldEnd; durationMs: number } | null;
+    };
+    /** Form state captured when a hold ended gracefully; null if there was no hold or the page was already closed. */
+    finalState: FinalState | null;
 }

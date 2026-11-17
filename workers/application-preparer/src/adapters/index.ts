@@ -5,6 +5,18 @@
 import type { AtsName } from '../contracts.ts';
 import type { UploadException } from '../request-policy.ts';
 
+/**
+ * How to READ (never act on) an ATS's resume-parser indicator. Selectors are
+ * limited to what a supervised run actually showed.
+ */
+export interface ResumeParserProbe {
+    /** The UploadException whose use means the parse request was allowed. */
+    exceptionName: string;
+    success: string;
+    failure: string;
+    working: string;
+}
+
 export interface Adapter {
     name: AtsName;
     /** A deterministic GET-only rewrite to the page that holds the form. */
@@ -15,6 +27,8 @@ export interface Adapter {
      * entry needs a justification and a test.
      */
     uploadExceptions(origin: string): UploadException[];
+    /** Absent when no indicator has been observed for this ATS. */
+    resumeParser?: ResumeParserProbe;
 }
 
 /** The only origin the Lever exception is ever granted for. EU and any other origin are NOT included: not observed. */
@@ -68,6 +82,13 @@ export const lever: Adapter = {
         origin === LEVER_ORIGIN
             ? [leverResumeParseException(LEVER_ORIGIN)]
             : [],
+    // Observed on a live Lever form (second supervised run): three spans whose display toggles.
+    resumeParser: {
+        exceptionName: 'lever-resume-parse',
+        success: '.resume-upload-success',
+        failure: '.resume-upload-failure',
+        working: '.resume-upload-working',
+    },
 };
 
 export const greenhouse: Adapter = {
