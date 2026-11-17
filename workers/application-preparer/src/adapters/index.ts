@@ -3,7 +3,11 @@
 // filling, verification and every safeguard are shared, so adding an ATS
 // never touches the safety path.
 import type { AtsName } from '../contracts.ts';
-import type { UploadException } from '../request-policy.ts';
+import {
+    validateS3ResumePost,
+    type LearnRule,
+    type UploadException,
+} from '../request-policy.ts';
 
 /**
  * How to READ (never act on) an ATS's resume-parser indicator. Selectors are
@@ -26,9 +30,25 @@ export interface Adapter {
      * Empty until a supervised run observes a real one (see README); every
      * entry needs a justification and a test.
      */
-    uploadExceptions(origin: string): UploadException[];
+    uploadExceptions(origin: string, resume: ResumeContext): UploadException[];
+    /**
+     * Responses from the ATS itself that name an authorised upload destination, so an
+     * exception can require that the destination came from the page's own authorisation
+     * and not just match a hostname.
+     */
+    authorizationRules?(origin: string): LearnRule[];
     /** Absent when no indicator has been observed for this ATS. */
     resumeParser?: ResumeParserProbe;
+    /** The exception whose use means the browser sent the resume to its upload destination. */
+    resumeUpload?: { exceptionName: string };
+}
+
+/** The resume the worker chose, known before the browser opens. */
+export interface ResumeContext {
+    sha256: string;
+    bytes: number;
+    /** The file name the browser will send (the basename of the resume path). */
+    filename: string;
 }
 
 /** The only origin the Lever exception is ever granted for. EU and any other origin are NOT included: not observed. */
@@ -91,10 +111,88 @@ export const lever: Adapter = {
     },
 };
 
+// ---------------------------------------------------------------------------
+// Greenhouse resume upload.
+//
+// Evidence (Greenhouse's public job-board client code, read as text, and one
+// supervised run): the page first GETs `<page>/uncacheable_attributes/
+// presigned_fields?fields[]=resume...`; the JSON answer names the S3 `url` and
+// the signed form fields. The upload is then an XHR POST of multipart FormData
+// to that url: `utf8`, the signed fields, `key`, `authenticity_token`,
+// `Content-Type`, and finally `file` (the raw File). The supervised run saw
+// exactly one such request:
+//   POST https://grnhse-prod-jben-us-east-1.s3.amazonaws.com/  [xhr, multipart/form-data, 2257B]
+//
+// The exception therefore does NOT rest on the hostname. It requires that the
+// destination equals the one the page's own presign response named, a multipart
+// body with exactly one file part carrying the chosen resume's file name and only
+// allowlisted form-field names, and only during the worker's own resume
+// attachment, once. The guard cannot see the file's BYTES (Chromium omits File
+// parts from request instrumentation); content identity is checked separately by
+// hashing the file the browser holds in the input at selection time.
+// ---------------------------------------------------------------------------
+
+/** Page origins whose presign responses are trusted. EU and employer-hosted boards are not observed, so not included. */
+export const GREENHOUSE_PAGE_ORIGINS = [
+    'https://job-boards.greenhouse.io',
+    'https://boards.greenhouse.io',
+] as const;
+/** The only bucket observed. Another employer or region using a different bucket is refused, not assumed. */
+export const GREENHOUSE_S3_ORIGIN =
+    'https://grnhse-prod-jben-us-east-1.s3.amazonaws.com';
+export const GREENHOUSE_PRESIGN_RULE = 'greenhouse-presigned-upload';
+
+export function greenhousePresignRule(
+    pageOrigins: readonly string[],
+): LearnRule {
+    return {
+        name: GREENHOUSE_PRESIGN_RULE,
+        pageOrigins,
+        pathSuffix: '/uncacheable_attributes/presigned_fields',
+        // Only the destination is taken from the answer; the signed fields are never kept.
+        destination: (json) => {
+            const url = (json as { url?: unknown } | null)?.url;
+            return typeof url === 'string' ? url : null;
+        },
+    };
+}
+
+export function greenhouseResumeUploadException(
+    s3Origin: string,
+    resume: ResumeContext,
+): UploadException {
+    return {
+        name: 'greenhouse-resume-upload',
+        method: 'POST',
+        origin: s3Origin,
+        pathPattern: /^\/$/,
+        why: "Greenhouse's job-board widget POSTs the chosen resume, as multipart form data, to the S3 destination named by its own presigned_fields response; observed in the first Greenhouse run.",
+        resourceTypes: ['xhr'],
+        contentTypePrefix: 'multipart/form-data',
+        duringUploadOnly: true,
+        maxUses: 1,
+        // The instrumented body holds the form fields only (the file part is omitted): a few hundred
+        // bytes to ~2 KB observed. A generous but bounded allowance.
+        maxBodyBytes: 32 * 1024,
+        forbidQuery: true,
+        authorizedBy: GREENHOUSE_PRESIGN_RULE,
+        validateBody: (body, contentType) =>
+            validateS3ResumePost(body, contentType, resume),
+    };
+}
+
 export const greenhouse: Adapter = {
     name: 'greenhouse',
     formUrl: (url) => url, // the form is inline on the job page
-    uploadExceptions: () => [],
+    uploadExceptions: (origin, resume) =>
+        (GREENHOUSE_PAGE_ORIGINS as readonly string[]).includes(origin)
+            ? [greenhouseResumeUploadException(GREENHOUSE_S3_ORIGIN, resume)]
+            : [],
+    authorizationRules: (origin) =>
+        (GREENHOUSE_PAGE_ORIGINS as readonly string[]).includes(origin)
+            ? [greenhousePresignRule(GREENHOUSE_PAGE_ORIGINS)]
+            : [],
+    resumeUpload: { exceptionName: 'greenhouse-resume-upload' },
 };
 
 export function adapterFor(name: AtsName): Adapter {

@@ -321,8 +321,27 @@ export interface PrepareReport {
         bytes: number;
         fieldId: string | null;
         uploaded: boolean;
-        /** content_sha256: hash re-computed from the browser's copy. name_size: weaker. page_text: input was emptied but the name is shown; NOT counted as verified. */
-        verification: 'content_sha256' | 'name_size' | 'page_text' | 'none';
+        /** The guard let the adapter's resume-upload request through (structure, destination, window and count validated). */
+        uploadRequestAllowed: boolean;
+        /** Right after selection, the browser's own copy of the file in the input hashed equal to the chosen resume. */
+        inputHeldChosenResume: boolean;
+        /**
+         * content_sha256: hash re-computed from the browser's copy of the file input.
+         * upload_request: the widget removed its input after the upload. Verified from three facts: the input held
+         * exactly the chosen resume (SHA-256) when the upload was triggered, the guard allowed the one validated
+         * upload request, and the page shows the resume's file name. Not a content hash of the bytes in transit
+         * (the guard cannot see them).
+         * input_only: the input holds the chosen resume, but for an ATS whose attachment is a separate upload step the
+         * upload was not confirmed (no allowed upload request, or the file name never appeared); NOT verified.
+         * name_size: weaker. page_text: input emptied, name shown, no validated upload request; NOT verified.
+         */
+        verification:
+            | 'content_sha256'
+            | 'name_size'
+            | 'upload_request'
+            | 'input_only'
+            | 'page_text'
+            | 'none';
         verified: boolean;
         observedFilename: string | null;
         /**

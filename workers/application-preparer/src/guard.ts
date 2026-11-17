@@ -13,7 +13,13 @@
 //     looks like a confirmation page is flagged as a suspected submission.
 //
 // Limitations are listed in README.md "Safety controls and limits".
-import type { BrowserContext, Page, Request, Route } from 'playwright';
+import type {
+    BrowserContext,
+    Page,
+    Request,
+    Response,
+    Route,
+} from 'playwright';
 import {
     SAFETY_FAILURE_KINDS,
     type SafetyEvent,
@@ -24,12 +30,13 @@ import {
     isCloudflareBotDetection,
     matchException,
     mediaType,
+    type LearnRule,
     type RequestFacts,
     type UploadException,
 } from './request-policy.ts';
 import { atsForHost } from './url-safety.ts';
 
-export type { UploadException } from './request-policy.ts';
+export type { LearnRule, UploadException } from './request-policy.ts';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
@@ -43,11 +50,20 @@ export class SubmissionGuard {
     private readonly startOrigin: string;
     private uploadWindowOpen = false;
     private readonly uses = new Map<string, number>();
+    private readonly learnRules: readonly LearnRule[];
+    /** Destinations (origin + pathname) named by the page's own authorisation responses. */
+    private readonly learned: Record<string, string[]> = {};
+    private readonly learning: Promise<void>[] = [];
 
-    constructor(startUrl: URL, exceptions: readonly UploadException[] = []) {
+    constructor(
+        startUrl: URL,
+        exceptions: readonly UploadException[] = [],
+        learn: readonly LearnRule[] = [],
+    ) {
         this.startHost = startUrl.hostname;
         this.startOrigin = startUrl.origin;
         this.exceptions = exceptions;
+        this.learnRules = learn;
         for (const e of exceptions) {
             const src = e.pathPattern.source;
             if (!src.startsWith('^') || !src.endsWith('$')) {
@@ -71,6 +87,12 @@ export class SubmissionGuard {
         );
         await context.addInitScript(GUARD_INIT_SCRIPT);
         await context.route('**/*', (route) => this.handle(route));
+        if (this.learnRules.length > 0) {
+            context.on('response', (response) => {
+                const learning = this.learnFrom(response);
+                if (learning) this.learning.push(learning);
+            });
+        }
         context.on('page', (page) => {
             if (this.mainPage !== null && page !== this.mainPage) {
                 this.record(
@@ -127,6 +149,7 @@ export class SubmissionGuard {
 
         if (SAFE_METHODS.has(method)) return void (await route.continue());
 
+        await this.settleLearning();
         const facts = this.factsFor(request, url);
         let nearMiss: string | null = null;
         for (const e of this.exceptions) {
@@ -167,6 +190,51 @@ export class SubmissionGuard {
         await route.abort('blockedbyclient');
     }
 
+    /**
+     * If this response is one a LearnRule trusts (a GET answered 200 by an exact ATS origin
+     * at the rule's path), remember ONLY the destination URL it names. The body is read here
+     * and dropped: signed upload fields are never stored or reported.
+     */
+    private learnFrom(response: Response): Promise<void> | null {
+        try {
+            const request = response.request();
+            if (request.method() !== 'GET' || response.status() !== 200)
+                return null;
+            const url = new URL(response.url());
+            const rule = this.learnRules.find(
+                (r) =>
+                    r.pageOrigins.includes(url.origin) &&
+                    url.pathname.endsWith(r.pathSuffix),
+            );
+            if (!rule) return null;
+            const length = Number(response.headers()['content-length'] ?? 0);
+            if (length > 256 * 1024) return null;
+            return (async () => {
+                try {
+                    const dest = rule.destination(await response.json());
+                    if (dest === null) return;
+                    const u = new URL(dest);
+                    (this.learned[rule.name] ??= []).push(
+                        `${u.origin}${u.pathname}`,
+                    );
+                } catch {
+                    // Not JSON, or not shaped as expected: nothing is learned.
+                }
+            })();
+        } catch {
+            return null;
+        }
+    }
+
+    /** A request can arrive before the response that authorises it has been parsed; wait briefly. */
+    private async settleLearning(): Promise<void> {
+        if (this.learning.length === 0) return;
+        await Promise.race([
+            Promise.allSettled(this.learning),
+            new Promise((r) => setTimeout(r, 2_000)),
+        ]);
+    }
+
     /** The worker is itself attaching the resume; exceptions marked duringUploadOnly may fire only now. */
     openUploadWindow(): void {
         this.uploadWindowOpen = true;
@@ -197,6 +265,8 @@ export class SubmissionGuard {
             resourceType: request.resourceType(),
             contentType: request.headers()['content-type'] ?? null,
             bodyBytes: request.postDataBuffer()?.length ?? null,
+            body: request.postDataBuffer(),
+            learned: this.learned,
             isMainFrame,
             uploadWindowOpen: this.uploadWindowOpen,
         };

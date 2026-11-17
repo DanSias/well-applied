@@ -16,6 +16,11 @@ import {
 } from '../src/request-policy.ts';
 
 const rule = leverResumeParseException(LEVER_ORIGIN);
+const RESUME_CTX = {
+    sha256: '0'.repeat(64),
+    bytes: 630,
+    filename: 'sample-resume.pdf',
+};
 
 const good = (
     over: Partial<RequestFacts> = {},
@@ -26,6 +31,8 @@ const good = (
     resourceType: 'xhr',
     contentType: 'multipart/form-data; boundary=----WebKitFormBoundaryabc',
     bodyBytes: 631,
+    body: null,
+    learned: {},
     isMainFrame: true,
     uploadWindowOpen: true,
     priorUses: 0,
@@ -180,7 +187,7 @@ describe('Lever resume-parse exception', () => {
     });
 
     it('is only ever granted for the exact Lever origin, and only by the Lever adapter', () => {
-        const granted = lever.uploadExceptions(LEVER_ORIGIN);
+        const granted = lever.uploadExceptions(LEVER_ORIGIN, RESUME_CTX);
         assert.equal(granted.length, 1);
         assert.deepEqual(
             {
@@ -203,14 +210,23 @@ describe('Lever resume-parse exception', () => {
             'https://boards.greenhouse.io',
             'https://jobs.lever.co:8443',
         ]) {
-            assert.deepEqual(lever.uploadExceptions(origin), [], origin);
+            assert.deepEqual(
+                lever.uploadExceptions(origin, RESUME_CTX),
+                [],
+                origin,
+            );
         }
-        assert.deepEqual(
-            greenhouse.uploadExceptions('https://job-boards.greenhouse.io'),
-            [],
+        // Greenhouse has its own, separate exception (see greenhouse-upload-policy.test.ts); it never has Lever's.
+        assert.ok(
+            greenhouse
+                .uploadExceptions(
+                    'https://job-boards.greenhouse.io',
+                    RESUME_CTX,
+                )
+                .every((e) => e.name !== 'lever-resume-parse'),
         );
         assert.deepEqual(
-            greenhouse.uploadExceptions(LEVER_ORIGIN),
+            greenhouse.uploadExceptions(LEVER_ORIGIN, RESUME_CTX),
             [],
             'Greenhouse never inherits it',
         );

@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>
+            Example Co - Job Application (synthetic Greenhouse-style upload
+            fixture)
+        </title>
+    </head>
+    <body>
+        <!--
+  SYNTHETIC, HAND-WRITTEN. NOT captured production HTML.
+
+  Models how Greenhouse's job-board client uploads a resume, as read from its public
+  client code and seen in one supervised run:
+    1. GET /uncacheable_attributes/presigned_fields?fields[]=resume... (same origin) answers
+       JSON naming the upload `url` and signed form fields plus a key template.
+    2. On file selection the widget XHR-POSTs multipart FormData to that url: utf8, the signed
+       fields, key, authenticity_token, Content-Type, and finally `file`.
+    3. On success the widget REMOVES the file input and shows the file name; on failure it
+       shows an error and the name is not shown.
+  Approximations: markup, class names, styling and the exact copy.
+-->
+        <main>
+            <form id="application-form" method="post">
+                <h2>Apply for this job</h2>
+                <div class="field">
+                    <label for="first_name">First Name *</label
+                    ><input
+                        id="first_name"
+                        name="first_name"
+                        type="text"
+                        required
+                    />
+                </div>
+                <div class="field">
+                    <label for="last_name">Last Name *</label
+                    ><input
+                        id="last_name"
+                        name="last_name"
+                        type="text"
+                        required
+                    />
+                </div>
+                <div class="field">
+                    <label for="email">Email *</label
+                    ><input id="email" name="email" type="text" required />
+                </div>
+                <div class="field">
+                    <label for="phone">Phone</label
+                    ><input id="phone" name="phone" type="text" />
+                </div>
+                <div class="field upload" data-field="resume">
+                    <div class="upload-label">Resume/CV</div>
+                    <div class="upload-widget">
+                        <input id="resume" type="file" />
+                    </div>
+                    <span class="upload-status"></span>
+                </div>
+                <div class="field upload" data-field="cover_letter">
+                    <div class="upload-label">Cover Letter</div>
+                    <div class="upload-widget">
+                        <input id="cover_letter" type="file" />
+                    </div>
+                    <span class="upload-status"></span>
+                </div>
+                <button type="submit" class="btn">Submit application</button>
+            </form>
+        </main>
+        <script>
+            const presigned = fetch(
+                '/uncacheable_attributes/presigned_fields?fields[]=resume&fields[]=cover_letter',
+            ).then((r) => r.json());
+            for (const input of document.querySelectorAll('input[type=file]')) {
+                input.addEventListener('change', async () => {
+                    const box = input.closest('.upload');
+                    const status = box.querySelector('.upload-status');
+                    const file = input.files[0];
+                    try {
+                        const meta = await presigned;
+                        const info = meta[box.dataset.field];
+                        const form = new FormData();
+                        form.append('utf8', '✓');
+                        for (const k in info.fields)
+                            form.append(k, info.fields[k]);
+                        form.append(
+                            'key',
+                            info.key
+                                .replace('{timestamp}', String(Date.now()))
+                                .replace(
+                                    '{unique_id}',
+                                    Math.random().toString(36).slice(2, 16),
+                                ),
+                        );
+                        form.append('authenticity_token', '1234');
+                        form.append('Content-Type', 'application/octet-stream');
+                        form.append('file', file);
+                        const xhr = new XMLHttpRequest();
+                        xhr.onloadend = () => {
+                            if (xhr.status >= 200 && xhr.status < 300) {
+                                box.querySelector('.upload-widget').innerHTML =
+                                    '<span class="filename">' +
+                                    file.name +
+                                    '</span> <button type="button">Remove</button>';
+                            } else {
+                                status.textContent = 'Upload failed';
+                            }
+                        };
+                        xhr.onerror = () => {
+                            status.textContent = 'Upload failed';
+                        };
+                        xhr.open('POST', meta.url);
+                        xhr.send(form);
+                    } catch (e) {
+                        status.textContent = 'Upload failed';
+                    }
+                });
+            }
+        </script>
+    </body>
+</html>

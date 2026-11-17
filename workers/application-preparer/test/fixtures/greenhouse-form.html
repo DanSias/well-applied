@@ -7,7 +7,8 @@
         </title>
     </head>
     <body>
-        <!-- SYNTHETIC APPROXIMATION of a Greenhouse job-boards application form:
+        <!-- SYNTHETIC APPROXIMATION of a Greenhouse job-boards application form (its resume and
+     cover-letter widgets follow greenhouse-upload.html: presign, upload, widget removes its input):
      <label for>, first_name/last_name/email/phone, a resume upload group,
      required question_ fields, a role=group radio question and a
      "Voluntary self-identification" section. Replace/augment with a
@@ -53,9 +54,13 @@
                     <label for="phone">Phone</label
                     ><input id="phone" name="phone" type="text" />
                 </div>
-                <div class="field">
+                <div class="field upload" data-field="resume">
                     <div id="resume-label">Resume/CV *</div>
-                    <div role="group" aria-labelledby="resume-label">
+                    <div
+                        role="group"
+                        aria-labelledby="resume-label"
+                        class="upload-widget"
+                    >
                         <input
                             id="resume"
                             name="resume"
@@ -64,15 +69,19 @@
                             aria-required="true"
                         />
                     </div>
+                    <span class="upload-status"></span>
                 </div>
-                <div class="field">
+                <div class="field upload" data-field="cover_letter">
                     <div id="cover-label">Cover Letter</div>
-                    <input
-                        id="cover_letter"
-                        name="cover_letter"
-                        type="file"
-                        aria-labelledby="cover-label"
-                    />
+                    <div class="upload-widget">
+                        <input
+                            id="cover_letter"
+                            name="cover_letter"
+                            type="file"
+                            aria-labelledby="cover-label"
+                        />
+                    </div>
+                    <span class="upload-status"></span>
                 </div>
                 <div class="field">
                     <label for="question_1">LinkedIn Profile</label
@@ -127,5 +136,55 @@
                 <button type="submit" class="btn">Submit application</button>
             </form>
         </main>
+        <script>
+            const presigned = fetch(
+                '/uncacheable_attributes/presigned_fields?fields[]=resume&fields[]=cover_letter',
+            ).then((r) => r.json());
+            for (const input of document.querySelectorAll('input[type=file]')) {
+                input.addEventListener('change', async () => {
+                    const box = input.closest('.upload');
+                    const status = box.querySelector('.upload-status');
+                    const file = input.files[0];
+                    try {
+                        const meta = await presigned;
+                        const info = meta[box.dataset.field];
+                        const form = new FormData();
+                        form.append('utf8', '✓');
+                        for (const k in info.fields)
+                            form.append(k, info.fields[k]);
+                        form.append(
+                            'key',
+                            info.key
+                                .replace('{timestamp}', String(Date.now()))
+                                .replace(
+                                    '{unique_id}',
+                                    Math.random().toString(36).slice(2, 16),
+                                ),
+                        );
+                        form.append('authenticity_token', '1234');
+                        form.append('Content-Type', 'application/octet-stream');
+                        form.append('file', file);
+                        const xhr = new XMLHttpRequest();
+                        xhr.onloadend = () => {
+                            if (xhr.status >= 200 && xhr.status < 300) {
+                                box.querySelector('.upload-widget').innerHTML =
+                                    '<span class="filename">' +
+                                    file.name +
+                                    '</span> <button type="button">Remove</button>';
+                            } else {
+                                status.textContent = 'Upload failed';
+                            }
+                        };
+                        xhr.onerror = () => {
+                            status.textContent = 'Upload failed';
+                        };
+                        xhr.open('POST', meta.url);
+                        xhr.send(form);
+                    } catch (e) {
+                        status.textContent = 'Upload failed';
+                    }
+                });
+            }
+        </script>
     </body>
 </html>

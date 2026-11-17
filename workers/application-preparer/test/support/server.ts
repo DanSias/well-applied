@@ -22,6 +22,10 @@ export interface TestServer {
     parseDelayMs: number;
     /** HTTP status the /parseResume response uses (default 200). */
     parseStatus: number;
+    /** What GET /uncacheable_attributes/presigned_fields returns as `url` (null: the endpoint 404s). */
+    presignUrl: string | null;
+    /** Number of times the presign endpoint was fetched. */
+    presignFetches: number;
     /** Mutations other than the one allowed resume-parse POST. Must be [] in every test. */
     unexpected(): string[];
     /** Serve extra in-memory pages (e.g. a fixture variant) at a path. */
@@ -32,7 +36,12 @@ export interface TestServer {
 export async function startServer(): Promise<TestServer> {
     const mutations: string[] = [];
     const hits: string[] = [];
-    const state = { parseDelayMs: 0, parseStatus: 200 };
+    const state = {
+        parseDelayMs: 0,
+        parseStatus: 200,
+        presignUrl: null as string | null,
+        presignFetches: 0,
+    };
     const pages = new Map<string, string>();
     const server: Server = createServer(async (req, res) => {
         const url = new URL(req.url ?? '/', 'http://x');
@@ -50,6 +59,30 @@ export async function startServer(): Promise<TestServer> {
             }
             res.writeHead(200, { 'content-type': 'text/html' }).end(
                 '<html><body><h1>Thank you for applying</h1></body></html>',
+            );
+            return;
+        }
+        if (url.pathname === '/uncacheable_attributes/presigned_fields') {
+            state.presignFetches++;
+            if (state.presignUrl === null) {
+                res.writeHead(404).end('not found');
+                return;
+            }
+            // Same shape as the real endpoint: a destination plus signed fields and a key template.
+            const field = {
+                fields: {
+                    policy: 'synthetic-policy',
+                    'x-amz-algorithm': 'SYNTHETIC',
+                    'x-amz-signature': 'synthetic-signature',
+                },
+                key: 'uploads/{timestamp}/{unique_id}/resume',
+            };
+            res.writeHead(200, { 'content-type': 'application/json' }).end(
+                JSON.stringify({
+                    url: state.presignUrl,
+                    resume: field,
+                    cover_letter: field,
+                }),
             );
             return;
         }
@@ -93,6 +126,15 @@ export async function startServer(): Promise<TestServer> {
         },
         set parseStatus(v: number) {
             state.parseStatus = v;
+        },
+        get presignUrl() {
+            return state.presignUrl;
+        },
+        set presignUrl(v: string | null) {
+            state.presignUrl = v;
+        },
+        get presignFetches() {
+            return state.presignFetches;
         },
         add: (path, html) => void pages.set(path, html),
         unexpected: () => mutations.filter((m) => m !== 'POST /parseResume'),

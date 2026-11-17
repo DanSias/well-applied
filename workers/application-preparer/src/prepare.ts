@@ -37,7 +37,7 @@ import {
     uploadResumeFile,
 } from './fill.ts';
 import { SubmissionGuard } from './guard.ts';
-import type { UploadException } from './request-policy.ts';
+import type { LearnRule, UploadException } from './request-policy.ts';
 import { adapterFor } from './adapters/index.ts';
 import { assertAllowedUrl, atsForHost } from './url-safety.ts';
 import {
@@ -65,6 +65,8 @@ export interface PrepareOptions {
     ats?: AtsName;
     /** Test-only override of the adapter's (normally empty) upload exceptions. */
     uploadExceptions?: UploadException[];
+    /** Test-only override of the adapter's authorisation-learning rules. */
+    authorizationRules?: LearnRule[];
     /**
      * Resolves when a held session should end. The default waits for Enter (interactive),
      * the STOP file in the run directory, or the window/browser closing (see hold.ts).
@@ -139,6 +141,8 @@ export async function prepareApplication(
             bytes: resume.bytes.length,
             fieldId: null,
             uploaded: false,
+            uploadRequestAllowed: false,
+            inputHeldChosenResume: false,
             verification: 'none',
             verified: false,
             observedFilename: null,
@@ -209,9 +213,18 @@ export async function prepareApplication(
     report.resume.parser.observable = adapter.resumeParser !== undefined;
     const formUrl = adapter.formUrl(url);
 
+    const resumeContext = {
+        sha256: resume.sha256,
+        bytes: resume.bytes.length,
+        filename: basename(input.resumePdfPath),
+    };
     const guard = new SubmissionGuard(
         formUrl,
-        options.uploadExceptions ?? adapter.uploadExceptions(formUrl.origin),
+        options.uploadExceptions ??
+            adapter.uploadExceptions(formUrl.origin, resumeContext),
+        options.authorizationRules ??
+            adapter.authorizationRules?.(formUrl.origin) ??
+            [],
     );
     const browser = await chromium.launch({ headless });
     try {
@@ -263,6 +276,16 @@ export async function prepareApplication(
                     input.resumePdfPath,
                 );
                 report.resume.uploaded = true;
+                // Right after selection, before any widget can remove the input: does the browser
+                // hold exactly the chosen resume? This is the same File the widget goes on to upload,
+                // and the only content check available when the guard cannot see file bytes.
+                const held = await observeFileInput(
+                    page,
+                    resumeField.id,
+                    basename(input.resumePdfPath),
+                ).catch(() => null);
+                report.resume.inputHeldChosenResume =
+                    held !== null && held.sha256 === resume.sha256;
             } catch (e) {
                 report.warnings.push(`resume upload failed: ${firstLine(e)}`);
             }
@@ -324,7 +347,15 @@ export async function prepareApplication(
             );
             report.fields.splice(at < 0 ? report.fields.length : at, 0, own);
         }
-        await verifyResume(page, report, resume.sha256, input.resumePdfPath);
+        await verifyResume(
+            page,
+            report,
+            resume.sha256,
+            input.resumePdfPath,
+            adapter.resumeUpload !== undefined &&
+                guard.exceptionUses(adapter.resumeUpload.exceptionName) > 0,
+            adapter.resumeUpload !== undefined,
+        );
 
         // Re-read every filled field after all the others were filled and the page settled:
         // a widget that clears or replaces a value when focus moves on is caught here.
@@ -675,9 +706,12 @@ async function verifyResume(
     report: PrepareReport,
     expectedSha: string,
     path: string,
+    uploadRequestAllowed: boolean,
+    uploadNeedsConfirmation: boolean,
 ): Promise<void> {
     const id = report.resume.fieldId;
     if (id === null) return;
+    report.resume.uploadRequestAllowed = uploadRequestAllowed;
     const expectedName = basename(path);
     const field = report.fields.find((f) => f.id === id);
     const obs = await observeFileInput(page, id, expectedName).catch(
@@ -686,14 +720,37 @@ async function verifyResume(
     if (obs === null || !report.resume.uploaded) {
         report.resume.verification = 'none';
     } else if (obs.sha256 === expectedSha) {
-        report.resume.verification = 'content_sha256';
-        report.resume.verified = true;
+        // Where attaching is a separate upload step (Greenhouse), a populated input is not an
+        // attachment: the upload request must have been allowed and the page must show the file name.
+        const confirmed =
+            !uploadNeedsConfirmation ||
+            (uploadRequestAllowed && obs.nameInPageText);
+        report.resume.verification = confirmed
+            ? 'content_sha256'
+            : 'input_only';
+        report.resume.verified = confirmed;
     } else if (
         obs.sha256 === null &&
         obs.name === expectedName &&
         obs.size === report.resume.bytes
     ) {
-        report.resume.verification = 'name_size';
+        const confirmed =
+            !uploadNeedsConfirmation ||
+            (uploadRequestAllowed && obs.nameInPageText);
+        report.resume.verification = confirmed ? 'name_size' : 'input_only';
+        report.resume.verified = confirmed;
+    } else if (
+        obs.name === null &&
+        uploadRequestAllowed &&
+        report.resume.inputHeldChosenResume &&
+        obs.nameInPageText
+    ) {
+        // The widget took the file and removed its input (Greenhouse). Three independent facts:
+        // the input held exactly the chosen resume when the upload was triggered (SHA-256 of the
+        // browser's own copy), the guard allowed the one validated upload request to the destination
+        // the page's own presign response named, and the page now shows the resume's file name.
+        // The guard cannot see the file's bytes in transit, so this is not a content hash of the upload.
+        report.resume.verification = 'upload_request';
         report.resume.verified = true;
     } else if (obs.name === null && obs.nameInPageText) {
         report.resume.verification = 'page_text';
