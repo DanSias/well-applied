@@ -34,6 +34,18 @@ const NAME_HINTS: Record<string, ApplicantKey> = {
     last_name: 'last_name',
 };
 
+// The HTML autocomplete attribute is deliberate, standardised, machine-readable evidence of what a
+// field is for. Only these unambiguous tokens are used; "off", "on" and every other token are ignored.
+const AUTOCOMPLETE_HINTS: Record<string, ApplicantKey> = {
+    'given-name': 'first_name',
+    'family-name': 'last_name',
+    name: 'full_name',
+    email: 'email',
+    tel: 'phone',
+    'tel-national': 'phone',
+    organization: 'current_company',
+};
+
 const LABEL_PATTERNS: Array<[RegExp, ApplicantKey]> = [
     [/^(legal )?first name$/, 'first_name'],
     [/^(legal )?(last|family) name$/, 'last_name'],
@@ -59,6 +71,19 @@ export interface Classified {
     /** For radio groups: index into field.options. */
     optionIndex?: number;
     note?: string;
+}
+
+const STANDARD_FIELD_WORD =
+    /\bname\b|phone|e-?mail|address|location|company|employer/;
+const QUESTION_OPENER =
+    /^(are|is|was|were|do|does|did|have|has|had|will|would|can|could|should|may|what|which|who|whom|whose|why|how|when|where|if|please|tell|describe|explain|list|provide|select|choose|indicate|confirm|by)\b/;
+
+/** A sentence-like label: a question, an instruction, or too long to be a field name. */
+export function looksLikeQuestion(label: string): boolean {
+    const words = label.split(/\s+/).filter(Boolean);
+    return (
+        label.includes('?') || QUESTION_OPENER.test(label) || words.length > 5
+    );
 }
 
 export function applicantValue(
@@ -88,6 +113,11 @@ function keysFor(field: DiscoveredField): Set<ApplicantKey> {
     if (field.kind === 'text') {
         if (field.inputType === 'email') keys.add('email');
         if (field.inputType === 'tel') keys.add('phone');
+        // The last token of a space-separated autocomplete value is the field's purpose
+        // ("section-x shipping email" -> email).
+        const token = field.autocomplete?.split(/\s+/).filter(Boolean).at(-1);
+        const hinted = token ? AUTOCOMPLETE_HINTS[token] : undefined;
+        if (hinted) keys.add(hinted);
     }
     return keys;
 }
@@ -176,10 +206,11 @@ export function classify(
         };
     const [key] = [...keys];
     if (key === undefined) {
+        // "Resembles a standard field" only for a short label that is not a question or a sentence. A
+        // custom question that merely mentions "Company" or "address" ("Are you authorized to work
+        // for our Company?") is just an unmapped question, not a possible contact field.
         const loose =
-            /\bname\b|phone|e-?mail|address|location|company|employer/.test(
-                label,
-            );
+            STANDARD_FIELD_WORD.test(label) && !looksLikeQuestion(label);
         return loose
             ? {
                   classification: 'uncertain',

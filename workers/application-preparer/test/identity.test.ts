@@ -6,6 +6,7 @@ import { locateField } from '../src/identity.ts';
 const field = (
     over: Partial<DiscoveredField> & { id: string },
 ): DiscoveredField => ({
+    autocomplete: null,
     key: `file|file||${over.id}|attach`,
     occurrence: 0,
     ambiguous: false,

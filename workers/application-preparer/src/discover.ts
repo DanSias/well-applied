@@ -233,6 +233,7 @@ export async function discoverForm(page: Page): Promise<Discovery> {
                     const g = groupLabel(el);
                     field = {
                         id: assignId(el),
+                        autocomplete: null,
                         key: '',
                         occurrence: 0,
                         ambiguous: false,
@@ -282,6 +283,9 @@ export async function discoverForm(page: Page): Promise<Discovery> {
 
             fields.push({
                 id,
+                autocomplete:
+                    el.getAttribute('autocomplete')?.toLowerCase().trim() ||
+                    null,
                 key: '',
                 occurrence: 0,
                 ambiguous: false,

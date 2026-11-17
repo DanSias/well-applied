@@ -97,6 +97,8 @@ export interface DiscoveredField {
      * reordered, and an id is never reused for a different element.
      */
     id: string;
+    /** The HTML autocomplete attribute (lower-cased), when present. Structural evidence of purpose. */
+    autocomplete: string | null;
     /**
      * Logical identity independent of the DOM node: kind, input type, name, id attribute and
      * normalised label. Lets a field be re-found if a framework re-renders its element.
