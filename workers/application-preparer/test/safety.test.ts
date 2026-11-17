@@ -274,9 +274,12 @@ describe('fail closed on ambiguity', () => {
                 Object.keys(report.blockers.captchaDetails[0]!).sort(),
                 [
                     'height',
+                    'inBadge',
                     'role',
                     'signals',
+                    'sizeParam',
                     'srcHost',
+                    'srcPath',
                     'tag',
                     'title',
                     'verdict',

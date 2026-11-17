@@ -375,38 +375,73 @@ export async function discoverForm(page: Page): Promise<Discovery> {
             const title = clean(el.getAttribute('title'));
             const src = el.getAttribute('src') ?? '';
             let srcHost = '';
+            let srcPath = '';
+            let sizeParam: string | null = null;
             try {
-                srcHost = new URL(src, location.href).host;
+                const u = new URL(src, location.href);
+                srcHost = u.host;
+                srcPath = u.pathname;
+                sizeParam = u.searchParams.get('size');
             } catch {
                 srcHost = '';
             }
-            const haystack = `${title} ${src} ${el.className?.toString?.() ?? ''}`;
+            const classes = el.className?.toString?.() ?? '';
+            const haystack = `${title} ${src} ${classes}`;
             const isFrame = el.tagName === 'IFRAME';
-            const role: CaptchaDetail['role'] = /grecaptcha-badge/.test(
-                haystack,
-            )
-                ? 'badge'
-                : // Checkbox first: hCaptcha's checkbox title also says "security challenge".
-                  isFrame &&
-                    /checkbox|api2\/anchor|widget containing/i.test(haystack)
-                  ? 'checkbox_widget'
-                  : isFrame && /main content|bframe|challenge/i.test(haystack)
-                    ? 'challenge_frame'
-                    : isFrame
-                      ? 'frame_other'
-                      : 'container';
+            const inBadge = !!el.closest('.grecaptcha-badge');
+
+            // reCAPTCHA frames, by what Google's own URL says they are:
+            //  - anchor with size=invisible (or sitting in the badge container): the passive badge icon;
+            //  - anchor with size=normal/compact/absent: the "I'm not a robot" checkbox (interactive);
+            //  - bframe: the challenge itself.
+            const recaptchaAnchor =
+                isFrame &&
+                /\/recaptcha\/(api2|enterprise)\/anchor$/.test(srcPath);
+            const recaptchaChallenge =
+                isFrame &&
+                /\/recaptcha\/(api2|enterprise)\/bframe$/.test(srcPath);
+            const passiveBadgeFrame =
+                recaptchaAnchor &&
+                (sizeParam === 'invisible' || (inBadge && sizeParam === null));
+
+            const role: CaptchaDetail['role'] =
+                /grecaptcha-badge/.test(classes) || passiveBadgeFrame
+                    ? 'badge'
+                    : // Checkbox first: hCaptcha's checkbox title also says "security challenge".
+                      isFrame &&
+                        (recaptchaAnchor ||
+                            /checkbox|widget containing/i.test(title))
+                      ? 'checkbox_widget'
+                      : isFrame &&
+                          (recaptchaChallenge ||
+                              /main content|bframe|challenge/i.test(haystack))
+                        ? 'challenge_frame'
+                        : isFrame
+                          ? 'frame_other'
+                          : 'container';
             const declaredInvisible =
                 el.getAttribute('data-size') === 'invisible' ||
                 !!el.closest('[data-size="invisible"]') ||
-                /invisible/i.test(el.className?.toString?.() ?? '');
+                /invisible/i.test(classes);
             const signals: string[] = [];
             if (!strictVisible(el)) signals.push('not_rendered_visible');
             if (w < 1 || h < 1) signals.push('zero_size');
             if (left + w <= 0 || top + h <= 0) signals.push('offscreen');
             if (el.closest('[aria-hidden="true"]')) signals.push('aria_hidden');
             if (declaredInvisible) signals.push('declared_invisible');
+            if (role === 'badge') {
+                // A passive badge is a small icon. A "badge" that is big and displayed is not
+                // assumed harmless: it is reported as uncertain instead.
+                if (
+                    strictVisible(el) &&
+                    passiveBadgeFrame &&
+                    (w > 320 || h > 100)
+                )
+                    signals.push('oversized_badge');
+                else signals.push('passive_badge');
+            }
             const inactive =
-                role === 'badge' ||
+                (role === 'badge' && !signals.includes('oversized_badge')) ||
                 signals.some((x) =>
                     [
                         'not_rendered_visible',
@@ -417,7 +452,8 @@ export async function discoverForm(page: Page): Promise<Discovery> {
                     ].includes(x),
                 );
             let verdict: 'inactive' | 'challenge' | 'uncertain';
-            if (inactive) verdict = 'inactive';
+            if (signals.includes('oversized_badge')) verdict = 'uncertain';
+            else if (inactive) verdict = 'inactive';
             else if (role === 'challenge_frame')
                 verdict = w >= 200 && h >= 200 ? 'challenge' : 'uncertain';
             else if (role === 'checkbox_widget')
@@ -435,6 +471,9 @@ export async function discoverForm(page: Page): Promise<Discovery> {
                 role,
                 title: title.slice(0, 80),
                 srcHost,
+                srcPath: srcPath.slice(0, 80),
+                sizeParam,
+                inBadge,
                 width: w,
                 height: h,
                 signals,

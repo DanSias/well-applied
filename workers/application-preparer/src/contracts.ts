@@ -196,6 +196,12 @@ export interface CaptchaDetail {
         | 'container';
     title: string;
     srcHost: string;
+    /** Path of the frame's src (no query), e.g. /recaptcha/enterprise/anchor. */
+    srcPath: string;
+    /** The `size` query parameter of the frame's src, when present (reCAPTCHA: invisible | normal | compact). */
+    sizeParam: string | null;
+    /** Inside a .grecaptcha-badge container. */
+    inBadge: boolean;
     width: number;
     height: number;
     signals: string[];
