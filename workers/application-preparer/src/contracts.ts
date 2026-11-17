@@ -91,8 +91,22 @@ export type FieldStatus =
     | 'error';
 
 export interface DiscoveredField {
-    /** Stable within a run; assigned by discovery, e.g. "f3". */
+    /**
+     * Identifies this DOM element across discoveries within a run, e.g. "f3". Never
+     * positional: an element keeps its id when others are inserted, removed or
+     * reordered, and an id is never reused for a different element.
+     */
     id: string;
+    /**
+     * Logical identity independent of the DOM node: kind, input type, name, id attribute and
+     * normalised label. Lets a field be re-found if a framework re-renders its element.
+     */
+    key: string;
+    /** Nth field (document order) with the same key. */
+    occurrence: number;
+    /** More than one field currently shares this key: it cannot be tracked by key alone. */
+    ambiguous: boolean;
+    /** Order in the document (changes when fields are inserted or reordered; use `id`/`key` for identity). */
     position: number;
     kind: FieldKind;
     tag: string;
@@ -114,6 +128,11 @@ export interface FieldResult extends DiscoveredField {
     expected?: string;
     actual?: string;
     note?: string;
+    /**
+     * Set when the field is no longer (unambiguously) on the page after the upload: it is still
+     * reported, attributed to its own logical identity, never to whatever now has its old position.
+     */
+    presence?: 'removed_after_upload' | 'ambiguous_after_upload';
     /** Evidence about the user-visible control behind a text field (no values). */
     control?: {
         visible: boolean;
@@ -311,6 +330,17 @@ export interface PrepareReport {
          * request allowed, the parser visibly succeeded, or it failed / is unresolved.
          */
         parser: ResumeParserReport;
+        /** How the resume control was tracked across the DOM changes its upload may cause. */
+        identity: {
+            logicalKey: string | null;
+            tracking:
+                | 'same_element'
+                | 'rematched_by_key'
+                | 'ambiguous'
+                | 'removed'
+                | 'not_found';
+            note: string;
+        };
     };
     controls: Array<{
         text: string;

@@ -26,6 +26,7 @@ import {
     type PrepareReport,
 } from './contracts.ts';
 import { discoverForm, type Discovery } from './discover.ts';
+import { locateField, type Located } from './identity.ts';
 import { captureViewports, createRunDir, writeReport } from './evidence.ts';
 import { stopFilePath, waitForHoldEnd } from './hold.ts';
 import { observeParser } from './parser.ts';
@@ -149,6 +150,11 @@ export async function prepareApplication(
                 waitedMs: 0,
                 atPreparation: 'not_attempted',
             },
+            identity: {
+                logicalKey: null,
+                tracking: 'not_found',
+                note: 'no resume upload field was recognised',
+            },
         },
         controls: [],
         blockers: {
@@ -241,8 +247,14 @@ export async function prepareApplication(
             ) ?? null;
 
         // The resume goes first: some forms parse it and overwrite other fields.
+        let located: Located | null = null;
         if (resumeField !== null) {
             report.resume.fieldId = resumeField.id;
+            report.resume.identity = {
+                logicalKey: resumeField.key,
+                tracking: 'same_element',
+                note: 'the same element is still present',
+            };
             guard.openUploadWindow(); // exceptions marked duringUploadOnly may fire only inside this window
             try {
                 await uploadResumeFile(
@@ -267,7 +279,17 @@ export async function prepareApplication(
                 options.parserWaitMs ?? 15_000,
             );
             report.resume.parser.atPreparation = report.resume.parser.status;
+            // An upload can make a widget remove or replace its input. Re-discover, then
+            // track the resume control by identity, never by its old position or id alone.
+            const previousIds = new Set(discovery.fields.map((f) => f.id));
             discovery = await discoverForm(page);
+            located = locateField(resumeField, discovery.fields, previousIds);
+            report.resume.identity = {
+                logicalKey: resumeField.key,
+                tracking: located.tracking,
+                note: located.note,
+            };
+            if (located.field) report.resume.fieldId = located.field.id;
         }
         report.warnings.push(...discovery.warnings);
 
@@ -275,9 +297,33 @@ export async function prepareApplication(
             page,
             input,
             discovery,
-            report.resume.fieldId,
+            resumeField === null ? null : (located?.field?.id ?? null),
             report.warnings,
         );
+        if (
+            resumeField !== null &&
+            located !== null &&
+            (located.tracking === 'removed' || located.tracking === 'ambiguous')
+        ) {
+            // Keep the resume's own result, attributed to its own logical identity, instead of
+            // letting a failure land on whichever control now sits where it used to be.
+            const own: FieldResult = {
+                ...resumeField,
+                sensitive: false,
+                classification: 'known',
+                mappedTo: 'resume',
+                status: 'error',
+                presence:
+                    located.tracking === 'removed'
+                        ? 'removed_after_upload'
+                        : 'ambiguous_after_upload',
+                note: `resume control ${located.tracking === 'removed' ? 'removed from the page after the upload' : 'cannot be told apart from another field after the upload'}: ${located.note}`,
+            };
+            const at = report.fields.findIndex(
+                (f) => f.position > own.position,
+            );
+            report.fields.splice(at < 0 ? report.fields.length : at, 0, own);
+        }
         await verifyResume(page, report, resume.sha256, input.resumePdfPath);
 
         // Re-read every filled field after all the others were filled and the page settled:
@@ -390,6 +436,16 @@ async function processFields(
 
         if (field.id === resumeFieldId) {
             result.status = 'unresolved_required'; // replaced by verifyResume()
+            continue;
+        }
+        if (c.mappedTo === 'resume') {
+            // A second file input that also looks like a resume: the resume went to the tracked
+            // control, so this one is left alone and never mistaken for it.
+            result.status = required
+                ? 'unresolved_uncertain'
+                : 'unanswered_optional';
+            result.note =
+                'another file input that looks like a resume; the resume was attached to a different control';
             continue;
         }
         if (c.classification !== 'known') {
@@ -648,7 +704,8 @@ async function verifyResume(
         field.actual = obs?.name ?? '';
         field.status = report.resume.verified ? 'filled_verified' : 'error';
         if (!report.resume.verified)
-            field.note = `resume not verified (${report.resume.verification})`;
+            field.note =
+                `${field.presence ? `${field.note ?? ''} ` : ''}resume not verified (${report.resume.verification})`.trim();
     }
 }
 

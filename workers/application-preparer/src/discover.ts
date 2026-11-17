@@ -185,6 +185,28 @@ export async function discoverForm(page: Page): Promise<Discovery> {
         const radioGroups = new Map<string, DiscoveredField>();
         let position = 0;
 
+        // Stable ids: an element that already carries a data-wa-id from an earlier
+        // discovery keeps it, so ids never depend on position. New elements get
+        // fresh ids from a counter that only grows, so the id of a removed element
+        // is never handed to a different one. A duplicate (e.g. a cloned node that
+        // copied the attribute) gets a new id instead of sharing one.
+        const root = document.documentElement;
+        let nextId = Number(root.getAttribute('data-wa-next') ?? '0');
+        const usedIds = new Set<string>();
+        const assignId = (el: Element): string => {
+            const existing = el.getAttribute('data-wa-id');
+            if (existing && !usedIds.has(existing)) {
+                usedIds.add(existing);
+                return existing;
+            }
+            let id: string;
+            do id = `f${nextId++}`;
+            while (usedIds.has(id));
+            usedIds.add(id);
+            el.setAttribute('data-wa-id', id);
+            return id;
+        };
+
         for (const el of elements) {
             const tag = el.tagName.toLowerCase();
             const type =
@@ -210,7 +232,10 @@ export async function discoverForm(page: Page): Promise<Discovery> {
                 if (!field) {
                     const g = groupLabel(el);
                     field = {
-                        id: `f${fields.length}`,
+                        id: assignId(el),
+                        key: '',
+                        occurrence: 0,
+                        ambiguous: false,
                         position: position++,
                         kind: 'radio',
                         tag,
@@ -229,6 +254,7 @@ export async function discoverForm(page: Page): Promise<Discovery> {
                     radioGroups.set(groupKey, field);
                     fields.push(field);
                 }
+                usedIds.add(field.id);
                 el.setAttribute('data-wa-id', field.id);
                 el.setAttribute('data-wa-opt', String(field.options!.length));
                 field.options!.push(optionText);
@@ -237,8 +263,7 @@ export async function discoverForm(page: Page): Promise<Discovery> {
             }
 
             const resolved = resolveLabel(el);
-            const id = `f${fields.length}`;
-            el.setAttribute('data-wa-id', id);
+            const id = assignId(el);
             let kind: DiscoveredField['kind'] = 'text';
             let options: string[] | null = null;
             if (tag === 'select') {
@@ -257,6 +282,9 @@ export async function discoverForm(page: Page): Promise<Discovery> {
 
             fields.push({
                 id,
+                key: '',
+                occurrence: 0,
+                ambiguous: false,
                 position: position++,
                 kind,
                 tag,
@@ -273,6 +301,30 @@ export async function discoverForm(page: Page): Promise<Discovery> {
                 sensitive: false,
             });
         }
+
+        root.setAttribute('data-wa-next', String(nextId));
+
+        // Logical identity: what distinguishes a field from the others, independent
+        // of where it sits or which DOM node currently renders it. Identical keys are
+        // numbered in document order and flagged ambiguous, so a caller never has to
+        // guess which of several look-alikes it was tracking.
+        const counts = new Map<string, number>();
+        for (const f of fields) {
+            f.key = [
+                f.kind,
+                f.inputType ?? '',
+                f.name ?? '',
+                f.domId ?? '',
+                (f.label ?? '')
+                    .replace(/[✱*]/g, ' ')
+                    .replace(/\s+/g, ' ')
+                    .trim()
+                    .toLowerCase(),
+            ].join('|');
+            f.occurrence = counts.get(f.key) ?? 0;
+            counts.set(f.key, f.occurrence + 1);
+        }
+        for (const f of fields) f.ambiguous = (counts.get(f.key) ?? 0) > 1;
 
         const controls = [
             ...document.querySelectorAll(
