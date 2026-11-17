@@ -11,7 +11,7 @@ let server: TestServer;
 let base: string;
 const ANSWERS = { [LEVER_AUTH_QUESTION]: 'Yes' };
 const LOCATION_LI =
-    /<li class="application-question">\s*<label\s*>\s*<div class="application-label">\s*Current location\s*<\/div>[\s\S]*?<\/li>/;
+    /<li\b[^>]*>\s*<label\s*>\s*<div class="application-label">\s*Current location\s*<\/div>[\s\S]*?<\/li>/;
 
 before(async () => {
     server = await startServer();
@@ -38,9 +38,12 @@ const run = (path: string, options = {}) =>
     });
 
 describe('composite and hidden-input location fields', () => {
-    it('ordinary input is still verified straightforwardly', async () => {
-        const r = await run('/lever-form.html');
-        const f = field(r, 'location');
+    it('an ordinary location input is still verified straightforwardly', async () => {
+        const path = location(
+            '/loc-ordinary.html',
+            `<label>${label('Current location')}<div class="application-field"><input type="text" name="location"></div></label>`,
+        );
+        const f = field(await run(path), 'location');
         assert.equal(f.status, 'filled_verified');
         assert.equal(f.control?.composite, false);
         assert.equal(f.control?.visible, true);

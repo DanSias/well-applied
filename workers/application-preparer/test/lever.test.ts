@@ -40,7 +40,8 @@ describe('Lever-style form', () => {
         );
         assert.equal(byName(r, 'email').actual, 'alex.example@example.test');
         assert.equal(byName(r, 'phone').status, 'filled_verified');
-        assert.equal(byName(r, 'location').status, 'filled_verified');
+        // A typeahead: the worker does not type into it (see the typeahead test below).
+        assert.equal(byName(r, 'location').status, 'manual_action_required');
         assert.equal(byName(r, 'org').actual, 'Example Co');
         assert.equal(byName(r, 'urls[LinkedIn]').status, 'filled_verified');
         assert.equal(byName(r, 'urls[Github]').status, 'filled_verified');
@@ -108,14 +109,63 @@ describe('Lever-style form', () => {
         assert.equal(r.report.outcome, 'input_required');
     });
 
-    it('records the controls it saw, and never touches the submit button', async () => {
+    it('records the controls it saw, including the hidden submit, and activates none of them', async () => {
         const { report } = await runOn(server, '/lever-form.html', 'lever');
+        const visible = report.controls.filter((c) => !c.hidden);
         assert.deepEqual(
-            report.controls.map((c) => c.role).sort(),
-            ['other', 'other', 'submit'],
-            'the cookie banner buttons are not submit or navigation',
+            visible.map((c) => c.role).sort(),
+            ['other', 'other', 'other', 'submit'],
+            'cookie banner buttons and the resume widget are not submit or navigation',
         );
-        assert.equal(report.blockers.multistep, false);
+        const hiddenSubmit = report.controls.filter(
+            (c) => c.hidden && c.role === 'submit',
+        );
+        assert.equal(
+            hiddenSubmit.length,
+            1,
+            'the hidden type=submit button is reported',
+        );
+        assert.equal(hiddenSubmit[0]!.type, 'submit');
+        assert.equal(
+            report.blockers.multistep,
+            false,
+            'a hidden control never counts as a step',
+        );
+        // Nothing was clicked: no submit event, no request beyond the one allowed parse.
+        assert.equal(
+            report.safetyEvents.some((e) => e.kind === 'submit_event_blocked'),
+            false,
+        );
+        assert.deepEqual(server.mutations, ['POST /parseResume']);
+    });
+
+    it('does not type into the Current location typeahead; the value stays available and the run can still be ready', async () => {
+        const r = await runOn(server, '/lever-form.html', 'lever', {
+            input: { answers: { [LEVER_AUTH_QUESTION]: 'Yes' } },
+        });
+        const f = byName(r, 'location');
+        assert.equal(f.status, 'manual_action_required');
+        assert.equal(f.expected, 'Springfield, Exampleland');
+        assert.equal(f.actual, undefined);
+        assert.ok(f.control?.signals.includes('selected_value_input'));
+        assert.ok(
+            f.control?.signals.includes('hidden_input_with_suggestion_list'),
+        );
+        assert.match(f.note!, /suggestion must be selected by a person/);
+        assert.equal(r.report.summary.manualAction, 1);
+        assert.equal(r.report.summary.errors, 0);
+        assert.equal(
+            r.report.outcome,
+            'ready_for_review',
+            JSON.stringify(r.report.reasons),
+        );
+        assert.ok(
+            r.report.warnings.some((w) =>
+                /optional field "Current location" needs a person/.test(w),
+            ),
+        );
+        for (const name of ['name', 'email', 'phone', 'org'])
+            assert.equal(byName(r, name).status, 'filled_verified', name);
     });
 
     it('writes private evidence: screenshots and a report readable only by the owner', async () => {
@@ -169,7 +219,7 @@ describe('Lever-style form', () => {
         );
         assert.ok(roles.includes('Submit application:submit'));
         assert.equal(
-            report.controls.find((c) => c.role === 'submit')?.type,
+            report.controls.find((c) => c.role === 'submit' && !c.hidden)?.type,
             'button',
         );
         assert.equal(report.blockers.multistep, false);

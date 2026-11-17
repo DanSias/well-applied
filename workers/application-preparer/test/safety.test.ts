@@ -121,7 +121,7 @@ describe('hostile or unexpected pages', () => {
 
 describe('fail closed on ambiguity', () => {
     describe('captcha states', () => {
-        const slot = '<div id="hcaptchaResponseInput"></div>';
+        const slot = '<div id="captcha-slot"></div>';
         const withCaptcha = (path: string, markup: string) =>
             variant(path, (h) => h.replace(slot, markup));
         const frame = (title: string, style: string) =>
@@ -254,7 +254,10 @@ describe('fail closed on ambiguity', () => {
             const withMarkup = await ready('/lever-form.html');
             assert.equal(withMarkup.report.blockers.captcha, 'inactive_markup');
             const path = variant('/no-captcha.html', (h) =>
-                h.replace(/<div\s+class="h-captcha"[^>]*><\/div>/, ''),
+                h.replace(
+                    /<!-- captcha-begin -->[\s\S]*?<!-- captcha-end -->/,
+                    '',
+                ),
             );
             const { report } = await ready(path);
             assert.equal(report.blockers.captcha, 'none');
@@ -286,8 +289,8 @@ describe('fail closed on ambiguity', () => {
     it('Next/Continue (multistep) is a blocker; it is never clicked', async () => {
         const path = variant('/multistep.html', (h) =>
             h.replace(
-                /<button\s+type="button"\s+id="btn-submit"/,
-                '<button type="button" id="next">Continue</button><button type="button" id="btn-submit"',
+                /<button\b[^>]*id="btn-submit"/,
+                '<button type="button" id="next">Continue</button>$&',
             ),
         );
         const { report } = await ready(path);
@@ -448,8 +451,8 @@ describe('resume-parse exception through the engine (the Lever rule, local origi
     it('a second parse in the same run is refused (maxUses: 1)', async () => {
         const path = variant('/parse-twice.html', (h) =>
             h.replace(
-                "document.getElementById('resume-name').textContent = file.name;",
-                "document.getElementById('resume-name').textContent = file.name; fetch('/parseResume', { method: 'POST', body: (() => { const b = new FormData(); b.append('r', file); return b; })() }).catch(() => {});",
+                "document.querySelector('.filename').textContent = file.name;",
+                "document.querySelector('.filename').textContent = file.name; fetch('/parseResume', { method: 'POST', body: (() => { const b = new FormData(); b.append('r', file); return b; })() }).catch(() => {});",
             ),
         );
         const { report } = await ready(path);
