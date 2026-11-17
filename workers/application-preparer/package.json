@@ -1,0 +1,22 @@
+{
+    "name": "application-preparer",
+    "version": "0.1.0",
+    "private": true,
+    "description": "Well Applied's Phase 0 application preparation worker: opens an ATS application form, fills approved applicant data, uploads a resume, and STOPS before submission. Standalone; no dependency on the Laravel app, its database, or its node_modules. See README.md.",
+    "type": "module",
+    "scripts": {
+        "prepare-application": "node src/cli.ts",
+        "typecheck": "tsc --noEmit",
+        "test": "node --test 'test/**/*.test.ts'"
+    },
+    "dependencies": {
+        "playwright": "1.63.0"
+    },
+    "devDependencies": {
+        "@types/node": "22.13.5",
+        "typescript": "5.8.3"
+    },
+    "engines": {
+        "node": ">=22.18"
+    }
+}

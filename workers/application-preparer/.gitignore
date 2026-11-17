@@ -1,0 +1,7 @@
+node_modules
+.env
+# Everything a run produces contains applicant data: screenshots, the
+# report (expected/actual field values), and any browser profile.
+/runs/
+/profiles/
+*.profile/

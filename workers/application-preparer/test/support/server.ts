@@ -1,0 +1,43 @@
+// A local HTTP server for fixture tests. It serves test/fixtures/* and
+// RECORDS every non-GET request, so a test can prove from the server's
+// side that nothing was ever submitted.
+import { createServer, type Server } from 'node:http';
+import { readFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), '..', 'fixtures');
+
+export interface TestServer {
+    origin: string;
+    /** Every request that was not a GET/HEAD, e.g. "POST /apply". */
+    mutations: string[];
+    close(): Promise<void>;
+}
+
+export async function startServer(): Promise<TestServer> {
+    const mutations: string[] = [];
+    const server: Server = createServer(async (req, res) => {
+        const url = new URL(req.url ?? '/', 'http://x');
+        if (req.method !== 'GET' && req.method !== 'HEAD') {
+            mutations.push(`${req.method} ${url.pathname}`);
+            req.resume();
+            res.writeHead(200, { 'content-type': 'text/html' }).end('<html><body><h1>Thank you for applying</h1></body></html>');
+            return;
+        }
+        try {
+            const body = await readFile(join(FIXTURES, url.pathname.replace(/^\/+/, '') || 'index.html'));
+            res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }).end(body);
+        } catch {
+            res.writeHead(404).end('not found');
+        }
+    });
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+    const address = server.address();
+    if (address === null || typeof address === 'string') throw new Error('no address');
+    return {
+        origin: `http://127.0.0.1:${address.port}`,
+        mutations,
+        close: () => new Promise<void>((r) => server.close(() => r())),
+    };
+}

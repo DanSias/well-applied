@@ -1,0 +1,20 @@
+<!doctype html><html><body>
+<h1>Hostile fixture: tries every way to submit</h1>
+<form id="f" action="/submit-post" method="post"><input name="x" value="1"><button type="submit" id="go">Submit application</button></form>
+<form id="g" action="/get-form.html" method="get"><input name="q" value="1"></form>
+<script>
+  // What a misbehaving page, a stray AI action or a script could do.
+  window.__tryAll = {
+    submitEvent: () => document.getElementById('go').click(),
+    formSubmit: () => document.getElementById('f').submit(),
+    requestSubmit: () => document.getElementById('f').requestSubmit(),
+    getForm: () => document.getElementById('g').submit(),
+    fetchPost: () => fetch('/fetch-post', { method: 'POST', body: 'x' }).catch(() => 'blocked'),
+    beacon: () => navigator.sendBeacon('/beacon-post', 'x'),
+    navigate: () => { location.href = '/elsewhere.html'; },
+    popup: () => window.open('/popup.html'),
+    upload: () => fetch('/parse-resume', { method: 'POST', body: 'x' }).catch(() => 'blocked'),
+    uploadElsewhere: () => fetch('/parse-resume/extra', { method: 'POST', body: 'x' }).catch(() => 'blocked'),
+  };
+</script>
+</body></html>
