@@ -82,6 +82,28 @@ query strings. Report schema version 2.
 - **Controls** (`controls[]`) include hidden ones (`hidden: true`), such as a
   hidden `type=submit` that a page script clicks. They are reported, never
   activated, and never count as a Next/Continue step.
+- **Resume parser** (`resume.parser`): four facts kept apart, none inferred
+  from another. (1) _Bytes attached and verified_: `resume.verified` /
+  `verification` (SHA-256 of the browser's own copy). (2) _Parse request
+  allowed_: `parser.requestAllowed`, counted by the guard when the adapter's
+  named exception lets it through. (3) _Visibly succeeded_: `parser.status:
+"success"`, only ever from a visible success indicator on the page. (4)
+  _Failed or unresolved_: `"failure"` (a visible failure indicator) or
+  `"unknown"` (no terminal indicator within a bounded wait: still working,
+  nothing visible, or conflicting indicators; neither success nor failure is
+  claimed). `"not_observable"` means this ATS has no known indicator (only
+  Lever's is known); `"not_attempted"` means no resume was attached or no
+  request was allowed. The wait is bounded (15 s during preparation, 5 s at the
+  end of a hold) and the parser never decides `outcome`. `atPreparation` keeps
+  what preparation saw after the hold updates `status`.
+- **Hold and final state**: `diagnostics.hold` = `{ endedBy, durationMs }`
+  with `endedBy` one of `stop_file`, `enter`, `window_closed`,
+  `browser_disconnected`, `callback`. `finalState` (null without a hold, or if
+  the window was already closed) records what the form _displays_ when the hold
+  ended, for non-sensitive fields, next to each field's unchanged
+  `statusAtPreparation`: so a typeahead a person completed shows its value
+  while its preparation status stays `manual_action_required`. `end_of_hold`
+  screenshots are the final viewport shots.
 - **Verification rule**: the user-visible control is the evidence. A hidden
   input holding the right value never verifies, and never rescues a differing
   display. Composite controls (ARIA combobox/autocomplete/haspopup/controls,
@@ -188,6 +210,8 @@ src/request-policy.ts  pure request rules: UploadException matching, Cloudflare 
 src/discover.ts      read-only form discovery (tags controls with data-wa-id)
 src/classify.ts      deterministic field -> applicant-fact mapping
 src/verdict.ts       pure judgement of the user-visible control's value
+src/hold.ts          how a hold ends: Enter, STOP file, window/browser close
+src/parser.ts        resume-parser status from a visible indicator, bounded wait
 src/fill.ts          the whole write surface
 src/verify.ts        read-back checks (resume hash, values, confirmation text)
 src/evidence.ts      viewport screenshots with overlap planning + report (run dir is private, gitignored)
@@ -196,6 +220,48 @@ src/prepare.ts       the engine;  src/cli.ts  the entry point
 ```
 
 `runs/`, `profiles/` and `*.profile/` are gitignored (applicant data).
+
+## Running a supervised test and ending it gracefully (non-interactive)
+
+`--hold` keeps the headed browser open for review with the guard fully active.
+It ends on the first of: **Enter** in an interactive terminal, the browser
+window closing, or the **STOP file** below. A supervisor with no terminal
+must use the STOP file (Enter is ignored unless stdin is a terminal).
+
+The STOP file is `runs/<runId>/STOP`, in the gitignored run directory. Its
+existence is all that is checked: **its contents are never read**, so it
+cannot carry an instruction. It only ends the hold. It does not authorize any
+browser action, does not touch the guard, and cannot cause a submission.
+
+Exact procedure:
+
+1. `cd workers/application-preparer` and confirm `npm test` is green.
+2. Put the input in `runs/inputs/<name>.json` and set a `runId`, so the run
+   directory is predictable: `runs/<runId>/`.
+3. Start it in the background, headed, with output to files:
+   `node src/cli.ts runs/inputs/<name>.json --hold > runs/<runId>.stdout 2> runs/<runId>.stderr &`
+4. Wait until preparation is done: `runs/<runId>.stderr` contains a `HOLD:`
+   line (it prints the exact STOP path) and `runs/<runId>/report.json` exists.
+   That report is the _preparation_ report (`diagnostics.hold` is `null`).
+5. Review: read the report and the `before-*` / `after_fill-*` screenshots,
+   and watch the window if you are at the machine. Do not click Submit (it is
+   blocked and reported).
+6. End the hold: `touch runs/<runId>/STOP`
+7. Wait for the process to exit (`wait` on the job, or poll `pgrep -f "cli.ts runs/inputs/<name>"`).
+   Chromium is closed by the worker. Exit code: 0 ready_for_review, 3 needs a
+   human / input / unsupported, 4 safety_failure, 1 failed.
+8. Read the final `runs/<runId>/report.json`: `diagnostics.hold.endedBy` is
+   `stop_file`; `screenshots[]` now includes `end_of_hold-*` shots;
+   `finalState` has the displayed values; `resume.parser` has the four resume
+   facts; `safetyEvents` is the guard's complete log (preparation events first,
+   hold-phase events appended, none replaced).
+9. If the run directory holds anything real, delete it: `rm -rf runs/<runId>*`.
+
+Notes: creating STOP _before_ the hold begins ends the hold the moment it
+starts (preparation and the guard still run in full). Closing the window
+yourself also ends the hold, but then no final capture is possible (the report
+says so in `warnings`). Killing the process (SIGKILL) skips the final report and
+should be a last resort.
 
 ## Supervised, non-submitting live run (acceptance criterion; needs separate authorization)
 
@@ -214,7 +280,8 @@ or more postings per ATS (Lever and Greenhouse) behaving as below.
 4. Run `node src/cli.ts runs/inputs/<name>.json --hold` (headed).
 5. Watch. Do not click Submit (it is blocked anyway), do not solve a captcha,
    do not log in. Compare each filled field against the page by eye.
-6. Press Enter in the terminal (or close the window) to end.
+6. End the hold: press Enter in the terminal, or `touch runs/<runId>/STOP` from a
+   supervisor (see the section above), or close the window.
 7. Inspect `runs/<runId>/report.json`, `01-before.png`, `02-after-fill.png`,
    `03-end-of-hold.png`. Record per posting: outcome and reasons;
    `safetyEvents` (**every `blocked_mutating_request` URL is a candidate upload
