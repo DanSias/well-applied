@@ -5,6 +5,7 @@ import {
     InspectionDrawer,
     workspaceDestination,
 } from '@/components/inspection-drawer';
+import { PreparationSection } from '@/components/preparation/preparation-section';
 import { TailoredResumePanel } from '@/components/tailored-resume-panel';
 import { Badge } from '@/components/ui/badge';
 import { Button, ButtonAnchor, ButtonLink } from '@/components/ui/button';
@@ -42,6 +43,7 @@ import { show as matchShow } from '@/routes/jobs/analyses/matches';
 import { show as workspaceShow } from '@/routes/jobs/profile-resumes';
 import { index as opportunitiesIndex } from '@/routes/opportunities';
 import type { InspectionJob } from '@/types/application-inspection';
+import type { PreparationPanel } from '@/types/application-preparation';
 import type {
     TailoredResumeStatus,
     TailoringProfile,
@@ -54,6 +56,7 @@ type Props = {
     analysis: AnalysisPointer;
     inspection_job: InspectionJob;
     application: ApplicationSection;
+    preparation: PreparationPanel;
 };
 
 function Section({
@@ -248,6 +251,7 @@ export default function OpportunityShow({
     analysis,
     inspection_job,
     application,
+    preparation,
 }: Props) {
     const decisions = useJobDecisions();
     const [open, setOpen] = useState<
@@ -529,6 +533,12 @@ export default function OpportunityShow({
                         </p>
                     )}
                 </Section>
+
+                <PreparationSection
+                    panel={preparation}
+                    title={op.title}
+                    company={op.company}
+                />
 
                 <Section id="analysis" title="Job analysis">
                     {analysis === null ? (
