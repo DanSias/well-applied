@@ -116,10 +116,11 @@ export function SkillsView({ skills }: { skills: SkillSummary[] }) {
                     value={category}
                     onChange={setCategory}
                     items={[
-                        { value: 'all', label: `All ${skills.length}` },
+                        { value: 'all', label: 'All', count: skills.length },
                         ...CATEGORIES.map((c) => ({
                             value: c,
-                            label: `${skillCategoryLabel(c)} ${counts(c)}`,
+                            label: skillCategoryLabel(c),
+                            count: counts(c),
                         })),
                     ]}
                 />

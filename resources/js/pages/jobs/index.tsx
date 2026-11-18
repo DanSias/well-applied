@@ -832,7 +832,8 @@ export default function JobsIndex({
     const bulkDecisions = bulkDecisionsFor(filters.disposition);
     const viewTabs = DISPOSITION_TABS.map((tab) => ({
         value: tab.value,
-        label: `${tab.label} ${disposition_counts[tab.value]}`,
+        label: tab.label,
+        count: disposition_counts[tab.value],
     }));
     const emptyView = {
         inbox: 'Your Inbox is empty: every job has been shortlisted, dismissed or pursued.',

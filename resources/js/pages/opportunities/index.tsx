@@ -362,7 +362,8 @@ export default function OpportunitiesIndex({
 
     const tabs = RESUME_FILTERS.map((tab) => ({
         value: tab.value,
-        label: `${tab.label} ${counts[tab.value]}`,
+        label: tab.label,
+        count: counts[tab.value],
     }));
 
     return (
