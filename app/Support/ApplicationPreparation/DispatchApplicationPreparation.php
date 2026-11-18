@@ -127,9 +127,12 @@ final class DispatchApplicationPreparation
     }
 
     /**
+     * The URL a preparation would open, or why it cannot: the same check the dispatch itself makes, so the interface can
+     * explain a refusal before anyone clicks.
+     *
      * @throws PreparationException
      */
-    private function applicationUrl(JobPosting $job): string
+    public function applicationUrl(JobPosting $job): string
     {
         $url = trim((string) $job->source_url);
         $parts = parse_url($url);

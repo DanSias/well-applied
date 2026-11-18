@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Support\ApplicationInspection\PresentWorkerAvailability;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 /**
  * A small, read-only status feed for the nav-bar worker badge and
@@ -15,8 +16,14 @@ use Illuminate\Http\JsonResponse;
  */
 class BrowserWorkerStatusController extends Controller
 {
-    public function show(PresentWorkerAvailability $presenter): JsonResponse
+    /**
+     * `?worker_type=application_preparer` asks about the preparation worker instead; anything else is the inspector.
+     * Each is its own fact: one being online says nothing about the other.
+     */
+    public function show(Request $request, PresentWorkerAvailability $presenter): JsonResponse
     {
-        return response()->json($presenter->present());
+        $type = $request->query('worker_type') === 'application_preparer' ? 'application_preparer' : 'browser_inspector';
+
+        return response()->json($presenter->present($type));
     }
 }

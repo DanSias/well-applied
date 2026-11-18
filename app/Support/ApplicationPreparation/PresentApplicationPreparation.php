@@ -41,16 +41,50 @@ final class PresentApplicationPreparation
             'attempt' => $latestAgentRun === null ? null : [
                 'agent_run_id' => $latestAgentRun->id,
                 'status' => $latestAgentRun->status->value,
+                'queued_at' => $latestAgentRun->created_at?->toIso8601String(),
+                'started_at' => $latestAgentRun->started_at?->toIso8601String(),
                 'phase' => $latestAgentRun->status === AgentRunStatus::Running ? ($latestAgentRun->result_summary['phase'] ?? null) : null,
                 'failure_category' => $latestAgentRun->failure_category?->value,
                 'inputs' => $this->inputs($latestAgentRun),
             ],
+            'attempts' => $this->attempts($application),
             'latest_result' => $delivered === null ? null : [
                 'agent_run_id' => $delivered->id,
                 'finished_at' => $delivered->finished_at?->toIso8601String(),
                 'inputs' => $this->inputs($delivered),
             ] + array_diff_key($delivered->result_summary ?? [], ['phase' => 1, 'phase_at' => 1]),
         ];
+    }
+
+    /**
+     * Every earlier and current attempt for this Application, newest first, each on its own: its own resume, its own
+     * outcome. Attempts are tries at preparing one form, never separate applications.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function attempts(Application $application): array
+    {
+        return AgentRun::query()
+            ->where('agent_type', ClaimNextPreparationRun::AGENT_TYPE)
+            ->whereHas('workflowStep.workflowRun', fn ($q) => $q->where('application_id', $application->id)->where('workflow_type', WorkflowType::ApplicationPreparation))
+            ->with('workflowStep')
+            ->latest('id')
+            ->limit(25)
+            ->get()
+            ->map(fn (AgentRun $run) => [
+                'agent_run_id' => $run->id,
+                'workflow_run_id' => $run->workflowStep->workflow_run_id,
+                'status' => $run->status->value,
+                'failure_category' => $run->failure_category?->value,
+                'outcome' => $run->status === AgentRunStatus::Succeeded ? ($run->result_summary['outcome'] ?? null) : null,
+                'reviewable' => $run->status === AgentRunStatus::Succeeded ? (bool) ($run->result_summary['reviewable'] ?? false) : false,
+                'queued_at' => $run->created_at?->toIso8601String(),
+                'finished_at' => $run->finished_at?->toIso8601String(),
+                'resume_variant_id' => $run->input_summary['resume_variant_id'] ?? null,
+                'resume_sha256' => $run->input_summary['resume_sha256'] ?? null,
+            ])
+            ->values()
+            ->all();
     }
 
     private function agentRunOf(WorkflowRun $run): ?AgentRun

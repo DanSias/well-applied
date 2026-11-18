@@ -19,6 +19,7 @@ use App\Http\Controllers\JobPostingController;
 use App\Http\Controllers\JobQualificationController;
 use App\Http\Controllers\JobResumePdfController;
 use App\Http\Controllers\OpportunityController;
+use App\Http\Controllers\PreparationEvidenceController;
 use App\Http\Controllers\ProfileSynthesisController;
 use App\Http\Controllers\ReadinessReviewController;
 use App\Http\Controllers\ResumeProfileController;
@@ -160,6 +161,9 @@ Route::get('/applications/{application}/status', [ApplicationInspectionStatusCon
 // Never submits and never creates a Submission. See docs/application-preparation.md.
 Route::post('/jobs/{jobPosting}/preparations', [ApplicationPreparationController::class, 'store'])->whereNumber('jobPosting')->name('jobs.preparations.store');
 Route::post('/preparations/{workflowRun}/cancel', [ApplicationPreparationController::class, 'cancel'])->whereNumber('workflowRun')->name('preparations.cancel');
+Route::get('/preparation-attempts/{agentRun}', [PreparationEvidenceController::class, 'show'])->whereNumber('agentRun')->name('preparation-attempts.show');
+Route::get('/preparation-attempts/{agentRun}/screenshots/{name}', [PreparationEvidenceController::class, 'screenshot'])
+    ->whereNumber('agentRun')->where('name', '[a-z][a-z_]{0,19}-\d{2}of\d{2}-y\d{5}\.png')->name('preparation-attempts.screenshots.show');
 Route::get('/applications/{application}/preparation', [ApplicationPreparationController::class, 'show'])->whereNumber('application')->name('applications.preparation.show');
 
 // Read-only worker presence feed for the nav-bar badge and
