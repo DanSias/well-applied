@@ -33,7 +33,7 @@ export function ScreenshotGallery({
 
     const current = screenshots[Math.min(index, screenshots.length - 1)]!;
     const label = (s: ReviewScreenshot) =>
-        `${phaseTitle(s.phase)}${s.index !== null && s.of !== null ? `, part ${s.index} of ${s.of}` : ''}`;
+        `${phaseTitle(s.phase)}${s.index !== null && s.of !== null && s.of > 1 ? `, part ${s.index} of ${s.of}` : ''}`;
 
     return (
         <div>

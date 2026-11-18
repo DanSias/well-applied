@@ -417,7 +417,7 @@ export function PreparationDrawer({
             closeLabel="Close application preparation"
             onClose={onClose}
             header={
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 px-5 pt-2.5">
                     <Badge tone={view.headline.tone}>
                         {view.headline.label}
                     </Badge>
@@ -445,11 +445,6 @@ export function PreparationDrawer({
                             {view.explanation}
                         </p>
                     )}
-                <StartPanel
-                    prep={prep}
-                    label={`${title} at ${company}`}
-                    key={latestId ?? 'new'}
-                />
                 {shown !== null && (
                     <section aria-labelledby="prep-review">
                         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -474,6 +469,11 @@ export function PreparationDrawer({
                         <Review key={shown} agentRunId={shown} />
                     </section>
                 )}
+                <StartPanel
+                    prep={prep}
+                    label={`${title} at ${company}`}
+                    key={latestId ?? 'new'}
+                />
                 <History
                     attempts={attempts}
                     latestId={latestId}

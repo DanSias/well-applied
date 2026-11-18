@@ -155,7 +155,7 @@ export function presentPreparation(
                 canCancel: false,
                 kind: 'running',
                 headline: { label: 'Running', tone: 'accent' },
-                explanation: `${phaseLabel(attempt.phase)}. This cannot be cancelled once the worker has started.`,
+                explanation: `${attempt.phase === null ? 'The worker has started.' : `${phaseLabel(attempt.phase)}.`} This cannot be cancelled once the worker has started.`,
                 startLabel: 'Prepare application',
                 hasReview: false,
             };
