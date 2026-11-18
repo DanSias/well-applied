@@ -29,8 +29,9 @@ applicant data or a resume, and has no fill or upload capability.
 run dev` prints the reason before it starts and the preparer stays idle with the same message; the other services are not
    affected and nothing is restarted in a loop. It does not migrate, prepare or open any form on its own. To run it by hand:
    `cd workers/application-preparer && npm run agent` (see the worker README, "Laravel agent", for its other settings, the
-   lease and heartbeat behaviour and the delivery guarantees). A force-killed agent can leave a stale lock
-   (`workers/application-preparer/.agent.lock`); the next start recovers it.
+   lease and heartbeat behaviour and the delivery guarantees). Ctrl+C releases the lock; if the dev supervisor force-kills
+   the agent (for example on SIGTERM) a stale `workers/application-preparer/.agent.lock` can remain, and the next start
+   recovers it automatically (a live agent's lock is never removed).
 5. **Keep the app on localhost** (see "Security assumptions").
 6. **Try it on a local fixture, with no live site:** `workers/application-preparer/scripts/e2e-laravel-ui.sh` starts a
    disposable database and storage, a local fixture form, the app on `127.0.0.1:8765` and the agent, then you click through

@@ -231,6 +231,70 @@ describe('start.ts under composer run dev', () => {
         assert.ok(fake.log.slice(before).every((l) => /claim/.test(l)));
     });
 
+    it('releases the lock when SIGTERM or SIGHUP is delivered to the agent, as it does for Ctrl+C', async () => {
+        for (const signal of ['SIGTERM', 'SIGHUP', 'SIGINT'] as const) {
+            const files = setup(goodEnv());
+            const r = start(['--dev'], files);
+            await waitFor(() => existsSync(files.lockFile));
+            await sleep(500); // the agent has finished starting
+            const pid = Number(readFileSync(files.lockFile, 'utf8'));
+
+            process.kill(pid, signal);
+            await Promise.race([r.done, sleep(10_000)]);
+            if (r.state.code === undefined)
+                process.kill(-r.child.pid!, 'SIGKILL');
+            await r.done;
+            // A signal that ends the process by its default action (SIGHUP) reports a null code and the signal.
+            assert.ok(
+                r.state.code === 0 || r.state.code === null,
+                `${signal} did not end the agent: ${r.state.out}`,
+            );
+
+            assert.equal(
+                existsSync(files.lockFile),
+                false,
+                `${signal} left the lock`,
+            );
+        }
+    });
+
+    it('releases the lock when SIGTERM is delivered through npm, as a process manager would', async () => {
+        const files = setup(goodEnv());
+        const r = start([], files, ['sh', '-c', 'npm run agent:dev']);
+        await waitFor(() => existsSync(files.lockFile), 30_000);
+        await sleep(800);
+
+        process.kill(-r.child.pid!, 'SIGTERM');
+        await r.done;
+        await sleep(300);
+
+        assert.equal(existsSync(files.lockFile), false);
+    });
+
+    it('recovers a stale lock when starting, and never removes a lock that belongs to a live agent', async () => {
+        // A lock left by a process that is gone (a force-kill) does not block a start.
+        const stale = setup(goodEnv());
+        writeFileSync(stale.lockFile, '2147483646');
+        const a = start(['--dev'], stale);
+        await waitFor(
+            () =>
+                readFileSync(stale.lockFile, 'utf8') === String(a.child.pid) ||
+                (/\d/.test(readFileSync(stale.lockFile, 'utf8')) &&
+                    readFileSync(stale.lockFile, 'utf8') !== '2147483646'),
+        );
+        assert.ok(!/idle|already running/.test(a.state.out), a.state.out);
+
+        // A second agent that is refused must leave the live agent's lock exactly as it was.
+        const held = readFileSync(stale.lockFile, 'utf8');
+        const b = start([], stale);
+        await b.done;
+        assert.equal(b.state.code, 1);
+        assert.equal(readFileSync(stale.lockFile, 'utf8'), held);
+
+        process.kill(-a.child.pid!, 'SIGINT');
+        await a.done;
+    });
+
     it('stops cleanly when Ctrl+C reaches the whole command the way the dev supervisor delivers it (sh -c, npm, node)', async () => {
         const files = setup(goodEnv());
         const before = fake.log.length;

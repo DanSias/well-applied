@@ -75,8 +75,15 @@ if (problems.length > 0) {
     } else {
         // Release the lock the moment a stop signal arrives, not only on a normal exit: a supervisor may kill the process
         // right after signalling it, and a stale lock is recovered but never ideal. (The agent's own handlers still run.)
-        for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const)
+        // SIGINT and SIGTERM are the agent's own graceful-stop signals (it keeps running until it has stopped, so this only
+        // frees the lock early). SIGHUP is not handled by the agent, and adding a listener would stop it from ending the
+        // process, so there it releases and then re-raises the signal for its default action.
+        for (const signal of ['SIGINT', 'SIGTERM'] as const)
             process.on(signal, lock.release);
+        process.once('SIGHUP', () => {
+            lock.release();
+            process.kill(process.pid, 'SIGHUP');
+        });
         for (const [key, value] of Object.entries(set))
             process.env[key] = value;
         say(`settings: url from ${sources.url}, token from ${sources.token}`);

@@ -407,8 +407,11 @@ environment you give it.
 start nothing by hand. `--dev` mode adds checks and one rule: the settings and Chromium are verified first, and **if it cannot
 start (no token, `npm install` or `npx playwright install chromium` not done) it prints why and stays idle until Ctrl+C**
 rather than exiting (the supervisor would restart it in a loop). A lock file (`.agent.lock`, gitignored) allows one agent per
-checkout: a second says so and stays idle (outside dev mode it exits 1). Ctrl+C releases the lock; a force-killed agent
-leaves a stale one that the next start recovers. `node src/start.ts --check` only reports whether it could start.
+checkout: a second says so and stays idle (outside dev mode it exits 1). The lock is released on Ctrl+C and whenever
+SIGINT, SIGTERM or SIGHUP is delivered to the agent, and a lock whose process is gone is recovered by the next start (a live
+agent's lock is never removed by another). **Limitation:** when the dev supervisor itself stops the group on SIGTERM it can
+kill the agent outright (it may even restart it first), so no cleanup runs and a stale lock may remain; the next start
+recovers it automatically. `node src/start.ts --check` only reports whether it could start.
 
 Per claimed attempt: claim → fetch the frozen input and the resume (verified against **three** pins: the claim's hash and
 size, the snapshot's hash, and the response header) → write `PrepareInput` and the resume to a private work directory →
