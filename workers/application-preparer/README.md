@@ -382,6 +382,54 @@ mutating request, but it cannot see file bytes in transit (an upload-shaped requ
 carry other data under the allowed shape), which is why the exceptions are narrow and
 bound to observed requests.
 
+## Laravel agent (Phase 1)
+
+`src/agent.ts` connects this worker to Well Applied's preparation workflow (see `docs/application-preparation.md` in the
+repository root). It is a separate entry point: **the preparation engine, its request guard and its submission safeguards
+are unchanged**, and the agent adds no browser capability. It never submits, never retries the browser, and logs no applicant
+data.
+
+```sh
+CAREER_TOOLKIT_URL=http://localhost:8000 PREPARER_WORKER_TOKEN=... node src/agent.ts        # poll forever
+CAREER_TOOLKIT_URL=... PREPARER_WORKER_TOKEN=... node src/agent.ts --once                  # claim at most one, then stop
+```
+
+Per claimed attempt: claim → fetch the frozen input and the resume (verified against **three** pins: the claim's hash and
+size, the snapshot's hash, and the response header) → write `PrepareInput` and the resume to a private work directory →
+run the **existing CLI** (`src/cli.ts --headless`) as a child process → upload screenshots → deliver the result → delete
+local files. The engine runs in its own process group with a minimal environment (no `PREPARER_*` variable, so no token), so the agent can stop the whole
+browser tree on a lost lease, the execution limit or a shutdown.
+
+| Variable                                                  | Default                |                                                                                                                    |
+| --------------------------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `CAREER_TOOLKIT_URL`                                      | required               | Laravel's base URL. Plain `http` only to localhost unless `PREPARER_ALLOW_INSECURE_HTTP=1`.                        |
+| `PREPARER_WORKER_TOKEN`                                   | required               | The preparer token (distinct from the inspector's).                                                                |
+| `PREPARER_WORKER_IDENTITY`                                | `application-preparer` | Must stay the same across a claim: Laravel scopes every call to it.                                                |
+| `PREPARER_HEARTBEAT_MS`                                   | `20000`                | Lease renewal interval (the lease is 120 s on the server).                                                         |
+| `PREPARER_EXECUTION_LIMIT_MS`                             | `600000`               | Hard cap on the browser stage of one attempt.                                                                      |
+| `PREPARER_DELIVERY_ATTEMPTS` / `_BACKOFF_MS`              | `5` / `1000`           | Safe transport retries for delivery only (never the browser).                                                      |
+| `PREPARER_WORK_DIR`                                       | `./agent-work`         | Private (0700) per-attempt directories; gitignored.                                                                |
+| `PREPARER_POLL_INTERVAL_MS`                               | `5000`                 |                                                                                                                    |
+| `PREPARER_HEADED`                                         | unset                  | `1` runs the browser headed.                                                                                       |
+| `PREPARER_PENDING_MAX_AGE_MS`                             | `86400000`             | A report that could not be delivered is deleted after this.                                                        |
+| `PREPARER_ALLOW_LOCAL_FIXTURE=1` + `PREPARER_FIXTURE_ATS` | off                    | **Local fixture testing only**: treat an `http://127.0.0.1` form as that ATS. Laravel has its own matching opt-in. |
+
+**Leases.** A heartbeat every 20 s keeps the 120 s lease alive for the whole attempt. If Laravel rejects a heartbeat (403, 404
+or 409), or the lease cannot be proven live any more (measured from when the last confirming request was _sent_), the
+engine is killed and **nothing more is sent**: no screenshot, no result. Brief network errors and 5xx are tolerated inside the lease.
+
+**Delivery.** Screenshots first, then the result. Both are idempotent on Laravel's side, so only transport failures and 5xx
+are retried; an answer (accepted, stale, rejected) is final. The result is a projection of the engine's report onto the
+fields Laravel's contract keeps (no controls, option lists, selected values or raw state), bounded in size. A delivered
+`input_required`, `blocked` or `safety_failure` report is a _successful execution_; only a crash, a timeout or a shutdown is
+a failed one. If delivery cannot be confirmed, the report and screenshots stay in the private work directory (the
+applicant values and the resume are deleted as soon as the engine finishes) and are retried at the next start while the
+lease allows; otherwise Laravel says "stale" and they are deleted. **The browser is never rerun.**
+
+**Tests.** `test/agent.test.ts` (stub engine, fake Laravel, failure injection), `test/agent-units.test.ts`,
+`test/agent-engine.test.ts` (the real engine on fixture forms). `scripts/e2e-laravel-fixture.sh` runs the real Laravel,
+the real agent and the real engine on a local fixture with a disposable database and storage.
+
 ## Layout
 
 ```
@@ -395,6 +443,7 @@ src/classify.ts      deterministic field -> applicant-fact mapping
 src/verdict.ts       pure judgement of the user-visible control's value
 src/identity.ts      tracking one logical field across DOM changes
 src/questions.ts     report-layer grouping of controls into questions
+src/agent.ts         Laravel polling agent entry (see "Laravel agent"); src/agent/*: client, lease, delivery, engine runner
 src/hold.ts          how a hold ends: Enter, STOP file, window/browser close
 src/parser.ts        resume-parser status from a visible indicator, bounded wait
 src/fill.ts          the whole write surface
