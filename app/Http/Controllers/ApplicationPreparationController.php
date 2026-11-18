@@ -3,9 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Enums\JobDisposition;
+use App\Enums\WorkflowType;
 use App\Models\Application;
 use App\Models\JobPosting;
 use App\Models\ResumeVariant;
+use App\Models\WorkflowRun;
+use App\Support\ApplicationPreparation\CancelApplicationPreparation;
 use App\Support\ApplicationPreparation\DispatchApplicationPreparation;
 use App\Support\ApplicationPreparation\PreparationException;
 use App\Support\ApplicationPreparation\PresentApplicationPreparation;
@@ -45,6 +48,20 @@ class ApplicationPreparationController extends Controller
             'workflow_run_id' => $run->id,
             'preparation' => $presenter->present($run->application),
         ], $created ? 202 : 200);
+    }
+
+    /** Withdraws a preparation no worker has claimed yet. Repeating it is safe; a claimed or finished one is refused. */
+    public function cancel(WorkflowRun $workflowRun, CancelApplicationPreparation $canceller): JsonResponse
+    {
+        abort_unless($workflowRun->workflow_type === WorkflowType::ApplicationPreparation, 404);
+        abort_unless($workflowRun->application->jobPosting->career_profile_id === CurrentCareerProfile::resolve()->id, 404);
+
+        $result = $canceller->cancel($workflowRun);
+
+        return response()->json(
+            ['outcome' => $result['outcome'], 'current_status' => $result['current_status']],
+            $result['outcome'] === 'not_cancellable' ? 409 : 200,
+        );
     }
 
     public function show(Application $application, PresentApplicationPreparation $presenter): JsonResponse

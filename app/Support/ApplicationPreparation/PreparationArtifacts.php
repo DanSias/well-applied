@@ -208,6 +208,22 @@ final class PreparationArtifacts
         Storage::disk(self::DISK)->deleteDirectory($this->directory($run));
     }
 
+    /**
+     * Removes the frozen applicant values and resume of an attempt that was cancelled before any worker had them. Other
+     * files (there are none for a queued attempt) are left alone.
+     */
+    public function discardInputs(AgentRun $run): void
+    {
+        $disk = Storage::disk(self::DISK);
+        $dir = $this->directory($run);
+        $disk->delete($dir.'/input.json');
+        foreach ($disk->files($dir) as $file) {
+            if (str_starts_with(basename($file), 'resume-')) {
+                $disk->delete($file);
+            }
+        }
+    }
+
     public function deleteFile(string $path): void
     {
         Storage::disk(self::DISK)->delete($path);

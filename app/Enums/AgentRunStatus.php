@@ -23,6 +23,12 @@ enum AgentRunStatus: string
     case Failed = 'failed';
 
     /**
+     * An application_preparer attempt that was withdrawn while still queued, before any worker claimed it. Terminal:
+     * never claimed, never reopened. Only preparation uses it (see CancelApplicationPreparation).
+     */
+    case Cancelled = 'cancelled';
+
+    /**
      * Queued or Running — an attempt that is not yet finished.
      *
      * @return array<int, self>

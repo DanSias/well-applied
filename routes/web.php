@@ -159,6 +159,7 @@ Route::get('/applications/{application}/status', [ApplicationInspectionStatusCon
 // "Prepare Application": freezes an attempt's inputs and queues it for the preparer worker; read-only state beside it.
 // Never submits and never creates a Submission. See docs/application-preparation.md.
 Route::post('/jobs/{jobPosting}/preparations', [ApplicationPreparationController::class, 'store'])->whereNumber('jobPosting')->name('jobs.preparations.store');
+Route::post('/preparations/{workflowRun}/cancel', [ApplicationPreparationController::class, 'cancel'])->whereNumber('workflowRun')->name('preparations.cancel');
 Route::get('/applications/{application}/preparation', [ApplicationPreparationController::class, 'show'])->whereNumber('application')->name('applications.preparation.show');
 
 // Read-only worker presence feed for the nav-bar badge and

@@ -154,6 +154,11 @@ return [
     'preparer_worker' => [
         'token' => env('PREPARER_WORKER_TOKEN'),
         'claim_ttl' => (int) env('PREPARER_WORKER_CLAIM_TTL', 120),
+
+        // LOCAL FIXTURE TESTING ONLY. Lets a dispatch accept an http://127.0.0.1 or http://localhost application URL
+        // (a fixture form served locally) instead of only https Lever/Greenhouse hosts. Off by default; the worker
+        // has its own, separate opt-in for the same thing. Never enable this against real applications.
+        'allow_local_fixture' => (bool) env('PREPARER_ALLOW_LOCAL_FIXTURE', false),
     ],
 
     /*

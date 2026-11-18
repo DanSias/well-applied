@@ -137,6 +137,9 @@ final class DispatchApplicationPreparation
         if ($url === '' || $parts === false) {
             throw new PreparationException('This job has no application URL to prepare.', 'no_application_url');
         }
+        if ($this->isLocalFixture($parts)) {
+            return $url;
+        }
         if (($parts['scheme'] ?? null) !== 'https' || isset($parts['user']) || isset($parts['pass']) || isset($parts['port'])) {
             throw new PreparationException('This job\'s application URL cannot be used (it must be plain https).', 'unsupported_application_url');
         }
@@ -145,6 +148,19 @@ final class DispatchApplicationPreparation
         }
 
         return $url;
+    }
+
+    /**
+     * A local fixture form (never a real application), and only when explicitly enabled for local testing.
+     *
+     * @param  array<string, mixed>  $parts
+     */
+    private function isLocalFixture(array $parts): bool
+    {
+        return (bool) config('services.preparer_worker.allow_local_fixture')
+            && ($parts['scheme'] ?? null) === 'http'
+            && in_array($parts['host'] ?? null, ['127.0.0.1', 'localhost'], true)
+            && ! isset($parts['user'], $parts['pass']);
     }
 
     /**
@@ -199,6 +215,6 @@ final class DispatchApplicationPreparation
     {
         $parts = parse_url($url);
 
-        return ($parts['scheme'] ?? 'https').'://'.($parts['host'] ?? '').($parts['path'] ?? '');
+        return ($parts['scheme'] ?? 'https').'://'.($parts['host'] ?? '').(isset($parts['port']) ? ':'.$parts['port'] : '').($parts['path'] ?? '');
     }
 }
