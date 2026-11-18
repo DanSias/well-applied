@@ -200,12 +200,15 @@ Limits, stated plainly:
   effect (a GET "submit" URL is only caught by the navigation lock or the
   confirmation heuristics, which are text/path heuristics).
 - The Lever resume-parse exception's content-type and resource-type
-  constraints are the _expected_ shape of a file upload; the first live run
-  did not record them. If real Lever differs, the request stays blocked and the
-  event records exactly what was seen (`[resource type, content-type, size]`).
+  constraints were written as the _expected_ shape of a file upload and the
+  first live run did not record them. The later supervised runs (Spotify,
+  Palantir) saw the parse request pass the exception and the parser report
+  `success`. If a different Lever tenant differs, the request stays blocked and
+  the event records exactly what was seen (`[resource type, content-type, size]`).
 - Fixtures are synthetic, hand-written approximations of Lever and Greenhouse
-  markup, not captures; real forms will differ (see the supervised test below).
-  The Lever fixture mirrors the structure seen in two supervised runs (reports,
+  markup, not captures; real forms differ (see "Live validation" for what has and
+  has not been seen live). The Lever fixture mirrors the structure seen in two
+  early supervised runs (reports,
   screenshots and one sanitized DOM snapshot that is deliberately **not**
   committed) and says, in its header, which parts are observed, which are
   approximations (e.g. the clear-on-blur script is inferred from the observed
@@ -319,6 +322,66 @@ path, method, resource type or content type, anywhere on `greenhouse.io`, remain
   is recorded (`inferred_proximity` unless the group names it), and identity keys follow the label
   consistently across re-discovery.
 
+## Live validation (Phase 0)
+
+Supervised, headed, non-submitting runs with the synthetic applicant and resume,
+one posting at a time, each ended with the STOP file. **Nothing was ever submitted**; no
+run authenticated, solved a captcha or clicked anything. The guard blocked no real
+submission because none was attempted: it has never been provoked on a live site.
+
+| ATS        | Posting              | Outcome                                                               | Notes                                                                                                                                                                                                              |
+| ---------- | -------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Lever      | demo tenant (3 runs) | first run `safety_failure`, then `input_required`, `ready_for_review` | The first run's `blocked_mutating_request` led to the narrow parse exception and beacon classification; later runs passed                                                                                          |
+| Lever      | Spotify, Palantir    | `input_required`                                                      | Contact fields filled and verified, resume `content_sha256`, parser `success`, location typeahead reported `manual_action_required`; ended by STOP file                                                            |
+| Greenhouse | Discord              | `blocked` (earlier code)                                              | Presign and S3 upload passed the exception, but verification could not be completed: the widget removes the input. **Not re-run** with the final code                                                              |
+| Greenhouse | Figma                | `input_required`                                                      | Final code: S3 upload HTTP **201**, filename visible, `upload_accepted`; Snowplow beacon `blocked_telemetry_request`, not a failure. An earlier Figma run ended `safety_failure` on that beacon (since classified) |
+| Greenhouse | GitLab               | `input_required`                                                      | Final code: S3 upload HTTP **201**, filename visible, `upload_accepted`; resume placed in the Resume/CV control, Cover Letter untouched                                                                            |
+
+Every run ended through the STOP file with `diagnostics.hold.endedBy: stop_file`, no
+leftover browser, and `submission.assertion: worker_did_not_submit`.
+
+**Confirmed on live forms**
+
+- Contact fields (name, email, phone, LinkedIn) filled and verified from what the page displays.
+- Resume attached: Lever by SHA-256 of the browser's copy plus parser `success`; Greenhouse
+  from independent evidence (artifact hash, HTTP 2xx from the one authorised S3 POST,
+  filename shown by the widget).
+- Human-intervention detection: location typeaheads (`manual_action_required`), required
+  unmapped questions, unresolved selects, and passive/invisible reCAPTCHA badges
+  (`inactive_markup`; none was an active challenge).
+- The upload exceptions admit only the observed requests; the Greenhouse presign-bound S3
+  destination worked on live boards; Snowplow and Cloudflare beacons stay blocked.
+- Full-page screenshots at planned scroll positions and a graceful STOP-file shutdown.
+
+**Covered only by synthetic fixtures (never seen live)**
+
+- Refusal paths: unauthorized or wrong-bucket uploads, `failed` / `unknown` /
+  `accepted_confirmation_missing` upload outcomes, telemetry near-misses.
+- Submission blocking itself: hidden-submit, form submit, navigation and popup guards, and a
+  blocked mutating request that is a real submission.
+- Checkbox/radio grouping, `preselected_by_page`, file-label inference, active/visible
+  captcha detection, multi-step (Next/Continue) forms, and login detection.
+- Employer-hosted or EU Greenhouse boards were not exercised.
+
+**Known issues (nonblocking, accuracy only; not fixed in Phase 0)**
+
+1. **Phone Country selector misclassified.** Greenhouse's Country control is a flag plus
+   dial-code widget (e.g. "+1") without the react-select markup assumed by discovery. It is
+   read as a placeholder, so a required Country is reported `unresolved_required` (Figma) or
+   `unanswered_optional` (GitLab) even though the page shows a value. It fails safe; the
+   worker never interprets the dial code as an answer. Fixing it needs the real markup (a
+   sanitized DOM capture, which needs authorization).
+2. **Resume/CV and Cover Letter labels sometimes appear as "Attach".** On live Greenhouse the
+   headings sit outside the container the label inference looks in, so both controls keep
+   the button label. The resume is still identified correctly by element id and key and went
+   into the right control; only the reported label is generic.
+
+**Reading these results.** `upload_accepted` means the server accepted the upload and the widget
+shows the file; it is not evidence that an application exists. The guard blocks every non-allowed
+mutating request, but it cannot see file bytes in transit (an upload-shaped request could
+carry other data under the allowed shape), which is why the exceptions are narrow and
+bound to observed requests.
+
 ## Layout
 
 ```
@@ -385,10 +448,10 @@ yourself also ends the hold, but then no final capture is possible (the report
 says so in `warnings`). Killing the process (SIGKILL) skips the final report and
 should be a last resort.
 
-## Supervised, non-submitting live run (acceptance criterion; needs separate authorization)
+## Supervised, non-submitting live run (needs separate authorization)
 
-Do not run this until it has been authorized. Acceptance for Phase 0 is three
-or more postings per ATS (Lever and Greenhouse) behaving as below.
+Phase 0 acceptance has been met (see "Live validation"). This is the procedure
+used; do not run it against a live site unless that has been authorized.
 
 1. Confirm a clean tree for this worker (`git status workers/application-preparer`),
    `npm test` green, Chromium installed.
@@ -397,24 +460,26 @@ or more postings per ATS (Lever and Greenhouse) behaving as below.
    `https://job-boards.greenhouse.io/<company>/jobs/<id>`.
 3. Create `runs/inputs/<name>.json` (gitignored) from
    `fixtures/applicant.synthetic.json`: set `applicationUrl`, an absolute
-   `resumePdfPath`, and `answers` only for questions you want exercised.
-   Use synthetic data unless you have decided otherwise.
-4. Run `node src/cli.ts runs/inputs/<name>.json --hold` (headed).
+   `resumePdfPath`, a fresh `runId`, and `answers` only for questions you want
+   exercised. Use synthetic data unless you have decided otherwise.
+4. Run `node src/cli.ts runs/inputs/<name>.json --hold` (headed). One posting at a time.
 5. Watch. Do not click Submit (it is blocked anyway), do not solve a captcha,
    do not log in. Compare each filled field against the page by eye.
 6. End the hold: press Enter in the terminal, or `touch runs/<runId>/STOP` from a
    supervisor (see the section above), or close the window.
-7. Inspect `runs/<runId>/report.json`, `01-before.png`, `02-after-fill.png`,
-   `03-end-of-hold.png`. Record per posting: outcome and reasons;
+7. Inspect `runs/<runId>/report.json` and the screenshots
+   (`before-NNofMM-yNNNNN.png`, `after_fill-...`, `end_of_hold-...`, one per scroll
+   position; see `screenshots[]`). Record per posting: outcome and reasons;
    `safetyEvents` (**every `blocked_mutating_request` URL is a candidate upload
    exception, review them, do not add one blindly**; note the request shape
-   recorded for any refused `lever-resume-parse`); `blockers.captchaDetails`
+   recorded for any refused exception); `blockers.captchaDetails`
    (which element, if any, is a visible challenge); each field's `control`
-   evidence and any `unverified` field; `screenshots` coverage warnings; `resume.verification`;
-   `controls`; `blockers`; unrecognised or mis-labelled fields; anything the
-   page did that the fixtures did not.
+   evidence and any `unverified` field; `screenshots` coverage warnings;
+   `resume.verification` and, on Greenhouse, `resume.upload` (outcome and
+   response status); `controls`; `blockers`; unrecognised or mis-labelled
+   fields; anything the page did that the fixtures did not.
 8. Confirm nothing was submitted: no confirmation page, no email at the
    address used, the posting shows no application.
-9. Delete the run directory if it holds anything real (`rm -rf runs/<runId>`).
+9. Delete the run directory if it holds anything real (`rm -rf runs/<runId>*`).
 10. Stop and report on any `safety_failure` involving a submit, a suspected
     submission, or behavior you cannot explain. Do not retry around it.
