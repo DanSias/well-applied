@@ -301,7 +301,7 @@ const PROFILE_FACTS: Record<string, string> = {
 
 export type ValueEvidence = {
     /** Which kind of value this is. They are never mixed, and none is inferred. */
-    kind: 'entered' | 'intended' | 'page_default';
+    kind: 'entered' | 'intended' | 'attached' | 'page_default';
     text: string;
     /** One sentence saying what the value is and where it came from. */
     caption: string;
@@ -345,13 +345,18 @@ export function valueEvidence(q: {
     }
 
     if (q.intended !== null && q.intended !== '') {
+        if (q.provenance.source === 'chosen_resume') {
+            return {
+                kind: 'attached',
+                text: q.intended,
+                caption: 'The resume file that was attached.',
+            };
+        }
+
         return {
             kind: 'intended',
             text: q.intended,
-            caption:
-                q.provenance.source === 'chosen_resume'
-                    ? 'The resume file that was attached.'
-                    : `Not entered. This is what your profile would put here${from ? ` (${from})` : ''}; a person has to complete it.`,
+            caption: `Not entered. This is what your profile would put here${from ? ` (${from})` : ''}; a person has to complete it.`,
         };
     }
 

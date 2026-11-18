@@ -124,11 +124,6 @@ function QuestionList({
                                     {q.note}
                                 </p>
                             )}
-                            {q.note && value && value.kind === 'intended' && (
-                                <p className="text-fg-subtle mt-0.5 text-xs break-words">
-                                    {q.note}
-                                </p>
-                            )}
                         </li>
                     );
                 })}
