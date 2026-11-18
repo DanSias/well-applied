@@ -19,17 +19,29 @@ const OFFLINE_STATUS: WorkerStatus = {
  * hook instance's fetches serve every consumer on the page rather than
  * each Application view adding its own.
  */
-export function useWorkerStatusPolling(): WorkerStatus {
+export function useWorkerStatusPolling(
+    workerType?: 'application_preparer',
+    enabled: boolean = true,
+): WorkerStatus {
     const [status, setStatus] = useState<WorkerStatus>(OFFLINE_STATUS);
 
     useEffect(() => {
+        if (!enabled) {
+            return;
+        }
+
         let cancelled = false;
 
         const poll = async () => {
             try {
-                const response = await fetch(workerStatus.url(), {
-                    headers: { Accept: 'application/json' },
-                });
+                const response = await fetch(
+                    workerStatus.url(
+                        workerType
+                            ? { query: { worker_type: workerType } }
+                            : undefined,
+                    ),
+                    { headers: { Accept: 'application/json' } },
+                );
 
                 if (!response.ok || cancelled) {
                     return;
@@ -53,7 +65,7 @@ export function useWorkerStatusPolling(): WorkerStatus {
             cancelled = true;
             window.clearInterval(intervalId);
         };
-    }, []);
+    }, [workerType, enabled]);
 
     return status;
 }
