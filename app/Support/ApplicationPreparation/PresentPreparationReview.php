@@ -53,6 +53,14 @@ final class PresentPreparationReview
             'status' => $q['status'] ?? null,
             'review' => $q['review'] ?? null,
             'sensitive' => (bool) ($q['sensitive'] ?? false),
+            // Where the value came from, and which kind of value it is: what the worker read back from the form
+            // ('entered'), what it meant to enter but a person must ('intended'), or what the page already had ('page
+            // default'). Never mixed, and never inferred: a question with none of them simply shows no value.
+            'provenance' => ['source' => $q['provenance']['source'] ?? null, 'key' => $q['provenance']['key'] ?? null],
+            'entered' => $q['entered'] ?? null,
+            'intended' => $q['intended'] ?? null,
+            'page_selected' => $q['page_selected'] ?? [],
+            'note' => $q['note'] ?? null,
         ], $report['questions'] ?? []);
 
         $by = fn (string ...$reviews) => array_values(array_filter($questions, fn (array $q) => in_array($q['review'], $reviews, true)));
@@ -62,6 +70,9 @@ final class PresentPreparationReview
         return [
             ...$base,
             'available' => true,
+            // What the evidence is: observed while the form was being prepared. The page's final state (and anything a
+            // person changes afterwards) is not captured, so a value here is "what the worker saw", not "what will be sent".
+            'evidence' => ['observed_at' => 'preparation', 'final_state_captured' => false],
             'outcome' => $report['outcome'],
             'reported_outcome' => $report['reported_outcome'] ?? $report['outcome'],
             'reviewable' => (bool) ($summary['reviewable'] ?? false),

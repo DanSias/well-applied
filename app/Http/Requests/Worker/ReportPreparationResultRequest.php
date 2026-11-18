@@ -101,6 +101,15 @@ class ReportPreparationResultRequest extends FormRequest
             'report.questions.*.review' => ['required', Rule::in(self::REVIEWS)],
             'report.questions.*.sensitive' => ['nullable', 'boolean'],
             'report.questions.*.provenance.source' => ['nullable', Rule::in(['applicant_fact', 'approved_answer', 'chosen_resume', 'none'])],
+            'report.questions.*.provenance.key' => ['nullable', Rule::in(['full_name', 'first_name', 'last_name', 'email', 'phone', 'location', 'current_company', 'linkedin_url', 'github_url', 'portfolio_url'])],
+            // Review evidence, each bounded and re-checked by SanitizePreparationReport: what the worker read back, what it
+            // intended but did not enter, and what the page had already selected. Never an option list.
+            'report.questions.*.entered' => ['nullable', 'string', 'max:500'],
+            'report.questions.*.intended' => ['nullable', 'string', 'max:500'],
+            'report.questions.*.page_selected' => ['nullable', 'array', 'max:20'],
+            'report.questions.*.page_selected.*' => ['string', 'max:200'],
+            'report.questions.*.note' => ['nullable', 'string', 'max:300'],
+            'report.questions.*.presence' => ['nullable', 'string', 'max:50'],
 
             'report.resume' => ['nullable', 'array'],
             'report.resume.sha256' => ['nullable', 'string', 'regex:/^[0-9a-f]{64}$/'],

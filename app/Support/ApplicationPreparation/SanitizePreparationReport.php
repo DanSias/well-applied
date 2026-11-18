@@ -98,7 +98,7 @@ final class SanitizePreparationReport
             'reasons' => array_map(fn ($r) => $this->withoutQueries($r), $report['reasons'] ?? []),
             'summary' => $report['summary'] ?? [],
             'question_summary' => $report['questionSummary'] ?? [],
-            'questions' => $report['questions'] ?? [],
+            'questions' => array_map($this->redactQuestion(...), $report['questions'] ?? []),
             'fields' => array_map(fn (array $f) => ($f['sensitive'] ?? false) ? [...$f, 'expected' => null, 'actual' => null] : $f, $report['fields'] ?? []),
             'resume' => $resume,
             'blockers' => $report['blockers'] ?? [],
@@ -140,6 +140,43 @@ final class SanitizePreparationReport
         ];
 
         return ['report' => $projection, 'summary' => $summary, 'outcome' => $outcome];
+    }
+
+    /** Labels that name a demographic, identity or credential topic: never carry a value for these, whatever the worker says. */
+    private const SENSITIVE_LABEL = '/\b(gender|sex|race|racial|ethnic\w*|hispanic|latino|latina|veteran|military|disabilit\w*|sexual|orientation|religio\w*|pronouns?|transgender|marital|birth|ssn|social security|passport|password|passcode|token|secret|api key|credential\w*)\b/i';
+
+    /**
+     * What a review may keep of one logical question, re-checked here whatever the worker sent: a value survives only
+     * where its provenance says where it came from, and never for a sensitive question (by the worker's own flag or by
+     * its label). `entered` is only a verified, profile- or answer-sourced single control; `intended` only a mapped value
+     * that was not entered (or the resume's file name); `page_selected` only what the page itself had selected.
+     *
+     * @param  array<string, mixed>  $q
+     * @return array<string, mixed>
+     */
+    private function redactQuestion(array $q): array
+    {
+        $sensitive = (bool) ($q['sensitive'] ?? false) || preg_match(self::SENSITIVE_LABEL, (string) ($q['label'] ?? '')) === 1;
+        $source = $q['provenance']['source'] ?? null;
+        $fromWorker = in_array($source, ['applicant_fact', 'approved_answer'], true);
+        $kind = $q['kind'] ?? null;
+
+        $q['sensitive'] = $sensitive;
+        $q['entered'] = ! $sensitive && $fromWorker && ($q['status'] ?? null) === 'filled_verified' && ! in_array($kind, ['file', 'checkbox'], true)
+            ? $this->clip($q['entered'] ?? null, 500) : null;
+        $q['intended'] = ! $sensitive && ($fromWorker || $source === 'chosen_resume') && (($q['status'] ?? null) !== 'filled_verified' || $source === 'chosen_resume')
+            ? $this->clip($q['intended'] ?? null, 500) : null;
+        $q['page_selected'] = ! $sensitive && $source === 'none' && in_array($kind, ['select', 'radio', 'checkbox', 'text', 'textarea'], true)
+            ? array_values(array_map(fn ($v) => (string) mb_substr((string) $v, 0, 200), array_slice((array) ($q['page_selected'] ?? []), 0, 20)))
+            : [];
+        $q['note'] = $sensitive ? null : $this->clip($this->withoutQueries($q['note'] ?? null), 300);
+
+        return $q;
+    }
+
+    private function clip(?string $value, int $max): ?string
+    {
+        return $value === null ? null : mb_substr($value, 0, $max);
     }
 
     private function withoutQueries(?string $text): ?string
