@@ -4,7 +4,9 @@ Well Applied keeps four things apart:
 
 1. **Application inspection**: reading an employer's form (the `applications` table and `Application` model, with
    `ApplicationQuestion`, `WorkflowRun` and `AgentRun`). Read-only. It never means anything was submitted.
-2. **Application preparation**: derived from resume and inspection data (not built yet).
+2. **Application preparation**: filling a form without submitting it, as a `WorkflowRun` (`application_preparation`)
+   on the same `Application`. The backend is described in `docs/application-preparation.md`. It never creates a
+   submission.
 3. **Submission**: a person's record that they really submitted an application (`submissions`, `Submission`).
 4. **Tracking**: what happened afterwards (`submission_events`, `SubmissionEvent`).
 

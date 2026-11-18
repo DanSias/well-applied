@@ -345,6 +345,9 @@ only appears when no attempt has ever succeeded.
 
 ## Explicit v1 exclusions
 
+(These describe the inspector. Application preparation, which does fill and upload, is a separate worker with its own
+token and routes: see `docs/application-preparation.md`. The inspector's trust boundary is unchanged.)
+
 Not part of this or the immediately following implementation pass:
 Lever, Workday, or any generic/autonomous ATS handling; `CandidateProfile`
 and its EEO/demographic sub-model; `ApplicationPreference`;
