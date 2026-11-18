@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ApplicationController;
 use App\Http\Controllers\ApplicationInspectionStatusController;
+use App\Http\Controllers\ApplicationPreparationController;
 use App\Http\Controllers\BrowserWorkerStatusController;
 use App\Http\Controllers\CareerDataController;
 use App\Http\Controllers\ClarificationController;
@@ -154,6 +155,11 @@ Route::post('/submissions/{submission}/events', [SubmissionEventController::clas
 Route::post('/submissions/{submission}/correction', [SubmissionEventController::class, 'correct'])->whereNumber('submission')->name('submissions.correction.store');
 Route::post('/jobs/{jobPosting}/submissions', [SubmissionController::class, 'store'])->whereNumber('jobPosting')->name('jobs.submissions.store');
 Route::get('/applications/{application}/status', [ApplicationInspectionStatusController::class, 'show'])->name('applications.status');
+
+// "Prepare Application": freezes an attempt's inputs and queues it for the preparer worker; read-only state beside it.
+// Never submits and never creates a Submission. See docs/application-preparation.md.
+Route::post('/jobs/{jobPosting}/preparations', [ApplicationPreparationController::class, 'store'])->whereNumber('jobPosting')->name('jobs.preparations.store');
+Route::get('/applications/{application}/preparation', [ApplicationPreparationController::class, 'show'])->whereNumber('application')->name('applications.preparation.show');
 
 // Read-only worker presence feed for the nav-bar badge and
 // "waiting for browser worker" states — see
