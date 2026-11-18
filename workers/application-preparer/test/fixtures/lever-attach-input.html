@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>Example Co - Fixture Engineer - Application (synthetic Lever-style fixture, attach only)</title>
+        <style>
+            body { font-family: sans-serif; margin: 0; padding: 24px; }
+            .content { max-width: 760px; margin: 0 auto; }
+            ul { list-style: none; padding-left: 0; }
+            .application-question { margin: 14px 0; }
+            .application-label { font-weight: 600; margin-bottom: 4px; }
+            .required { color: #c00; }
+            .hidden { display: none; }
+        </style>
+    </head>
+    <body class="application-page">
+        <!--
+  SYNTHETIC, HAND-WRITTEN fixture for the local end-to-end happy path. NOT captured HTML.
+  It is Lever-shaped but has NO resume-parse script and sends nothing anywhere: attaching the
+  resume only selects the file, so the engine verifies it by the browser's own copy (content hash)
+  and no network exception is needed. (A Greenhouse S3 upload cannot be exercised through the CLI
+  on a local origin without weakening the upload policy, which is deliberately not done.)
+-->
+        <div class="content">
+            <h2>Fixture Engineer</h2>
+            <form id="application-form" method="POST" action="/never-submitted" enctype="multipart/form-data">
+                <h4>Submit your application</h4>
+                <ul>
+                    <li class="application-question resume">
+                        <label>
+                            <div class="application-label">Resume/CV</div>
+                            <input type="file" name="resume" id="resume-upload-input" />
+                        </label>
+                    </li>
+                    <li class="application-question">
+                        <label>
+                            <div class="application-label">Full name <span class="required">✱</span></div>
+                            <input type="text" name="name" required />
+                        </label>
+                    </li>
+                    <li class="application-question">
+                        <label>
+                            <div class="application-label">Email <span class="required">✱</span></div>
+                            <input type="email" name="email" required />
+                        </label>
+                    </li>
+                    <li class="application-question">
+                        <label>
+                            <div class="application-label">Phone <span class="required">✱</span></div>
+                            <input type="text" name="phone" required />
+                        </label>
+                    </li>
+                    <li class="application-question">
+                        <label>
+                            <div class="application-label">LinkedIn URL</div>
+                            <input type="text" name="urls[LinkedIn]" />
+                        </label>
+                    </li>
+                    <li class="application-question">
+                        <label>
+                            <div class="application-label">GitHub URL</div>
+                            <input type="text" name="urls[GitHub]" />
+                        </label>
+                    </li>
+                    <li class="application-question">
+                        <div class="application-label">Preferred way to contact you</div>
+                        <label><input type="radio" name="cards[contact]" value="Email" checked /> Email</label>
+                        <label><input type="radio" name="cards[contact]" value="Phone" /> Phone</label>
+                    </li>
+                    <li class="application-question">
+                        <div class="application-label">Are you legally authorized to work in the United States? <span class="required">✱</span></div>
+                        <label><select name="cards[auth]" required><option value="">Select ...</option><option>Yes</option><option>No</option></select></label>
+                    </li>
+                    <li class="application-question">
+                        <label>
+                            <div class="application-label">Why do you want to join Example Co? <span class="required">✱</span></div>
+                            <textarea name="cards[why]" required></textarea>
+                        </label>
+                    </li>
+                    <li class="application-question">
+                        <label>
+                            <div class="application-label">Current location <span class="required">✱</span></div>
+                            <input type="text" id="location-input" name="location" role="combobox" aria-autocomplete="list" aria-haspopup="listbox" autocomplete="off" required />
+                        </label>
+                    </li>
+
+                    <li class="application-question">
+                        <div class="application-label">Gender</div>
+                        <label><select name="eeo[gender]"><option value="">Select ...</option><option>Female</option><option>Male</option><option>Decline to self-identify</option></select></label>
+                    </li>
+                </ul>
+                <button type="button" id="btn-submit">Submit application</button>
+                <button type="submit" class="hidden" id="hidden-submit">Submit</button>
+            </form>
+        </div>
+    </body>
+</html>

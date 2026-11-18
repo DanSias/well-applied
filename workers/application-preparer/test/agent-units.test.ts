@@ -456,3 +456,153 @@ describe('lease keeper', () => {
         assert.deepEqual(why, ['lapsed']);
     });
 });
+
+describe('review evidence in the result projection', () => {
+    type Q = Record<string, any>;
+    const base = (questions: unknown[], fields: unknown[]) => ({
+        ats: 'lever',
+        outcome: 'input_required',
+        questions,
+        fields,
+    });
+    const q = (over: Record<string, unknown>) => ({
+        label: 'Q',
+        labelSource: 'dom_label_for',
+        kind: 'text',
+        required: true,
+        status: 'filled_verified',
+        review: 'complete',
+        sensitive: false,
+        provenance: { source: 'applicant_fact', key: 'email' },
+        controls: ['f1'],
+        selected: [],
+        ...over,
+    });
+    const f = (over: Record<string, unknown>) => ({
+        id: 'f1',
+        label: 'Q',
+        kind: 'text',
+        status: 'filled_verified',
+        sensitive: false,
+        expected: 'intended-value',
+        actual: 'read-back-value',
+        ...over,
+    });
+    const project = async (
+        questions: unknown[],
+        fields: unknown[],
+    ): Promise<Q[]> => {
+        const dir = await mkdtemp(join(tmpdir(), 'proj-'));
+        const d = await buildDelivery(1, dir, base(questions, fields));
+        return (d.payload as { report: { questions: Q[] } }).report.questions;
+    };
+
+    it('carries the value the worker READ BACK for a verified, profile-sourced question, never the intended one', async () => {
+        const [out] = await project(
+            [q({ expected: 'intended-value' })],
+            [f({})],
+        );
+        assert.equal(out!.entered, 'read-back-value');
+        assert.equal(out!.intended, null);
+        assert.deepEqual(out!.provenance, {
+            source: 'applicant_fact',
+            key: 'email',
+        });
+    });
+
+    it('carries the intended value, labelled as not entered, for a manual action or an unconfirmed value', async () => {
+        for (const status of [
+            'manual_action_required',
+            'unverified',
+            'error',
+        ]) {
+            const [out] = await project(
+                [
+                    q({
+                        status,
+                        expected: 'Springfield',
+                        note: 'typeahead: a suggestion must be selected by a person',
+                    }),
+                ],
+                [f({ status, actual: 'something else' })],
+            );
+            assert.equal(out!.entered, null);
+            assert.equal(out!.intended, 'Springfield');
+            assert.match(out!.note, /typeahead/);
+        }
+    });
+
+    it('carries what the page had already selected, only when the worker did not choose it', async () => {
+        const [page] = await project(
+            [
+                q({
+                    provenance: { source: 'none' },
+                    status: 'unanswered_optional',
+                    selected: ['Email', '', 7],
+                }),
+            ],
+            [f({})],
+        );
+        assert.deepEqual(page!.page_selected, ['Email']);
+        assert.equal(page!.entered, null);
+        const [worker] = await project([q({ selected: ['Email'] })], [f({})]);
+        assert.deepEqual(worker!.page_selected, []);
+    });
+
+    it('sends no value at all for a sensitive question', async () => {
+        const [out] = await project(
+            [
+                q({
+                    label: 'Gender',
+                    sensitive: true,
+                    provenance: { source: 'none' },
+                    status: 'unanswered_optional',
+                    selected: ['Male'],
+                    expected: 'x',
+                    note: 'demographic/EEO question: never auto-filled',
+                }),
+            ],
+            [f({ sensitive: true })],
+        );
+        assert.equal(out!.entered, null);
+        assert.equal(out!.intended, null);
+        assert.deepEqual(out!.page_selected, []);
+        assert.equal(out!.note, null);
+    });
+
+    it('does not guess: a group, a file or a question with no matching control has no entered value', async () => {
+        const out = await project(
+            [
+                q({ controls: ['f1', 'f2'] }),
+                q({
+                    kind: 'file',
+                    provenance: { source: 'chosen_resume' },
+                    expected: 'resume.pdf',
+                    controls: ['f3'],
+                }),
+                q({ controls: ['f9'] }),
+            ],
+            [f({}), f({ id: 'f3', kind: 'file', actual: '' })],
+        );
+        assert.deepEqual(
+            out.map((o) => o.entered),
+            [null, null, null],
+        );
+        assert.equal(out[1]!.intended, 'resume.pdf');
+    });
+
+    it('bounds every value', async () => {
+        const [out] = await project(
+            [
+                q({
+                    expected: 'x'.repeat(900),
+                    status: 'unverified',
+                    note: 'n'.repeat(900),
+                }),
+            ],
+            [f({})],
+        );
+        assert.equal(out!.intended.length, 500);
+        assert.equal(out!.note.length, 300);
+    });
+});

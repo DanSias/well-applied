@@ -121,17 +121,69 @@ export async function buildDelivery(
             actual: sensitive ? null : str(o.actual),
         };
     });
+    // Review evidence, allow-listed. A question may carry (all bounded, all dropped for a sensitive question):
+    //  - entered: the value the worker typed and READ BACK from the control (never the intended value): only for a
+    //    verified question that came from the profile or an approved answer, with exactly one control;
+    //  - intended: the mapped value that was NOT entered (a typeahead a person must complete, or a value that could
+    //    not be confirmed), and the resume's file name;
+    //  - page_selected: options the PAGE had already selected (a default the worker did not choose).
+    // Never sent: option lists, other selected values, control details, or anything for a sensitive question.
+    const fieldById = new Map(
+        fieldsIn.map((f) => [str(obj(f).id, 40), obj(f)] as const),
+    );
     const questions = questionsIn.map((q) => {
         const o = obj(q);
+        const sensitive = o.sensitive === true;
+        const source = str(obj(o.provenance).source, 30);
+        const kind = str(o.kind);
+        const status = str(o.status);
+        const controls = Array.isArray(o.controls) ? o.controls : [];
+        const control =
+            controls.length === 1
+                ? fieldById.get(str(controls[0], 40))
+                : undefined;
+        const fromWorker =
+            source === 'applicant_fact' || source === 'approved_answer';
+
+        const entered =
+            !sensitive &&
+            fromWorker &&
+            status === 'filled_verified' &&
+            kind !== 'file' &&
+            kind !== 'checkbox'
+                ? str(control?.actual)
+                : null;
+        const mapped = !sensitive && (fromWorker || source === 'chosen_resume');
+        const intended =
+            mapped &&
+            (status !== 'filled_verified' || source === 'chosen_resume')
+                ? str(o.expected)
+                : null;
+        const pageSelected =
+            !sensitive && source === 'none' && Array.isArray(o.selected)
+                ? o.selected
+                      .flatMap((v) =>
+                          typeof v === 'string' && v !== ''
+                              ? [v.slice(0, 200)]
+                              : [],
+                      )
+                      .slice(0, 20)
+                : [];
+
         return {
             label: str(o.label),
             labelSource: str(o.labelSource, 50),
-            kind: str(o.kind),
+            kind,
             required: bool(o.required),
-            status: str(o.status),
+            status,
             review: str(o.review, 30),
             sensitive: bool(o.sensitive),
-            provenance: { source: str(obj(o.provenance).source, 30) },
+            provenance: { source, key: str(obj(o.provenance).key, 30) },
+            entered,
+            intended,
+            page_selected: pageSelected,
+            note: sensitive ? null : str(o.note, 300),
+            presence: str(o.presence, 50),
         };
     });
 
