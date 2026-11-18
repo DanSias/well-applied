@@ -1,0 +1,150 @@
+<?php
+
+namespace App\Support\ApplicationPreparation;
+
+use App\Enums\PreparationOutcome;
+use App\Models\AgentRun;
+
+/**
+ * Turns a validated worker report into what Well Applied keeps, and decides what it is allowed to mean.
+ *
+ * The worker's report is evidence, not authority. This keeps only the whitelisted fields (the request validation has
+ * already dropped everything else), removes query strings from every URL-ish string, and then derives the outcome that
+ * is stored, never trusting the worker's own verdict to make an attempt look better than its evidence:
+ *
+ * - any submission-like safety event, a suspected submission or a blocked attempt makes the outcome `safety_failure`,
+ *   whatever the worker called it;
+ * - `ready_for_review` is downgraded to `blocked` when the resume the worker reports is not the resume it was given,
+ *   or when the worker itself did not verify the resume upload.
+ *
+ * Nothing here can produce, or be read as, a submission.
+ */
+final class SanitizePreparationReport
+{
+    /** The safety event kinds that mean something looked like submission or an unexpected side effect. */
+    /**
+     * Integrity flags that make evidence untrustworthy (the wrong resume, a screenshot that is not what the worker
+     * declared). A merely missing screenshot is noted but does not, on its own, stop a person reviewing the rest.
+     */
+    public const UNTRUSTWORTHY_FLAGS = ['resume_sha256_mismatch', 'screenshot_hash_mismatch'];
+
+    public const FAILURE_KINDS = ['blocked_mutating_request', 'submit_event_blocked', 'unexpected_navigation', 'suspected_submission'];
+
+    /**
+     * @param  array<string, mixed>  $report  the validated `report` payload
+     * @param  array<int, array{file: string, sha256: string}>  $manifest  the validated screenshot manifest
+     * @return array{report: array<string, mixed>, summary: array<string, mixed>, outcome: PreparationOutcome}
+     */
+    public function project(AgentRun $run, array $report, array $manifest, PreparationArtifacts $artifacts): array
+    {
+        $flags = [];
+
+        $events = array_map(fn (array $e) => [
+            'kind' => $e['kind'],
+            'detail' => $this->withoutQueries((string) ($e['detail'] ?? '')),
+            'phase' => $e['phase'] ?? 'preparation',
+            'at' => $e['at'] ?? null,
+        ], $report['safetyEvents'] ?? []);
+
+        $failureEvents = array_values(array_filter($events, fn (array $e) => in_array($e['kind'], self::FAILURE_KINDS, true)));
+        $submission = $report['submission'];
+        $reported = PreparationOutcome::from($report['outcome']);
+
+        $outcome = $reported;
+        if ($failureEvents !== [] || ($submission['suspected'] ?? false) === true || ($submission['blockedAttempts'] ?? 0) > 0) {
+            $outcome = PreparationOutcome::SafetyFailure;
+        }
+
+        $resume = $report['resume'] ?? [];
+        $expectedSha = $run->input_summary['resume_sha256'] ?? null;
+        if (isset($resume['sha256']) && $expectedSha !== null && ! hash_equals($expectedSha, $resume['sha256'])) {
+            $flags[] = 'resume_sha256_mismatch';
+        }
+        $untrustworthy = array_intersect($flags, self::UNTRUSTWORTHY_FLAGS) !== [];
+        if ($outcome === PreparationOutcome::ReadyForReview && ($untrustworthy || ($resume['verified'] ?? false) !== true)) {
+            $outcome = PreparationOutcome::Blocked;
+        }
+
+        $stored = 0;
+        $shots = [];
+        $byFile = collect($manifest)->keyBy('file');
+        foreach ($report['screenshots'] ?? [] as $shot) {
+            $bytes = $artifacts->screenshot($run, $shot['file']);
+            $declared = $byFile->get($shot['file'])['sha256'] ?? null;
+            $present = $bytes !== null;
+            if ($present && $declared !== null && ! hash_equals($declared, hash('sha256', $bytes))) {
+                $present = false;
+                $flags[] = 'screenshot_hash_mismatch';
+            }
+            $stored += $present ? 1 : 0;
+            $shots[] = [...$shot, 'stored' => $present];
+        }
+        if ($stored < count($shots)) {
+            $flags[] = 'screenshots_missing';
+        }
+
+        $flags = array_values(array_unique($flags));
+        $untrustworthy = array_intersect($flags, self::UNTRUSTWORTHY_FLAGS) !== [];
+
+        $projection = [
+            'schema_version' => 1,
+            'worker_report_schema_version' => $report['schemaVersion'],
+            'ats' => $report['ats'],
+            'requested_url' => $this->withoutQueries($report['requestedUrl'] ?? null),
+            'final_url' => $this->withoutQueries($report['finalUrl'] ?? null),
+            'reported_outcome' => $reported->value,
+            'outcome' => $outcome->value,
+            'integrity_flags' => $flags,
+            'reasons' => array_map(fn ($r) => $this->withoutQueries($r), $report['reasons'] ?? []),
+            'summary' => $report['summary'] ?? [],
+            'question_summary' => $report['questionSummary'] ?? [],
+            'questions' => $report['questions'] ?? [],
+            'fields' => array_map(fn (array $f) => ($f['sensitive'] ?? false) ? [...$f, 'expected' => null, 'actual' => null] : $f, $report['fields'] ?? []),
+            'resume' => $resume,
+            'blockers' => $report['blockers'] ?? [],
+            'submission' => [
+                'assertion' => 'worker_did_not_submit',
+                'suspected' => (bool) ($submission['suspected'] ?? false),
+                'blocked_attempts' => (int) ($submission['blockedAttempts'] ?? 0),
+            ],
+            'safety_events' => $events,
+            'warnings' => array_map(fn ($w) => $this->withoutQueries($w), $report['warnings'] ?? []),
+            'diagnostics' => $report['diagnostics'] ?? [],
+            'screenshots' => $shots,
+        ];
+
+        $upload = $resume['upload'] ?? null;
+        $summary = [
+            'outcome' => $outcome->value,
+            'reported_outcome' => $reported->value,
+            'reviewable' => $outcome->reviewable() && ! $untrustworthy,
+            'integrity_flags' => $flags,
+            'ats' => $report['ats'],
+            'counts' => $report['summary'] ?? [],
+            'question_summary' => $report['questionSummary'] ?? [],
+            'upload' => $upload === null ? null : [
+                'outcome' => $upload['outcome'] ?? null,
+                'http_status' => $upload['response']['status'] ?? null,
+                'filename_visible' => $upload['filenameVisible'] ?? null,
+                'verified' => (bool) ($resume['verified'] ?? false),
+                'verification' => $resume['verification'] ?? null,
+            ],
+            'captcha' => $report['blockers']['captcha'] ?? null,
+            'safety' => [
+                'failure' => $outcome === PreparationOutcome::SafetyFailure,
+                'event_counts' => array_count_values(array_column($events, 'kind')),
+            ],
+            'screenshots' => ['declared' => count($shots), 'stored' => $stored],
+            'duration_ms' => $report['diagnostics']['durationMs'] ?? null,
+            'delivered_at' => now()->toIso8601String(),
+        ];
+
+        return ['report' => $projection, 'summary' => $summary, 'outcome' => $outcome];
+    }
+
+    private function withoutQueries(?string $text): ?string
+    {
+        // Reports keep origin and path only; this is a second line of defence for any URL a detail string carries.
+        return $text === null ? null : preg_replace('/\?[^\s\]\)"\'<>]*/', '', $text);
+    }
+}
