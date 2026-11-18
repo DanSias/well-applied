@@ -30,6 +30,7 @@ import type {
     DescriptionCompleteness,
     JobShowProps,
 } from '@/types/job-posting';
+import { JobDescription } from '@/components/job-description';
 import { buttonClass } from '@/components/ui/button';
 
 function InspectApplicationAction({
@@ -378,9 +379,7 @@ export default function JobsShow({
                     Captured verbatim at intake — not an analysis or summary.
                 </p>
                 <div className="mt-2 rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap text-neutral-800 dark:text-neutral-200">
-                        {job.description}
-                    </p>
+                    <JobDescription text={job.description} />
                 </div>
             </div>
         </AppShell>

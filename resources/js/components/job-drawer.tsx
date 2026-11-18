@@ -9,6 +9,7 @@ import {
     DispositionBadge,
     type DecideFn,
 } from '@/components/job-decisions';
+import { JobDescription } from '@/components/job-description';
 import { QualificationPanel } from '@/components/qualification-panel';
 import { Badge } from '@/components/ui/badge';
 import { Drawer } from '@/components/ui/drawer';
@@ -78,9 +79,9 @@ function JobBody({ job }: { job: SelectedJob }) {
                         <DescriptionCompletenessBadge value={completeness} />
                     )}
                 </div>
-                <p className="text-fg pt-2 text-sm leading-relaxed break-words whitespace-pre-wrap">
-                    {job.description}
-                </p>
+                <div className="pt-2">
+                    <JobDescription text={job.description} />
+                </div>
             </section>
 
             <section

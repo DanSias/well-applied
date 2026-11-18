@@ -14,6 +14,7 @@ import { SubmissionCorrectionDrawer } from '@/components/submission-correction-d
 import { SubmissionDrawer } from '@/components/submission-drawer';
 import { SubmissionUpdateDrawer } from '@/components/submission-update-drawer';
 import { Card } from '@/components/ui/surface';
+import { JobDescription } from '@/components/job-description';
 import { useJobDecisions } from '@/hooks/use-job-decisions';
 import AppShell from '@/layouts/app-shell';
 import { formatCompensation } from '@/lib/job-display';
@@ -641,9 +642,9 @@ export default function OpportunityShow({
                     <h3 className="text-fg text-sm font-semibold tracking-tight">
                         Job description
                     </h3>
-                    <p className="text-fg pt-2 text-sm leading-relaxed break-words whitespace-pre-wrap">
-                        {op.description}
-                    </p>
+                    <div className="pt-2">
+                        <JobDescription text={op.description} />
+                    </div>
                 </Drawer>
             )}
             {open === 'application' && (
