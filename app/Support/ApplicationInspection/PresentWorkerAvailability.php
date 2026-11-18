@@ -19,9 +19,11 @@ final class PresentWorkerAvailability
     /**
      * @return array<string, mixed>
      */
-    public function present(): array
+    public function present(string $workerType = 'browser_inspector'): array
     {
-        $heartbeat = WorkerHeartbeat::query()->latest('last_seen_at')->first();
+        // Only this type's heartbeats count: another worker type polling (the application preparer) says nothing about
+        // whether the inspector is reachable.
+        $heartbeat = WorkerHeartbeat::query()->where('worker_type', $workerType)->latest('last_seen_at')->first();
 
         if ($heartbeat === null) {
             return [

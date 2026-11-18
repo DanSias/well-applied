@@ -21,6 +21,10 @@ class AgentRunResultController extends Controller
 {
     public function store(ReportInspectionResultRequest $request, AgentRun $agentRun, PersistInspectionResult $persister): JsonResponse
     {
+        // The inspector's token reaches inspector runs only: a preparation run is not addressable here, so this
+        // endpoint can never settle one or write onto it. See docs/application-preparation.md.
+        abort_unless($agentRun->agent_type === 'browser_inspector', 404);
+
         $result = $persister->persist($agentRun, $request->validated());
 
         if ($result['outcome'] === 'stale') {

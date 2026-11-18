@@ -48,6 +48,7 @@ use Illuminate\Support\Carbon;
  * @property AgentRunFailureCategory|null $failure_category
  * @property string|null $failure_message
  * @property array<string, mixed>|null $result_summary
+ * @property array<string, mixed>|null $input_summary What an application_preparer attempt was given, never the values themselves (see docs/application-preparation.md). Null for inspections.
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -65,6 +66,7 @@ use Illuminate\Support\Carbon;
     'failure_category',
     'failure_message',
     'result_summary',
+    'input_summary',
 ])]
 class AgentRun extends Model
 {
@@ -81,6 +83,7 @@ class AgentRun extends Model
             'inspection_outcome' => InspectionOutcome::class,
             'failure_category' => AgentRunFailureCategory::class,
             'result_summary' => 'array',
+            'input_summary' => 'array',
         ];
     }
 

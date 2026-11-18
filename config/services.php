@@ -141,6 +141,22 @@ return [
     ],
 
     /*
+    | The application-preparer worker (workers/application-preparer): a
+    | DIFFERENT trust class from the browser inspector. It receives
+    | applicant data and a resume and fills forms (never submitting), so it
+    | has its own token, its own route group (routes/api.php,
+    | /api/worker/preparer) and its own lease. The two tokens must differ;
+    | AuthenticatePreparerWorker refuses a preparer token equal to the
+    | inspector's. Leaving the token blank fails closed. The lease is
+    | renewed by a heartbeat, so claim_ttl only has to outlast the gap
+    | between heartbeats. See docs/application-preparation.md.
+    */
+    'preparer_worker' => [
+        'token' => env('PREPARER_WORKER_TOKEN'),
+        'claim_ttl' => (int) env('PREPARER_WORKER_CLAIM_TTL', 120),
+    ],
+
+    /*
     | Broad-discovery providers (App\Support\JobDiscovery\Providers) —
     | see docs/job-discovery.md. Himalayas' public feed
     | (himalayas.app/jobs/api) needs no credentials at all. Adzuna
