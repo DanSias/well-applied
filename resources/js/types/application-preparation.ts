@@ -110,6 +110,15 @@ export type ReviewQuestion = {
     status: string | null;
     review: string | null;
     sensitive: boolean;
+    /** Where a value came from; `key` is the profile fact, never a value. */
+    provenance: { source: string | null; key: string | null };
+    /** What the worker read back from the form (verified, from your profile or an approved answer). */
+    entered: string | null;
+    /** What it meant to enter but did not (a person must complete it), or the resume's file name. */
+    intended: string | null;
+    /** Options the page had already selected itself. */
+    page_selected: string[];
+    note: string | null;
 };
 
 export type ReviewScreenshot = {
@@ -153,6 +162,8 @@ export type PreparationReview = {
       }
     | {
           available: true;
+          /** The values are what the worker saw while preparing; the page's final state is not captured. */
+          evidence: { observed_at: 'preparation'; final_state_captured: false };
           outcome: PreparationOutcome;
           reported_outcome: PreparationOutcome;
           reviewable: boolean;

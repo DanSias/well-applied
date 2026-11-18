@@ -6,6 +6,7 @@ import {
     presentAttempt,
     presentPreparation,
     uploadExplanation,
+    valueEvidence,
 } from './preparation-status';
 import { attemptRow, stateOf } from './preparation-test-data';
 
@@ -223,5 +224,78 @@ describe('wording helpers', () => {
         );
         expect(uploadExplanation('failed')).toContain('not verified');
         expect(uploadExplanation(undefined)).toContain('No upload evidence');
+    });
+});
+
+describe('valueEvidence: three kinds of value, never mixed or inferred', () => {
+    const q = (over: Partial<Parameters<typeof valueEvidence>[0]> = {}) => ({
+        entered: null,
+        intended: null,
+        page_selected: [],
+        provenance: { source: 'applicant_fact', key: 'email' },
+        ...over,
+    });
+
+    it('captions what the worker entered and read back, with where it came from', () => {
+        const v = valueEvidence(q({ entered: 'alex@example.test' }));
+        expect(v).toMatchObject({ kind: 'entered', text: 'alex@example.test' });
+        expect(v?.caption).toContain('your profile (email)');
+        expect(v?.caption).toContain('read back');
+    });
+
+    it('says an approved answer is an approved answer', () => {
+        expect(
+            valueEvidence(
+                q({
+                    entered: 'Yes',
+                    provenance: { source: 'approved_answer', key: null },
+                }),
+            )?.caption,
+        ).toContain('your approved answer');
+    });
+
+    it('marks an intended value as NOT entered, for a person to complete', () => {
+        const v = valueEvidence(
+            q({
+                intended: 'Springfield',
+                provenance: { source: 'applicant_fact', key: 'location' },
+            }),
+        );
+        expect(v?.kind).toBe('intended');
+        expect(v?.caption).toContain('Not entered');
+        expect(v?.caption).toContain('a person has to complete it');
+    });
+
+    it('calls the resume file the resume file', () => {
+        expect(
+            valueEvidence(
+                q({
+                    intended: 'resume.pdf',
+                    provenance: { source: 'chosen_resume', key: null },
+                }),
+            )?.caption,
+        ).toBe('The resume file that was attached.');
+    });
+
+    it('attributes a page default to the page, not the worker', () => {
+        const v = valueEvidence(
+            q({
+                page_selected: ['Email'],
+                provenance: { source: 'none', key: null },
+            }),
+        );
+        expect(v).toMatchObject({ kind: 'page_default', text: 'Email' });
+        expect(v?.caption).toContain('The worker did not choose this');
+    });
+
+    it('shows nothing when there is nothing observed, rather than guessing', () => {
+        expect(valueEvidence(q())).toBeNull();
+        expect(valueEvidence(q({ entered: '' }))).toBeNull();
+    });
+
+    it('prefers what was observed to what was intended, and keeps them apart', () => {
+        expect(
+            valueEvidence(q({ entered: 'seen', intended: 'meant' }))?.kind,
+        ).toBe('entered');
     });
 });

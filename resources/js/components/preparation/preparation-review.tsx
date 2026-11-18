@@ -4,6 +4,7 @@ import {
     presentPreparation,
     UNLABELLED,
     uploadExplanation,
+    valueEvidence,
 } from '@/lib/preparation-status';
 import type {
     PreparationReview,
@@ -68,30 +69,69 @@ function QuestionList({
             </summary>
             {note && <p className="text-fg-muted px-3 pb-1 text-xs">{note}</p>}
             <ul className="border-line divide-line divide-y border-t">
-                {items.map((q, i) => (
-                    <li
-                        key={`${q.label ?? 'unlabelled'}-${i}`}
-                        className="flex items-start justify-between gap-3 px-3 py-2 text-sm"
-                    >
-                        {q.label === null ? (
-                            <span className="text-fg-subtle italic">
-                                {UNLABELLED}
-                            </span>
-                        ) : (
-                            <span className="text-fg min-w-0 break-words">
-                                {q.label}
-                            </span>
-                        )}
-                        <span className="text-fg-subtle shrink-0 text-xs">
-                            {q.kind ?? 'field'}
-                            {q.required === null
-                                ? ''
-                                : q.required
-                                  ? ' · required'
-                                  : ' · optional'}
-                        </span>
-                    </li>
-                ))}
+                {items.map((q, i) => {
+                    const value = valueEvidence({
+                        entered: q.entered ?? null,
+                        intended: q.intended ?? null,
+                        page_selected: q.page_selected ?? [],
+                        provenance: q.provenance ?? { source: null, key: null },
+                    });
+
+                    return (
+                        <li
+                            key={`${q.label ?? 'unlabelled'}-${i}`}
+                            className="px-3 py-2 text-sm"
+                        >
+                            <div className="flex items-start justify-between gap-3">
+                                {q.label === null ? (
+                                    <span className="text-fg-subtle italic">
+                                        {UNLABELLED}
+                                    </span>
+                                ) : (
+                                    <span className="text-fg min-w-0 break-words">
+                                        {q.label}
+                                    </span>
+                                )}
+                                <span className="text-fg-subtle shrink-0 text-xs">
+                                    {q.kind ?? 'field'}
+                                    {q.required === null
+                                        ? ''
+                                        : q.required
+                                          ? ' · required'
+                                          : ' · optional'}
+                                </span>
+                            </div>
+                            {value && (
+                                <p className="mt-1 text-xs">
+                                    <span
+                                        className="text-fg font-medium break-all"
+                                        data-value-kind={value.kind}
+                                    >
+                                        {value.kind === 'intended'
+                                            ? 'Intended: '
+                                            : value.kind === 'page_default'
+                                              ? 'Page default: '
+                                              : ''}
+                                        {value.text}
+                                    </span>
+                                    <span className="text-fg-subtle block">
+                                        {value.caption}
+                                    </span>
+                                </p>
+                            )}
+                            {q.note && !value && (
+                                <p className="text-fg-subtle mt-1 text-xs break-words">
+                                    {q.note}
+                                </p>
+                            )}
+                            {q.note && value && value.kind === 'intended' && (
+                                <p className="text-fg-subtle mt-0.5 text-xs break-words">
+                                    {q.note}
+                                </p>
+                            )}
+                        </li>
+                    );
+                })}
             </ul>
         </details>
     );

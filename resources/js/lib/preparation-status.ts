@@ -285,3 +285,83 @@ export function uploadExplanation(outcome: string | null | undefined): string {
 }
 
 export const UNLABELLED = 'Unlabelled question (the form gave it no label)';
+
+const PROFILE_FACTS: Record<string, string> = {
+    full_name: 'full name',
+    first_name: 'first name',
+    last_name: 'last name',
+    email: 'email',
+    phone: 'phone',
+    location: 'location',
+    current_company: 'current company',
+    linkedin_url: 'LinkedIn',
+    github_url: 'GitHub',
+    portfolio_url: 'portfolio',
+};
+
+export type ValueEvidence = {
+    /** Which kind of value this is. They are never mixed, and none is inferred. */
+    kind: 'entered' | 'intended' | 'page_default';
+    text: string;
+    /** One sentence saying what the value is and where it came from. */
+    caption: string;
+};
+
+export function provenanceLabel(provenance: {
+    source: string | null;
+    key: string | null;
+}): string | null {
+    switch (provenance.source) {
+        case 'applicant_fact':
+            return `your profile${provenance.key && PROFILE_FACTS[provenance.key] ? ` (${PROFILE_FACTS[provenance.key]})` : ''}`;
+        case 'approved_answer':
+            return 'your approved answer';
+        case 'chosen_resume':
+            return 'your tailored resume';
+        default:
+            return null;
+    }
+}
+
+/**
+ * The value a review may show for one question, from the attempt's own evidence only. What the worker entered, what it
+ * intended but a person must still do, and what the page chose for itself are three different things and are captioned
+ * as such. A question with none of them shows no value: nothing is guessed, and a sensitive question never has one.
+ */
+export function valueEvidence(q: {
+    entered: string | null;
+    intended: string | null;
+    page_selected: string[];
+    provenance: { source: string | null; key: string | null };
+}): ValueEvidence | null {
+    const from = provenanceLabel(q.provenance);
+
+    if (q.entered !== null && q.entered !== '') {
+        return {
+            kind: 'entered',
+            text: q.entered,
+            caption: `Entered by the worker from ${from ?? 'the approved data'}, and read back from the form.`,
+        };
+    }
+
+    if (q.intended !== null && q.intended !== '') {
+        return {
+            kind: 'intended',
+            text: q.intended,
+            caption:
+                q.provenance.source === 'chosen_resume'
+                    ? 'The resume file that was attached.'
+                    : `Not entered. This is what your profile would put here${from ? ` (${from})` : ''}; a person has to complete it.`,
+        };
+    }
+
+    if (q.page_selected.length > 0) {
+        return {
+            kind: 'page_default',
+            text: q.page_selected.join(', '),
+            caption: 'Already set by the page. The worker did not choose this.',
+        };
+    }
+
+    return null;
+}
