@@ -9,14 +9,14 @@ It reuses the inspection infrastructure (see `docs/application-inspector.md`) an
 
 ## The pieces, and what each one means
 
-| | Meaning |
-|---|---|
-| `applications` / `Application` | The job's one operational record (unique per `job_posting_id`), shared with inspection. Preparation does not change its status. |
-| `WorkflowRun` (`application_preparation`) → `WorkflowStep` (`prepare_application`) → `AgentRun` (`application_preparer`) | One preparation attempt. A retry is always a brand-new triple: nothing is reopened or rerun. |
-| `AgentRun.status` | **Execution**: queued, running, succeeded, failed. Succeeded means the worker finished and delivered a report. |
-| `AgentRun.result_summary['outcome']` (`PreparationOutcome`) | **What the report says**: `ready_for_review`, `input_required`, `blocked`, `unsupported`, `safety_failure`. Kept apart from execution status: a delivered `input_required` report is a successful execution. |
-| `AgentRun.input_summary` | What the attempt was given, **never values**: resume variant id, SHA-256 and size, the hash of the input snapshot, the applicant *keys* sent and the keys left out with a reason. |
-| `Submission` | Untouched. Only `RecordSubmission` (a person saying they applied) creates one. Nothing in preparation can. |
+|                                                                                                                          | Meaning                                                                                                                                                                                                      |
+| ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `applications` / `Application`                                                                                           | The job's one operational record (unique per `job_posting_id`), shared with inspection. Preparation does not change its status.                                                                              |
+| `WorkflowRun` (`application_preparation`) → `WorkflowStep` (`prepare_application`) → `AgentRun` (`application_preparer`) | One preparation attempt. A retry is always a brand-new triple: nothing is reopened or rerun.                                                                                                                 |
+| `AgentRun.status`                                                                                                        | **Execution**: queued, running, succeeded, failed. Succeeded means the worker finished and delivered a report.                                                                                               |
+| `AgentRun.result_summary['outcome']` (`PreparationOutcome`)                                                              | **What the report says**: `ready_for_review`, `input_required`, `blocked`, `unsupported`, `safety_failure`. Kept apart from execution status: a delivered `input_required` report is a successful execution. |
+| `AgentRun.input_summary`                                                                                                 | What the attempt was given, **never values**: resume variant id, SHA-256 and size, the hash of the input snapshot, the applicant _keys_ sent and the keys left out with a reason.                            |
+| `Submission`                                                                                                             | Untouched. Only `RecordSubmission` (a person saying they applied) creates one. Nothing in preparation can.                                                                                                   |
 
 No new tables. The only migration is the nullable `agent_runs.input_summary` JSON column.
 
@@ -56,13 +56,13 @@ unset token fails closed. The inspector's token opens none of this; the preparer
 inspector's result endpoint no longer finds a preparation run (404), and the nav-bar worker badge counts only inspector
 heartbeats.
 
-| | |
-|---|---|
-| `POST /agent-runs/claim` | Claims the oldest queued preparation (atomic conditional update). Returns the run id, URL, lease and the resume's hash and size; **no applicant values**. |
-| `GET /agent-runs/{id}/input`, `/resume` | The frozen input and resume, for the claimant of a live run only. Served only if they still match their recorded hashes. |
-| `POST /agent-runs/{id}/heartbeat` | Renews the lease (and records an allow-listed `phase`). A lapsed or foreign claim changes nothing. |
+|                                           |                                                                                                                                                                                                                                            |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `POST /agent-runs/claim`                  | Claims the oldest queued preparation (atomic conditional update). Returns the run id, URL, lease and the resume's hash and size; **no applicant values**.                                                                                  |
+| `GET /agent-runs/{id}/input`, `/resume`   | The frozen input and resume, for the claimant of a live run only. Served only if they still match their recorded hashes.                                                                                                                   |
+| `POST /agent-runs/{id}/heartbeat`         | Renews the lease (and records an allow-listed `phase`). A lapsed or foreign claim changes nothing.                                                                                                                                         |
 | `PUT /agent-runs/{id}/screenshots/{name}` | One screenshot as a raw PNG body. The name must match the worker's own pattern (also enforced in the route); PNG-only, ≤ 3 MB, ≤ 60 per attempt, write-once (identical re-upload = duplicate, a different file under the same name = 409). |
-| `POST /agent-runs/{id}/result` | The delivery (validated by `ReportPreparationResultRequest`, ≤ 2 MB). |
+| `POST /agent-runs/{id}/result`            | The delivery (validated by `ReportPreparationResultRequest`, ≤ 2 MB).                                                                                                                                                                      |
 
 Every run-scoped call proves the caller is that run's claimant (`X-Worker-Identity` must equal the recorded
 `worker_identity`) via `PreparerRunAccess`, and reads/writes are refused unless the lease is live. A lapsed claim is
@@ -110,7 +110,24 @@ and never changes the job.
 - The applicant values exist in plaintext in `input.json` (private disk) and are sent to the worker. Deleting a run
   directory deletes them; there is no retention policy yet.
 
+## Cancelling a queued attempt
+
+`POST /preparations/{workflowRun}/cancel` (`CancelApplicationPreparation`) withdraws an attempt **no worker has claimed**.
+It is the same kind of atomic conditional update the claim is (`... WHERE status = 'queued'`), so exactly one of a claim and a
+cancel can win the row: after a cancel the claim finds nothing, and after a claim the cancel changes nothing (409,
+`not_cancellable`). Repeating a cancel is safe (`already_cancelled`). The rows are kept as `cancelled` (execution status
+`AgentRunStatus::Cancelled`), together with the hashes and key names in `input_summary`; the frozen applicant values and resume
+of a cancelled attempt were never given to anyone and are removed. A running attempt cannot be cancelled. Cancelling creates
+no `Submission`, and a person may start a new attempt afterwards.
+
+## The worker side
+
+The agent that speaks this protocol is `workers/application-preparer/src/agent.ts` (see that README, "Laravel agent"): a
+20 s heartbeat against the 120 s lease, a 10 minute execution limit, evidence uploaded before the result, idempotent
+retries of transport failures only, and no browser reruns. For a local end-to-end check with a disposable database and a
+local fixture form, run `workers/application-preparer/scripts/e2e-laravel-fixture.sh` (it enables the
+`PREPARER_ALLOW_LOCAL_FIXTURE` opt-in, which is for local fixtures only).
+
 ## Not in this slice
 
-The worker's polling client, any React UI, serving screenshots/reports to the browser, per-job cooldowns, cancelling a
-queued run, answer sourcing, human review and approval, session persistence, and submission.
+Any React UI, serving screenshots/reports to the browser, per-job cooldowns, cancelling a running attempt, answer sourcing, human review and approval, session persistence, and submission.
