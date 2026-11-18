@@ -390,9 +390,17 @@ are unchanged**, and the agent adds no browser capability. It never submits, nev
 data.
 
 ```sh
-CAREER_TOOLKIT_URL=http://localhost:8000 PREPARER_WORKER_TOKEN=... node src/agent.ts        # poll forever
-CAREER_TOOLKIT_URL=... PREPARER_WORKER_TOKEN=... node src/agent.ts --once                  # claim at most one, then stop
+cd workers/application-preparer
+npm run agent                 # poll forever
+npm run agent -- --once       # claim at most one attempt, then stop
 ```
+
+`npm run agent` (`src/start.ts`) needs no exported variables: it reads **only** `APP_URL` and `PREPARER_WORKER_TOKEN` from the
+repository's root `.env` (the Laravel file), and maps `APP_URL` to the agent's `CAREER_TOOLKIT_URL`. Nothing else in that file is
+read or passed on, and it prints which source it used but never a value. The shell wins: a `CAREER_TOOLKIT_URL` or
+`PREPARER_WORKER_TOKEN` you have already set overrides the file (a shell `APP_URL` is ignored). `.env` variables that use
+`${...}` expansion are not expanded; set `CAREER_TOOLKIT_URL` instead. `npm run agent:direct` runs the agent with only the
+environment you give it.
 
 Per claimed attempt: claim → fetch the frozen input and the resume (verified against **three** pins: the claim's hash and
 size, the snapshot's hash, and the response header) → write `PrepareInput` and the resume to a private work directory →

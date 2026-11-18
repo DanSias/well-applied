@@ -8,7 +8,8 @@
         "prepare-application": "node src/cli.ts",
         "typecheck": "tsc --noEmit",
         "test": "node --test 'test/**/*.test.ts'",
-        "agent": "node src/agent.ts"
+        "agent": "node src/start.ts",
+        "agent:direct": "node src/agent.ts"
     },
     "dependencies": {
         "playwright": "1.63.0"

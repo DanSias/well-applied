@@ -21,8 +21,9 @@ applicant data or a resume, and has no fill or upload capability.
    `BROWSER_WORKER_TOKEN` for the inspector. They must differ (the preparer's middleware refuses an equal pair), and an unset
    token fails closed. Optionally `PREPARER_WORKER_CLAIM_TTL` (the lease, default 120 s).
 3. **Start the preparer agent** where Chromium is installed (Node >= 22.18, `npx playwright install chromium`):
-   `cd workers/application-preparer && CAREER_TOOLKIT_URL=http://localhost:8000 PREPARER_WORKER_TOKEN=... node src/agent.ts`.
-   All its settings, the lease and heartbeat behaviour and the delivery guarantees are in the worker README.
+   `cd workers/application-preparer && npm run agent`. It takes `APP_URL` and `PREPARER_WORKER_TOKEN` from the root `.env` and
+   nothing else; see the worker README ("Laravel agent") for the details, its other settings, the lease and heartbeat
+   behaviour and the delivery guarantees.
 4. **Keep the app on localhost** (see "Security assumptions").
 5. **Try it on a local fixture, with no live site:** `workers/application-preparer/scripts/e2e-laravel-ui.sh` starts a
    disposable database and storage, a local fixture form, the app on `127.0.0.1:8765` and the agent, then you click through
