@@ -20,12 +20,19 @@ applicant data or a resume, and has no fill or upload capability.
 2. **Two different tokens** in `.env` (see `.env.example`): `PREPARER_WORKER_TOKEN` for this worker and, as before,
    `BROWSER_WORKER_TOKEN` for the inspector. They must differ (the preparer's middleware refuses an equal pair), and an unset
    token fails closed. Optionally `PREPARER_WORKER_CLAIM_TTL` (the lease, default 120 s).
-3. **Start the preparer agent** where Chromium is installed (Node >= 22.18, `npx playwright install chromium`):
-   `cd workers/application-preparer && npm run agent`. It takes `APP_URL` and `PREPARER_WORKER_TOKEN` from the root `.env` and
-   nothing else; see the worker README ("Laravel agent") for the details, its other settings, the lease and heartbeat
-   behaviour and the delivery guarantees.
-4. **Keep the app on localhost** (see "Security assumptions").
-5. **Try it on a local fixture, with no live site:** `workers/application-preparer/scripts/e2e-laravel-ui.sh` starts a
+3. **Install the worker once:** `cd workers/application-preparer && npm install && npx playwright install chromium` (Node
+    > = 22.18).
+4. **Start it with everything else: `composer run dev`** (or `php artisan dev`). The dev group includes the preparer
+   (`cd workers/application-preparer && npm run agent:dev`), so Ctrl+C stops it with the other services. It takes `APP_URL`
+   and `PREPARER_WORKER_TOKEN` from the root `.env` and nothing else, only polls for attempts you have queued, and runs a
+   single instance per checkout (a second one says so and stays idle). If the token or an installation is missing, `composer
+run dev` prints the reason before it starts and the preparer stays idle with the same message; the other services are not
+   affected and nothing is restarted in a loop. It does not migrate, prepare or open any form on its own. To run it by hand:
+   `cd workers/application-preparer && npm run agent` (see the worker README, "Laravel agent", for its other settings, the
+   lease and heartbeat behaviour and the delivery guarantees). A force-killed agent can leave a stale lock
+   (`workers/application-preparer/.agent.lock`); the next start recovers it.
+5. **Keep the app on localhost** (see "Security assumptions").
+6. **Try it on a local fixture, with no live site:** `workers/application-preparer/scripts/e2e-laravel-ui.sh` starts a
    disposable database and storage, a local fixture form, the app on `127.0.0.1:8765` and the agent, then you click through
    the real UI (`FIXTURE_PAGE=/lever-attach-ready.html FIXTURE_ATS=lever` for a verified-resume "Ready for review";
    `/lever-attach-input.html` for "Needs your input"; `AGENT=0` to try Cancel). `scripts/e2e-laravel-fixture.sh` does one

@@ -53,10 +53,14 @@ php artisan serve       # backend at http://127.0.0.1:8000
 npm run dev              # Vite dev server (asset hot reload)
 ```
 
-`php artisan dev` (or `composer run dev`) starts the server, the queue worker, the scheduler, the log tail and Vite
-together. Discovery needs the last two kinds of process: the scheduler for automatic runs and the Sources page's
-scheduler status, the queue worker for Run Now. Run only one queue worker (SQLite). See `docs/job-discovery.md`
-"Operating it locally".
+`php artisan dev` (or `composer run dev`) starts the server, the queue worker, the scheduler, the log tail, Vite and the
+**application-preparer agent** together; Ctrl+C stops them all. Discovery needs the scheduler (automatic runs and the
+Sources page's scheduler status) and the queue worker (Run Now). Run only one queue worker (SQLite). See
+`docs/job-discovery.md` "Operating it locally". The preparer only polls for preparations you have queued from an
+Opportunity; it needs `PREPARER_WORKER_TOKEN` in `.env` and, in `workers/application-preparer`, `npm install` and
+`npx playwright install chromium` (see `docs/application-preparation.md` "Setup"). If any of that is missing, `composer run
+dev` prints why before it starts and the preparer stays idle while everything else runs normally. The browser inspector is
+a separate worker and is not part of this command.
 
 Or build assets for production and serve normally:
 
@@ -96,7 +100,6 @@ including the real development file even when `APP_ENV=testing`. Relative paths,
 symlinks, database URLs and explicit `--database` selections are checked. Never
 work around a prohibition. Tests refuse cached configuration, do not load the
 local `.env`, and reject non-disposable targets before database refreshes.
-
 
 ## Project layout notes
 

@@ -9,7 +9,8 @@
         "typecheck": "tsc --noEmit",
         "test": "node --test 'test/**/*.test.ts'",
         "agent": "node src/start.ts",
-        "agent:direct": "node src/agent.ts"
+        "agent:direct": "node src/agent.ts",
+        "agent:dev": "node src/start.ts --dev"
     },
     "dependencies": {
         "playwright": "1.63.0"

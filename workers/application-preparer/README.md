@@ -393,6 +393,7 @@ data.
 cd workers/application-preparer
 npm run agent                 # poll forever
 npm run agent -- --once       # claim at most one attempt, then stop
+npm run agent:dev             # what `composer run dev` runs (see below)
 ```
 
 `npm run agent` (`src/start.ts`) needs no exported variables: it reads **only** `APP_URL` and `PREPARER_WORKER_TOKEN` from the
@@ -401,6 +402,13 @@ read or passed on, and it prints which source it used but never a value. The she
 `PREPARER_WORKER_TOKEN` you have already set overrides the file (a shell `APP_URL` is ignored). `.env` variables that use
 `${...}` expansion are not expanded; set `CAREER_TOOLKIT_URL` instead. `npm run agent:direct` runs the agent with only the
 environment you give it.
+
+**Under `composer run dev`.** The repository's dev group (`php artisan dev`) runs `npm run agent:dev` for you, so you normally
+start nothing by hand. `--dev` mode adds checks and one rule: the settings and Chromium are verified first, and **if it cannot
+start (no token, `npm install` or `npx playwright install chromium` not done) it prints why and stays idle until Ctrl+C**
+rather than exiting (the supervisor would restart it in a loop). A lock file (`.agent.lock`, gitignored) allows one agent per
+checkout: a second says so and stays idle (outside dev mode it exits 1). Ctrl+C releases the lock; a force-killed agent
+leaves a stale one that the next start recovers. `node src/start.ts --check` only reports whether it could start.
 
 Per claimed attempt: claim → fetch the frozen input and the resume (verified against **three** pins: the claim's hash and
 size, the snapshot's hash, and the response header) → write `PrepareInput` and the resume to a private work directory →

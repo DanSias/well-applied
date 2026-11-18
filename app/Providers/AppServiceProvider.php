@@ -16,6 +16,7 @@ use App\Models\JobPosting;
 use App\Models\Project;
 use App\Models\ResumeVariant;
 use App\Models\Role;
+use App\Support\Dev\PreparerStartupCheck;
 use App\Support\DisposableDatabase;
 use App\Support\GenerationAttempt\GenerationMetrics;
 use App\Support\JobAnalysis\Providers\OllamaJobAnalysisClient;
@@ -255,6 +256,7 @@ class AppServiceProvider extends ServiceProvider
         $this->configureDefaults();
         $this->configureMorphMap();
         $this->configureDevScheduler();
+        $this->configureDevPreparer();
     }
 
     /**
@@ -279,6 +281,37 @@ class AppServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             DevCommands::artisan('schedule:work', 'scheduler');
         }
+    }
+
+    /**
+     * Makes `composer run dev` / `php artisan dev` also run the application-preparer agent, the same way the scheduler
+     * is added above: one more multiplexed process, so Ctrl+C stops it with the rest. It runs
+     * `npm run agent:dev` (workers/application-preparer), which starts the existing wrapper (src/start.ts) in dev mode:
+     * it reads APP_URL and PREPARER_WORKER_TOKEN from this .env, polls only for attempts a person has queued, runs a
+     * single instance per checkout, and, if it cannot start (a missing token, uninstalled dependencies or Chromium), says
+     * why and stays idle instead of restarting in a loop. The browser inspector is a separate worker and is not started.
+     * Before the dev processes take over the screen, the same readiness is checked once and any problem is printed.
+     * See docs/application-preparation.md "Setup".
+     */
+    protected function configureDevPreparer(): void
+    {
+        if (! $this->app->runningInConsole()) {
+            return;
+        }
+
+        DevCommands::register('cd '.PreparerStartupCheck::DIRECTORY.' && npm run agent:dev', 'preparer');
+
+        Event::listen(CommandStarting::class, function (CommandStarting $event): void {
+            if ($event->command !== 'dev') {
+                return;
+            }
+
+            $check = (new PreparerStartupCheck)->run();
+
+            if (! $check['ready']) {
+                fwrite(STDERR, "\n⚠ The application-preparer will not start:\n".$check['output']."\n(The other dev processes are unaffected; the preparer stays idle until this is fixed.)\n\n");
+            }
+        });
     }
 
     /**

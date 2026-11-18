@@ -6,3 +6,4 @@ node_modules
 /profiles/
 *.profile/
 /agent-work/
+/.agent.lock

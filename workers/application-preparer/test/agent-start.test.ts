@@ -242,10 +242,8 @@ describe('npm run agent, as a process', () => {
         );
 
         assert.equal(code, 1);
-        assert.match(
-            out,
-            /missing the application URL .* and PREPARER_WORKER_TOKEN/,
-        );
+        assert.match(out, /no application URL/);
+        assert.match(out, /no PREPARER_WORKER_TOKEN/);
         assert.ok(
             !out.includes('SECRETAPPKEY') &&
                 !out.includes('super-secret-db-password'),
@@ -255,7 +253,7 @@ describe('npm run agent, as a process', () => {
     it('stops when there is no .env at all and the shell sets nothing', async () => {
         const { code, out } = await run(null);
         assert.equal(code, 1);
-        assert.match(out, /cannot start/);
+        assert.match(out, /Cannot start/);
     });
 
     it("does not start with the inspector's token: the wrong token is refused by Laravel", async () => {
