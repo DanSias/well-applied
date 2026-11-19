@@ -1,0 +1,13 @@
+[Unit]
+Description=Watches the browser inspector's isolation policy and contains the worker if it is lost
+# Stops with the policy: if the policy unit is stopped, this goes too, and so does the worker (which requires this).
+BindsTo=inspector-isolation.service
+After=inspector-isolation.service
+
+[Service]
+ExecStart=/usr/local/sbin/inspector-isolation guard
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

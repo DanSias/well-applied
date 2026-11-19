@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+# inspector-isolation: owns the browser inspector's nftables policy on the host.
+#
+#   apply    check the rules file, load it atomically (one transaction), record its fingerprint
+#   verify   exit 0 only if the policy loaded in the kernel is exactly what was applied (prints the reason otherwise)
+#   guard    watch the policy; the moment it is missing or altered, kill every container labelled as needing isolation,
+#            stop the worker's unit, and restore the policy. Never returns.
+#   remove   delete the table and the recorded fingerprint
+#   status   verify, for people
+#
+# The fingerprint is a hash of the rules file and of the table as the kernel lists it, taken straight after loading. It
+# cannot tell a hostile root user from the installer; it exists to catch what actually happens: a flushed ruleset, a deleted
+# table, an edited file, a reload that failed half way. It touches only its own table.
+set -euo pipefail
+
+CONF_DIR=${INSPECTOR_ISOLATION_CONF:-/etc/inspector-isolation}
+STATE_DIR=${INSPECTOR_ISOLATION_STATE:-/var/lib/inspector-isolation}
+RULES=${INSPECTOR_ISOLATION_RULES:-$CONF_DIR/inspector-isolation.nft}
+LABEL=${INSPECTOR_ISOLATION_LABEL:-com.well-applied.isolation=required}
+WORKER_UNIT=${INSPECTOR_WORKER_UNIT:-career-toolkit-browser-worker.service}
+GUARD_INTERVAL=${INSPECTOR_GUARD_INTERVAL:-3}
+NFT=${NFT:-nft}
+DOCKER=${DOCKER:-docker}
+SYSTEMCTL=${SYSTEMCTL:-systemctl}
+FAMILY=inet
+TABLE=inspector_isolation
+FINGERPRINT=$STATE_DIR/fingerprint
+
+log() { printf 'inspector-isolation: %s\n' "$*" >&2; }
+
+sha256() {
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum | cut -d' ' -f1; else shasum -a 256 | cut -d' ' -f1; fi
+}
+
+listing() { "$NFT" list table "$FAMILY" "$TABLE"; }
+table_hash() { printf '%s\n' "$(listing)" | sha256; }
+file_hash() { sha256 <"$RULES"; }
+
+apply() {
+  [ -r "$RULES" ] || { log "rules file $RULES is not readable"; return 1; }
+  "$NFT" -c -f "$RULES"     # syntax and semantics, changes nothing
+  "$NFT" -f "$RULES"        # one netlink transaction: the old copy of the table is replaced, or nothing changes
+  mkdir -p "$STATE_DIR"
+  local tmp; tmp=$(mktemp "$STATE_DIR/.fingerprint.XXXXXX")
+  { file_hash; table_hash; } >"$tmp"
+  chmod 0644 "$tmp"
+  mv -f "$tmp" "$FINGERPRINT"   # both hashes appear together or not at all
+  log "applied (rules $(head -1 "$FINGERPRINT" | cut -c1-12), table $(tail -1 "$FINGERPRINT" | cut -c1-12))"
+}
+
+# Prints the reason and returns 1 when the policy is not intact.
+verify() {
+  [ -r "$FINGERPRINT" ] || { echo "the policy was never applied"; return 1; }
+  [ -r "$RULES" ] || { echo "the rules file is missing"; return 1; }
+  local want_file want_table out
+  want_file=$(sed -n 1p "$FINGERPRINT"); want_table=$(sed -n 2p "$FINGERPRINT")
+  [ "$(file_hash)" = "$want_file" ] || { echo "the rules file changed after it was applied"; return 1; }
+  out=$(listing 2>/dev/null) || { echo "table $FAMILY $TABLE is not loaded"; return 1; }
+  [ "$(printf '%s\n' "$out" | sha256)" = "$want_table" ] || { echo "the loaded table differs from what was applied"; return 1; }
+  # Belt and braces: the base chains must still sit ahead of Docker's and Tailscale's (priority 0).
+  printf '%s\n' "$out" | grep -Eq 'hook forward priority (filter - 10|-10)' || { echo "the forward hook is not at priority -10"; return 1; }
+  printf '%s\n' "$out" | grep -Eq 'hook input priority (filter - 10|-10)' || { echo "the input hook is not at priority -10"; return 1; }
+}
+
+remove() {
+  "$NFT" delete table "$FAMILY" "$TABLE" 2>/dev/null || true
+  rm -f "$FINGERPRINT"
+  log "removed"
+}
+
+contain() {
+  log "ISOLATION LOST ($1): killing the inspector, stopping its unit, restoring the policy"
+  local ids
+  ids=$("$DOCKER" ps -q --filter "label=$LABEL" 2>/dev/null || true)
+  # shellcheck disable=SC2086  # a list of ids, deliberately split
+  [ -z "$ids" ] || "$DOCKER" kill $ids >/dev/null 2>&1 || true
+  "$SYSTEMCTL" stop --no-block "$WORKER_UNIT" >/dev/null 2>&1 || true
+  apply || log "RESTORING THE POLICY FAILED; the inspector stays stopped"
+}
+
+check() {
+  local why
+  if ! why=$(verify); then contain "$why"; fi
+}
+
+guard() {
+  log "guarding (every ${GUARD_INTERVAL}s, and on every nftables change)"
+  check
+  local monitor=""
+  if command -v "$NFT" >/dev/null 2>&1; then
+    # Any change to any table wakes us at once; most are Docker's and are cheap to dismiss. The timer below covers a
+    # monitor that died.
+    ( "$NFT" monitor 2>/dev/null | while read -r _; do check; done ) &
+    monitor=$!
+    trap '[ -z "$monitor" ] || kill "$monitor" 2>/dev/null || true' EXIT
+  fi
+  while sleep "$GUARD_INTERVAL"; do check; done
+}
+
+case "${1:-}" in
+  apply)  apply ;;
+  verify) if why=$(verify); then exit 0; else log "NOT intact: $why"; exit 1; fi ;;
+  guard)  guard ;;
+  remove) remove ;;
+  status) if why=$(verify); then echo "intact"; else echo "NOT intact: $why"; exit 1; fi ;;
+  *) echo "usage: inspector-isolation apply|verify|guard|remove|status" >&2; exit 2 ;;
+esac

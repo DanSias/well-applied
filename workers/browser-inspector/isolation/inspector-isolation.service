@@ -1,0 +1,16 @@
+[Unit]
+Description=Network isolation policy for the browser inspector (nftables)
+Documentation=file:///usr/share/doc/inspector-isolation/README.md
+# Loaded before Docker starts, so the policy exists before any container can. A drop-in on docker.service pulls this unit
+# in with Wants= (never Requires=: a firewall error must not take Ollama and Open WebUI down with it).
+Before=docker.service
+After=local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/inspector-isolation apply
+ExecStop=/usr/local/sbin/inspector-isolation remove
+
+[Install]
+WantedBy=multi-user.target
