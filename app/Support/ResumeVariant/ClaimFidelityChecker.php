@@ -238,7 +238,7 @@ final class ClaimFidelityChecker
         $byCore = [];
 
         foreach ($ev as $e) {
-            $byCore[$this->core($e['f'])][] = ['q' => strtolower($e['q']), 'f' => $e['f']];
+            $byCore[$this->core($e['f'])][] = [...$e, 'q' => strtolower($e['q'])];
         }
 
         $tx = $this->figureMatches($text);
@@ -262,6 +262,17 @@ final class ClaimFidelityChecker
 
             if (! isset($byCore[$core])) {
                 $findings[] = ['kind' => 'figure_precision', 'severity' => 'block', 'detail' => $t['f'], 'message' => "states the figure [{$t['f']}], which none of the cited facts contain"];
+
+                continue;
+            }
+
+            // The same number of a different thing: hours for days, per week for per month, millions for units.
+            $compatible = array_values(array_filter($byCore[$core], fn (array $v) => ! $this->unitConflict($t, $v)));
+
+            if ($compatible === []) {
+                $should = $this->figureLabel($byCore[$core][0]);
+                $have = $this->figureLabel($t);
+                $findings[] = ['kind' => 'figure_precision', 'severity' => 'block', 'detail' => $have, 'message' => "states \"{$have}\", but the evidence says \"{$should}\""];
 
                 continue;
             }
@@ -422,33 +433,115 @@ final class ClaimFidelityChecker
     }
 
     /**
-     * Every figure in a text. A range written with "to" is one figure only when it rises ("10 to 15 hours"); "from 10 to 3
-     * hours" states two figures, as it always did.
+     * Every figure in a text, with what it is a figure of. A range written with "to" is one figure only when it rises
+     * ("10 to 15 hours"); "from 10 to 3 hours" states two figures, as it always did.
      *
-     * @return array<int, array<string, string>>
+     * @return array<int, array<string, string>> q (qualifier), f (the figure), and unit, rate and mag where the text states them
      */
     private function figureMatches(string $text): array
     {
-        preg_match_all(self::FIGURE, $text, $found, PREG_SET_ORDER);
+        preg_match_all(self::FIGURE, $text, $found, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
         $out = [];
 
         foreach ($found as $m) {
-            if (preg_match('/^(?<a>[^\s]+)\s+to\s+(?<b>.+)$/iu', $m['f'], $parts) === 1) {
+            $figure = $m['f'][0];
+            $q = (string) ($m['q'][0] ?? '');
+            $tail = substr($text, $m['f'][1] + strlen($figure));
+
+            if (preg_match('/^(?<a>[^\s]+)\s+to\s+(?<b>.+)$/iu', $figure, $parts) === 1) {
                 $a = (float) preg_replace('/[^\d.]/', '', $parts['a']);
                 $b = (float) preg_replace('/[^\d.]/', '', $parts['b']);
 
                 if ($b <= $a) {
-                    $out[] = ['q' => $m['q'], 'f' => $parts['a']];
-                    $out[] = ['q' => '', 'f' => $parts['b']];
+                    $out[] = ['q' => $q, 'f' => $parts['a'], 'unit' => '', 'rate' => '', 'mag' => ''];
+                    $out[] = ['q' => '', 'f' => $parts['b'], ...$this->figureContext($parts['b'], $tail)];
 
                     continue;
                 }
             }
 
-            $out[] = ['q' => $m['q'] ?? '', 'f' => $m['f']];
+            // "85 percent" is "85%": the same figure written another way.
+            if (! str_contains($figure, '%') && preg_match('/^\s*(?:percent|per cent)\b/i', $tail) === 1) {
+                $figure .= '%';
+            }
+
+            $out[] = ['q' => $q, 'f' => $figure, ...$this->figureContext($figure, $tail)];
         }
 
         return $out;
+    }
+
+    /**
+     * What follows a figure, read narrowly: its magnitude word ("25M", "2 million"), a time unit ("hours", "days") and a rate
+     * ("per month", "a week", "monthly"). Only these closed sets are read; any other noun is left alone, and the window stops
+     * at the next number or the end of the clause, so one figure never borrows the unit of the next.
+     *
+     * @return array{unit: string, rate: string, mag: string}
+     */
+    private function figureContext(string $figure, string $tail): array
+    {
+        $none = ['unit' => '', 'rate' => '', 'mag' => ''];
+        $tail = (string) preg_split('/[\d.;:!?(]/u', $tail, 2)[0];
+
+        if (str_contains($figure, '%')) {
+            return $none;
+        }
+
+        $mag = '';
+
+        if (preg_match('/^(?:(?<s>[KMB])(?![\p{L}])|\s+(?<w>thousand|million|billion|bn)\b)/u', $tail, $m, PREG_UNMATCHED_AS_NULL) === 1) {
+            $word = strtolower((string) ($m['w'] ?? $m['s']));
+            $mag = ['k' => 'k', 'thousand' => 'k', 'm' => 'm', 'million' => 'm', 'b' => 'b', 'billion' => 'b', 'bn' => 'b'][$word] ?? '';
+            $tail = substr($tail, strlen($m[0]));
+        }
+
+        $unit = '';
+        $rate = '';
+        $units = ['minute' => 'minute', 'minutes' => 'minute', 'min' => 'minute', 'mins' => 'minute', 'hour' => 'hour', 'hours' => 'hour', 'hr' => 'hour', 'hrs' => 'hour', 'day' => 'day', 'days' => 'day',
+            'week' => 'week', 'weeks' => 'week', 'wk' => 'week', 'month' => 'month', 'months' => 'month', 'mo' => 'month', 'quarter' => 'quarter', 'quarters' => 'quarter', 'year' => 'year', 'years' => 'year', 'yr' => 'year', 'yrs' => 'year'];
+        $word = '(?:min(?:ute)?s?|hours?|hrs?|days?|weeks?|wk|months?|mo|quarters?|years?|yrs?)';
+
+        // "10–15 hours", "20+ active hours": a time unit within the next two words.
+        if (preg_match('/^\s*(?:[\p{L}-]+\s+){0,2}?(?<u>'.$word.')\b/iu', $tail, $m) === 1) {
+            $unit = $units[strtolower($m['u'])] ?? '';
+            $tail = substr($tail, strlen($m[0]));
+        }
+
+        // "per month", "a week", "each year", "/mo", "monthly".
+        if (preg_match('/^\s*(?:(?:per|a|an|each|every)\s+|\/\s*)(?<r>'.$word.')\b/iu', $tail, $m) === 1) {
+            $rate = $units[strtolower($m['r'])] ?? '';
+        } elseif (preg_match('/^\s*(?<r>daily|weekly|monthly|quarterly|annually|yearly)\b/i', $tail, $m) === 1) {
+            $rate = ['daily' => 'day', 'weekly' => 'week', 'monthly' => 'month', 'quarterly' => 'quarter', 'annually' => 'year', 'yearly' => 'year'][strtolower($m['r'])];
+        }
+
+        return ['unit' => $unit, 'rate' => $rate, 'mag' => $mag];
+    }
+
+    /**
+     * Whether a figure in the text states a magnitude, unit or rate that the evidence's figure does not. A magnitude the evidence
+     * states may not be dropped ("$25" for "$25M"); a unit or rate is a conflict only when both state one and they differ, since
+     * leaving out "per month" is a loss of detail, not a different claim.
+     *
+     * @param  array<string, string>  $text
+     * @param  array<string, string>  $evidence
+     */
+    private function unitConflict(array $text, array $evidence): bool
+    {
+        return ($evidence['mag'] !== '' && $text['mag'] !== $evidence['mag'])
+            || ($text['unit'] !== '' && $evidence['unit'] !== '' && $text['unit'] !== $evidence['unit'])
+            || ($text['rate'] !== '' && $evidence['rate'] !== '' && $text['rate'] !== $evidence['rate']);
+    }
+
+    /**
+     * A figure as it should read in a message: "10–15 hours per month".
+     *
+     * @param  array<string, string>  $figure
+     */
+    private function figureLabel(array $figure): string
+    {
+        $mag = ['k' => 'K', 'm' => 'M', 'b' => 'B'][$figure['mag']] ?? '';
+
+        return trim($figure['q'].' '.$figure['f'].$mag.($figure['unit'] !== '' ? ' '.$figure['unit'].'s' : '').($figure['rate'] !== '' ? ' per '.$figure['rate'] : ''));
     }
 
     /**

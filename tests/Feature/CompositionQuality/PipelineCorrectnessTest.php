@@ -157,3 +157,100 @@ it('does not read unrelated statements as customer-facing work', function () {
 
     expect($wrong)->toBe([]);
 });
+
+// ---- 5. cross_functional capability tense ---------------------------------------------------------------------------
+
+it('recognizes working closely with product or design in the present, continuous and past tense', function () {
+    $coverage = app(CapabilityCoverage::class);
+    $missed = array_values(array_filter([
+        'Work closely with product and design to ship features.',
+        'Works closely with product managers on the roadmap.',
+        'Working closely with design to refine the interface.',
+        'Worked closely with product and engineering to launch the dashboard.',
+        'Worked closely with the product team on requirements.',
+        'Collaborated across a cross-functional group of engineers.',
+    ], fn (string $statement) => ! in_array('cross_functional', $coverage->capabilitiesIn($statement), true)));
+
+    expect($missed)->toBe([]);
+});
+
+it('does not read other closeness or other teams as cross-functional collaboration', function () {
+    $coverage = app(CapabilityCoverage::class);
+    $wrong = array_values(array_filter([
+        'Worked closely with the billing team on a migration.',
+        'Worked with product on a launch.',
+        'Worked closely on product launches.',
+        'Closely monitored product performance.',
+        'Worked directly on the design system.',
+    ], fn (string $statement) => in_array('cross_functional', $coverage->capabilitiesIn($statement), true)));
+
+    expect($wrong)->toBe([]);
+});
+
+// ---- 6. Units, periods and magnitudes in figure validation ------------------------------------------------------------
+
+function figureFlagged(string $text, string $evidence = BUDGET_HOURS): bool
+{
+    return in_array('figure_precision', array_column((new ClaimFidelityChecker)->findings($text, ['e'], ['e' => $evidence]), 'kind'), true);
+}
+
+it('accepts the same unit and rate written another way', function () {
+    $wrong = array_values(array_filter([
+        'Saved internal teams approximately 10 to 15 hours per month.',
+        'Saved internal teams approximately 10-15 hours a month.',
+        'Saved internal teams approximately 10–15 hours each month.',
+        'Saved internal teams approximately 10–15 hours monthly.',
+        'Saved internal teams approximately 10–15 hrs/month.',
+        // The model's actual wording, which the earlier validator rejected.
+        'Built a centralized multi-user budget forecasting platform with approval workflows to replace shared-spreadsheet planning, saving internal teams approximately 10 to 15 hours per month.',
+        // Leaving out the period loses detail but states nothing different.
+        'Saved internal teams approximately 10–15 hours.',
+    ], fn (string $text) => figureFlagged($text)));
+
+    expect($wrong)->toBe([]);
+});
+
+it('rejects a different time period, unit or kind of quantity for the same number', function () {
+    $missed = array_values(array_filter([
+        'Saved internal teams approximately 10–15 hours per week.',
+        'Saved internal teams approximately 10–15 hours weekly.',
+        'Saved internal teams approximately 10–15 hours per year.',
+        'Saved internal teams approximately 10–15 days per month.',
+        'Saved internal teams approximately 10–15 minutes per month.',
+        'Saved internal teams approximately 10–15% per month.',
+    ], fn (string $text) => ! figureFlagged($text)));
+
+    expect($missed)->toBe([])
+        // The message names both, so a person can see what changed.
+        ->and((new ClaimFidelityChecker)->findings('Saved teams approximately 10–15 hours per week.', ['e'], ['e' => BUDGET_HOURS])[0]['message'])
+        ->toContain('10–15 hours per week')->toContain('10–15 hours per month');
+});
+
+it('keeps percent and absolute quantities apart, and accepts "percent" for the percent sign', function () {
+    expect(figureFlagged('Cut reporting time by 85 percent.', 'Nexus reduced reporting time by 85%.'))->toBeFalse()
+        ->and(figureFlagged('Cut reporting time by 85 hours.', 'Nexus reduced reporting time by 85%.'))->toBeTrue()
+        ->and(figureFlagged('Cut reporting time by 85.', 'Nexus reduced reporting time by 85%.'))->toBeTrue();
+});
+
+it('keeps currency and magnitude as the evidence states them', function () {
+    $spend = 'Nexus gave teams real-time visibility across $25M+ in annual marketing spend.';
+    $budget = 'Directly managed a $1.3M SEO budget, using data analysis to guide content strategy.';
+
+    expect(figureFlagged('Gave teams visibility across $25M+ in annual spend.', $spend))->toBeFalse()
+        ->and(figureFlagged('Gave teams visibility across $25 million in annual spend.', $spend))->toBeFalse()
+        ->and(figureFlagged('Gave teams visibility across $25K in annual spend.', $spend))->toBeTrue()
+        ->and(figureFlagged('Gave teams visibility across $25 in annual spend.', $spend))->toBeTrue()
+        ->and(figureFlagged('Managed a $1.3M SEO budget.', $budget))->toBeFalse()
+        ->and(figureFlagged('Managed a $1.3K SEO budget.', $budget))->toBeTrue()
+        ->and(figureFlagged('Managed a 1.3M SEO budget.', $budget))->toBeTrue();
+});
+
+it('does not borrow a unit from a neighbouring figure or an unrelated clause', function () {
+    $onboarding = 'Cut onboarding from approximately 10 active hours to approximately 3.';
+    $tickets = 'Reduced ticket volume by approximately 30% over 6 months.';
+
+    expect(figureFlagged('Cut onboarding from approximately 10 to approximately 3 active hours.', $onboarding))->toBeFalse()
+        ->and(figureFlagged('Reduced ticket volume by approximately 30%.', $tickets))->toBeFalse()
+        ->and(figureFlagged('Saved approximately 20+ active hours per week across teams.', 'Saved approximately 20+ hours per week across teams.'))->toBeFalse()
+        ->and(figureFlagged('Saved approximately 20+ hours per day across teams.', 'Saved approximately 20+ hours per week across teams.'))->toBeTrue();
+});
