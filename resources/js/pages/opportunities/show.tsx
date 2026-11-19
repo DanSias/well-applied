@@ -19,8 +19,7 @@ import { useJobDecisions } from '@/hooks/use-job-decisions';
 import AppShell from '@/layouts/app-shell';
 import { formatCompensation } from '@/lib/job-display';
 import {
-    resumeStateLabel,
-    resumeStateTone,
+    resumeSummary,
     workspaceNext,
     type AnalysisPointer,
     type OpportunityDetail,
@@ -255,6 +254,10 @@ export default function OpportunityShow({
     preparation,
 }: Props) {
     const decisions = useJobDecisions();
+    // Mirrors what the resume panel below already tracks (polling, refresh, retry), so the summary cannot disagree with it.
+    const [generation, setGeneration] =
+        useState<TailoredResumeStatus>(tailored_resume);
+    const summary = resumeSummary(op.resume, generation);
     const [open, setOpen] = useState<
         'description' | 'inspection' | 'application' | null
     >(null);
@@ -383,20 +386,8 @@ export default function OpportunityShow({
                 <Section
                     id="resume"
                     title="Resume"
-                    aside={
-                        <Badge tone={resumeStateTone(op.resume.state)}>
-                            {resumeStateLabel(op.resume.state)}
-                            {op.resume.versions > 1
-                                ? ` · ${op.resume.versions} versions`
-                                : ''}
-                        </Badge>
-                    }
+                    aside={<Badge tone={summary.tone}>{summary.label}</Badge>}
                 >
-                    {op.resume.state === 'none' && (
-                        <p className="text-fg-muted mb-2 text-sm">
-                            Not started.
-                        </p>
-                    )}
                     {op.description_completeness !== 'complete' && (
                         <p
                             role="note"
@@ -412,6 +403,7 @@ export default function OpportunityShow({
                         initial={tailored_resume}
                         profiles={resume_profiles}
                         returnTo="opportunity"
+                        onStatus={setGeneration}
                     />
                     {op.resume.current_variant_id !== null && (
                         <div className="mt-3">

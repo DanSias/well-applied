@@ -2,6 +2,7 @@ import type { Tone } from '@/components/ui/badge';
 import type { OpportunityTriageStage } from '@/types/job-posting';
 import type { SubmissionIndicator } from '@/lib/submission';
 import type { InspectionSummary } from '@/types/application-inspection';
+import type { TailoredResumeStatus } from '@/types/tailored-resume';
 
 /**
  * Pure presentation rules for the Opportunities page. An opportunity is a pursued JobPosting; the only state shown is
@@ -85,6 +86,45 @@ export function resumeStateTone(state: ResumeState): Tone {
     return { none: 'neutral', 'in-progress': 'accent', final: 'ok' }[
         state
     ] as Tone;
+}
+
+/**
+ * The Resume section's one-line state. The persisted resume-generation status (the same object the button and stepper
+ * read) wins while a run is going or has stopped; otherwise the resumes the opportunity already has decide. There is no
+ * second copy of the run's state: this only chooses a label for it.
+ */
+export function resumeSummary(
+    resume: Pick<Opportunity['resume'], 'state' | 'versions'>,
+    generation: Pick<TailoredResumeStatus, 'state'> | null,
+): { label: string; tone: Tone } {
+    const versions =
+        resume.versions > 1 ? ` · ${resume.versions} versions` : '';
+
+    switch (generation?.state) {
+        case 'running':
+            return { label: `Generating${versions}`, tone: 'accent' };
+        case 'interrupted':
+            return { label: `Interrupted${versions}`, tone: 'warn' };
+        case 'failed':
+            return { label: `Generation failed${versions}`, tone: 'bad' };
+        case 'needs_clarification':
+            return { label: `Questions to answer${versions}`, tone: 'warn' };
+        default: {
+            // A finished run has made a resume even if this page's own props predate it.
+            const state =
+                resume.state === 'none' && generation?.state === 'ready'
+                    ? 'in-progress'
+                    : resume.state;
+
+            return {
+                label:
+                    state === 'none'
+                        ? 'Not started'
+                        : `${resumeStateLabel(state)}${versions}`,
+                tone: resumeStateTone(state),
+            };
+        }
+    }
 }
 
 /** Where a next step leads: the job's own page, or a resume in the existing resume workspace. */

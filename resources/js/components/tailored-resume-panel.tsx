@@ -7,24 +7,15 @@ import { formatElapsedTime } from '@/lib/format-elapsed-time';
 import { start as startClarification } from '@/routes/jobs/clarification';
 import { store as tailoredResumeStore } from '@/routes/jobs/tailored-resume';
 import type {
-    TailoredResumeStage,
     TailoredResumeStatus,
     TailoringProfile,
 } from '@/types/tailored-resume';
 import { buttonClass } from '@/components/ui/button';
 import { fieldClass } from '@/components/ui/field';
+import { ResumeStepper } from '@/components/resume-stepper';
+import { resumeSteps } from '@/lib/resume-stepper';
 import { generateAction } from '@/lib/tailored-resume-action';
 import { cn } from '@/lib/utils';
-
-const STAGE_MARK: Record<TailoredResumeStage['status'], string> = {
-    pending: '○',
-    queued: '◔',
-    running: '●',
-    done: '✓',
-    reused: '✓',
-    failed: '✕',
-    interrupted: '⏸',
-};
 
 function useLiveElapsed(status: TailoredResumeStatus): number | null {
     const [now, setNow] = useState(() => Date.now());
@@ -109,36 +100,6 @@ function ReviewReport({
     );
 }
 
-function StageList({ stages }: { stages: TailoredResumeStage[] }) {
-    return (
-        <ol className="mt-3 space-y-1 text-sm">
-            {stages.map((stage) => (
-                <li
-                    key={stage.key}
-                    className={
-                        stage.status === 'running' || stage.status === 'queued'
-                            ? 'font-medium text-neutral-900 dark:text-neutral-100'
-                            : stage.status === 'failed'
-                              ? 'text-red-600 dark:text-red-400'
-                              : stage.status === 'interrupted'
-                                ? 'text-amber-700 dark:text-amber-300'
-                                : 'text-neutral-500 dark:text-neutral-400'
-                    }
-                >
-                    <span aria-hidden className="mr-2 inline-block w-4">
-                        {STAGE_MARK[stage.status]}
-                    </span>
-                    {stage.label}
-                    {stage.status === 'reused' && ' (reused existing result)'}
-                    {stage.status === 'queued' && ' (waiting for worker)'}
-                    {stage.status === 'interrupted' && ' (interrupted)'}
-                    {stage.phase && ` (${stage.phase})`}
-                </li>
-            ))}
-        </ol>
-    );
-}
-
 /**
  * The one-click "Generate Tailored Resume" control: starts or resumes
  * the durable pipeline and shows stage-level progress (never a made-up
@@ -151,14 +112,19 @@ export function TailoredResumePanel({
     initial,
     profiles = [],
     returnTo,
+    onStatus,
 }: {
     jobId: number;
     initial: TailoredResumeStatus;
     profiles?: TailoringProfile[];
     /** Where generating and continuing return to (the Opportunity workspace); the job page when absent. */
     returnTo?: 'opportunity';
+    /** Called with every status this panel holds, so a page can summarize the run without tracking a second copy of it. */
+    onStatus?: (status: TailoredResumeStatus) => void;
 }) {
     const { status, refresh } = useTailoredResumeStatus(jobId, initial);
+
+    useEffect(() => onStatus?.(status), [status, onStatus]);
     const elapsed = useLiveElapsed(status);
     const [processing, setProcessing] = useState(false);
     const [confirming, setConfirming] = useState(false);
@@ -345,23 +311,21 @@ export function TailoredResumePanel({
             )}
 
             {status.state !== 'idle' && (
-                <div className="mt-3">
-                    <p
-                        role="status"
-                        className="text-sm font-medium text-neutral-900 dark:text-neutral-100"
-                    >
+                <>
+                    <ResumeStepper
+                        steps={resumeSteps(status)}
+                        elapsed={
+                            elapsed === null
+                                ? null
+                                : status.state === 'interrupted'
+                                  ? `${formatElapsedTime(elapsed)} before it stopped`
+                                  : `${formatElapsedTime(elapsed)} elapsed`
+                        }
+                    />
+                    <p role="status" className="sr-only">
                         {status.label}
-                        {elapsed !== null && (
-                            <span className="ml-2 font-normal text-neutral-500 tabular-nums dark:text-neutral-400">
-                                {formatElapsedTime(elapsed)}{' '}
-                                {status.state === 'interrupted'
-                                    ? 'before it stopped'
-                                    : 'elapsed'}
-                            </span>
-                        )}
                     </p>
-                    <StageList stages={status.stages} />
-                </div>
+                </>
             )}
 
             {status.state === 'interrupted' && (

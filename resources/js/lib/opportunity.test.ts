@@ -8,6 +8,7 @@ import {
     resumeStateTone,
     workspaceNext,
     type ExistingWork,
+    resumeSummary,
 } from './opportunity';
 
 const resume = (current: number | null, final: number | null) => ({
@@ -260,5 +261,55 @@ describe('workspaceNext and the pipeline', () => {
                 { state: 'idle', needs_confirmation: false },
             ),
         ).toMatchObject({ kind: 'link', label: 'Continue resume' });
+    });
+});
+
+describe('resumeSummary', () => {
+    const none = { state: 'none' as const, versions: 0 };
+
+    it('says Not started only when nothing is generating and no resume exists', () => {
+        expect(resumeSummary(none, null).label).toBe('Not started');
+        expect(resumeSummary(none, { state: 'idle' }).label).toBe(
+            'Not started',
+        );
+    });
+
+    it('follows the persisted generation state, matching the button', () => {
+        expect(resumeSummary(none, { state: 'running' })).toEqual({
+            label: 'Generating',
+            tone: 'accent',
+        });
+        expect(resumeSummary(none, { state: 'failed' })).toEqual({
+            label: 'Generation failed',
+            tone: 'bad',
+        });
+        expect(resumeSummary(none, { state: 'interrupted' }).tone).toBe('warn');
+        expect(
+            resumeSummary(none, { state: 'needs_clarification' }).label,
+        ).toBe('Questions to answer');
+    });
+
+    it('moves from generating to completed without a reload', () => {
+        expect(resumeSummary(none, { state: 'running' }).label).toBe(
+            'Generating',
+        );
+        expect(resumeSummary(none, { state: 'ready' }).label).toBe(
+            'Resume in progress',
+        );
+    });
+
+    it('keeps the version count and falls back to the stored resume state', () => {
+        const two = { state: 'in-progress' as const, versions: 2 };
+
+        expect(resumeSummary(two, { state: 'running' }).label).toBe(
+            'Generating · 2 versions',
+        );
+        expect(resumeSummary(two, { state: 'ready' }).label).toBe(
+            'Resume in progress · 2 versions',
+        );
+        expect(resumeSummary({ state: 'final', versions: 1 }, null)).toEqual({
+            label: 'Final resume chosen',
+            tone: 'ok',
+        });
     });
 });
