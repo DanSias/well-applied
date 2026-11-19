@@ -6,6 +6,7 @@ import {
     nextAction,
     resumeStateLabel,
     resumeStateTone,
+    headerAction,
     workspaceNext,
     type ExistingWork,
     resumeSummary,
@@ -311,5 +312,75 @@ describe('resumeSummary', () => {
             label: 'Final resume chosen',
             tone: 'ok',
         });
+    });
+});
+
+describe('headerAction', () => {
+    const gen = (
+        state: string,
+        extra: Record<string, unknown> = {},
+    ): Parameters<typeof headerAction>[1] =>
+        ({
+            state,
+            needs_confirmation: false,
+            profile_resume: null,
+            preview_url: null,
+            ...extra,
+        }) as Parameters<typeof headerAction>[1];
+
+    it('offers to generate when nothing has been done', () => {
+        expect(
+            headerAction(
+                { next: 'analyze', resume: resume(null, null) },
+                gen('idle'),
+            ),
+        ).toEqual({ kind: 'generate', label: 'Generate tailored resume' });
+    });
+
+    it('lets a run in progress, a failure or an interruption decide before anything else', () => {
+        const op = { next: 'review_final' as const, resume: resume(7, 7) };
+
+        expect(headerAction(op, gen('running')).kind).toBe('busy');
+        expect(headerAction(op, gen('failed'))).toEqual({
+            kind: 'generate',
+            label: 'Retry generation',
+        });
+        expect(headerAction(op, gen('interrupted'))).toEqual({
+            kind: 'generate',
+            label: 'Continue generating',
+        });
+        expect(headerAction(op, gen('needs_clarification'))).toEqual({
+            kind: 'anchor',
+            label: 'Answer questions',
+        });
+    });
+
+    it('opens the resume the opportunity already has', () => {
+        expect(
+            headerAction(
+                { next: 'review_final', resume: resume(7, 7) },
+                gen('idle'),
+            ),
+        ).toEqual({ kind: 'link', label: 'Review final resume', variantId: 7 });
+    });
+
+    it('moves to reviewing a resume that finished after the page loaded', () => {
+        expect(
+            headerAction(
+                { next: 'analyze', resume: resume(null, null) },
+                gen('ready', {
+                    profile_resume: { review_url: '/resume/9' },
+                }),
+            ),
+        ).toEqual({ kind: 'url', label: 'Review resume', url: '/resume/9' });
+    });
+
+    it('sends a waiting step to the Resume step instead of pretending to start it', () => {
+        expect(
+            headerAction(
+                { next: 'answer_questions', resume: resume(null, null) },
+                gen('idle'),
+            ),
+        ).toEqual({ kind: 'anchor', label: 'Answer questions' });
     });
 });

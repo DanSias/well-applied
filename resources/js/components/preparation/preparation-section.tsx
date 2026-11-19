@@ -2,6 +2,10 @@ import { useRef, useState } from 'react';
 import { PreparationDrawer } from '@/components/preparation/preparation-drawer';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+    WorkflowStep,
+    stepStatusFromTone,
+} from '@/components/opportunity/workflow-step';
 import { useApplicationPreparation } from '@/hooks/use-application-preparation';
 import { presentPreparation } from '@/lib/preparation-status';
 import type { PreparationPanel } from '@/types/application-preparation';
@@ -9,7 +13,7 @@ import type { PreparationPanel } from '@/types/application-preparation';
 /**
  * The Opportunity workspace's "Application preparation" section: a one-line status and the button that opens the drawer.
  * It keeps its own state (and polling while an attempt is active) so the badge stays true with the drawer closed. It is
- * a section of its own, beside Application inspection and the recorded Applications: preparation is not either of them.
+ * a step of its own in the workflow, beside Application inspection and the recorded applications: preparation is not either of them.
  */
 export function PreparationSection({
     panel: initial,
@@ -33,37 +37,31 @@ export function PreparationSection({
     };
 
     return (
-        <section
+        <WorkflowStep
             id="preparation"
-            aria-labelledby="preparation-title"
-            className="scroll-mt-4 px-4 py-4 sm:px-5"
-        >
-            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                <h2
-                    id="preparation-title"
-                    tabIndex={-1}
-                    className="text-fg text-sm font-semibold tracking-tight focus:outline-none"
-                >
-                    Application preparation
-                </h2>
+            title="Application preparation"
+            status={stepStatusFromTone(view.headline.tone)}
+            badge={
                 <Badge tone={view.headline.tone}>{view.headline.label}</Badge>
-            </div>
-            <div className="mt-2">
-                <p className="text-fg-muted text-sm">
-                    Fills in the application form with your approved details and
-                    your tailored resume, then stops for you to review. It never
-                    submits anything.
-                </p>
-                {unavailable && (
-                    <p className="text-fg-subtle mt-1 text-xs">
-                        {prep.panel.problem?.message}
+            }
+        >
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                <div className="min-w-0 flex-1 basis-60">
+                    <p className="text-fg-muted text-sm">
+                        Fills the application using your approved details and
+                        resume, then stops for your review. It never submits
+                        anything.
                     </p>
-                )}
+                    {unavailable && (
+                        <p className="text-fg-subtle mt-1 text-xs">
+                            {prep.panel.problem?.message}
+                        </p>
+                    )}
+                </div>
                 <Button
                     ref={trigger}
                     size="sm"
-                    className="mt-2"
-                    variant={prep.panel.can_prepare ? 'secondary' : 'secondary'}
+                    variant="secondary"
                     aria-haspopup="dialog"
                     onClick={() => setOpen(true)}
                 >
@@ -84,6 +82,6 @@ export function PreparationSection({
                     onClose={close}
                 />
             )}
-        </section>
+        </WorkflowStep>
     );
 }

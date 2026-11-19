@@ -1,5 +1,5 @@
 import { router } from '@inertiajs/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useImperativeHandle, useState, type Ref } from 'react';
 import { ClarificationPanel } from '@/components/clarification-panel';
 import { LayoutQualityNotice } from '@/components/layout-quality-notice';
 import { useTailoredResumeStatus } from '@/hooks/use-tailored-resume-status';
@@ -100,6 +100,9 @@ function ReviewReport({
     );
 }
 
+/** What a page can ask of the panel: the same action its own button runs, including the confirmation step. */
+export type ResumeControl = { generate: () => void };
+
 /**
  * The one-click "Generate Tailored Resume" control: starts or resumes
  * the durable pipeline and shows stage-level progress (never a made-up
@@ -113,6 +116,10 @@ export function TailoredResumePanel({
     profiles = [],
     returnTo,
     onStatus,
+    embedded = false,
+    primaryInHeader = false,
+    controlRef,
+    onBusy,
 }: {
     jobId: number;
     initial: TailoredResumeStatus;
@@ -121,6 +128,13 @@ export function TailoredResumePanel({
     returnTo?: 'opportunity';
     /** Called with every status this panel holds, so a page can summarize the run without tracking a second copy of it. */
     onStatus?: (status: TailoredResumeStatus) => void;
+    /** Rendered inside a step of a larger workflow: no card or title of its own (the step supplies both). */
+    embedded?: boolean;
+    /** The page's header carries the primary action (generate, retry, continue, open the resume), so the panel omits it. */
+    primaryInHeader?: boolean;
+    controlRef?: Ref<ResumeControl>;
+    /** True from the moment a start is posted until the server answers, so a header button can hold still meanwhile. */
+    onBusy?: (busy: boolean) => void;
 }) {
     const { status, refresh } = useTailoredResumeStatus(jobId, initial);
 
@@ -191,20 +205,36 @@ export function TailoredResumePanel({
         start({ allowIncomplete: status.needs_confirmation, regenerate });
     };
 
+    useEffect(() => onBusy?.(processing), [processing, onBusy]);
+    useImperativeHandle(controlRef, () => ({ generate: () => click() }));
+
+    const showAction = action.show && !primaryInHeader;
+
     return (
         <section
             aria-label="Generate Tailored Resume"
-            className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"
+            className={
+                embedded
+                    ? undefined
+                    : 'rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900'
+            }
         >
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                    <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                        Tailored Resume
-                    </h2>
-                    <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+                    {!embedded && (
+                        <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                            Tailored Resume
+                        </h2>
+                    )}
+                    <p
+                        className={cn(
+                            'text-xs text-neutral-500 dark:text-neutral-400',
+                            !embedded && 'mt-0.5',
+                        )}
+                    >
                         {selected && !selected.stale
-                            ? 'Uses your approved profile as the starting point, finds the evidence this job needs, writes the resume, and renders the PDF. The stored job analysis is reused.'
-                            : 'Analyzes this job, matches your career evidence, composes the resume, and opens the PDF preview. Existing valid results are reused.'}
+                            ? 'Matches your experience to the job and generates a tailored PDF resume. The stored job analysis is reused.'
+                            : 'Matches your experience to the job and generates a tailored PDF resume. Analyzes the job first if needed.'}
                     </p>
                     {profiles.length > 0 &&
                         !legacy &&
@@ -254,7 +284,7 @@ export function TailoredResumePanel({
                     )}
                 </div>
 
-                {action.show && (
+                {showAction && (
                     <button
                         type="button"
                         disabled={action.disabled}
@@ -419,12 +449,14 @@ export function TailoredResumePanel({
                             )}
                     </div>
                     <div className="mt-3 flex flex-wrap items-center gap-3">
-                        <a
-                            href={status.profile_resume.review_url}
-                            className={buttonClass('primary', 'md')}
-                        >
-                            Open resume
-                        </a>
+                        {!primaryInHeader && (
+                            <a
+                                href={status.profile_resume.review_url}
+                                className={buttonClass('primary', 'md')}
+                            >
+                                Open resume
+                            </a>
+                        )}
                         {status.download_url && (
                             <a
                                 href={status.download_url}
@@ -454,7 +486,7 @@ export function TailoredResumePanel({
 
             {status.state === 'ready' && !status.profile_resume && (
                 <div className="mt-3 flex flex-wrap items-center gap-3">
-                    {status.preview_url && (
+                    {status.preview_url && !primaryInHeader && (
                         <a
                             href={status.preview_url}
                             className={buttonClass('primary', 'md')}

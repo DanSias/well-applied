@@ -282,3 +282,66 @@ export function workspaceNext(
 
     return { kind: 'section', label: next.label, hint };
 }
+
+/**
+ * The header's one primary action, chosen from the opportunity's own next step (workspaceNext) and the live
+ * resume-generation status the page already holds. It adds no state of its own: a run that is going, stopped or waiting
+ * for answers decides first, then a resume the opportunity already has, then a finished run, then generating.
+ *
+ * - `link`: open a resume in the resume workspace.
+ * - `url`: open the finished resume's own review page.
+ * - `generate`: run the Resume step's action (start, retry or continue), including its confirmation when the
+ *   description may be incomplete.
+ * - `anchor`: the step happens in the Resume step below (answering questions), so the button takes you there.
+ * - `busy`: a run is in progress; nothing to press.
+ */
+export type HeaderAction =
+    | { kind: 'link'; label: string; variantId: number }
+    | { kind: 'url'; label: string; url: string }
+    | { kind: 'generate'; label: string }
+    | { kind: 'anchor'; label: string }
+    | { kind: 'busy'; label: string };
+
+export function headerAction(
+    op: Pick<Opportunity, 'next' | 'resume'>,
+    generation: Pick<
+        TailoredResumeStatus,
+        'state' | 'needs_confirmation' | 'profile_resume' | 'preview_url'
+    >,
+): HeaderAction {
+    const next = workspaceNext(op, generation);
+
+    switch (generation.state) {
+        case 'running':
+            return { kind: 'busy', label: 'Generating…' };
+        case 'needs_clarification':
+            return { kind: 'anchor', label: 'Answer questions' };
+        case 'interrupted':
+            return { kind: 'generate', label: 'Continue generating' };
+        case 'failed':
+            return { kind: 'generate', label: 'Retry generation' };
+    }
+
+    if (next.kind === 'link') {
+        return {
+            kind: 'link',
+            label: next.label,
+            variantId: next.variantId,
+        };
+    }
+
+    if (generation.state === 'ready') {
+        const url =
+            generation.profile_resume?.review_url ?? generation.preview_url;
+
+        if (url) {
+            return { kind: 'url', label: 'Review resume', url };
+        }
+    }
+
+    if (op.next === 'answer_questions' || op.next === 'processing') {
+        return { kind: 'anchor', label: next.label };
+    }
+
+    return { kind: 'generate', label: 'Generate tailored resume' };
+}
