@@ -70,9 +70,9 @@ final class ReferenceSelection
         $unitsFor = function (int $roleId) use (&$unitsCache, $candidates, $offered, $cfg, $meta, $forJob): array {
             return $unitsCache[$roleId] ??= $this->units($candidates[$roleId] ?? [], $offered, (int) $cfg['outcomes_per_lead'], (float) $cfg['overlap_limit'], $meta, $forJob);
         };
-        $coverage = $forJob ? $this->coveragePlan($roleIds, $unitsFor, $candidates, $titles->all(), $roleRows->map(fn (Role $r) => ['start' => $r->start_year, 'end' => $r->end_year])->all(), $allocation, $offered) : [];
+        $coverage = $forJob ? $this->coveragePlan($roleIds, $unitsFor, $candidates, $titles->all(), $roleRows->map(fn (Role $r) => ['start' => $r->start_year, 'end' => $r->end_year])->all(), $allocation, $offered) : null;
 
-        if ($forJob) {
+        if ($coverage !== null) {
             $allocation = $coverage['allocation'];
         }
 
@@ -109,7 +109,7 @@ final class ReferenceSelection
                 // A general claim of ownership or leadership says the same thing wherever it is made; a role keeps a few and the rest of its slots go to the work.
                 'generic_max' => $forJob ? (int) config('resume.composition.allocation.generic_per_role') : null,
                 'technical_floor' => preg_match('/\b(?:developer|engineer)\b/i', (string) $titles[$roleId]) === 1, 'texts' => array_map(fn (array $f) => $f['statement'], $offered),
-                'coverage' => $forJob && ($coverage['roles'][$roleId]['lifted'] ?? false) ? min((int) $coverage['roles'][$roleId]['floor'], $allocation[$roleId] ?? 1) : 0,
+                'coverage' => $coverage !== null && ($coverage['roles'][$roleId]['lifted'] ?? false) ? min((int) $coverage['roles'][$roleId]['floor'], $allocation[$roleId] ?? 1) : 0,
             ]);
             $extraLeft -= $result['extra_used'];
 
@@ -126,7 +126,7 @@ final class ReferenceSelection
             $traceRoles[] = [
                 'role_id' => $roleId, 'bullets' => count($result['chosen']), 'fallback' => $fallback, 'groups' => array_column($result['chosen'], 'facts'),
                 'facets' => array_column($result['chosen'], 'facet'), 'extra_bullets' => $result['extra_used'], 'uncovered_priority_projects' => $result['uncovered'],
-                ...($forJob ? ['coverage' => $this->coverageOutcome($coverage['roles'][$roleId], $result['chosen'], $offered, (string) $titles[$roleId])] : []),
+                ...($coverage !== null ? ['coverage' => $this->coverageOutcome($coverage['roles'][$roleId], $result['chosen'], $offered, (string) $titles[$roleId])] : []),
             ];
         }
 
@@ -173,7 +173,7 @@ final class ReferenceSelection
             };
 
             if ($reason !== null) {
-                $omitted[] = ['fact_key' => $a['fact_key'], 'reason' => $reason];
+                $omitted[] = ['fact_key' => (string) $a['fact_key'], 'reason' => $reason];
 
                 continue;
             }
@@ -404,7 +404,7 @@ final class ReferenceSelection
             $cap = $engineering ? $perRoleMax : min(2, $perRoleMax);
             $roles[$roleId] = [
                 'applies' => $applies, 'years' => $years, 'target' => $target, 'cap' => $cap, 'cover_size' => $stating, 'responsibilities_supported' => $supported,
-                'floor' => $applies ? max(0, min($cap, $target, $stating)) : 0,
+                'floor' => $applies ? max(0, min($cap, $target, $stating)) : 0, 'lifted' => false, 'budget_limited' => false,
             ];
         }
 
@@ -414,14 +414,14 @@ final class ReferenceSelection
         $room = max(0, (int) config('resume.composition.bullets.max') - array_sum($allocation));
 
         foreach ($byTenure as $roleId) {
-            $short = max(0, $roles[$roleId]['floor'] - ($allocation[$roleId] ?? 1));
-            // Coverage lifts a role the relevance plan left below its floor; a role the plan already gave that many bullets has
-            // had its evidence chosen by what the job asks for, and keeps that choice.
-            $roles[$roleId]['lifted'] = $short > 0;
+            $role = $roles[$roleId];
+            $short = max(0, $role['floor'] - ($allocation[$roleId] ?? 1));
             $add = min($short, $room);
             $allocation[$roleId] = ($allocation[$roleId] ?? 1) + $add;
             $room -= $add;
-            $roles[$roleId]['budget_limited'] = $add < $short;
+            // Coverage lifts a role the relevance plan left below its floor; a role the plan already gave that many bullets has
+            // had its evidence chosen by what the job asks for, and keeps that choice.
+            $roles[$roleId] = [...$role, 'lifted' => $short > 0, 'budget_limited' => $add < $short];
         }
 
         return ['allocation' => $allocation, 'roles' => $roles];

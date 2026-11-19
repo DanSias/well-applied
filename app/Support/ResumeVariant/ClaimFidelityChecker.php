@@ -445,7 +445,8 @@ final class ClaimFidelityChecker
 
         foreach ($found as $m) {
             $figure = $m['f'][0];
-            $q = (string) ($m['q'][0] ?? '');
+            // `q` precedes the mandatory `f` group, so it is always reported (as an empty string when absent).
+            $q = $m['q'][0];
             $tail = substr($text, $m['f'][1] + strlen($figure));
 
             if (preg_match('/^(?<a>[^\s]+)\s+to\s+(?<b>.+)$/iu', $figure, $parts) === 1) {
@@ -481,7 +482,9 @@ final class ClaimFidelityChecker
     private function figureContext(string $figure, string $tail): array
     {
         $none = ['unit' => '', 'rate' => '', 'mag' => ''];
-        $tail = (string) preg_split('/[\d.;:!?(]/u', $tail, 2)[0];
+        // preg_split fails (false) on a tail that is not valid UTF-8; there is then nothing to read after the figure.
+        $split = preg_split('/[\d.;:!?(]/u', $tail, 2);
+        $tail = is_array($split) ? $split[0] : '';
 
         if (str_contains($figure, '%')) {
             return $none;
@@ -545,7 +548,7 @@ final class ClaimFidelityChecker
     }
 
     /**
-     * @param  array<string, array<int, array{q: string, f: string}>>  $byCore
+     * @param  array<string, array<int, array<string, string>>>  $byCore
      */
     private function rangeEndsStated(string $core, array $byCore): bool
     {

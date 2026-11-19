@@ -323,14 +323,6 @@ final class JobRelevance
     }
 
     /**
-     * @return array<int, string>
-     */
-    private function stems(string $text): array
-    {
-        return array_values(array_unique($this->tokens($text)));
-    }
-
-    /**
      * A light suffix stemmer: plural and verb inflections (-s, -es, -ed, -ing), the agent and result forms that mean the same
      * work (-er, -ment, -ion, -ation, -ization), the noun forms of a quality (idempotent/idempotency, scalable/scalability) and a
      * trailing "e". Adjectives and other derivations (-ive, -al) are left alone, so words that merely start alike stay apart.
