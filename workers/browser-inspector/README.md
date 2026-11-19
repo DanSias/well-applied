@@ -603,18 +603,34 @@ Every request passes `src/guard.js`, modelled on the application-preparer's requ
   hops are paused through Chromium's own interception (CDP `Fetch`, response stage, documents only) and failed or
   continued by the guard;
 - after each page loads, the address Chromium actually connected to (`response.serverAddr()`), for the page and every hop
-  before it, is checked against the private ranges before anything is read.
+  before it, is checked against the private ranges before the worker reads anything. This detects a rebound connection; it
+  cannot prevent the page's own script from having used it (see below).
 
 **What this does not protect against**
 
-- **DNS rebinding is narrowed, not closed.** A name can resolve to a public address at check time and a private one at
-  connection time. The connected-address check catches that after the request was made (a GET, unread), not before.
+- **DNS rebinding is NOT prevented.** A name can resolve to a public address when the guard checks it and to a private
+  one when Chromium connects. The connected-address check runs only after the page has loaded, by which time the page's own
+  script has already run: in a rebinding attack that script can **read** the internal response (it is "same origin" to the
+  attacker's name) and send it out in the query string of an allowed GET. The check detects and reports such a
+  connection; it does not stop the page reading it. Nothing in this process can close that gap.
 - **Redirects of subresources** (images, scripts, XHR) and requests from out-of-process iframes' own sessions are not
-  paused; they are GET-only and unread. A subresource aimed directly at a private address is blocked and reported
-  (`blocked_prohibited`).
-- The real fix is at the network layer. **Deploy the worker with an egress rule** that denies the private, loopback and
-  link-local ranges (and the cloud metadata address) except Well Applied itself; in Docker, a dedicated network with an
-  egress firewall on the host. The guard is defence in depth, not a substitute for it.
+  paused. A redirect to an internal address is a blind GET. A subresource aimed directly at a private address is blocked
+  and reported (`blocked_prohibited`).
+- **The page's own JavaScript runs.** Reading a page means running it, with the same exposure to the network the worker
+  has.
+
+**Required deployment control: egress filtering.** The guard is defence in depth. Before the worker is pointed at pages
+other than the ones you chose yourself (and following Apply links does exactly that), run it where it cannot reach
+anything private, whatever name it asks for:
+
+- deny outbound traffic to loopback, RFC 1918 (`10/8`, `172.16/12`, `192.168/16`), link-local (`169.254/16`, including the
+  cloud metadata address), CGNAT (`100.64/10`) and IPv6 unique-local, link-local and loopback (`fc00::/7`, `fe80::/10`,
+  `::1`) ranges, from the worker's container or host;
+- allow Well Applied itself (`CAREER_TOOLKIT_URL`) explicitly, since it is usually on that same LAN;
+- on Docker, put the worker on its own network and enforce the rules in the host firewall's `DOCKER-USER` chain (or run it
+  on a separate VLAN or host). A container on the default bridge reaches the LAN as the host does.
+
+Verify it from inside the container (a request to a LAN address and to `169.254.169.254` must fail) before relying on it.
 
 ## Time budget
 

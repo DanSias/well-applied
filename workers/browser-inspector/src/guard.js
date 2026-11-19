@@ -17,12 +17,12 @@
 // stack: the redirect response is held, its Location is judged, and only then is it followed or failed.
 //
 // What it does NOT cover: redirects of subresources (images, scripts, XHR) and requests made from out-of-process
-// iframes' own sessions are not paused; they are GET-only and unread, and the egress rule below is the backstop.
+// iframes' own sessions are not paused; they are GET-only, and the egress rule (README.md "Navigation safety") is the backstop.
 //
-// What this is NOT: complete DNS-rebinding protection. A hostname can resolve to a public address here and a private one
-// when Chromium connects. verifyConnectedAddress() narrows that by checking the address Chromium actually connected to
-// before the page is read, but the request has already gone out by then (a GET only). Closing the gap fully needs an
-// egress rule on the host or container the worker runs in. See README.md "Navigation safety".
+// What this is NOT: DNS-rebinding protection. A hostname can resolve to a public address here and a private one when
+// Chromium connects. verifyConnectedAddress() checks the address Chromium actually connected to, but only after the page
+// has loaded and run its own script, so it DETECTS a rebound connection and cannot stop that script reading it. Closing
+// the gap needs an egress rule on the host or container the worker runs in. See README.md "Navigation safety".
 import {
     validateUrlStructure,
     resolvesToPrivateAddress,

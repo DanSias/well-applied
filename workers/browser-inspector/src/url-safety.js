@@ -3,43 +3,74 @@
 // "Network-boundary assumptions" for what this does and does not
 // protect against.
 import dns from 'node:dns';
+import net from 'node:net';
 
 const PRIVATE_HOSTNAMES = new Set(['localhost', '0.0.0.0']);
 
-/**
- * @param {string} ip
- * @returns {boolean}
- */
-export function isPrivateIPv4(ip) {
-    const parts = ip.split('.').map(Number);
-    if (
-        parts.length !== 4 ||
-        parts.some((p) => Number.isNaN(p) || p < 0 || p > 255)
-    )
-        return false;
-    const [a, b] = parts;
-    if (a === 0) return true; // "this network" / unspecified
-    if (a === 100 && b >= 64 && b <= 127) return true; // 100.64.0.0/10 carrier-grade NAT
-    if (a === 127) return true; // loopback
-    if (a === 10) return true; // 10.0.0.0/8
-    if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12
-    if (a === 192 && b === 168) return true; // 192.168.0.0/16
-    if (a === 169 && b === 254) return true; // 169.254.0.0/16 link-local
-    return false;
+// Every range an inspection must never reach: private, loopback, link-local, carrier-grade NAT, documentation and
+// benchmarking ranges, multicast and reserved space, and the IPv6 forms that can embed an IPv4 address (IPv4-mapped,
+// NAT64, 6to4). Kept as one list so a URL's host, a DNS answer and the address Chromium connected to are all judged by
+// the same rules.
+const BLOCKED = new net.BlockList();
+for (const [network, prefix] of [
+    ['0.0.0.0', 8],
+    ['10.0.0.0', 8],
+    ['100.64.0.0', 10],
+    ['127.0.0.0', 8],
+    ['169.254.0.0', 16],
+    ['172.16.0.0', 12],
+    ['192.0.0.0', 24],
+    ['192.0.2.0', 24],
+    ['192.168.0.0', 16],
+    ['198.18.0.0', 15],
+    ['198.51.100.0', 24],
+    ['203.0.113.0', 24],
+    ['224.0.0.0', 4],
+    ['240.0.0.0', 4],
+]) {
+    BLOCKED.addSubnet(network, prefix, 'ipv4');
+}
+for (const [network, prefix] of [
+    ['::', 128],
+    ['::1', 128],
+    ['64:ff9b::', 96],
+    ['100::', 64],
+    ['2001:db8::', 32],
+    ['2002::', 16],
+    ['fc00::', 7],
+    ['fe80::', 10],
+    ['fec0::', 10],
+    ['ff00::', 8],
+]) {
+    BLOCKED.addSubnet(network, prefix, 'ipv6');
 }
 
 /**
  * @param {string} ip
  * @returns {boolean}
  */
+export function isPrivateIPv4(ip) {
+    return net.isIPv4(ip) && BLOCKED.check(ip, 'ipv4');
+}
+
+/**
+ * @param {string} ip an IPv6 address, with or without the brackets a URL hostname keeps
+ * @returns {boolean}
+ */
 export function isPrivateIPv6(ip) {
-    // WHATWG URL keeps the brackets in url.hostname for an IPv6 literal
-    // (e.g. "[::1]") — strip them before comparing.
     const normalized = ip.toLowerCase().replace(/^\[|\]$/g, '');
-    if (normalized === '::1') return true; // loopback
-    if (normalized.startsWith('fe80:')) return true; // link-local
-    if (normalized.startsWith('fc') || normalized.startsWith('fd')) return true; // unique local fc00::/7
-    return false;
+    if (!net.isIPv6(normalized)) return false;
+
+    // An IPv4-mapped address (::ffff:a.b.c.d, or ::ffff:hhhh:hhhh once a URL parser has normalised it) is judged as the
+    // IPv4 address it carries: a dual-stack socket reports a public IPv4 peer this way too, so it is not blocked outright.
+    const mapped = /^::ffff:(?:(\d+\.\d+\.\d+\.\d+)|([0-9a-f]{1,4}):([0-9a-f]{1,4}))$/.exec(normalized);
+    if (mapped) {
+        const v4 = mapped[1] ?? [parseInt(mapped[2], 16) >> 8, parseInt(mapped[2], 16) & 255, parseInt(mapped[3], 16) >> 8, parseInt(mapped[3], 16) & 255].join('.');
+
+        return isPrivateIPv4(v4);
+    }
+
+    return BLOCKED.check(normalized, 'ipv6');
 }
 
 /**
@@ -90,8 +121,6 @@ export function validateUrlStructure(rawUrl, { allowHosts = new Set() } = {}) {
  * @returns {boolean}
  */
 export function isPrivateAddress(address) {
-    const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(address);
-    if (mapped) return isPrivateIPv4(mapped[1]);
     return isPrivateIPv4(address) || isPrivateIPv6(address);
 }
 
