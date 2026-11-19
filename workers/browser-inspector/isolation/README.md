@@ -213,7 +213,7 @@ without a seccomp filter.
 ## Tests
 | What | How | Run |
 |---|---|---|
-| nftables policy semantics (ordering vs Docker/Tailscale-style chains, every blocked range, host, Mac, relay-link, spoofing, IPv6, atomic reload) | privileged, network-less container with network namespaces | `docker build -t isolation-nft-test test/isolation/image && test/isolation/run-netns-test.sh` (set `BRNF=0/1`) |
+| nftables policy semantics (62 checks: ordering vs Docker/Tailscale-style chains, every blocked range, host, Mac, relay-link, spoofing, IPv6, atomic reload) | privileged, network-less container with network namespaces | `docker build -t isolation-nft-test test/isolation/image && test/isolation/run-netns-test.sh` (set `BRNF=0/1`) |
 | relay allow-list and normalisation | the real nginx image, fake Well Applied | `test/isolation/run-relay-test.sh` |
 | guard against the real `nft` | same container | `test/isolation/run-guard-integration-test.sh` |
 | controller, install/rollback, config consistency, worker self-check, redaction | `npm test` | |

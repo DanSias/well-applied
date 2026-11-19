@@ -128,6 +128,22 @@ echo "-- IPv6"
 TMO=1.0 not_connected W "worker -> IPv6 destination via the egress bridge" fd00:ee:: 443
 TMO=1.0 not_connected W "worker -> IPv6 destination (host form)" fd00:ee::1 443
 
+echo "== regression: no host-local address ever answers a refused source (concurrent stress, default ICMP rate limit and none)"
+# An early run of this harness once reported the host's br-relay address (172.29.62.1) as reachable from the worker. It never
+# recurred, and the cause was not found, so this stresses every host-local address from both containers, in parallel, under both
+# rate-limit settings, and requires that the answer is only ever "rejected" or "timeout".
+for rl in 1000 0; do
+  sysctl -qw net.ipv4.icmp_ratelimit=$rl
+  for who in W R; do
+    OUT=$(ip netns exec $who python3 "$HERE/hammer.py" 172.29.60.1,172.29.61.1,172.29.62.1,192.168.1.111 22,11434,3000 25 0.5 24)
+    case "$OUT" in
+      *connected*|*refused*) bad "host-local addresses from $who at icmp_ratelimit=$rl never answer" "$OUT" "rejected/timeout only";;
+      *) ok "host-local addresses from $who at icmp_ratelimit=$rl never answer ($OUT)";;
+    esac
+  done
+done
+sysctl -qw net.ipv4.icmp_ratelimit=0
+
 echo "== hook ordering"
 # An accept in THIS table must not override a drop in a later (priority 0) chain.
 nft add table ip laterdrop
