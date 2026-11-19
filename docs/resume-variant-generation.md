@@ -1232,6 +1232,23 @@ delivery language the way concrete builds are credited), with its own regression
 profile can shift one bullet from a concrete recent-enough build to a general responsibility statement for postings that share generic
 vocabulary.
 
+**Follow-up: responsibility classifier misses some stated responsibilities (not changed here).**
+`StoryDimensions::responsibilities()` reads ownership only from the verbs "managed", "owned" and "oversaw" with a project object,
+or a requirements-to-delivery span, and collaboration only from a collaboration verb within 70 characters of "client",
+"stakeholder" or "customer". "Served as the primary technical owner of Nexus, ..." (a noun) and "Partnered with marketing, finance,
+engineering, executive leadership, and external vendors to define reporting requirements, ... to internal business stakeholders"
+(the stakeholders are far from the verb) are therefore classified as stating no responsibility. This only affects role-coverage
+diagnostics (a low-relevance posting can report "limited evidence" for the Pearson lead role although the evidence now states
+ownership and collaboration); nothing is dropped from selection. Fix by recognizing the "owner" noun and widening the
+collaboration window, with regression cases for both statements.
+
+**Follow-up: no check for entities, audiences or scale the evidence does not name (not changed here).** The fidelity and scope
+checks block invented figures, qualifiers, team leadership and unsupported technologies, but a bullet that adds a project, an
+audience or a scale passes: "Owned Nexus and the Salesforce migration as sole technical owner", "presented to the board of
+directors", "delivered to external clients" and "company-wide" are not blocked when the cited facts say otherwise. The Pearson
+ownership fact excludes the Salesforce migration (it is recorded as a collaboration) and relies on the wording model respecting that.
+A deterministic unsupported-entity check (named projects, audiences, scale words not present in the cited evidence) would enforce it.
+
 ## Automatic evidence resolution (profile editor)
 
 Editing the wording of a profile summary, headline, differentiator or project note no longer asks you to pick facts. `ResolveEvidence` (deterministic, no model call) reads each sentence's claims — capabilities, figures, named projects and employers, technical approaches, scale terms, ownership verbs — and finds approved facts that *state* them (negation-safe, so "rather than high-traffic systems" is not support). Facts already cited are kept when still relevant; several facts may jointly support a sentence; shared claims count once. The result is then judged by the profile validator and the claim-fidelity check against the combined evidence.

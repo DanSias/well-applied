@@ -1883,10 +1883,10 @@
         {
             "key": "pearson-data-analytics-lead-stakeholder-partnership",
             "fact_type": "bullet",
-            "statement": "Partnered with marketing, finance, and engineering stakeholders to translate business requirements into scalable full-stack applications supporting analytics, forecasting, and operational reporting.",
-            "verification": "strongly_supported",
+            "statement": "Partnered with marketing, finance, engineering, executive leadership, and external vendors to define reporting requirements, plan technical solutions, and demonstrate reporting systems to internal business stakeholders and leadership.",
+            "verification": "verified",
             "visibility": "public",
-            "notes": "Resume-only, general role-level collaboration context.",
+            "notes": "Role-level cross-functional collaboration. Resume wording enriched 2026-11-18 with user-confirmed scope: executive leadership, external vendors, defining reporting requirements, planning technical solutions, and demonstrating reporting systems to internal business stakeholders and leadership. Collaboration only: no people management, team, headcount or authority is stated or implied.",
             "attributable": {
                 "type": "role",
                 "key": "pearson-data-analytics-lead"
@@ -1897,6 +1897,32 @@
                     "document": "sources/resume/Daniel_Sias_Resume.pdf",
                     "section": "Data & Analytics Lead Developer / Data Analyst",
                     "quoted_text": "Partnered with marketing, finance, and engineering stakeholders to translate business requirements into scalable full-stack applications supporting analytics, forecasting, and operational reporting."
+                },
+                {
+                    "source": "user_confirmed",
+                    "confirmed_at": "2026-11-18",
+                    "note": "Confirmed directly by user: worked with Marketing, Finance, Engineering, executive leadership, and external vendors; took part in defining reporting requirements and planning technical solutions; presented demonstrations of reporting systems to internal business stakeholders and leadership."
+                }
+            ],
+            "metric": null,
+            "skills": []
+        },
+        {
+            "key": "pearson-lead-technical-project-ownership",
+            "fact_type": "bullet",
+            "statement": "Served as the primary technical owner of Nexus, Marketing Budget & Forecast Hub, and Executive Insights, responsible for technical planning, architecture, implementation, and delivery of these reporting and analytics initiatives.",
+            "verification": "verified",
+            "visibility": "public",
+            "notes": "Role-level technical ownership of three named initiatives, confirmed by the user 2026-11-18. Primary technical ownership does not mean exclusive ownership, and it is not a people-management claim: no direct reports, formal management, team size, budget or authority is stated. It does not extend to the Salesforce migration, which is deliberately recorded as a collaborative contribution (pearson-salesforce-migration-collaboration), or to any other project; none may be added to this claim. Complements pearson-online-learning-services-system-design-user-confirmed (what was designed and how).",
+            "attributable": {
+                "type": "role",
+                "key": "pearson-data-analytics-lead"
+            },
+            "evidence": [
+                {
+                    "source": "user_confirmed",
+                    "confirmed_at": "2026-11-18",
+                    "note": "Confirmed directly by user: primary technical owner of Nexus, Marketing Budget & Forecast Hub, and Executive Insights, responsible for technical planning, architecture, implementation, and delivery of these initiatives; did not formally manage people."
                 }
             ],
             "metric": null,
@@ -2176,10 +2202,10 @@
         {
             "key": "pearson-executive-insights-what-it-is",
             "fact_type": "bullet",
-            "statement": "Built the Executive Insights Dashboard, consolidating department performance, goals, and emerging issues into one interactive dashboard, replacing separate departmental spreadsheets with a shared, real-time view for leadership.",
-            "verification": "strongly_supported",
+            "statement": "Developed an interactive, real-time Executive Insights Dashboard that consolidated departmental reporting, replacing separate spreadsheets and manual reporting processes with a shared, automated view of business performance.",
+            "verification": "verified",
             "visibility": "public",
-            "notes": "Portfolio-only.",
+            "notes": "Portfolio evidence plus user confirmation (2026-11-18) of interactive and real-time functionality and of reporting automation. Audience and KPI/funnel visibility are in pearson-executive-insights-audience-purpose.",
             "attributable": {
                 "type": "project",
                 "key": "executive-insights-dashboard"
@@ -2189,6 +2215,11 @@
                     "source": "portfolio",
                     "path": "danielsias-dev/src/constants/projects.ts",
                     "locator": "Executive Insights Dashboard entry"
+                },
+                {
+                    "source": "user_confirmed",
+                    "confirmed_at": "2026-11-18",
+                    "note": "Confirmed directly by user: the dashboard was interactive and real-time, consolidated reporting across departments, and replaced manual reporting with automated systems."
                 }
             ],
             "metric": null,
@@ -2200,6 +2231,27 @@
                 "google-cloud-functions",
                 "analytics-systems"
             ]
+        },
+        {
+            "key": "pearson-executive-insights-audience-purpose",
+            "fact_type": "bullet",
+            "statement": "Delivered the Executive Insights Dashboard to the executive leadership team and marketing directors, providing visibility into key performance indicators and sales funnel progression across departments.",
+            "verification": "verified",
+            "visibility": "public",
+            "notes": "Audience and purpose of the Executive Insights Dashboard, confirmed by the user 2026-11-18. Qualitative only: no adoption metric, quantified outcome, board presentation or external-client delivery is established, so none is stated. Complements pearson-executive-insights-what-it-is (what was built).",
+            "attributable": {
+                "type": "project",
+                "key": "executive-insights-dashboard"
+            },
+            "evidence": [
+                {
+                    "source": "user_confirmed",
+                    "confirmed_at": "2026-11-18",
+                    "note": "Confirmed directly by user: delivered to the executive leadership team and marketing directors; provides visibility into KPIs and sales funnel progression across departments."
+                }
+            ],
+            "metric": null,
+            "skills": []
         },
         {
             "key": "pearson-email-marketing-tracker-what-it-is",
