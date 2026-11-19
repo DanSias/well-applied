@@ -124,3 +124,16 @@ it('summarizes multiple JobPostings independently in one bulk call', function ()
         ->and($summaries[$queued->id]['state'])->toBe('queued')
         ->and($summaries[$untouched->id]['state'])->toBe('not_inspected');
 });
+
+it('treats an unsupported result with a stop reason as a reached form, and one without as the older "unsupported"', function () {
+    $job = JobPosting::factory()->create();
+    $application = Application::factory()->for($job, 'jobPosting')->create();
+    $run = successfulAgentRunFor($application, 0, 'unsupported');
+    $run->update(['inspection_stop_reason' => 'form_without_adapter']);
+
+    $summary = summarize($job)[$job->id];
+
+    expect($summary['state'])->toBe('inspected')
+        ->and($summary['outcome'])->toBe('unsupported')
+        ->and($summary['stop_reason'])->toBe('form_without_adapter');
+});

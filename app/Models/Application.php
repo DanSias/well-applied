@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ApplicationStatus;
+use App\Support\ApplicationInspection\InspectionUrl;
 use Database\Factories\ApplicationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -25,10 +26,13 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $job_posting_id
  * @property ApplicationStatus $status
+ * @property string|null $application_url Where the application is actually completed; job_postings.source_url is where the job was discovered.
+ * @property string|null $application_url_origin 'user' (a person's override, never replaced automatically) or 'resolved' (the inspector reached a form there).
+ * @property Carbon|null $application_url_set_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['job_posting_id', 'status'])]
+#[Fillable(['job_posting_id', 'status', 'application_url', 'application_url_origin', 'application_url_set_at'])]
 class Application extends Model
 {
     /** @use HasFactory<ApplicationFactory> */
@@ -38,7 +42,31 @@ class Application extends Model
     {
         return [
             'status' => ApplicationStatus::class,
+            'application_url_set_at' => 'datetime',
         ];
+    }
+
+    public const URL_USER = 'user';
+
+    public const URL_RESOLVED = 'resolved';
+
+    /**
+     * Records the URL the inspector reached a form at. Never replaces a person's own URL, and a URL that is just the
+     * job's source URL is not a resolution (nothing was resolved), so it clears an earlier resolved one instead.
+     */
+    public function recordResolvedUrl(string $url, ?string $sourceUrl): void
+    {
+        if ($this->application_url_origin === self::URL_USER) {
+            return;
+        }
+
+        if ($sourceUrl !== null && InspectionUrl::comparable($url) === InspectionUrl::comparable($sourceUrl)) {
+            $this->update(['application_url' => null, 'application_url_origin' => null, 'application_url_set_at' => null]);
+
+            return;
+        }
+
+        $this->update(['application_url' => $url, 'application_url_origin' => self::URL_RESOLVED, 'application_url_set_at' => now()]);
     }
 
     /**

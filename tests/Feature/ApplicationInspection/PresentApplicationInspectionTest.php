@@ -84,3 +84,77 @@ it('presents null workflow_run when no inspection has ever been dispatched', fun
     expect($presented['workflow_run'])->toBeNull()
         ->and($presented['latest_result'])->toBeNull();
 });
+
+function nonExtractingRun(Application $application, string $outcome, ?string $stopReason, array $summary = []): AgentRun
+{
+    $workflowRun = WorkflowRun::factory()->for($application)->create(['status' => WorkflowStatus::Succeeded]);
+    $step = WorkflowStep::factory()->for($workflowRun, 'workflowRun')->create(['status' => WorkflowStatus::Succeeded]);
+
+    return AgentRun::factory()->for($step, 'workflowStep')->create([
+        'status' => AgentRunStatus::Succeeded,
+        'inspection_outcome' => $outcome,
+        'inspection_stop_reason' => $stopReason,
+        'result_summary' => $summary,
+    ]);
+}
+
+it('does not let a later run that found nothing hide an earlier extraction', function () {
+    $application = Application::factory()->create();
+    $earlier = succeededAgentRunWithQuestions($application, 4);
+    nonExtractingRun($application, 'blocked', 'anti_bot');
+
+    $presented = (new PresentApplicationInspection)->present($application);
+
+    expect($presented['latest_result']['inspection_outcome'])->toBe('blocked')
+        ->and($presented['latest_result']['stop_reason'])->toBe('anti_bot')
+        ->and($presented['earlier_result']['agent_run_id'])->toBe($earlier->id)
+        ->and($presented['earlier_result']['field_count'])->toBe(4);
+});
+
+it('offers no earlier result when the latest run extracted fields or there was never one', function () {
+    $application = Application::factory()->create();
+    succeededAgentRunWithQuestions($application, 2);
+    succeededAgentRunWithQuestions($application, 3);
+    expect((new PresentApplicationInspection)->present($application)['earlier_result'])->toBeNull();
+
+    $other = Application::factory()->create();
+    nonExtractingRun($other, 'application_not_found', 'no_apply_link');
+    expect((new PresentApplicationInspection)->present($other)['earlier_result'])->toBeNull();
+});
+
+it('reads a record from before URL evidence existed without inventing any', function () {
+    $application = Application::factory()->create();
+    nonExtractingRun($application, 'unsupported', null, ['total_ms' => 5000, 'page_title' => 'Old title', 'warnings' => ['networkidle_timeout']]);
+
+    $diagnostics = (new PresentApplicationInspection)->present($application)['latest_result']['diagnostics'];
+
+    expect($diagnostics['recorded'])->toBeFalse()
+        ->and($diagnostics['requested_url'])->toBeNull()
+        ->and($diagnostics['final_url'])->toBeNull()
+        ->and($diagnostics['navigation'])->toBe([])
+        ->and($diagnostics['page_title'])->toBe('Old title')
+        ->and($diagnostics['warnings'])->toBe(['networkidle_timeout']);
+});
+
+it('presents the application URL without a query string, and the latest failed attempt\'s diagnostics', function () {
+    $application = Application::factory()->create([
+        'application_url' => 'https://boards.greenhouse.io/acme/jobs/9?gh_jid=9',
+        'application_url_origin' => 'user',
+        'application_url_set_at' => now(),
+    ]);
+    $workflowRun = WorkflowRun::factory()->for($application)->create(['status' => WorkflowStatus::Failed, 'failure_message' => 'x']);
+    $step = WorkflowStep::factory()->for($workflowRun, 'workflowRun')->create(['status' => WorkflowStatus::Failed]);
+    AgentRun::factory()->for($step, 'workflowStep')->create([
+        'status' => AgentRunStatus::Failed,
+        'failure_category' => 'navigation_timeout',
+        'failure_message' => 'Timed out',
+        'result_summary' => ['requested_url' => 'https://a.example.com/x', 'page_title' => 'Slow page', 'warnings' => []],
+    ]);
+
+    $presented = (new PresentApplicationInspection)->present($application);
+
+    expect($presented['application_url'])->toMatchArray(['url' => 'https://boards.greenhouse.io/acme/jobs/9', 'origin' => 'user'])
+        ->and($presented['latest_attempt']['failure_category'])->toBe('navigation_timeout')
+        ->and($presented['latest_attempt']['diagnostics']['page_title'])->toBe('Slow page')
+        ->and($presented['latest_attempt']['diagnostics']['recorded'])->toBeTrue();
+});

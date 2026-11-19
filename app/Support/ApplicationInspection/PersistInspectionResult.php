@@ -3,6 +3,7 @@
 namespace App\Support\ApplicationInspection;
 
 use App\Enums\AgentRunStatus;
+use App\Enums\InspectionOutcome;
 use App\Enums\WorkflowStatus;
 use App\Models\AgentRun;
 use App\Models\ApplicationQuestion;
@@ -56,12 +57,13 @@ final class PersistInspectionResult
             ->update([
                 'status' => AgentRunStatus::Succeeded->value,
                 'inspection_outcome' => $payload['inspection_outcome'],
+                'inspection_stop_reason' => $payload['stop_reason'] ?? null,
                 'ats_detected' => $payload['ats'] ?? null,
                 // result_summary is the one bounded, non-content
                 // operational bag (see docs/domain-model.md) — the
                 // worker's own diagnostics plus its warnings, never a
                 // raw DOM/page dump.
-                'result_summary' => [...($payload['diagnostics'] ?? []), 'warnings' => $payload['warnings'] ?? []],
+                'result_summary' => $this->summary($payload),
                 'finished_at' => $now,
             ]);
 
@@ -90,6 +92,7 @@ final class PersistInspectionResult
         }
 
         $this->settle($agentRun, WorkflowStatus::Succeeded, null, $now);
+        $this->recordApplicationUrl($agentRun, $payload);
 
         return ['outcome' => 'accepted'];
     }
@@ -108,7 +111,10 @@ final class PersistInspectionResult
             ->update([
                 'status' => AgentRunStatus::Failed->value,
                 'failure_category' => $payload['failure_category'],
-                'failure_message' => $payload['failure_message'],
+                'failure_message' => InspectionUrl::redactText((string) $payload['failure_message']),
+                // A failed run keeps what the worker had learned by then (how far navigation got, the page title):
+                // that is exactly when a person needs the evidence.
+                'result_summary' => $this->summary($payload),
                 'finished_at' => $now,
             ]);
 
@@ -116,9 +122,62 @@ final class PersistInspectionResult
             return $this->rejection($agentRun, AgentRunStatus::Failed);
         }
 
-        $this->settle($agentRun, WorkflowStatus::Failed, $payload['failure_message'], $now);
+        $this->settle($agentRun, WorkflowStatus::Failed, InspectionUrl::redactText((string) $payload['failure_message']), $now);
 
         return ['outcome' => 'accepted'];
+    }
+
+    /**
+     * The bounded, non-content evidence kept for one run. Every URL in it is origin + path only (a query string can carry
+     * a token); the one full URL the worker may report, `resolved_url`, is used for the Application and never stored here.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function summary(array $payload): array
+    {
+        $diagnostics = $payload['diagnostics'] ?? [];
+
+        foreach (['navigation' => 8, 'candidates' => 5] as $key => $limit) {
+            if (isset($diagnostics[$key]) && is_array($diagnostics[$key])) {
+                $diagnostics[$key] = array_values(array_map(
+                    fn ($entry) => is_array($entry) ? [...$entry, 'url' => InspectionUrl::redact($entry['url'] ?? null)] : $entry,
+                    array_slice($diagnostics[$key], 0, $limit),
+                ));
+            }
+        }
+
+        if (isset($diagnostics['page_title']) && is_string($diagnostics['page_title'])) {
+            $diagnostics['page_title'] = mb_substr($diagnostics['page_title'], 0, 300);
+        }
+
+        return [
+            ...$diagnostics,
+            'warnings' => $payload['warnings'] ?? [],
+            'requested_url' => InspectionUrl::redact($payload['requested_url'] ?? null),
+            'resolved_url' => InspectionUrl::redact($payload['resolved_url'] ?? null),
+            'final_url' => InspectionUrl::redact($payload['final_url'] ?? null),
+        ];
+    }
+
+    /**
+     * When the worker reached an application form somewhere other than the job's source URL, remember where, so the next
+     * inspection starts there. The URL is validated again here (the worker's report is evidence, not authority), and a
+     * person's own URL is never replaced.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function recordApplicationUrl(AgentRun $agentRun, array $payload): void
+    {
+        $outcome = InspectionOutcome::from($payload['inspection_outcome']);
+        $url = InspectionUrl::acceptable($payload['resolved_url'] ?? null);
+
+        if ($url === null || ! $outcome->reachedForm($payload['stop_reason'] ?? null)) {
+            return;
+        }
+
+        $application = $agentRun->workflowStep->workflowRun->application;
+        $application->recordResolvedUrl($url, $application->jobPosting->source_url);
     }
 
     private function settle(AgentRun $agentRun, WorkflowStatus $status, ?string $failureMessage, CarbonImmutable $now): void

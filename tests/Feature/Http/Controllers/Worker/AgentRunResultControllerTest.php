@@ -246,3 +246,124 @@ it('cannot target another Application — application_id is derived server-side,
     expect($question->application_id)->toBe($agentRun->workflowStep->workflowRun->application_id)
         ->and($question->application_id)->not->toBe($otherApplication->id);
 });
+
+// ---- Phase 1: URL evidence, stop reasons and failed-run diagnostics ----
+
+it('keeps URL evidence, redacted to origin and path, and the stop reason for a run that reached no form', function () {
+    $agentRun = runningAgentRun();
+
+    reportResult($agentRun, [
+        'status' => 'succeeded',
+        'inspection_outcome' => 'application_not_found',
+        'stop_reason' => 'no_apply_link',
+        'ats' => null,
+        'requested_url' => 'https://jobicy.com/jobs/1-x?utm_source=feed&token=SECRET',
+        'final_url' => 'https://jobicy.com/jobs/1-x?token=SECRET#top',
+        'fields' => [],
+        'warnings' => ['networkidle_timeout'],
+        'diagnostics' => [
+            'page_title' => 'A job - Jobicy',
+            'http_status' => 200,
+            'navigation' => [['kind' => 'start', 'url' => 'https://jobicy.com/jobs/1-x?token=SECRET', 'status' => 200]],
+        ],
+    ])->assertOk();
+
+    $agentRun->refresh();
+
+    expect($agentRun->inspection_outcome->value)->toBe('application_not_found')
+        ->and($agentRun->inspection_stop_reason)->toBe('no_apply_link')
+        ->and($agentRun->result_summary['requested_url'])->toBe('https://jobicy.com/jobs/1-x')
+        ->and($agentRun->result_summary['final_url'])->toBe('https://jobicy.com/jobs/1-x')
+        ->and($agentRun->result_summary['navigation'][0]['url'])->toBe('https://jobicy.com/jobs/1-x')
+        ->and($agentRun->result_summary['page_title'])->toBe('A job - Jobicy')
+        ->and($agentRun->result_summary['warnings'])->toBe(['networkidle_timeout'])
+        ->and(json_encode($agentRun->result_summary))->not->toContain('SECRET');
+});
+
+it('retains diagnostics and redacts URLs in the message for a failed run', function () {
+    $agentRun = runningAgentRun();
+
+    reportResult($agentRun, [
+        'status' => 'failed',
+        'failure_category' => 'navigation_timeout',
+        'failure_message' => 'Timeout navigating to https://employer.example.com/apply?token=SECRET',
+        'diagnostics' => [
+            'page_title' => 'Careers',
+            'navigation' => [
+                ['kind' => 'start', 'url' => 'https://jobicy.com/jobs/1', 'status' => 200],
+                ['kind' => 'link', 'url' => 'https://employer.example.com/apply?token=SECRET', 'status' => null],
+            ],
+            'total_ms' => 21000,
+        ],
+    ])->assertOk();
+
+    $agentRun->refresh();
+
+    expect($agentRun->status)->toBe(AgentRunStatus::Failed)
+        ->and($agentRun->failure_message)->not->toContain('SECRET')
+        ->and($agentRun->result_summary['page_title'])->toBe('Careers')
+        ->and($agentRun->result_summary['navigation'])->toHaveCount(2)
+        ->and($agentRun->result_summary['navigation'][1]['url'])->toBe('https://employer.example.com/apply')
+        ->and($agentRun->workflowStep->workflowRun->failure_message)->not->toContain('SECRET');
+});
+
+it('rejects an unknown stop reason and an oversized navigation trace', function () {
+    $agentRun = runningAgentRun();
+
+    reportResult($agentRun, [...completeSuccessPayload(), 'stop_reason' => 'because'])->assertUnprocessable();
+    reportResult($agentRun, [...completeSuccessPayload(), 'diagnostics' => ['navigation' => array_fill(0, 13, ['kind' => 'redirect', 'url' => 'https://a.example.com/'])]])->assertUnprocessable();
+});
+
+it('saves the resolved application URL on the Application, validated again, only when a form was reached', function () {
+    $agentRun = runningAgentRun();
+    $application = $agentRun->workflowStep->workflowRun->application;
+
+    reportResult($agentRun, [
+        ...completeSuccessPayload(),
+        'resolved_url' => 'https://boards.greenhouse.io/acme/jobs/9?gh_jid=9&utm_source=x',
+    ])->assertOk();
+
+    $application->refresh();
+    expect($application->application_url)->toBe('https://boards.greenhouse.io/acme/jobs/9?gh_jid=9')
+        ->and($application->application_url_origin)->toBe('resolved')
+        ->and($application->application_url_set_at)->not->toBeNull();
+});
+
+it('does not save a resolved URL for an outcome that reached no form, nor an unsafe one', function () {
+    $agentRun = runningAgentRun();
+    $application = $agentRun->workflowStep->workflowRun->application;
+
+    reportResult($agentRun, [
+        'status' => 'succeeded', 'inspection_outcome' => 'application_not_found', 'stop_reason' => 'no_apply_link',
+        'fields' => [], 'resolved_url' => 'https://elsewhere.example.com/apply',
+    ])->assertOk();
+    expect($application->fresh()->application_url)->toBeNull();
+
+    $second = runningAgentRun();
+    reportResult($second, [...completeSuccessPayload(), 'resolved_url' => 'http://169.254.169.254/latest'])->assertOk();
+    expect($second->workflowStep->workflowRun->application->fresh()->application_url)->toBeNull();
+});
+
+it('never replaces a URL the person supplied, and a resolution equal to the source URL is not recorded', function () {
+    $agentRun = runningAgentRun();
+    $application = $agentRun->workflowStep->workflowRun->application;
+    $application->update(['application_url' => 'https://mine.example.com/apply', 'application_url_origin' => 'user', 'application_url_set_at' => now()]);
+
+    reportResult($agentRun, [...completeSuccessPayload(), 'resolved_url' => 'https://boards.greenhouse.io/acme/jobs/9'])->assertOk();
+    expect($application->fresh()->application_url)->toBe('https://mine.example.com/apply')
+        ->and($application->fresh()->application_url_origin)->toBe('user');
+
+    $other = runningAgentRun();
+    reportResult($other, [...completeSuccessPayload(), 'resolved_url' => 'https://example.com/jobs/1?utm_source=x'])->assertOk();
+    expect($other->workflowStep->workflowRun->application->fresh()->application_url)->toBeNull();
+});
+
+it('counts an unsupported result as a reached form only when its stop reason says so', function () {
+    $with = runningAgentRun();
+    reportResult($with, ['status' => 'succeeded', 'inspection_outcome' => 'unsupported', 'stop_reason' => 'form_without_adapter', 'fields' => [], 'resolved_url' => 'https://ats.example.com/apply/1'])->assertOk();
+    expect($with->workflowStep->workflowRun->application->fresh()->application_url)->toBe('https://ats.example.com/apply/1');
+
+    $without = runningAgentRun();
+    reportResult($without, ['status' => 'succeeded', 'inspection_outcome' => 'unsupported', 'fields' => [], 'resolved_url' => 'https://ats.example.com/apply/2'])->assertOk();
+    expect($without->workflowStep->workflowRun->application->fresh()->application_url)->toBeNull();
+});

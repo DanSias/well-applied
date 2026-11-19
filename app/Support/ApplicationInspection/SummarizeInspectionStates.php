@@ -90,6 +90,9 @@ final class SummarizeInspectionStates
             // What the latest successful run found (complete, partial, unsupported, ...), read from the same row the
             // state is derived from; the badge uses it to say more than "inspected". Null when nothing has finished.
             'outcome' => $latestSuccessfulAgentRun?->inspection_outcome?->value,
+            // Why it stopped there, and whether a form itself was reached. A record from before stop reasons existed has
+            // neither, and is not reinterpreted.
+            'stop_reason' => $latestSuccessfulAgentRun?->inspection_stop_reason,
         ];
 
         if ($latestRun === null) {
@@ -104,11 +107,15 @@ final class SummarizeInspectionStates
             return array_merge($base, ['state' => 'running']);
         }
 
-        $hasSuccessfulResult = $latestSuccessfulAgentRun !== null
-            && $latestSuccessfulAgentRun->inspection_outcome !== InspectionOutcome::Unsupported;
+        // "Unsupported" with no stop reason is an older record that may mean "no application form was found at all":
+        // it keeps its own state. One with a reason (a form was reached, just not readable) is a real result.
+        $olderUnsupported = $latestSuccessfulAgentRun?->inspection_outcome === InspectionOutcome::Unsupported
+            && $latestSuccessfulAgentRun->inspection_stop_reason === null;
+
+        $hasSuccessfulResult = $latestSuccessfulAgentRun !== null && ! $olderUnsupported;
 
         if ($latestRun->status === WorkflowStatus::Succeeded) {
-            if ($latestSuccessfulAgentRun?->inspection_outcome === InspectionOutcome::Unsupported) {
+            if ($olderUnsupported) {
                 return array_merge($base, ['state' => 'unsupported']);
             }
 
@@ -141,6 +148,7 @@ final class SummarizeInspectionStates
             'field_count' => null,
             'latest_attempt_failed' => false,
             'outcome' => null,
+            'stop_reason' => null,
         ];
     }
 

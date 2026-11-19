@@ -6,6 +6,7 @@ use App\Enums\AgentRunFailureCategory;
 use App\Enums\ApplicationQuestionExtractionSource;
 use App\Enums\ApplicationQuestionLabelSource;
 use App\Enums\InspectionOutcome;
+use App\Enums\InspectionStopReason;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -42,6 +43,10 @@ class ReportInspectionResultRequest extends FormRequest
             'ats' => ['nullable', 'string', 'max:100'],
             'requested_url' => ['nullable', 'string', 'max:2048'],
             'final_url' => ['nullable', 'string', 'max:2048'],
+            // The application URL the worker reached a form at: the only full URL it reports. Validated again by
+            // InspectionUrl before anything is stored, and never kept in the run's evidence.
+            'resolved_url' => ['nullable', 'string', 'max:2048'],
+            'stop_reason' => ['nullable', Rule::enum(InspectionStopReason::class)],
 
             // present_if, not required_if: an unsupported-ATS result
             // legitimately sends fields: [] (a real, present, empty
@@ -80,6 +85,15 @@ class ReportInspectionResultRequest extends FormRequest
             'warnings' => ['nullable', 'array'],
             'warnings.*' => ['string'],
             'diagnostics' => ['nullable', 'array'],
+            'diagnostics.page_title' => ['nullable', 'string', 'max:1000'],
+            'diagnostics.http_status' => ['nullable', 'integer', 'min:0', 'max:999'],
+            'diagnostics.navigation' => ['nullable', 'array', 'max:12'],
+            'diagnostics.navigation.*.kind' => ['required', 'string', 'max:20'],
+            'diagnostics.navigation.*.url' => ['nullable', 'string', 'max:2048'],
+            'diagnostics.navigation.*.status' => ['nullable', 'integer', 'min:0', 'max:999'],
+            'diagnostics.candidates' => ['nullable', 'array', 'max:12'],
+            'diagnostics.candidates.*.url' => ['nullable', 'string', 'max:2048'],
+            'diagnostics.candidates.*.text' => ['nullable', 'string', 'max:200'],
         ];
     }
 }

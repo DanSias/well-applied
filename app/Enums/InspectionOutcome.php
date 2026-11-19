@@ -19,5 +19,29 @@ enum InspectionOutcome: string
     case Partial = 'partial';
     case AuthenticationRequired = 'authentication_required';
     case MutationRequired = 'mutation_required';
+    /**
+     * A form was reached but this inspector cannot read it (no extractor for its ATS, or an unknown one). Older records
+     * (before stop reasons existed) also used this for "no application form was found", which is why a stop reason is
+     * needed to say which: see reachedForm().
+     */
     case Unsupported = 'unsupported';
+    /** A job listing was reached, but no Apply destination could be found without clicking. */
+    case ApplicationNotFound = 'application_not_found';
+    /** The destination is ambiguous, prohibited or unreachable: the person must supply an application URL. */
+    case NeedsApplicationUrl = 'needs_application_url';
+    /** A CAPTCHA, "Access Denied" or similar anti-bot barrier stopped the inspection. */
+    case Blocked = 'blocked';
+
+    /**
+     * Whether an application form itself was reached. An Unsupported record only counts when its stop reason says a
+     * form was there: older records carry no reason, and are not reinterpreted.
+     */
+    public function reachedForm(?string $stopReason): bool
+    {
+        return match ($this) {
+            self::Complete, self::Partial => true,
+            self::Unsupported => in_array($stopReason, [InspectionStopReason::FormWithoutAdapter->value, InspectionStopReason::AtsNotExtractable->value], true),
+            default => false,
+        };
+    }
 }
