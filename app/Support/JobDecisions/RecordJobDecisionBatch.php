@@ -28,7 +28,7 @@ final class RecordJobDecisionBatch
      * @param  list<int>  $jobIds
      * @return array{to: string, changed: list<int>, unchanged: list<int>, failed: list<array{id: int, message: string}>, not_found: list<int>, decision_ids: array<int, int>}
      */
-    public function record(array $jobIds, JobDisposition $to, ?DismissalReason $reason = null, ?string $note = null): array
+    public function record(array $jobIds, JobDisposition $to, ?DismissalReason $reason = null, ?string $note = null, ?JobDisposition $expectedFrom = null): array
     {
         $jobs = $this->resolve($jobIds);
         $result = ['to' => $to->value, 'changed' => [], 'unchanged' => [], 'failed' => [], 'not_found' => [], 'decision_ids' => []];
@@ -43,7 +43,7 @@ final class RecordJobDecisionBatch
             }
 
             try {
-                $decision = $this->decisions->record($job, $to, DecisionSource::User, $reason, $note);
+                $decision = $this->decisions->record($job, $to, DecisionSource::User, $reason, $note, expectedFrom: $expectedFrom);
             } catch (JobDecisionException $e) {
                 $result['failed'][] = ['id' => $id, 'message' => $e->getMessage()];
 

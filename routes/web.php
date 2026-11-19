@@ -47,6 +47,7 @@ Route::get('/career-data/facts/{careerFact}', [CareerDataController::class, 'sho
 Route::get('/jobs', [JobPostingController::class, 'index'])->name('jobs.index');
 Route::get('/opportunities', [OpportunityController::class, 'index'])->name('opportunities.index');
 Route::get('/opportunities/{jobPosting}', [OpportunityController::class, 'show'])->whereNumber('jobPosting')->name('opportunities.show');
+Route::post('/opportunities/{jobPosting}/stop', [OpportunityController::class, 'stop'])->whereNumber('jobPosting')->name('opportunities.stop');
 Route::get('/jobs/create', [JobPostingController::class, 'create'])->name('jobs.create');
 Route::post('/jobs', [JobPostingController::class, 'store'])->name('jobs.store');
 Route::get('/jobs/{jobPosting}', [JobPostingController::class, 'show'])->name('jobs.show');

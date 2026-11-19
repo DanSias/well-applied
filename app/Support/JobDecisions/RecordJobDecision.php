@@ -7,6 +7,7 @@ use App\Enums\DismissalReason;
 use App\Enums\JobDisposition;
 use App\Models\JobDecision;
 use App\Models\JobPosting;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -40,8 +41,9 @@ final class RecordJobDecision
         ?string $note = null,
         ?string $rule = null,
         array $details = [],
+        ?JobDisposition $expectedFrom = null,
     ): ?JobDecision {
-        return $this->apply($job, $to, $source, $reason, $note, $rule, $details, undoOf: null);
+        return $this->apply($job, $to, $source, $reason, $note, $rule, $details, undoOf: null, expectedFrom: $expectedFrom);
     }
 
     /**
@@ -76,7 +78,7 @@ final class RecordJobDecision
     /**
      * @param  array<string, mixed>  $details
      */
-    private function apply(JobPosting $job, JobDisposition $to, DecisionSource $source, ?DismissalReason $reason, ?string $note, ?string $rule, array $details, ?JobDecision $undoOf): ?JobDecision
+    private function apply(JobPosting $job, JobDisposition $to, DecisionSource $source, ?DismissalReason $reason, ?string $note, ?string $rule, array $details, ?JobDecision $undoOf, ?JobDisposition $expectedFrom = null): ?JobDecision
     {
         if ($source === DecisionSource::Rule) {
             if ($to === JobDisposition::Pursued) {
@@ -88,17 +90,29 @@ final class RecordJobDecision
             }
         }
 
-        if ($to === JobDisposition::Dismissed && $reason === null) {
+        // Passing on a discovered job needs a reason; ending pursuit of an opportunity (judged against `expectedFrom`) may
+        // leave it out, and then none is recorded rather than inventing one.
+        if ($to === JobDisposition::Dismissed && $reason === null && $expectedFrom !== JobDisposition::Pursued) {
             throw new JobDecisionException('A dismissal needs a reason.');
         }
 
-        return DB::transaction(function () use ($job, $to, $source, $reason, $note, $rule, $details, $undoOf) {
+        return DB::transaction(function () use ($job, $to, $source, $reason, $note, $rule, $details, $undoOf, $expectedFrom) {
             // Re-read under a lock: the state this decision is judged against is the one it will replace.
             $current = JobPosting::query()->lockForUpdate()->findOrFail($job->id);
             $from = $current->disposition;
 
             if ($from === $to) {
                 return null;
+            }
+
+            // A decision made from a page's view of the job ("stop pursuing this opportunity") only applies if the job is
+            // still what that page showed, so a stale page can never turn another state into a pursuit-ending dismissal.
+            if ($expectedFrom !== null && $from !== $expectedFrom) {
+                throw new JobDecisionException("This job is no longer {$expectedFrom->value}, so that change was not made.");
+            }
+
+            if ($undoOf === null && $reason?->endsPursuit() && $from !== JobDisposition::Pursued) {
+                throw new JobDecisionException('Only an opportunity you are pursuing can be stopped.');
             }
 
             if ($undoOf !== null) {
@@ -118,12 +132,18 @@ final class RecordJobDecision
             }
 
             $now = now();
+            // Leaving pursuit remembers when it began, so undoing it restores "pursuing since" rather than restarting it.
+            if ($undoOf === null && $from === JobDisposition::Pursued && $current->pursued_at !== null) {
+                $details['previous_pursued_at'] = $current->pursued_at->toIso8601String();
+            }
+
+            $restoredPursuedAt = $undoOf?->details['previous_pursued_at'] ?? null;
             $current->forceFill([
                 'disposition' => $to,
                 'disposition_source' => $source,
-                'disposition_reason' => $to === JobDisposition::Dismissed ? $reason->value : null,
+                'disposition_reason' => $to === JobDisposition::Dismissed ? $reason?->value : null,
                 'dispositioned_at' => $now,
-                'pursued_at' => $to === JobDisposition::Pursued ? $now : null,
+                'pursued_at' => $to === JobDisposition::Pursued ? ($restoredPursuedAt !== null ? Carbon::parse($restoredPursuedAt) : $now) : null,
             ])->save();
 
             $job->setRawAttributes($current->getAttributes(), true);
@@ -133,7 +153,7 @@ final class RecordJobDecision
                 'from_disposition' => $from,
                 'to_disposition' => $to,
                 'source' => $source,
-                'reason' => $to === JobDisposition::Dismissed ? $reason->value : null,
+                'reason' => $to === JobDisposition::Dismissed ? $reason?->value : null,
                 'note' => $note !== null && trim($note) !== '' ? trim($note) : null,
                 'rule' => $rule,
                 'details' => $details === [] ? null : $details,

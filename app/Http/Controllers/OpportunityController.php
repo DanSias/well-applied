@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Enums\JobDisposition;
+use App\Http\Requests\StopPursuingRequest;
 use App\Models\JobPosting;
 use App\Support\CurrentCareerProfile;
+use App\Support\JobDecisions\RecordJobDecisionBatch;
 use App\Support\Opportunities\PresentInspectionJob;
 use App\Support\Opportunities\PresentOpportunities;
 use App\Support\Opportunities\PresentOpportunityWorkspace;
@@ -46,6 +48,32 @@ class OpportunityController extends Controller
         }
 
         return Inertia::render('opportunities/show', $workspace->present($jobPosting));
+    }
+
+    /**
+     * Stop pursuing: the job goes to Dismissed with the person's reason, through the same writer and history as every
+     * other decision, so Undo, the Jobs page's Dismissed view and the Opportunities "existing work" list all work on it
+     * unchanged. Nothing hangs off the disposition: resumes, analyses, inspections, preparations and recorded
+     * applications are left exactly as they are. The job must still be pursued when the request is judged (under the
+     * writer's lock), so a stale page or a repeated click cannot do anything else. The page only leaves for the list
+     * once the server reports the change (or that the job was already stopped); a refusal stays on the page.
+     */
+    public function stop(StopPursuingRequest $request, JobPosting $jobPosting, RecordJobDecisionBatch $decisions): RedirectResponse
+    {
+        abort_unless($jobPosting->career_profile_id === CurrentCareerProfile::resolve()->id, 404);
+
+        $result = $decisions->record([$jobPosting->id], JobDisposition::Dismissed, $request->reason(), $request->note(), JobDisposition::Pursued);
+        // A refusal (the job is no longer pursued, or is not found) is shown inside the dialog, which stays open.
+        $refusal = $result['failed'][0]['message'] ?? ($result['not_found'] !== [] ? 'That opportunity could not be found.' : null);
+
+        if ($refusal !== null) {
+            return back()->withErrors(['reason' => $refusal]);
+        }
+
+        $result['stopped_pursuing'] = ['company' => $jobPosting->company, 'title' => $jobPosting->title];
+        Inertia::flash('decision_result', $result);
+
+        return redirect()->route('opportunities.index')->with('decision_result', $result);
     }
 
     /**

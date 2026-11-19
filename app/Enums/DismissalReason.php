@@ -13,6 +13,18 @@ enum DismissalReason: string
     case Duplicate = 'duplicate';
     case Other = 'other';
 
+    // Why someone stopped pursuing an opportunity (see StopPursuingRequest). Kept apart from the reasons for passing on
+    // a discovered job, so the Jobs page's dismissal list stays about jobs and nothing here is a misleading stand-in.
+    case PostingClosed = 'posting_closed';
+    case NoLongerInterested = 'no_longer_interested';
+    case NotAGoodFit = 'not_a_good_fit';
+
+    /** The reasons offered when ending pursuit; `other` is shared with plain dismissal. */
+    public function endsPursuit(): bool
+    {
+        return in_array($this, [self::PostingClosed, self::NoLongerInterested, self::NotAGoodFit], true);
+    }
+
     public function label(): string
     {
         return match ($this) {
@@ -23,6 +35,9 @@ enum DismissalReason: string
             self::Company => 'Company',
             self::Duplicate => 'Duplicate',
             self::Other => 'Other',
+            self::PostingClosed => 'Applications closed',
+            self::NoLongerInterested => 'No longer interested',
+            self::NotAGoodFit => 'Not a good fit',
         };
     }
 }

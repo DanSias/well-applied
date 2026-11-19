@@ -194,7 +194,10 @@ export type DismissalReason =
     | 'compensation'
     | 'company'
     | 'duplicate'
-    | 'other';
+    | 'other'
+    | 'posting_closed'
+    | 'no_longer_interested'
+    | 'not_a_good_fit';
 
 /**
  * What a decision did, flashed under `decision_result` by JobDecisionController: which jobs changed, which were
@@ -207,6 +210,8 @@ export type DecisionResult = {
     failed: { id: number; message: string }[];
     not_found: number[];
     decision_ids: Record<string, number>;
+    /** Present when the decision ended pursuit of an opportunity (Stop pursuing), so the toast can name it. */
+    stopped_pursuing?: { company: string; title: string };
 };
 
 export type JobAnalysisSummary = {

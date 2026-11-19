@@ -68,7 +68,11 @@ export function decisionToast(result: DecisionResult): ToastContent {
     if (changed > 0) {
         return {
             kind: problems > 0 ? 'warning' : 'success',
-            title: changedTitle(result.to, changed),
+            title:
+                result.stopped_pursuing !== undefined &&
+                result.to === 'dismissed'
+                    ? `Stopped pursuing ${result.stopped_pursuing.company}`
+                    : changedTitle(result.to, changed),
             description,
             undo,
         };
@@ -78,11 +82,13 @@ export function decisionToast(result: DecisionResult): ToastContent {
         return {
             kind: 'error',
             title:
-                result.to === 'undo'
-                    ? "Couldn't undo that decision"
-                    : result.failed.length + result.not_found.length === 1
-                      ? "Couldn't update that job"
-                      : "Couldn't update those jobs",
+                result.stopped_pursuing !== undefined
+                    ? "Couldn't stop pursuing that opportunity"
+                    : result.to === 'undo'
+                      ? "Couldn't undo that decision"
+                      : result.failed.length + result.not_found.length === 1
+                        ? "Couldn't update that job"
+                        : "Couldn't update those jobs",
             description,
         };
     }

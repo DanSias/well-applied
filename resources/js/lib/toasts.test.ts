@@ -82,6 +82,38 @@ describe('how long a notification stays', () => {
 });
 
 describe('the words after a job decision', () => {
+    it('names the company when pursuit was stopped, with Undo, and only once the server changed it', () => {
+        const ids = { '5': 11 };
+        const stopped = { company: 'Deepgram', title: 'Engineer' };
+
+        expect(
+            decisionToast(
+                decision({
+                    to: 'dismissed',
+                    changed: [5],
+                    decision_ids: ids,
+                    stopped_pursuing: stopped,
+                }),
+            ),
+        ).toMatchObject({
+            kind: 'success',
+            title: 'Stopped pursuing Deepgram',
+            undo: ids,
+        });
+        expect(
+            decisionToast(
+                decision({
+                    to: 'dismissed',
+                    failed: [{ id: 5, message: 'No longer pursued' }],
+                    stopped_pursuing: stopped,
+                }),
+            ),
+        ).toMatchObject({
+            kind: 'error',
+            title: "Couldn't stop pursuing that opportunity",
+        });
+    });
+
     it('says what happened to one job, and offers Undo', () => {
         const ids = { '5': 11 };
 
