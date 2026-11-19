@@ -71,32 +71,24 @@ describe('CLI stdout/exit-code contract', () => {
         });
     });
 
-    test('rejects a private-IP URL before navigation: valid JSON on stdout, exit code 1, no stack trace on stdout', async () => {
-        await assert.rejects(
-            execFileAsync('node', [cliPath, 'http://127.0.0.1/']),
-            (err) => {
-                assert.equal(err.code, 1);
-                const parsed = JSON.parse(err.stdout);
-                assert.equal(parsed.status, 'failed');
-                assert.match(parsed.failure_message, /private_ip_literal/);
-                assert.ok(
-                    !err.stdout.includes('at Object.<anonymous>'),
-                    'stdout must not contain a stack trace',
-                );
-                return true;
-            },
-        );
+    test('refuses a private-IP URL before navigation as a needs_application_url outcome (exit 0, no stack trace)', async () => {
+        const { stdout } = await execFileAsync('node', [cliPath, 'http://127.0.0.1/']);
+        const parsed = JSON.parse(stdout);
+
+        assert.equal(parsed.status, 'succeeded');
+        assert.equal(parsed.inspection_outcome, 'needs_application_url');
+        assert.equal(parsed.stop_reason, 'destination_prohibited');
+        assert.equal(parsed.diagnostics.refused, 'private_ip_literal');
+        assert.deepEqual(parsed.fields, []);
+        assert.ok(!stdout.includes('at Object.<anonymous>'), 'stdout must not contain a stack trace');
     });
 
-    test('rejects a malformed URL: valid JSON on stdout, exit code 1', async () => {
-        await assert.rejects(
-            execFileAsync('node', [cliPath, 'not-a-url']),
-            (err) => {
-                assert.equal(err.code, 1);
-                const parsed = JSON.parse(err.stdout);
-                assert.equal(parsed.status, 'failed');
-                return true;
-            },
-        );
+    test('refuses a malformed URL the same way: valid JSON on stdout, nothing launched', async () => {
+        const { stdout } = await execFileAsync('node', [cliPath, 'not-a-url']);
+        const parsed = JSON.parse(stdout);
+
+        assert.equal(parsed.status, 'succeeded');
+        assert.equal(parsed.inspection_outcome, 'needs_application_url');
+        assert.equal(parsed.stop_reason, 'destination_prohibited');
     });
 });

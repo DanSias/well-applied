@@ -1,114 +1,305 @@
-// Orchestrates one inspection: validate the URL, launch a browser,
-// identify the ATS, extract fields if supported, and always return a
-// structured result — never throws for an ordinary/expected outcome.
-// This is the reusable boundary Phase 3 will call into; src/cli.js is
-// only a thin wrapper around it. See README.md "Architecture boundary".
-import {
-    validateUrlStructure,
-    resolvesToPrivateAddress,
-} from './url-safety.js';
-import { withInspectionPage } from './browser.js';
+// Orchestrates one inspection: validate the start URL, open a guarded browser, and walk at most THREE pages (the start
+// page plus two Apply-link follows) until an application form is reached or there is a clear reason to stop. Always
+// returns a structured result — never throws for an ordinary/expected outcome. This is the reusable boundary poll.js
+// calls into; src/cli.js is a thin wrapper around it. See README.md "Architecture boundary" and "Navigation".
+//
+// Read-only: pages are only navigated to (GET, through the guard). Nothing is clicked, typed, submitted, accepted or
+// created, and an "Apply" button that is not a link is reported, not pressed.
+import { createDeadline, DEFAULT_BUDGET_MS, DeadlineExceeded } from './budget.js';
+import { createGuard, verifyConnectedAddress } from './guard.js';
+import { launchChromium, openGuardedPage, navigate, traceFor, safeRedact } from './browser.js';
+import { collectSignals, classifyPage } from './page-kind.js';
+import { collectLinkSignals, rankApplyCandidates } from './apply-links.js';
 import * as greenhouse from './extractors/greenhouse.js';
-import { succeeded, unsupported, failed, FailureCategory } from './result.js';
+import {
+    succeeded,
+    unsupported,
+    stopped,
+    failed,
+    FailureCategory,
+    InspectionOutcome,
+    StopReason,
+} from './result.js';
+
+export const MAX_PAGES = 3;
+export const MAX_FOLLOWS = 2;
 
 /**
  * @param {string} rawUrl
+ * @param {object} [options]
+ * @param {number} [options.budgetMs] total execution budget; Laravel sends it with the claim
+ * @param {ReturnType<typeof createGuard>} [options.guard] tests only (fixture hosts); never built from a claim
+ * @param {() => Promise<import('playwright').Browser>} [options.launch]
+ * @param {{navigationMs?: number, networkIdleMs?: number, settleMs?: number}} [options.timeouts] per-step overrides, tests only
  * @returns {Promise<object>} one of the result.js shapes
  */
-export async function inspect(rawUrl) {
+export async function inspect(rawUrl, options = {}) {
+    const {
+        budgetMs = DEFAULT_BUDGET_MS,
+        guard = createGuard(),
+        launch = launchChromium,
+        timeouts = {},
+    } = options;
+
     const startedAt = Date.now();
+    const deadline = createDeadline(budgetMs);
+    const state = {
+        startedAt,
+        requestedUrl: safeRedact(rawUrl),
+        trace: [],
+        warnings: [],
+        pages: 0,
+        follows: 0,
+        pageTitle: null,
+        httpStatus: null,
+        finalUrl: null,
+        candidates: [],
+        navigationMs: 0,
+        step: 'validating the start URL',
+        budgetMs,
+    };
 
-    const structural = validateUrlStructure(rawUrl);
-    if (!structural.valid) {
-        return failed({
-            failureCategory: FailureCategory.UnexpectedError,
-            failureMessage: `Rejected before navigation: ${structural.reason}`,
-            diagnostics: baseDiagnostics({ startedAt }),
-        });
+    const first = await guard.checkUrl(rawUrl);
+    if (!first.ok) {
+        return refusal(state, first.reason);
     }
 
-    const dnsCheck = await resolvesToPrivateAddress(structural.url);
-    if (!dnsCheck.safe) {
-        return failed({
-            failureCategory: FailureCategory.UnexpectedError,
-            failureMessage: `Rejected before navigation: ${dnsCheck.reason}`,
-            diagnostics: baseDiagnostics({ startedAt }),
-        });
-    }
+    let browser;
+    let expired = false;
+    // The hard stop: closing the browser makes every pending page call throw, so a hung page cannot outlast the budget.
+    const timer = setTimeout(() => {
+        expired = true;
+        browser?.close().catch(() => {});
+    }, deadline.untilStop());
 
     try {
-        return await withInspectionPage(
-            structural.url.toString(),
-            async (page, nav) => {
-                const isGreenhouse = await greenhouse.detect(page);
+        browser = await launch();
+        const { page } = await openGuardedPage(browser, guard);
 
-                if (!isGreenhouse) {
-                    return unsupported({
-                        requestedUrl: rawUrl,
-                        finalUrl: nav.finalUrl,
-                        warnings: nav.warnings,
-                        diagnostics: baseDiagnostics({
-                            startedAt,
-                            navigationMs: nav.navigationMs,
-                            pageTitle: await page.title(),
-                        }),
-                    });
-                }
-
-                const extractionStartedAt = Date.now();
-                const { fields, warnings, diagnostics } =
-                    await greenhouse.extract(page);
-                const extractionMs = Date.now() - extractionStartedAt;
-
-                return succeeded({
-                    ats: 'greenhouse',
-                    requestedUrl: rawUrl,
-                    finalUrl: nav.finalUrl,
-                    fields,
-                    warnings: [...nav.warnings, ...warnings],
-                    diagnostics: baseDiagnostics({
-                        startedAt,
-                        navigationMs: nav.navigationMs,
-                        extractionMs,
-                        pageTitle: await page.title(),
-                        ...diagnostics,
-                    }),
-                });
-            },
-        );
+        return await walk(page, first.url.toString(), { state, guard, deadline, rawUrl, timeouts });
     } catch (error) {
-        const category =
-            error?.name === 'TimeoutError'
-                ? FailureCategory.NavigationTimeout
-                : FailureCategory.UnexpectedError;
+        if (expired || error instanceof DeadlineExceeded || deadline.expired()) {
+            return failed({
+                failureCategory: FailureCategory.NavigationTimeout,
+                failureMessage: `The inspection used its whole ${Math.round(budgetMs / 1000)}s time budget while ${state.step}.`,
+                diagnostics: diagnostics(state, { deadline_exceeded: true }),
+            });
+        }
 
         return failed({
-            failureCategory: category,
-            failureMessage: String(error?.message ?? error),
-            diagnostics: baseDiagnostics({ startedAt }),
+            failureCategory:
+                error?.name === 'TimeoutError' ? FailureCategory.NavigationTimeout : FailureCategory.UnexpectedError,
+            failureMessage: redactText(String(error?.message ?? error)),
+            diagnostics: diagnostics(state),
         });
+    } finally {
+        clearTimeout(timer);
+        await browser?.close().catch(() => {});
     }
 }
 
-/**
- * Small, structured, non-content diagnostics only — never a raw DOM/
- * accessibility-tree/page-text dump, never cookies or storage. See
- * docs/domain-model.md "WorkflowRun, WorkflowStep, and AgentRun" for
- * the same policy on the Well Applied side (AgentRun.result_summary).
- */
-function baseDiagnostics({
-    startedAt,
-    navigationMs,
-    extractionMs,
-    pageTitle,
-    ...rest
-}) {
+async function walk(page, startUrl, { state, guard, deadline, rawUrl, timeouts }) {
+    let url = startUrl;
+
+    for (;;) {
+        if (deadline.expired()) throw new DeadlineExceeded('budget used');
+
+        const hop = state.pages; // 0 for the start page
+        state.pages += 1;
+        state.step = hop === 0 ? 'loading the application URL' : `loading Apply destination ${hop} of ${MAX_FOLLOWS}`;
+
+        const nav = await navigate(page, url, { deadline, guard, timeouts });
+        state.warnings.push(...nav.warnings);
+        state.navigationMs += nav.navigationMs;
+        state.finalUrl = safeRedact(nav.finalUrl);
+        state.httpStatus = nav.status;
+
+        const prohibited = nav.violations.find((v) => v.main);
+        const subresource = nav.violations.filter((v) => !v.main);
+        for (const v of subresource) state.warnings.push(`blocked_${v.kind}`);
+
+        state.trace.push(...(await traceFor(nav.response, hop === 0 ? 'start' : 'link')));
+        if (nav.response === null) state.trace.push({ kind: hop === 0 ? 'start' : 'link', url: safeRedact(url), status: null });
+
+        if (prohibited) {
+            return halt(state, rawUrl, prohibited.kind === 'redirect_limit' ? StopReason.TooManyRedirects : StopReason.DestinationProhibited, {
+                refused: prohibited.reason,
+            });
+        }
+
+        if (nav.error) {
+            const message = String(nav.error?.message ?? nav.error);
+            if (nav.error?.name === 'TimeoutError') {
+                return failed({
+                    failureCategory: FailureCategory.NavigationTimeout,
+                    failureMessage: redactText(`Timed out ${state.step} (page ${state.pages} of up to ${MAX_PAGES}).`),
+                    diagnostics: diagnostics(state),
+                });
+            }
+            if (/Download is starting/i.test(message)) {
+                // An Apply link (or start URL) that is a file, not a page: not an application destination.
+                state.warnings.push('destination_is_download');
+
+                return stopped({
+                    inspectionOutcome: InspectionOutcome.ApplicationNotFound,
+                    stopReason: StopReason.NoApplyLink,
+                    ...envelope(state, rawUrl),
+                });
+            }
+            if (/ERR_TOO_MANY_REDIRECTS/.test(message)) return halt(state, rawUrl, StopReason.TooManyRedirects);
+            if (/ERR_/.test(message)) return halt(state, rawUrl, StopReason.DestinationUnreachable, { error: message.match(/net::ERR_\w+/)?.[0] ?? null });
+
+            throw nav.error;
+        }
+
+        const connected = await verifyConnectedAddress(nav.response, guard);
+        if (connected) {
+            return halt(state, rawUrl, StopReason.DestinationProhibited, { refused: connected.reason });
+        }
+
+        state.step = 'reading the page';
+        const signals = await page.evaluate(collectSignals);
+        state.pageTitle = signals.title;
+        const kind = classifyPage(signals, { status: nav.status });
+
+        switch (kind.kind) {
+            case 'blocked':
+                return stopped({
+                    inspectionOutcome: InspectionOutcome.Blocked,
+                    stopReason: kind.stopReason === StopReason.Captcha ? StopReason.Captcha : StopReason.AntiBot,
+                    ...envelope(state, rawUrl, { classified_as: kind.reasons }),
+                });
+            case 'login':
+                return stopped({
+                    inspectionOutcome: InspectionOutcome.AuthenticationRequired,
+                    stopReason: StopReason.LoginWall,
+                    ...envelope(state, rawUrl, { classified_as: kind.reasons }),
+                });
+            case 'unreachable':
+                return halt(state, rawUrl, StopReason.DestinationUnreachable, { classified_as: kind.reasons });
+            case 'form':
+                return reachedForm(page, kind, { state, rawUrl });
+        }
+
+        // ---- a listing: look for ONE Apply destination, never click, never pick between several ----
+        state.step = 'looking for an Apply link';
+        const { candidates, warnings } = rankApplyCandidates(await page.evaluate(collectLinkSignals), nav.finalUrl);
+        state.warnings.push(...warnings);
+        state.candidates = candidates.slice(0, 5).map((c) => ({ url: safeRedact(c.url), text: c.text, kind: c.kind }));
+
+        if (candidates.length === 0) {
+            return stopped({
+                inspectionOutcome: InspectionOutcome.ApplicationNotFound,
+                stopReason: StopReason.NoApplyLink,
+                ...envelope(state, rawUrl, { classified_as: kind.reasons }),
+            });
+        }
+
+        if (candidates.length > 1) {
+            return stopped({
+                inspectionOutcome: InspectionOutcome.NeedsApplicationUrl,
+                stopReason: StopReason.MultipleApplyLinks,
+                ...envelope(state, rawUrl),
+            });
+        }
+
+        if (state.follows >= MAX_FOLLOWS || state.pages >= MAX_PAGES) {
+            return halt(state, rawUrl, StopReason.TooManySteps);
+        }
+
+        // The destination is checked BEFORE any request is made to it.
+        const verdict = await guard.checkUrl(candidates[0].url);
+        if (!verdict.ok) {
+            return halt(state, rawUrl, StopReason.DestinationProhibited, { refused: verdict.reason });
+        }
+
+        state.follows += 1;
+        url = verdict.url.toString();
+    }
+}
+
+async function reachedForm(page, kind, { state, rawUrl }) {
+    const resolvedUrl = page.url();
+
+    if (kind.ats === 'greenhouse' && (await greenhouse.detect(page))) {
+        state.step = 'extracting the form';
+        const extractionStartedAt = Date.now();
+        const { fields, warnings, diagnostics: extra } = await greenhouse.extract(page);
+
+        return succeeded({
+            ats: 'greenhouse',
+            requestedUrl: state.requestedUrl,
+            finalUrl: state.finalUrl,
+            resolvedUrl,
+            fields,
+            warnings: [...state.warnings, ...warnings],
+            inspectionOutcome: fields.length === 0 ? InspectionOutcome.Partial : InspectionOutcome.Complete,
+            stopReason: fields.length === 0 ? StopReason.NoFieldsExtracted : null,
+            diagnostics: diagnostics(state, { ...extra, extraction_ms: Date.now() - extractionStartedAt, classified_as: kind.reasons }),
+        });
+    }
+
+    // A form is here, but this inspector cannot read it. Say so: this is not "no application found".
+    return unsupported({
+        ats: kind.ats === 'lever' ? 'lever' : null,
+        stopReason: kind.ats === 'lever' ? StopReason.AtsNotExtractable : StopReason.FormWithoutAdapter,
+        requestedUrl: state.requestedUrl,
+        finalUrl: state.finalUrl,
+        resolvedUrl,
+        warnings: state.warnings,
+        diagnostics: diagnostics(state, { classified_as: kind.reasons }),
+    });
+}
+
+/** A start URL refused before any browser opened. */
+function refusal(state, reason) {
+    const unreachable = reason === 'dns_resolution_failed';
+    state.trace.push({ kind: 'start', url: state.requestedUrl, status: null });
+
+    return stopped({
+        inspectionOutcome: InspectionOutcome.NeedsApplicationUrl,
+        stopReason: unreachable ? StopReason.DestinationUnreachable : StopReason.DestinationProhibited,
+        ...envelope(state, null, { refused: reason }),
+    });
+}
+
+function halt(state, rawUrl, stopReason, extra = {}) {
+    return stopped({
+        inspectionOutcome: InspectionOutcome.NeedsApplicationUrl,
+        stopReason,
+        ...envelope(state, rawUrl, extra),
+    });
+}
+
+function envelope(state, rawUrl, extra = {}) {
     return {
-        total_ms: Date.now() - startedAt,
-        navigation_ms: navigationMs ?? null,
-        extraction_ms: extractionMs ?? null,
-        page_title: pageTitle ?? null,
-        timestamp: new Date().toISOString(),
-        ...rest,
+        requestedUrl: state.requestedUrl,
+        finalUrl: state.finalUrl,
+        warnings: state.warnings,
+        diagnostics: diagnostics(state, extra),
     };
+}
+
+/**
+ * Small, structured, non-content diagnostics only — never a raw DOM/accessibility-tree/page-text dump, never cookies or
+ * storage, and never a URL with a query string. See docs/domain-model.md "WorkflowRun, WorkflowStep, and AgentRun".
+ */
+function diagnostics(state, extra = {}) {
+    return {
+        total_ms: Date.now() - state.startedAt,
+        navigation_ms: state.navigationMs,
+        extraction_ms: null,
+        page_title: state.pageTitle,
+        http_status: state.httpStatus,
+        pages_visited: state.pages,
+        follows: state.follows,
+        navigation: state.trace.slice(0, 8),
+        candidates: state.candidates,
+        timestamp: new Date().toISOString(),
+        ...extra,
+    };
+}
+
+function redactText(text) {
+    return text.replace(/https?:\/\/[^\s"'<>)\]]+/gi, (u) => safeRedact(u) ?? '[url]');
 }

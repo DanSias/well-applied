@@ -7,6 +7,7 @@
 //   app/Enums/ApplicationQuestionLabelSource.php
 //   app/Enums/ApplicationQuestionExtractionSource.php
 //   app/Enums/InspectionOutcome.php
+//   app/Enums/InspectionStopReason.php
 //   app/Enums/AgentRunFailureCategory.php
 //
 // This worker never imports PHP or generates code from it — see
@@ -34,7 +35,27 @@ export const InspectionOutcome = Object.freeze({
     Partial: 'partial',
     AuthenticationRequired: 'authentication_required',
     MutationRequired: 'mutation_required',
+    // A form was reached that this inspector cannot read (see StopReason.FormWithoutAdapter / AtsNotExtractable).
     Unsupported: 'unsupported',
+    ApplicationNotFound: 'application_not_found',
+    NeedsApplicationUrl: 'needs_application_url',
+    Blocked: 'blocked',
+});
+
+// Why an inspection stopped where it did: the machine-readable detail behind an outcome.
+export const StopReason = Object.freeze({
+    NoApplyLink: 'no_apply_link',
+    MultipleApplyLinks: 'multiple_apply_links',
+    DestinationProhibited: 'destination_prohibited',
+    DestinationUnreachable: 'destination_unreachable',
+    TooManyRedirects: 'too_many_redirects',
+    TooManySteps: 'too_many_steps',
+    LoginWall: 'login_wall',
+    Captcha: 'captcha',
+    AntiBot: 'anti_bot',
+    FormWithoutAdapter: 'form_without_adapter',
+    AtsNotExtractable: 'ats_not_extractable',
+    NoFieldsExtracted: 'no_fields_extracted',
 });
 
 // A strict SUBSET of App\Enums\AgentRunFailureCategory — the worker can
@@ -57,6 +78,9 @@ export const FailureCategory = Object.freeze({
  * @param {string[]} params.warnings
  * @param {object} params.diagnostics
  * @param {string} [params.inspectionOutcome]
+ * @param {string|null} [params.stopReason] one of StopReason's values
+ * @param {string|null} [params.resolvedUrl] the one FULL URL reported: where an application form was reached. The
+ *   others are origin + path only (see client-side redaction in inspect.js).
  */
 export function succeeded({
     ats,
@@ -66,13 +90,17 @@ export function succeeded({
     warnings,
     diagnostics,
     inspectionOutcome = InspectionOutcome.Complete,
+    stopReason = null,
+    resolvedUrl = null,
 }) {
     return {
         status: 'succeeded',
         inspection_outcome: inspectionOutcome,
+        stop_reason: stopReason,
         ats,
         requested_url: requestedUrl,
         final_url: finalUrl,
+        resolved_url: resolvedUrl,
         fields,
         warnings,
         diagnostics,
@@ -80,18 +108,53 @@ export function succeeded({
 }
 
 /**
- * A page that loaded and rendered correctly but isn't a supported ATS —
- * this is a successful technical execution, never a failure. See
- * docs/application-inspector.md "Technical status vs. inspection
- * outcome".
+ * An application form was reached, but this inspector has no extractor
+ * for it. A successful technical execution, never a failure — and, since
+ * Phase 1, never used for "no application form was found": that is
+ * application_not_found. See docs/application-inspector.md "Technical
+ * status vs. inspection outcome".
  *
  * @param {object} params
  * @param {string} params.requestedUrl
  * @param {string} params.finalUrl
  * @param {string[]} params.warnings
  * @param {object} params.diagnostics
+ * @param {string|null} [params.ats]
+ * @param {string} [params.stopReason]
+ * @param {string|null} [params.resolvedUrl]
  */
-export function unsupported({ requestedUrl, finalUrl, warnings, diagnostics }) {
+export function unsupported({
+    requestedUrl,
+    finalUrl,
+    warnings,
+    diagnostics,
+    ats = null,
+    stopReason = StopReason.FormWithoutAdapter,
+    resolvedUrl = null,
+}) {
+    return succeeded({
+        ats,
+        requestedUrl,
+        finalUrl,
+        fields: [],
+        warnings,
+        diagnostics,
+        inspectionOutcome: InspectionOutcome.Unsupported,
+        stopReason,
+        resolvedUrl,
+    });
+}
+
+/**
+ * The inspection ran to a clear end without reaching a form that could be
+ * read: a listing with no Apply link, an ambiguous or refused destination,
+ * a barrier. Still a successful execution.
+ *
+ * @param {object} params
+ * @param {string} params.inspectionOutcome one of InspectionOutcome's values
+ * @param {string} params.stopReason one of StopReason's values
+ */
+export function stopped({ inspectionOutcome, stopReason, requestedUrl, finalUrl, warnings, diagnostics }) {
     return succeeded({
         ats: null,
         requestedUrl,
@@ -99,7 +162,8 @@ export function unsupported({ requestedUrl, finalUrl, warnings, diagnostics }) {
         fields: [],
         warnings,
         diagnostics,
-        inspectionOutcome: InspectionOutcome.Unsupported,
+        inspectionOutcome,
+        stopReason,
     });
 }
 

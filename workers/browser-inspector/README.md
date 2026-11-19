@@ -187,29 +187,52 @@ authoritative enum values, hand-synced in `src/result.js` (see
 `application_id`/`agent_run_id` — those belong to Well Applied,
 assigned when a future transport layer persists this result.
 
-### Success — unsupported ATS
+### Success — stopped without readable fields
 
-Not a failure — the technical execution succeeded; the page just isn't
-a supported ATS.
+A successful technical execution that did not produce fields. `inspection_outcome` says what was found and
+`stop_reason` says why it stopped; neither is a failure. Since Phase 1, `unsupported` means **an application form was
+reached that this inspector cannot read** — "no application form was found" is `application_not_found`.
 
 ```json
 {
     "status": "succeeded",
-    "inspection_outcome": "unsupported",
+    "inspection_outcome": "application_not_found",
+    "stop_reason": "no_apply_link",
     "ats": null,
-    "requested_url": "https://example.com",
-    "final_url": "https://example.com/",
+    "requested_url": "https://jobicy.com/jobs/1-platform-engineer",
+    "final_url": "https://jobicy.com/jobs/1-platform-engineer",
+    "resolved_url": null,
     "fields": [],
-    "warnings": [],
+    "warnings": ["networkidle_timeout"],
     "diagnostics": {
-        "total_ms": 2870,
-        "navigation_ms": 2406,
-        "extraction_ms": null,
-        "page_title": "Example Domain",
+        "total_ms": 16819,
+        "navigation_ms": 16725,
+        "page_title": "Remote Platform Engineer at Acme - Jobicy",
+        "http_status": 200,
+        "pages_visited": 1,
+        "follows": 0,
+        "navigation": [{ "kind": "start", "url": "https://jobicy.com/jobs/1-platform-engineer", "status": 200 }],
+        "candidates": [],
         "timestamp": "..."
     }
 }
 ```
+
+Every URL in the result is **origin + path only**, except `resolved_url`: the one full URL (query string kept, because
+e.g. a Greenhouse `gh_jid` decides which job a form is for), reported only when an application form was reached.
+
+| `inspection_outcome` | `stop_reason` | Meaning |
+|---|---|---|
+| `complete` | — | A Greenhouse form was reached and its fields extracted. |
+| `partial` | `no_fields_extracted` | A Greenhouse form was reached; the extractor found nothing. |
+| `unsupported` | `form_without_adapter`, `ats_not_extractable` (Lever) | A form was reached but there is no extractor for it. |
+| `application_not_found` | `no_apply_link` | A listing was reached; no followable Apply link (a button-only or mailto Apply adds a warning). |
+| `needs_application_url` | `multiple_apply_links`, `destination_prohibited`, `destination_unreachable`, `too_many_redirects`, `too_many_steps` | The person must supply or choose a URL. |
+| `authentication_required` | `login_wall` | A sign-in page. Never signed in to. |
+| `blocked` | `captcha`, `anti_bot` | A challenge or "Access Denied". Never solved. |
+
+`failed` is reserved for what the worker could not finish: a navigation timeout (including the whole time budget) or an
+unexpected error.
 
 ### Failure
 
@@ -217,18 +240,20 @@ a supported ATS.
 {
     "status": "failed",
     "failure_category": "navigation_timeout",
-    "failure_message": "page.goto: Timeout 45000ms exceeded.",
+    "failure_message": "Timed out loading Apply destination 1 of 2 (page 2 of up to 3).",
     "diagnostics": {
-        "total_ms": 45012,
-        "navigation_ms": null,
-        "extraction_ms": null,
-        "page_title": null,
+        "total_ms": 41012,
+        "page_title": "Platform Engineer | Acme Careers",
+        "pages_visited": 2,
+        "follows": 1,
+        "navigation": [{ "kind": "start", "url": "https://jobicy.com/jobs/1", "status": 200 }],
         "timestamp": "..."
     }
 }
 ```
 
-`failure_category` is one of `navigation_timeout` / `unsupported_ats` /
+A failed result keeps the diagnostics gathered up to that point (how far navigation got, the page title). `failure_category`
+is one of `navigation_timeout` / `unsupported_ats` (no longer produced) /
 `unexpected_error` — a strict **subset** of Well Applied's
 `AgentRunFailureCategory` enum. The fourth value, `claim_timeout`,
 exists only for Well Applied's own detection of a worker that claimed
@@ -541,3 +566,68 @@ ssh <host> "docker run --rm --entrypoint node browser-inspector:scratch src/cli.
 # cleanup:
 ssh <host> "docker rmi browser-inspector:scratch && rm -rf ~/some-clearly-disposable-path"
 ```
+
+
+## Navigation
+
+`src/inspect.js` walks at most **three pages**: the start page plus at most **two Apply-link follows**.
+
+1. The start URL comes from Well Applied's claim (`start_url`; its `start_origin` says whether a person, an earlier
+   inspection, a provider or the job's source URL supplied it). It is checked before a browser is launched.
+2. Each page is classified from DOM evidence (`src/page-kind.js`): **form**, **blocked**, **login**, **unreachable**, or
+   **listing**. One strong signal makes a form (a resume or CV file input; name and email fields on a page about applying;
+   a Greenhouse or Lever application page); weak signals (a lone text box, a search box, the word "apply", a newsletter
+   signup) never do. There is no minimum field count.
+3. On a listing, `src/apply-links.js` reads link destinations. The accessible name must **equal** an Apply wording ("Apply
+   Now", "Apply on company site", …); failing that, an `/apply` path on the same site or a known ATS counts, and an
+   embedded Greenhouse application iframe counts. Duplicates (tracking parameters, fragments, order) collapse into one.
+   - **One** distinct destination: it is checked, then navigated to with a plain GET.
+   - **Several**: never chosen between. The outcome is `needs_application_url` with the candidates (origin + path).
+   - **None**: `application_not_found`. An Apply *button* or a `mailto:` is reported as a warning
+     (`apply_is_button`, `apply_is_email`) and never pressed or opened.
+4. Nothing is clicked, typed, submitted, accepted or created. Navigation is the only thing that moves the page.
+
+Greenhouse extraction is unchanged once a Greenhouse form is reached (`src/extractors/greenhouse.js`).
+
+## Navigation safety
+
+Every request passes `src/guard.js`, modelled on the application-preparer's request guard:
+
+- http(s) only, no credentials in a URL, none of the hosts `src/url-safety.js` refuses (loopback, private, link-local,
+  CGNAT), and the hostname must not **resolve** to a private address (cached per host);
+- **GET and HEAD only.** Every other method is aborted, subresources included (fetch, beacons, form posts). There are no
+  exceptions today (`ALLOWED_NON_GET` is empty); a legitimate need would be added there with a justification and a test;
+- popups are refused; downloads are off; service workers are blocked;
+- **every redirect hop of a page or iframe is judged before Chromium follows it**, and a chain over 8 hops is cut off. A
+  route handler only sees the first request of a chain (Chromium follows redirects without routing them again), so these
+  hops are paused through Chromium's own interception (CDP `Fetch`, response stage, documents only) and failed or
+  continued by the guard;
+- after each page loads, the address Chromium actually connected to (`response.serverAddr()`), for the page and every hop
+  before it, is checked against the private ranges before anything is read.
+
+**What this does not protect against**
+
+- **DNS rebinding is narrowed, not closed.** A name can resolve to a public address at check time and a private one at
+  connection time. The connected-address check catches that after the request was made (a GET, unread), not before.
+- **Redirects of subresources** (images, scripts, XHR) and requests from out-of-process iframes' own sessions are not
+  paused; they are GET-only and unread. A subresource aimed directly at a private address is blocked and reported
+  (`blocked_prohibited`).
+- The real fix is at the network layer. **Deploy the worker with an egress rule** that denies the private, loopback and
+  link-local ranges (and the cloud metadata address) except Well Applied itself; in Docker, a dedicated network with an
+  egress firewall on the host. The guard is defence in depth, not a substitute for it.
+
+## Time budget
+
+Well Applied sends `budget_seconds` with every claim: its lease (`BROWSER_WORKER_CLAIM_TTL`, 120 s) minus a delivery
+allowance (30 s). The worker never picks its own budget. Initial values, in `src/budget.js`:
+
+| Step | Budget |
+|---|---|
+| Whole inspection | 90 s (URL checks, every navigation, extraction and browser cleanup) |
+| One navigation (`domcontentloaded`) | 20 s |
+| Best-effort `networkidle` | 8 s (a timeout is a warning only; the page is still read) |
+| Settle | 1.5 s |
+| Held back for cleanup | 5 s |
+
+Every step is cut to what is left, and a hard-stop timer closes the browser at the deadline, so three slow pages end as a
+`failed` / `navigation_timeout` result carrying their diagnostics, delivered before the lease can lapse.

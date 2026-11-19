@@ -134,3 +134,44 @@ describe('runForever', () => {
         assert.ok(iterations > 2);
     });
 });
+
+describe('Phase 1: the claim drives the budget and the start URL', () => {
+    test('passes the start URL and the budget Well Applied sent, in milliseconds', async () => {
+        const client = fakeClient({ claims: [{ agent_run_id: 7, application_url: 'https://old.example.com/', start_url: 'https://start.example.com/apply', start_origin: 'user', budget_seconds: 90 }] });
+        let seen;
+
+        await runOnce(client, noRetryConfig, silentLog, async (url, options) => {
+            seen = { url, options };
+            return { status: 'succeeded' };
+        });
+
+        assert.deepEqual(seen, { url: 'https://start.example.com/apply', options: { budgetMs: 90_000 } });
+    });
+
+    test('an older Well Applied (no start_url or budget) still works: application_url and the worker default', async () => {
+        const client = fakeClient({ claims: [{ agent_run_id: 8, application_url: 'https://old.example.com/' }] });
+        let seen;
+
+        await runOnce(client, noRetryConfig, silentLog, async (url, options) => {
+            seen = { url, options };
+            return { status: 'succeeded' };
+        });
+
+        assert.deepEqual(seen, { url: 'https://old.example.com/', options: { budgetMs: undefined } });
+    });
+
+    test('an inspection that throws still delivers a failed result at once, never leaving the claim to expire', async () => {
+        const client = fakeClient({ claims: [{ agent_run_id: 9, start_url: 'https://x.example.com/', budget_seconds: 90 }] });
+
+        const gotWork = await runOnce(client, noRetryConfig, silentLog, async () => {
+            throw new Error('boom at https://x.example.com/apply?token=SECRET');
+        });
+
+        assert.equal(gotWork, true);
+        assert.equal(client.calls.length, 1);
+        const { payload } = client.calls[0];
+        assert.equal(payload.status, 'failed');
+        assert.equal(payload.failure_category, 'unexpected_error');
+        assert.ok(!payload.failure_message.includes('SECRET'));
+    });
+});

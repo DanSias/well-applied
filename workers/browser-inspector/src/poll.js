@@ -71,9 +71,27 @@ export async function runOnce(client, config, log = console.error, inspectFn = i
         return false;
     }
 
-    log(`[poll] claimed agent_run_id=${claimed.agent_run_id} url=${claimed.application_url}`);
+    const startUrl = claimed.start_url ?? claimed.application_url;
+    // Well Applied sends the budget (its lease minus a delivery allowance), so the lease can never expire under a run
+    // that is still working. An older Well Applied sends none: fall back to the worker's own default.
+    const budgetMs = Number.isFinite(claimed.budget_seconds) ? claimed.budget_seconds * 1000 : undefined;
 
-    const result = await inspectFn(claimed.application_url);
+    log(`[poll] claimed agent_run_id=${claimed.agent_run_id} origin=${claimed.start_origin ?? 'unknown'} budget_s=${claimed.budget_seconds ?? 'default'}`);
+
+    let result;
+    try {
+        result = await inspectFn(startUrl, { budgetMs });
+    } catch (error) {
+        // inspect() reports every expected outcome itself; this is the unexpected: still deliver a failed result now
+        // rather than leave the claim to expire.
+        log(`[poll] agent_run_id=${claimed.agent_run_id} inspection threw: ${error?.message}`);
+        result = {
+            status: 'failed',
+            failure_category: 'unexpected_error',
+            failure_message: `The worker failed unexpectedly: ${String(error?.message ?? error).replace(/https?:\/\/[^\s"']+/gi, '[url]')}`,
+            diagnostics: { timestamp: new Date().toISOString() },
+        };
+    }
 
     await deliverResult(
         client,

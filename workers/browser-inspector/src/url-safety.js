@@ -10,7 +10,7 @@ const PRIVATE_HOSTNAMES = new Set(['localhost', '0.0.0.0']);
  * @param {string} ip
  * @returns {boolean}
  */
-function isPrivateIPv4(ip) {
+export function isPrivateIPv4(ip) {
     const parts = ip.split('.').map(Number);
     if (
         parts.length !== 4 ||
@@ -18,6 +18,8 @@ function isPrivateIPv4(ip) {
     )
         return false;
     const [a, b] = parts;
+    if (a === 0) return true; // "this network" / unspecified
+    if (a === 100 && b >= 64 && b <= 127) return true; // 100.64.0.0/10 carrier-grade NAT
     if (a === 127) return true; // loopback
     if (a === 10) return true; // 10.0.0.0/8
     if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12
@@ -30,7 +32,7 @@ function isPrivateIPv4(ip) {
  * @param {string} ip
  * @returns {boolean}
  */
-function isPrivateIPv6(ip) {
+export function isPrivateIPv6(ip) {
     // WHATWG URL keeps the brackets in url.hostname for an IPv6 literal
     // (e.g. "[::1]") — strip them before comparing.
     const normalized = ip.toLowerCase().replace(/^\[|\]$/g, '');
@@ -48,7 +50,7 @@ function isPrivateIPv6(ip) {
  * @param {string} rawUrl
  * @returns {{valid: true, url: URL} | {valid: false, reason: string}}
  */
-export function validateUrlStructure(rawUrl) {
+export function validateUrlStructure(rawUrl, { allowHosts = new Set() } = {}) {
     let url;
     try {
         url = new URL(rawUrl);
@@ -60,6 +62,15 @@ export function validateUrlStructure(rawUrl) {
         return { valid: false, reason: `unsupported_scheme:${url.protocol}` };
     }
 
+    if (url.username || url.password) {
+        return { valid: false, reason: 'credentials_in_url' };
+    }
+
+    // Test fixtures only (see guard.js): an exact host:port the caller named, never derived from a URL being inspected.
+    if (allowHosts.has(url.host.toLowerCase())) {
+        return { valid: true, url };
+    }
+
     const hostname = url.hostname.toLowerCase();
     if (PRIVATE_HOSTNAMES.has(hostname)) {
         return { valid: false, reason: 'loopback_hostname' };
@@ -69,6 +80,19 @@ export function validateUrlStructure(rawUrl) {
     }
 
     return { valid: true, url };
+}
+
+/**
+ * True for an IPv4 or IPv6 address (from a DNS answer or a connection) in a private, loopback or link-local range, and
+ * for the IPv4-mapped IPv6 form of one.
+ *
+ * @param {string} address
+ * @returns {boolean}
+ */
+export function isPrivateAddress(address) {
+    const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(address);
+    if (mapped) return isPrivateIPv4(mapped[1]);
+    return isPrivateIPv4(address) || isPrivateIPv6(address);
 }
 
 /**
@@ -93,7 +117,7 @@ export async function resolvesToPrivateAddress(url) {
         return { safe: false, reason: 'dns_resolution_failed' };
     }
     for (const { address } of addresses) {
-        if (isPrivateIPv4(address) || isPrivateIPv6(address)) {
+        if (isPrivateAddress(address)) {
             return { safe: false, reason: 'resolved_to_private_address' };
         }
     }
