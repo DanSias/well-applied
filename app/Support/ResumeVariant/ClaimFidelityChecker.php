@@ -22,13 +22,17 @@ namespace App\Support\ResumeVariant;
  *                       launch, maintenance and operation are, and are matched as whole words, never by a shared stem
  *                       ("production" is not supported by "product design").
  *
+ *  - team_claim        supervising or leading people ("led a team of developers", "direct reports") when the evidence states only
+ *                       managing projects or coordinating clients. Managing a project is not managing people; a claim of the
+ *                       second kind needs evidence of the second kind.
+ *
  * Every finding carries the exact span and, where one exists, a deterministic repair that only REMOVES the
  * unsupported claim or RESTORES the evidence's own wording; it never adds a claim. Deterministic; no model call.
  */
 final class ClaimFidelityChecker
 {
     /** @var array<int, string> kinds that RecoverWording repairs or omits */
-    public const KINDS = ['scope_expansion', 'unsupported_cause', 'ownership_upgrade', 'figure_precision', 'unsupported_qualifier', 'lifecycle_upgrade'];
+    public const KINDS = ['scope_expansion', 'unsupported_cause', 'ownership_upgrade', 'figure_precision', 'unsupported_qualifier', 'lifecycle_upgrade', 'team_claim'];
 
     private const STOP = ['which', 'their', 'there', 'these', 'those', 'other', 'while', 'where', 'would', 'about', 'after', 'being', 'every', 'using', 'across', 'through', 'within', 'between', 'during', 'those', 'could', 'should'];
 
@@ -43,6 +47,13 @@ final class ClaimFidelityChecker
         'lead' => ['text' => '/\b(?:led|leading|spearhead\w*|pioneer\w*|direct(?:ed|ing)|drove|driving|champion\w*|oversaw|managed|managing)\b/i', 'evidence' => '/\b(?:led|leading|leadership|spearhead\w*|pioneer\w*|direct(?:ed|ing)|drove|driv\w*|champion\w*|oversaw|manag\w*)\b/i'],
         'own' => ['text' => '/\b(?:owned|owning|owns|founded)\b/i', 'evidence' => '/\b(?:own\w*|found(?:ed|er)|independent\w*|sole)\b/i'],
     ];
+
+    /**
+     * Leading, supervising or managing people: a lead verb with a group of people as its object ("led a distributed team",
+     * "managed engineers"), a team of, direct reports, supervision, or a team lead. "Managed client projects", "coordinated with
+     * client teams" and "the team's migration" are not people management.
+     */
+    private const PEOPLE = '/\b(?:(?:led|leading|lead|managed|managing|manage|oversaw|overseeing|headed|supervis\w+|(?:directed|directing)(?=[^.;]*?\b(?:team|teams|developers|engineers|staff|employees|contractors|designers|analysts|reports)\b(?!\s+to\b)))\s+(?:(?:a|an|the|our|my|cross-functional|distributed|small|large|engineering|development|technical|remote|\d+)\s+){0,3}(?:team|teams|developers|engineers|staff|employees|contractors|designers|analysts|reports)\b(?![\'\x{2019}]s)|team of\b|direct reports?|supervis(?:ed|ing|ion|or)\b|people management|team lead(?:er|ership)?\b)/iu';
 
     private const FIGURE = '/(?:(?<q>approximately|about|roughly|nearly|around|over|under|more than|up to)\s+)?(?<f>\$?\d[\d,]*(?:\.\d+)?(?:\s*[–-]\s*\$?\d[\d,]*(?:\.\d+)?)?\+?%?)/iu';
 
@@ -59,7 +70,7 @@ final class ClaimFidelityChecker
             return [];
         }
 
-        return [...$this->scope($text, $evidence), ...$this->cause($text, $evidence), ...$this->authority($text, $evidence, $this->evidenceByFact($citedKeys, $factTextByKey)), ...$this->figures($text, $evidence), ...$this->qualifiers($text, $evidence), ...$this->lifecycle($text, $evidence)];
+        return [...$this->scope($text, $evidence), ...$this->cause($text, $evidence), ...$this->authority($text, $evidence, $this->evidenceByFact($citedKeys, $factTextByKey)), ...$this->figures($text, $evidence), ...$this->qualifiers($text, $evidence), ...$this->lifecycle($text, $evidence), ...$this->people($text, $evidence)];
     }
 
     /**
@@ -300,6 +311,24 @@ final class ClaimFidelityChecker
         }
 
         return $findings;
+    }
+
+    /**
+     * A claim of leading or supervising people that no cited fact makes. There is no repair: removing the phrase would leave a
+     * different claim, so the location is omitted (RecoverWording) rather than rewritten.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function people(string $text, string $evidence): array
+    {
+        if (preg_match(self::PEOPLE, $text, $hit) !== 1 || preg_match(self::PEOPLE, $evidence) === 1) {
+            return [];
+        }
+
+        return [[
+            'kind' => 'team_claim', 'severity' => 'block', 'detail' => trim($hit[0]),
+            'message' => 'claims leading or supervising people ("'.trim($hit[0]).'"), which the cited evidence does not state; it states managing projects and working with clients',
+        ]];
     }
 
     /**

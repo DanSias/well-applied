@@ -137,6 +137,20 @@ Following an explicit architecture audit (canonical-data-and-tailoring-architect
 
 **Provenance:** every new fact's evidence is `source: user_confirmed`, `confirmed_at: "2026-09-08"` — this pass's evidence came directly from the candidate in conversation, not from the resume or portfolio, and no stronger provenance is claimed.
 
+## Liquid Gravity role-level responsibility evidence (2026-11-18)
+
+Three public, role-level facts were added to `liquid-gravity-founder`, each with `source: user_confirmed`, `confirmed_at: "2026-11-18"` (the candidate's own description of the role, not the resume or portfolio):
+
+| Fact | Responsibility it establishes |
+|---|---|
+| `liquid-gravity-end-to-end-client-project-delivery` | Managed multiple client projects from requirements and solution design through development, launch and ongoing support. |
+| `liquid-gravity-client-requirements-collaboration` | Worked directly with clients and stakeholders to translate business objectives into technical requirements, coordinate priorities and deliver solutions. |
+| `liquid-gravity-founder-delivery-responsibility` | Balanced hands-on development with project planning, client relationships and delivery as an independent founder and developer across a diverse portfolio of client engagements. |
+
+**Checked before adding.** Technical breadth (custom web applications, CMS/CRM including Salesforce, marketing automation) is already stated by `liquid-gravity-what-they-did` (a narrative, never a bullet) and `liquid-gravity-cms-crm-marketing-automation-integrations`, `liquid-gravity-lead-generation-systems` and `liquid-gravity-ecommerce-checkout-upsell`, so no fourth fact was added for it. `liquid-gravity-client-facing-performance-walkthroughs` is about copy/design assets and campaign-performance walkthroughs; the new collaboration fact is about requirements and priorities. Nothing existing contradicts the new facts (the only recorded limitation is Ruby on Rails). They are role-level: they do not claim anything about the Brute Strength Training engagement, where the candidate contributed as part of a team.
+
+**Not established, so not stated:** direct reports, team or employee counts, budgets, revenue, formal management titles, client names or industries, and any performance figure.
+
 ## Claim boundaries preserved by this dataset
 
 These are **authoring/tailoring boundaries, not negative CareerFacts** — this dataset does not, and should not, contain "does not have X" rows (consistent with "Unresolved competing claims stay as separate CareerFacts" in `docs/domain-model.md`: absence of evidence is represented by absence of a fact, never by an invented negative one). Nothing in this dataset currently evidences, and future edits should not casually introduce evidence for, any of the following unless a genuinely new, separately-confirmed source justifies it:
@@ -155,6 +169,7 @@ These are **authoring/tailoring boundaries, not negative CareerFacts** — this 
 - Developer/merchant onboarding enablement ≠ federal workforce training.
 - CMS experience (Liquid Gravity) ≠ SharePoint experience.
 - Video marketing/editing (Liquid Gravity, Brute Strength) ≠ advanced multimedia production.
+- "Managed multiple client projects" (Liquid Gravity) ≠ people management: no direct reports, team size, budget or management title is established.
 
 ## What's deliberately not in this proposal
 

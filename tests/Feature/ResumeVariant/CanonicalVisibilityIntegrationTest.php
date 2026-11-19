@@ -65,14 +65,17 @@ it('keeps the eleven technique/process Restricted facts eligible', function () {
     }
 });
 
-it('matches the exact expected visibility distribution: 54 public / 16 restricted / 7 private', function () {
+it('matches the exact expected visibility distribution: 57 public / 16 restricted / 7 private', function () {
     // 51/16/7 was the count before the 2026-09-09 independent-projects
     // pass added 3 new public "what it is" facts (Well Prompted,
     // PromptWorks, Well Applied) — see docs/canonical-data-proposal.md
     // "Independent projects". Restricted/private are unchanged.
+    // 54 -> 57 when the 2026-11-18 pass added 3 public role-level Liquid
+    // Gravity responsibility facts (end-to-end client project delivery,
+    // client requirements collaboration, founder delivery responsibility).
     $counts = CareerFact::query()->selectRaw('visibility, count(*) as c')->groupBy('visibility')->pluck('c', 'visibility');
 
-    expect($counts['public'])->toBe(54)
+    expect($counts['public'])->toBe(57)
         ->and($counts['restricted'])->toBe(16)
         ->and($counts['private'])->toBe(7);
 });

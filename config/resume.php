@@ -172,6 +172,13 @@ return [
             'concrete_build' => 1.12, 'integration' => 1.05, 'deployed' => 1.06, 'project_outcome' => 1.05,
             'min' => 0.5, 'max' => 1.2,
         ],
+        // Role coverage. A role held at least `min_years` is part of the career story whatever one job asks: where its approved
+        // evidence shows distinct responsibilities (what was built, owning the work across its lifecycle, working directly with
+        // clients, carrying the business and delivery side; see StoryDimensions::responsibilities) it keeps up to `target`
+        // bullets, `minimum` when the job speaks to nothing the role did. The bullets are added to the plan, never taken from
+        // another role, and the total stays within `bullets.max`. They are soft targets: a role with less evidence than the
+        // target simply has fewer, and the shortfall is reported (CompositionChecks, check `role_coverage`).
+        'coverage' => ['min_years' => 5, 'target' => 4, 'minimum' => 3],
         'story' => ['max_facts' => 3, 'lead_max_facts' => 4],
         // A job gets the AI skills layout when it asks strongly for LLM work (capability weight, or the title says so).
         'skills' => ['ai_capability' => 0.6, 'isolated_tag' => 0.5],

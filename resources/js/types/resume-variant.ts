@@ -110,7 +110,7 @@ export type ResumeTailoringReview = {
 
 /** A whole-resume quality finding: advice for a person, never an automatic change. */
 export type ResumeCompositionFinding = {
-    check: 'engineering_evidence' | 'result_context' | 'narrative_consistency' | 'duplicate_accomplishment' | 'story_dimensions';
+    check: 'engineering_evidence' | 'result_context' | 'narrative_consistency' | 'duplicate_accomplishment' | 'story_dimensions' | 'role_coverage';
     severity: 'blocking' | 'review' | 'informational';
     message: string;
     selected: { key: string; statement: string }[];

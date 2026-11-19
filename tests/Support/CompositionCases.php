@@ -84,14 +84,17 @@ final class CompositionCases
      * The two inputs ReferenceSelection::build() reads, shaped as a resume written for a job reads them (the profile
      * adapted to the job: each accomplishment carries the job's relevance).
      *
-     * @param  array<string, mixed>  $factOverrides  key => replacement fields (statement, visibility, included, pinned, job, findings, general, bare_tag); `_priority` => the requirement ids the job guarantees a bullet
+     * @param  array<string, mixed>  $factOverrides  key => replacement fields (statement, visibility, included, pinned, job, findings, general, bare_tag); `_priority` => the requirement ids the job guarantees a bullet; `_roles` / `_facts` => extra roles and facts
      * @return array{0: array<string, mixed>, 1: array{career_facts: array<int, array<string, mixed>>}, 2: array<string, int>}
      */
     public static function forJob(string $case, array $factOverrides = []): array
     {
         $roleIds = [];
 
-        foreach (self::ROLES as $name => $role) {
+        // A test may add roles (`_roles`: name => title/start/end) and facts (`_facts`: the FACTS row shape) to the career.
+        $allRoles = [...self::ROLES, ...($factOverrides['_roles'] ?? [])];
+
+        foreach ($allRoles as $name => $role) {
             $roleIds[$name] = Role::factory()->create(['title' => $role['title'], 'start_year' => $role['start'], 'end_year' => $role['end']])->id;
         }
 
@@ -99,7 +102,7 @@ final class CompositionCases
         $facts = [];
         $offered = [];
 
-        foreach (self::FACTS as $i => [$key, $statement, $role, $project, $kind, $profile, $relevance]) {
+        foreach ([...self::FACTS, ...($factOverrides['_facts'] ?? [])] as $i => [$key, $statement, $role, $project, $kind, $profile, $relevance]) {
             $o = $factOverrides[$key] ?? [];
             $job = $o['job'] ?? $relevance[$case];
             $accomplishments[] = [

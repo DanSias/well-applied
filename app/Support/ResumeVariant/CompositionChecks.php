@@ -5,6 +5,7 @@ namespace App\Support\ResumeVariant;
 use App\Models\CareerFact;
 use App\Models\CareerProfile;
 use App\Models\JobAnalysis;
+use App\Support\ProfileSynthesis\ReferenceSelection;
 use App\Support\ProfileSynthesis\StoryDimensions;
 use App\Support\ResumeProfile\CapabilityCoverage;
 
@@ -40,7 +41,7 @@ final class CompositionChecks
 
     private const AVAILABLE = 3;
 
-    public function __construct(private readonly ClaimScopeChecker $scope, private readonly CapabilityCoverage $coverage) {}
+    public function __construct(private readonly ClaimScopeChecker $scope, private readonly CapabilityCoverage $coverage, private readonly ReferenceSelection $selection) {}
 
     /**
      * @param  array<string, mixed>  $content  the selection: experience[].bullet_groups[] (career_fact_keys, job_analysis_finding_ids), summary_evidence
@@ -85,11 +86,48 @@ final class CompositionChecks
      */
     public function forJob(array $content, array $facts, CareerProfile $profile, array $effective, array $relevance, JobAnalysis $analysis): array
     {
-        return $this->run($content, $facts, $this->claimGroupSizes($profile), $effective['accomplishments'], [
-            'engineering' => preg_match('/engineer|developer|architect/i', (string) $analysis->jobPosting->title) === 1,
-            'findings' => $relevance['findings'],
-            'priority' => $effective['job_priority_findings'] ?? [],
-        ]);
+        return [
+            ...$this->run($content, $facts, $this->claimGroupSizes($profile), $effective['accomplishments'], [
+                'engineering' => preg_match('/engineer|developer|architect/i', (string) $analysis->jobPosting->title) === 1,
+                'findings' => $relevance['findings'],
+                'priority' => $effective['job_priority_findings'] ?? [],
+            ]),
+            // Read from the resume's own bullets, so a generated, revised and reviewed resume are all judged the same way.
+            ...$this->roleCoverage(['roles' => $this->selection->coverageOf($content, $effective, $facts)]),
+        ];
+    }
+
+    /**
+     * A long role that ended below the minimum coverage (config('resume.composition.coverage')): reported, never padded. The reason
+     * says what would change it. A role short because its approved evidence states few distinct responsibilities is advice to
+     * record more (informational: nothing on this resume is wrong); one short with evidence available is a selection or budget
+     * problem worth a look (review).
+     *
+     * @param  array<string, mixed>  $trace  ReferenceSelection::build()['trace']
+     * @return array<int, array{check: string, severity: string, message: string, selected: array<int, string>, available: array<int, string>}>
+     */
+    public function roleCoverage(array $trace): array
+    {
+        $findings = [];
+
+        foreach ((array) ($trace['roles'] ?? []) as $role) {
+            $c = $role['coverage'] ?? null;
+
+            if ($c === null || ($c['short_of'] ?? null) === null) {
+                continue;
+            }
+
+            $head = sprintf('%s (%d years) has %d bullet%s, below the %d a role of that length keeps.', $c['title'], $c['years'], $c['achieved'], $c['achieved'] === 1 ? '' : 's', $c['short_of']);
+            $message = match ($c['reason']) {
+                'evidence' => sprintf('%s Approved evidence states %s for it. Record what else you did in this role (owning projects, working with clients, delivery) in Career Data to give it fuller coverage.', $head, $c['cover_size'] === 0 ? 'no distinct responsibility' : sprintf('only %d distinct responsibilit%s (%s)', $c['cover_size'], $c['cover_size'] === 1 ? 'y' : 'ies', implode(', ', $c['supported']))),
+                'budget' => $head.' The resume is at its bullet ceiling, so the role was not given more.',
+                default => $head.' Approved evidence for more was available but was not selected.',
+            };
+
+            $findings[] = $this->finding('role_coverage', $c['reason'] === 'evidence' ? self::INFORMATIONAL : self::REVIEW, $message, [], []);
+        }
+
+        return $findings;
     }
 
     /**

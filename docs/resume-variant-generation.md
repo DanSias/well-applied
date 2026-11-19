@@ -1161,6 +1161,10 @@ OpenAI usage is not yet surfaced.
 that the one-bullet floor is never a ceiling (Liquid Gravity had 10
 eligible facts but one merged bullet group).
 
+**People leadership is not project management.** `ClaimFidelityChecker` blocks `team_claim` (leading, supervising or managing a
+team, engineers, staff or direct reports) unless a cited fact itself states it. "Managed multiple client projects" and
+"coordinated priorities with client teams" are project and client language and pass; there is no repair, so the bullet is omitted.
+
 ## Recoverable, bullet-level validation
 
 A problem with one generated bullet no longer fails the whole Wording
@@ -1187,6 +1191,46 @@ and tags each finding `block` or `review`; only structural problems
   visibility. It never stores the text of an omitted claim. The Tailored
   Resume panel lists the items to verify. A review warning never blocks PDF
   generation.
+
+### Role coverage (long roles in a resume for a job)
+
+Allocation for a job (`ReferenceSelection::allocateForJob`) is relevance-weighted, and a bullet after a role's first must clear
+`filler_relevance`. For a long earlier role whose work is described as client work, ownership and delivery (Liquid Gravity: eight
+years, ten approved facts) every fact scores near zero for most postings, so the role was reduced to one bullet while the second
+page was a third empty. The cause was selection (allocation and the relevance gate), not data volume, wording, validation or layout:
+`ClaimFidelityChecker` and the PDF compositor never saw the missing bullets, and the compositor drops only from the role with the
+most bullets.
+
+`coveragePlan()` adds a floor for roles held `coverage.min_years` or longer. The floor is the number of units in a minimal cover of
+the responsibilities the role's approved evidence states (`StoryDimensions::responsibilities`: build, ownership, client, business),
+capped by `coverage.target` (4; `coverage.minimum`, 3, when the job speaks to nothing the role did) and the role's cap. It is
+added to the plan, not taken from another role, within `bullets.max`. It acts only on a role the relevance plan left below its
+floor (`lifted`): a role that already has that many bullets keeps what the job chose for it, so a long recent-enough role such as
+an analytics lead is not reshuffled for diversity. `pick()` fills those slots after relevance has chosen what
+the job asks for, each time with the bullet that shows a responsibility the others do not (the relevance gate is waived; every
+other rule, such as no restating a chosen bullet, still applies). A bullet that adds no new responsibility is never coverage, so a
+role that only ever says "built X" keeps one bullet.
+
+Bullet counts are soft: a role with less approved evidence simply has fewer. When a long role ends below `coverage.minimum`, the
+selection trace carries `coverage` (target, floor, achieved, responsibilities shown and supported, reason) and
+`CompositionChecks` reports `role_coverage`, computed from the resume's own bullets (`ReferenceSelection::coverageOf`) so a
+generated, revised and reviewed resume are judged the same way (informational when the evidence is the limit, review when selection or the bullet
+ceiling is). Facts are not changed by any of this: a fact stays eligible exactly as before, and wording is judged by the same
+validators. Evidence added to a profile reaches generation after the profile is refreshed (`ReviewProfileSynthesis::refreshEvidence`)
+and approved.
+
+**Known limitation: generic wording scores as relevance (not changed here).** `JobRelevance` ranks a fact by capability and
+vocabulary overlap with the posting, and discounts general claims only by pattern (`generic_ownership` matches statements that open
+"Owned", `generic_leadership` mentoring and technical leadership). A role-level statement such as "Managed multiple client projects
+from requirements gathering ... through development, launch, and ongoing support" shares ordinary words (requirements, delivery,
+planning) with almost any posting and escapes both discounts. Observed on job 348 (Software Integration Engineer) with the refreshed
+profile: the new Liquid Gravity facts scored 0.40 to 0.46 against a posting that has nothing to do with client work, took a share of
+the fixed relevance plan, and the Pearson "Executive Insights Dashboard" bullet (a concrete build, scored lower) was the bullet
+dropped, Pearson going from 4 bullets to 3. Role coverage is not the cause (with it disabled the result is the same); it only adds
+Liquid Gravity bullets on top of the plan. A fix belongs in relevance scoring (for example discounting general ownership and
+delivery language the way concrete builds are credited), with its own regression cases for both roles. Until then a refreshed
+profile can shift one bullet from a concrete recent-enough build to a general responsibility statement for postings that share generic
+vocabulary.
 
 ## Automatic evidence resolution (profile editor)
 

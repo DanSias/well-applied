@@ -55,8 +55,109 @@ final class ReferenceSelection
         $cfg = (array) config('resume_profiles.reference');
         $offered = array_column($payload['career_facts'], null, 'key');
         $roleIds = array_values(array_unique(array_filter(array_map(fn (array $f) => $f['attribution']['role_id'] ?? null, $offered))));
-        $excludedProjects = array_column(array_filter($effective['projects'], fn (array $p) => ! $p['included']), 'project_id');
         $omitted = [];
+        $candidates = $this->candidatesFor($effective, $offered, $omitted);
+
+        $roleRows = Role::query()->whereIn('id', $roleIds)->get(['id', 'title', 'start_year', 'end_year'])->keyBy('id');
+        $titles = $roleRows->pluck('title', 'id');
+        $meta = $this->meta($effective, $offered);
+        $forJob = isset($effective['job_priority_findings']);
+        $allocation = $forJob
+            ? $this->allocateForJob($roleIds, $candidates, $titles->all(), $roleRows->map(fn (Role $r) => ['start' => $r->start_year, 'end' => $r->end_year])->all())
+            : $this->allocate($roleIds, $candidates, (int) $cfg['total_bullets'], (int) $cfg['per_role_max'], (int) $cfg['developer_role_floor'], $titles->all());
+        // A long role keeps its distinct responsibilities in a resume for a job, whatever the job asks (see coveragePlan()).
+        $unitsCache = [];
+        $unitsFor = function (int $roleId) use (&$unitsCache, $candidates, $offered, $cfg, $meta, $forJob): array {
+            return $unitsCache[$roleId] ??= $this->units($candidates[$roleId] ?? [], $offered, (int) $cfg['outcomes_per_lead'], (float) $cfg['overlap_limit'], $meta, $forJob);
+        };
+        $coverage = $forJob ? $this->coveragePlan($roleIds, $unitsFor, $candidates, $titles->all(), $roleRows->map(fn (Role $r) => ['start' => $r->start_year, 'end' => $r->end_year])->all(), $allocation, $offered) : [];
+
+        if ($forJob) {
+            $allocation = $coverage['allocation'];
+        }
+
+        $weights = $this->projectWeights($effective, (int) $cfg['priority_projects']);
+        // The user's top few projects are guaranteed a bullet on a reference resume. For a job only the pinned ones are: the
+        // rest compete on what the job asks for.
+        $priority = array_keys(array_filter($weights, fn (float $w) => $w >= (isset($effective['job_priority_findings']) ? 1.35 : 1.1)));
+        $extraLeft = (int) $cfg['coverage_extra_bullets'];
+        $experience = [];
+        $traceRoles = [];
+        $byRole = [];
+
+        // Roles with the most bullets first, so the bounded extra allowance goes where coverage matters most.
+        $order = $roleIds;
+        usort($order, fn (int $a, int $b) => ($allocation[$b] ?? 1) <=> ($allocation[$a] ?? 1));
+
+        foreach ($order as $roleId) {
+            $units = $unitsFor($roleId);
+            $fallback = false;
+
+            if ($units === []) {
+                // Role completeness: every role that has eligible evidence must appear. Use its strongest fact.
+                $best = array_values(array_filter($offered, fn (array $f) => ($f['attribution']['role_id'] ?? null) === $roleId))[0];
+                $units = [$this->unit([$best['key']], PHP_INT_MAX, $best['attribution']['project_id'] ?? null, 0.0, 'implementation', false, false)];
+                $fallback = true;
+            }
+
+            $result = $this->pick($units, $allocation[$roleId] ?? 1, [
+                'per_project_max' => (int) $cfg['per_project_max'], 'weights' => $weights, 'priority' => $priority,
+                'overlap_limit' => (float) $cfg['overlap_limit'], 'extra' => min(1, $extraLeft), 'role_has_projects' => array_filter($units, fn (array $u) => $u['project_id'] !== null) !== [],
+                'job_priority' => $effective['job_priority_findings'] ?? [],
+                // For a job, evidence the job barely speaks to does not fill a slot once the role has a bullet.
+                'min_job' => $forJob ? (float) config('resume.composition.allocation.filler_relevance') : null,
+                // A general claim of ownership or leadership says the same thing wherever it is made; a role keeps a few and the rest of its slots go to the work.
+                'generic_max' => $forJob ? (int) config('resume.composition.allocation.generic_per_role') : null,
+                'technical_floor' => preg_match('/\b(?:developer|engineer)\b/i', (string) $titles[$roleId]) === 1, 'texts' => array_map(fn (array $f) => $f['statement'], $offered),
+                'coverage' => $forJob && ($coverage['roles'][$roleId]['lifted'] ?? false) ? min((int) $coverage['roles'][$roleId]['floor'], $allocation[$roleId] ?? 1) : 0,
+            ]);
+            $extraLeft -= $result['extra_used'];
+
+            foreach ($result['left'] as [$unit, $why]) {
+                foreach ($unit['facts'] as $key) {
+                    $omitted[] = ['fact_key' => $key, 'reason' => $why];
+                }
+            }
+
+            $byRole[$roleId] = [
+                'role_id' => $roleId, 'title_choice' => $this->titleChoice((string) $titles[$roleId]),
+                'bullet_groups' => array_map(fn (array $unit, int $n) => ['order' => $n + 1, 'career_fact_keys' => $unit['facts'], 'job_analysis_finding_ids' => []], $result['chosen'], array_keys($result['chosen'])),
+            ];
+            $traceRoles[] = [
+                'role_id' => $roleId, 'bullets' => count($result['chosen']), 'fallback' => $fallback, 'groups' => array_column($result['chosen'], 'facts'),
+                'facets' => array_column($result['chosen'], 'facet'), 'extra_bullets' => $result['extra_used'], 'uncovered_priority_projects' => $result['uncovered'],
+                ...($forJob ? ['coverage' => $this->coverageOutcome($coverage['roles'][$roleId], $result['chosen'], $offered, (string) $titles[$roleId])] : []),
+            ];
+        }
+
+        foreach ($roleIds as $roleId) {
+            $experience[] = $byRole[$roleId];
+        }
+
+        $summary = $this->summaryFacts($effective, $offered, $candidates);
+
+        return [
+            'content' => [
+                'summary_evidence' => $summary, 'skills' => $this->skills($effective, $offered, $experience, $summary, $effective['skills_layout'] ?? null), 'experience' => $experience,
+                'selected_projects' => $this->personalProjects($effective, $offered, (int) $cfg['personal_projects_max']),
+                'target_term_usages' => [],
+            ],
+            'trace' => ['roles' => $traceRoles, 'summary_facts' => $summary, 'omitted' => $omitted, 'extra_bullets_used' => (int) $cfg['coverage_extra_bullets'] - $extraLeft],
+        ];
+    }
+
+    /**
+     * Each role's accomplishments that may be chosen, in the profile's order. What is left out (excluded, its project excluded, not
+     * offered, a description of the role's scope) is appended to `$omitted` with the reason.
+     *
+     * @param  array<string, mixed>  $effective
+     * @param  array<string, array<string, mixed>>  $offered
+     * @param  array<int, array{fact_key: string, reason: string}>  $omitted
+     * @return array<int, array<int, array<string, mixed>>>
+     */
+    private function candidatesFor(array $effective, array $offered, array &$omitted): array
+    {
+        $excludedProjects = array_column(array_filter($effective['projects'], fn (array $p) => ! $p['included']), 'project_id');
         $candidates = [];
 
         foreach ($effective['accomplishments'] as $i => $a) {
@@ -83,79 +184,38 @@ final class ReferenceSelection
             $candidates[$roleId][] = [...$a, 'kind' => $kind, 'order_index' => $i, 'project_id' => $fact['attribution']['project_id'] ?? null];
         }
 
+        return $candidates;
+    }
+
+    /**
+     * Role coverage for a resume as it stands (a generated selection, a revision, a reviewed variant), read from the facts its
+     * bullets cite rather than from a selection trace, so it is the same wherever the resume came from.
+     *
+     * @param  array<string, mixed>  $content  experience[].role_id and bullet_groups[].career_fact_keys
+     * @param  array<string, mixed>  $effective  the profile as adapted to the job
+     * @param  array<string, array<string, mixed>>  $offered  eligible facts by key
+     * @return array<int, array{role_id: int, coverage: array<string, mixed>}>
+     */
+    public function coverageOf(array $content, array $effective, array $offered): array
+    {
+        $cfg = (array) config('resume_profiles.reference');
+        $omitted = [];
+        $candidates = $this->candidatesFor($effective, $offered, $omitted);
+        $roleIds = array_values(array_map(fn (array $r) => (int) $r['role_id'], $content['experience']));
         $roleRows = Role::query()->whereIn('id', $roleIds)->get(['id', 'title', 'start_year', 'end_year'])->keyBy('id');
-        $titles = $roleRows->pluck('title', 'id');
         $meta = $this->meta($effective, $offered);
-        $forJob = isset($effective['job_priority_findings']);
-        $allocation = $forJob
-            ? $this->allocateForJob($roleIds, $candidates, $titles->all(), $roleRows->map(fn (Role $r) => ['start' => $r->start_year, 'end' => $r->end_year])->all())
-            : $this->allocate($roleIds, $candidates, (int) $cfg['total_bullets'], (int) $cfg['per_role_max'], (int) $cfg['developer_role_floor'], $titles->all());
-        $weights = $this->projectWeights($effective, (int) $cfg['priority_projects']);
-        // The user's top few projects are guaranteed a bullet on a reference resume. For a job only the pinned ones are: the
-        // rest compete on what the job asks for.
-        $priority = array_keys(array_filter($weights, fn (float $w) => $w >= (isset($effective['job_priority_findings']) ? 1.35 : 1.1)));
-        $extraLeft = (int) $cfg['coverage_extra_bullets'];
-        $experience = [];
-        $traceRoles = [];
-        $byRole = [];
+        $unitsFor = fn (int $roleId): array => $this->units($candidates[$roleId] ?? [], $offered, (int) $cfg['outcomes_per_lead'], (float) $cfg['overlap_limit'], $meta, true);
+        $allocation = [];
+        $chosen = [];
 
-        // Roles with the most bullets first, so the bounded extra allowance goes where coverage matters most.
-        $order = $roleIds;
-        usort($order, fn (int $a, int $b) => ($allocation[$b] ?? 1) <=> ($allocation[$a] ?? 1));
-
-        foreach ($order as $roleId) {
-            $units = $this->units($candidates[$roleId] ?? [], $offered, (int) $cfg['outcomes_per_lead'], (float) $cfg['overlap_limit'], $meta, $forJob);
-            $fallback = false;
-
-            if ($units === []) {
-                // Role completeness: every role that has eligible evidence must appear. Use its strongest fact.
-                $best = array_values(array_filter($offered, fn (array $f) => ($f['attribution']['role_id'] ?? null) === $roleId))[0];
-                $units = [$this->unit([$best['key']], PHP_INT_MAX, $best['attribution']['project_id'] ?? null, 0.0, 'implementation', false, false)];
-                $fallback = true;
-            }
-
-            $result = $this->pick($units, $allocation[$roleId] ?? 1, [
-                'per_project_max' => (int) $cfg['per_project_max'], 'weights' => $weights, 'priority' => $priority,
-                'overlap_limit' => (float) $cfg['overlap_limit'], 'extra' => min(1, $extraLeft), 'role_has_projects' => array_filter($units, fn (array $u) => $u['project_id'] !== null) !== [],
-                'job_priority' => $effective['job_priority_findings'] ?? [],
-                // For a job, evidence the job barely speaks to does not fill a slot once the role has a bullet.
-                'min_job' => $forJob ? (float) config('resume.composition.allocation.filler_relevance') : null,
-                // A general claim of ownership or leadership says the same thing wherever it is made; a role keeps a few and the rest of its slots go to the work.
-                'generic_max' => $forJob ? (int) config('resume.composition.allocation.generic_per_role') : null,
-                'technical_floor' => preg_match('/\b(?:developer|engineer)\b/i', (string) $titles[$roleId]) === 1, 'texts' => array_map(fn (array $f) => $f['statement'], $offered),
-            ]);
-            $extraLeft -= $result['extra_used'];
-
-            foreach ($result['left'] as [$unit, $why]) {
-                foreach ($unit['facts'] as $key) {
-                    $omitted[] = ['fact_key' => $key, 'reason' => $why];
-                }
-            }
-
-            $byRole[$roleId] = [
-                'role_id' => $roleId, 'title_choice' => $this->titleChoice((string) $titles[$roleId]),
-                'bullet_groups' => array_map(fn (array $unit, int $n) => ['order' => $n + 1, 'career_fact_keys' => $unit['facts'], 'job_analysis_finding_ids' => []], $result['chosen'], array_keys($result['chosen'])),
-            ];
-            $traceRoles[] = [
-                'role_id' => $roleId, 'bullets' => count($result['chosen']), 'fallback' => $fallback, 'groups' => array_column($result['chosen'], 'facts'),
-                'facets' => array_column($result['chosen'], 'facet'), 'extra_bullets' => $result['extra_used'], 'uncovered_priority_projects' => $result['uncovered'],
-            ];
+        foreach ($content['experience'] as $role) {
+            $allocation[(int) $role['role_id']] = count($role['bullet_groups']);
+            $chosen[(int) $role['role_id']] = array_map(fn (array $g) => ['facts' => $g['career_fact_keys']], $role['bullet_groups']);
         }
 
-        foreach ($roleIds as $roleId) {
-            $experience[] = $byRole[$roleId];
-        }
+        $plan = $this->coveragePlan($roleIds, $unitsFor, $candidates, $roleRows->pluck('title', 'id')->all(), $roleRows->map(fn (Role $r) => ['start' => $r->start_year, 'end' => $r->end_year])->all(), $allocation, $offered);
 
-        $summary = $this->summaryFacts($effective, $offered, $candidates);
-
-        return [
-            'content' => [
-                'summary_evidence' => $summary, 'skills' => $this->skills($effective, $offered, $experience, $summary, $effective['skills_layout'] ?? null), 'experience' => $experience,
-                'selected_projects' => $this->personalProjects($effective, $offered, (int) $cfg['personal_projects_max']),
-                'target_term_usages' => [],
-            ],
-            'trace' => ['roles' => $traceRoles, 'summary_facts' => $summary, 'omitted' => $omitted, 'extra_bullets_used' => (int) $cfg['coverage_extra_bullets'] - $extraLeft],
-        ];
+        return array_map(fn (int $roleId) => ['role_id' => $roleId, 'coverage' => $this->coverageOutcome($plan['roles'][$roleId], $chosen[$roleId], $offered, (string) ($roleRows[$roleId]->title ?? ''))], $roleIds);
     }
 
     /**
@@ -301,6 +361,149 @@ final class ReferenceSelection
     }
 
     /**
+     * Which roles keep bullets for their distinct responsibilities in a resume for a job, and how many (see
+     * config('resume.composition.coverage')). Job relevance alone decides the plan above: it ranks evidence by how many of the
+     * posting's words it shares, so a long earlier role whose work is described in terms of clients, ownership and delivery
+     * can score near zero for every job and be reduced to one bullet however much approved evidence it has.
+     *
+     * A role qualifies by tenure (`min_years`), not by title or by what this job says. Its floor is the target, lowered to
+     * `minimum` when the job speaks to nothing the role did, never above the number of bullets its evidence has to offer (the
+     * units of a minimal cover of the responsibilities it states) or the role's cap (an analyst role keeps two). The floor is added to the plan rather than taken
+     * from another role, up to `bullets.max`, longest tenure first.
+     *
+     * @param  array<int, int>  $roleIds
+     * @param  array<int, array<int, array<string, mixed>>>  $candidates
+     * @param  array<int, string>  $titles
+     * @param  array<int, array{start: int|null, end: int|null}>  $tenure
+     * @param  array<int, int>  $allocation  bullets per role from the relevance plan
+     * @param  array<string, array<string, mixed>>  $offered
+     * @return array{allocation: array<int, int>, roles: array<int, array<string, mixed>>}
+     */
+    private function coveragePlan(array $roleIds, \Closure $unitsFor, array $candidates, array $titles, array $tenure, array $allocation, array $offered): array
+    {
+        $cfg = (array) config('resume.composition.coverage');
+        $alloc = (array) config('resume.composition.allocation');
+        $perRoleMax = (int) config('resume.composition.bullets.per_role_max');
+        $thisYear = (int) date('Y');
+        $roles = [];
+
+        foreach ($roleIds as $roleId) {
+            $start = $tenure[$roleId]['start'] ?? null;
+            $years = $start === null ? 0 : max(0, ($tenure[$roleId]['end'] ?? $thisYear) - $start);
+            $engineering = preg_match('/\b(?:developer|engineer)\b/i', (string) ($titles[$roleId] ?? '')) === 1;
+            $speaks = count(array_filter($candidates[$roleId] ?? [], fn (array $a) => ($a['job_relevance'] ?? 0.0) >= $alloc['filler_relevance'] && $a['kind'] !== 'platform_use'));
+            $target = $speaks > 0 ? (int) $cfg['target'] : (int) $cfg['minimum'];
+            // Distinct responsibilities, not a count of statements: three "built X" facts are one responsibility, so a role whose
+            // evidence only says that it built things has one bullet to show for it. `cover` is the fewest units that show them all
+            // (one fact can state two), which is how many bullets of evidence the role actually has to offer.
+            $cover = $this->responsibilityCover(array_map(fn (array $unit) => $this->responsibilitiesOf($unit, $offered), $unitsFor($roleId)));
+            $supported = array_values(array_unique(array_merge([], ...$cover)));
+            $stating = count($cover);
+
+            $applies = $years >= (int) $cfg['min_years'];
+            $cap = $engineering ? $perRoleMax : min(2, $perRoleMax);
+            $roles[$roleId] = [
+                'applies' => $applies, 'years' => $years, 'target' => $target, 'cap' => $cap, 'cover_size' => $stating, 'responsibilities_supported' => $supported,
+                'floor' => $applies ? max(0, min($cap, $target, $stating)) : 0,
+            ];
+        }
+
+        // Longest tenure first: the claim on the budget is continuity of the career story.
+        $byTenure = $roleIds;
+        usort($byTenure, fn (int $a, int $b) => $roles[$b]['years'] <=> $roles[$a]['years']);
+        $room = max(0, (int) config('resume.composition.bullets.max') - array_sum($allocation));
+
+        foreach ($byTenure as $roleId) {
+            $short = max(0, $roles[$roleId]['floor'] - ($allocation[$roleId] ?? 1));
+            // Coverage lifts a role the relevance plan left below its floor; a role the plan already gave that many bullets has
+            // had its evidence chosen by what the job asks for, and keeps that choice.
+            $roles[$roleId]['lifted'] = $short > 0;
+            $add = min($short, $room);
+            $allocation[$roleId] = ($allocation[$roleId] ?? 1) + $add;
+            $room -= $add;
+            $roles[$roleId]['budget_limited'] = $add < $short;
+        }
+
+        return ['allocation' => $allocation, 'roles' => $roles];
+    }
+
+    /**
+     * The responsibilities a unit (a bullet's worth of facts) states.
+     *
+     * @param  array<string, mixed>  $unit
+     * @param  array<string, array<string, mixed>>  $offered
+     * @return array<int, string>
+     */
+    private function responsibilitiesOf(array $unit, array $offered): array
+    {
+        return array_values(array_unique(array_merge([], ...array_map(fn (string $k) => StoryDimensions::responsibilities((string) ($offered[$k]['statement'] ?? '')), $unit['facts']))));
+    }
+
+    /**
+     * A greedy minimal cover: repeatedly the unit that adds the most responsibilities not yet shown, until none adds any.
+     * Ties keep the profile's order. Each member of the result is the responsibilities its unit contributed.
+     *
+     * @param  array<int, array<int, string>>  $unitResponsibilities  one list per unit, in the profile's order
+     * @return array<int, array<int, string>>
+     */
+    private function responsibilityCover(array $unitResponsibilities): array
+    {
+        $covered = [];
+        $cover = [];
+
+        while (true) {
+            $best = null;
+
+            foreach ($unitResponsibilities as $i => $shown) {
+                $gain = array_values(array_diff($shown, $covered));
+
+                if ($gain !== [] && ($best === null || count($gain) > count($best[1]))) {
+                    $best = [$i, $gain];
+                }
+            }
+
+            if ($best === null) {
+                return $cover;
+            }
+
+            $cover[] = $best[1];
+            $covered = [...$covered, ...$best[1]];
+            unset($unitResponsibilities[$best[0]]);
+        }
+    }
+
+    /**
+     * What a role's coverage came to, for the trace and the composition check: how many bullets, which responsibilities they
+     * show, and why a role short of its target is short (`evidence`: it has little approved evidence stating a responsibility;
+     * `budget`: the resume is at its bullet ceiling; `selection`: evidence was available and not chosen).
+     *
+     * @param  array<string, mixed>  $plan  coveragePlan() for the role
+     * @param  array<int, array<string, mixed>>  $chosen
+     * @param  array<string, array<string, mixed>>  $offered
+     * @return array<string, mixed>
+     */
+    private function coverageOutcome(array $plan, array $chosen, array $offered, string $title): array
+    {
+        $shows = array_values(array_unique(array_merge([], ...array_map(fn (array $u) => $this->responsibilitiesOf($u, $offered), $chosen))));
+        $minimum = (int) config('resume.composition.coverage.minimum');
+        $achieved = count($chosen);
+        $short = $plan['applies'] && $achieved < $minimum;
+
+        return [
+            'title' => $title, 'applies' => $plan['applies'], 'years' => $plan['years'], 'target' => $plan['target'], 'floor' => $plan['floor'], 'achieved' => $achieved,
+            'shows' => array_values(array_intersect(StoryDimensions::RESPONSIBILITIES, $shows)),
+            'supported' => array_values(array_intersect(StoryDimensions::RESPONSIBILITIES, $plan['responsibilities_supported'])),
+            'cover_size' => $plan['cover_size'],
+            'short_of' => $short ? $minimum : null,
+            'reason' => ! $short ? null : match (true) {
+                $plan['cover_size'] < $minimum => 'evidence',
+                $plan['budget_limited'] => 'budget',
+                default => 'selection',
+            },
+        ];
+    }
+
+    /**
      * How strongly each project is protected: the user's top few employment projects (pinned first) are
      * priorities; other included employment projects are neutral.
      *
@@ -365,7 +568,7 @@ final class ReferenceSelection
      * Fills one role's bullets by kind of evidence (see the class comment).
      *
      * @param  array<int, array<string, mixed>>  $units
-     * @param  array{per_project_max: int, weights: array<int, float>, priority: array<int, int>, overlap_limit: float, extra: int, role_has_projects: bool, technical_floor: bool, texts: array<string, string>, job_priority: array<int, int>, min_job: float|null, generic_max: int|null}  $ctx
+     * @param  array{per_project_max: int, weights: array<int, float>, priority: array<int, int>, overlap_limit: float, extra: int, role_has_projects: bool, technical_floor: bool, texts: array<string, string>, job_priority: array<int, int>, min_job: float|null, generic_max: int|null, coverage?: int}  $ctx
      * @return array{chosen: array<int, array<string, mixed>>, left: array<int, array{0: array<string, mixed>, 1: string}>, extra_used: int, uncovered: array<int, int>}
      */
     private function pick(array $units, int $slots, array $ctx): array
@@ -421,7 +624,7 @@ final class ReferenceSelection
             return $job * (0.8 + 0.2 * $u['score'] / $maxScore) * $facet * $novelty * $sameFacetInProject * $weight * $shared * $story * $u['boost'] * ($u['pinned'] ? 1.4 : 1.0);
         };
 
-        $eligible = function (array $u) use ($state, $ctx): bool {
+        $eligible = function (array $u, bool $coverage = false) use ($state, $ctx): bool {
             if ($ctx['generic_max'] !== null && in_array($u['facet'], ['ownership', 'leadership'], true) && ! $u['has_outcome'] && ! $u['pinned']
                 && count(array_filter($state->chosen, fn (array $c) => in_array($c['facet'], ['ownership', 'leadership'], true) && ! $c['has_outcome'])) >= $ctx['generic_max']) {
                 return false;
@@ -429,7 +632,8 @@ final class ReferenceSelection
 
             // A role keeps its first bullet whatever the job asks (role completeness); after that, a slot is not filled with
             // evidence the job does not ask for. Pinned evidence is the user's decision and always stays eligible.
-            if ($ctx['min_job'] !== null && $state->chosen !== [] && ! $u['pinned'] && ($u['job'] ?? null) !== null && $u['job'] < $ctx['min_job']) {
+            // A coverage slot (see below) is filled from the role's own responsibilities, which a job's keywords do not rank.
+            if (! $coverage && $ctx['min_job'] !== null && $state->chosen !== [] && ! $u['pinned'] && ($u['job'] ?? null) !== null && $u['job'] < $ctx['min_job']) {
                 return false;
             }
 
@@ -628,6 +832,75 @@ final class ReferenceSelection
                 array_splice($state->chosen, $victimIndex, 1);
                 $take($candidate[0], $candidate[1]);
                 $remaining = array_values(array_filter($remaining, fn (array $u) => $u !== $candidate[0]));
+            }
+        }
+
+        // Role coverage: a long role shows each responsibility its approved evidence states (what was built, owning the work
+        // across its lifecycle, working directly with clients, the business and delivery side), in up to `coverage` bullets.
+        // Relevance has already filled what the job asks for. A free slot goes to the bullet that shows the most responsibilities
+        // not yet shown; with no free slot, a bullet the job does not value (below `relevant_at`) and whose responsibilities
+        // others already show gives way. Only evidence that states a responsibility is ever added, a bullet that adds nothing new
+        // is never coverage, and a role with less evidence than the target simply has fewer bullets.
+        if (($ctx['coverage'] ?? 0) > 0) {
+            $texts = array_map(fn (string $text) => ['statement' => $text], $ctx['texts']);
+            $responsibilities = fn (array $u): array => $this->responsibilitiesOf($u, $texts);
+            $shownBy = fn (array $units): array => array_values(array_unique(array_merge([], ...array_map($responsibilities, $units))));
+            $relevantAt = (float) config('resume.composition.allocation.relevant_at');
+
+            while (true) {
+                $covered = $shownBy($state->chosen);
+                $top = null;
+
+                foreach ($remaining as $u) {
+                    $gain = count(array_diff($responsibilities($u), $covered));
+
+                    if ($gain === 0 || ! $eligible($u, true)) {
+                        continue;
+                    }
+
+                    $rank = [$gain, $adjusted($u)];
+
+                    if ($top === null || $rank > $top[1]) {
+                        $top = [$u, $rank];
+                    }
+                }
+
+                if ($top === null) {
+                    break;
+                }
+
+                if (count($state->chosen) >= $ctx['coverage']) {
+                    $victim = null;
+
+                    foreach ($state->chosen as $i => $c) {
+                        $others = array_values(array_filter($state->chosen, fn (array $o) => $o !== $c));
+                        $soleCover = array_filter($ctx['job_priority'], fn (int $f) => in_array($f, $c['findings'] ?? [], true) && count(array_filter($others, fn (array $o) => in_array($f, $o['findings'] ?? [], true))) === 0) !== [];
+                        $soleProject = $c['project_id'] !== null && in_array($c['project_id'], $ctx['priority'], true) && count(array_filter($others, fn (array $o) => $o['project_id'] === $c['project_id'])) === 0;
+
+                        if (! $c['pinned'] && ($c['job'] ?? 0.0) < $relevantAt && ! $soleCover && ! $soleProject && array_diff($responsibilities($c), $shownBy($others)) === [] && ($victim === null || $c['selected_score'] < $state->chosen[$victim]['selected_score'])) {
+                            $victim = $i;
+                        }
+                    }
+
+                    if ($victim === null) {
+                        break;
+                    }
+
+                    // Judge the replacement as if the bullet it takes the place of were gone (its kind and project no longer count).
+                    $gone = $state->chosen[$victim];
+                    $state->facetCount[$gone['facet']] = max(0, ($state->facetCount[$gone['facet']] ?? 0) - 1);
+
+                    if ($gone['project_id'] !== null) {
+                        unset($state->projectFacet[$gone['project_id'].'|'.$gone['facet']]);
+                        $state->perProject[$gone['project_id']] = max(0, ($state->perProject[$gone['project_id']] ?? 0) - 1);
+                    }
+
+                    array_splice($state->chosen, $victim, 1);
+                    $remaining[] = $gone;
+                }
+
+                $take($top[0], $top[1][1]);
+                $remaining = array_values(array_filter($remaining, fn (array $u) => $u !== $top[0]));
             }
         }
 

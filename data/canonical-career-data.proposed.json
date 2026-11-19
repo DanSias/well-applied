@@ -2491,6 +2491,60 @@
             "metric": null,
             "skills": ["technical-communication"]
         },
+        {
+            "key": "liquid-gravity-end-to-end-client-project-delivery",
+            "fact_type": "bullet",
+            "statement": "Managed multiple client projects from requirements gathering and solution design through development, launch, and ongoing support.",
+            "verification": "verified",
+            "visibility": "public",
+            "notes": "Role-level responsibility evidence (end-to-end project ownership), confirmed by the user 2026-11-18 for the founder role as a whole. It states the project lifecycle the user ran, not a people-management claim: no direct reports, team size, budget, formal management title or outcome is established, so none is invented. It is NOT a claim about the Brute Strength Training engagement, where the user contributed as part of an engagement team; no specific client is attributed. Distinct from liquid-gravity-cms-crm-marketing-automation-integrations (what was built) and liquid-gravity-lead-generation-systems (a system built).",
+            "attributable": { "type": "role", "key": "liquid-gravity-founder" },
+            "evidence": [
+                {
+                    "source": "user_confirmed",
+                    "confirmed_at": "2026-11-18",
+                    "note": "Confirmed directly by user: managed multiple client projects at Liquid Gravity Engineering from requirements gathering and solution design through development, launch, and ongoing support."
+                }
+            ],
+            "metric": null,
+            "skills": []
+        },
+        {
+            "key": "liquid-gravity-client-requirements-collaboration",
+            "fact_type": "bullet",
+            "statement": "Worked directly with clients and stakeholders to translate business objectives into technical requirements, coordinate priorities, and deliver practical solutions.",
+            "verification": "verified",
+            "visibility": "public",
+            "notes": "Role-level collaboration evidence, confirmed by the user 2026-11-18. Complements liquid-gravity-client-facing-performance-walkthroughs, which is about coordinating copy/design assets and recording campaign-performance walkthroughs; this fact is about turning business needs into requirements and priorities. No specific client, industry or outcome is established, so none is invented.",
+            "attributable": { "type": "role", "key": "liquid-gravity-founder" },
+            "evidence": [
+                {
+                    "source": "user_confirmed",
+                    "confirmed_at": "2026-11-18",
+                    "note": "Confirmed directly by user: worked directly with clients and stakeholders to translate business objectives into technical requirements, coordinate priorities, and deliver practical solutions."
+                }
+            ],
+            "metric": null,
+            "skills": ["technical-communication"]
+        },
+        {
+            "key": "liquid-gravity-founder-delivery-responsibility",
+            "fact_type": "bullet",
+            "statement": "Balanced hands-on development with project planning, client relationships, and delivery responsibilities as an independent founder and developer across a diverse portfolio of client engagements.",
+            "verification": "verified",
+            "visibility": "public",
+            "notes": "Role-level business and delivery responsibility evidence, confirmed by the user 2026-11-18: an independent founder/developer who carried technical execution, client communication and delivery together. Consistent with liquid-gravity-what-they-did (founded and led the consultancy). Not a claim of employees, a team, revenue, budgets or any performance figure; none is established, so none is invented.",
+            "attributable": { "type": "role", "key": "liquid-gravity-founder" },
+            "evidence": [
+                {
+                    "source": "user_confirmed",
+                    "confirmed_at": "2026-11-18",
+                    "note": "Confirmed directly by user: as an independent founder and developer, balanced hands-on development with project planning, client relationships, and delivery responsibilities across a diverse portfolio of client engagements."
+                }
+            ],
+            "metric": null,
+            "skills": []
+        },
 
         { "_section": "=== Liquid Gravity Engineering — Brute Strength Training (Project, client engagement via Tech Guys Who Get Marketing) ===" },
 
