@@ -8,6 +8,8 @@ type ResumeVariantPreviewProps = {
         title: string;
         workspace_url: string | null;
         job_url: string | null;
+        /** "Opportunity: <title>" or "Job: <title>", whichever the job's home is. */
+        job_label: string | null;
         back_label: string;
         back_url: string | null;
     };
@@ -47,9 +49,9 @@ export default function ResumeVariantPreview({
                     {context.job_url && (
                         <Link
                             href={context.job_url}
-                            className="hover:text-neutral-700 dark:hover:text-neutral-200"
+                            className="max-w-xs truncate hover:text-neutral-700 dark:hover:text-neutral-200"
                         >
-                            Job
+                            {context.job_label ?? 'Job'}
                         </Link>
                     )}
                 </div>

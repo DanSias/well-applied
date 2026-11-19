@@ -1,11 +1,14 @@
 <?php
 
+use App\Enums\DecisionSource;
+use App\Enums\JobDisposition;
 use App\Enums\ResumeClaimPosture;
 use App\Enums\ResumeQualifiedPhrase;
 use App\Enums\ResumeTermUsageLocation;
 use App\Enums\Visibility;
 use App\Models\JobMatch;
 use App\Models\ResumeVariant;
+use App\Support\JobDecisions\RecordJobDecision;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\Support\ResumeVariantFixtures;
 
@@ -136,4 +139,29 @@ it('404s for a nonexistent ResumeVariant id', function () {
 
     $this->get("/jobs/{$jobPosting->id}/analyses/{$analysis->id}/matches/{$realMatch->id}/resume/999999")
         ->assertNotFound();
+});
+
+it('leads the resume preview to the Opportunity for a pursued job, and to the job page for any other', function (JobDisposition $disposition, string $route, string $prefix) {
+    [$candidate, $job, $match, $variant] = persistedResumeVariant();
+    $posting = $match->jobAnalysis->jobPosting;
+    if ($disposition !== JobDisposition::New) {
+        app(RecordJobDecision::class)->record($posting, $disposition, DecisionSource::User);
+    }
+
+    $this->get(route('resume-variants.preview', $variant))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('context.job_url', route($route, $posting))
+            ->where('context.job_label', $prefix.$posting->title)
+            ->where('context.back_label', 'Back to resume'));
+})->with([
+    'pursued' => [JobDisposition::Pursued, 'opportunities.show', 'Opportunity: '],
+    'shortlisted' => [JobDisposition::Shortlisted, 'jobs.show', 'Job: '],
+    'new' => [JobDisposition::New, 'jobs.show', 'Job: '],
+]);
+
+it('has no job link on a reference resume that belongs to no job', function () {
+    $variant = ResumeVariant::factory()->create(['job_match_id' => null]);
+
+    $this->get(route('resume-variants.preview', $variant))
+        ->assertInertia(fn (Assert $page) => $page->where('context.job_url', null)->where('context.job_label', null));
 });

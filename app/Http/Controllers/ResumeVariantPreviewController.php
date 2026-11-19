@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\JobDisposition;
 use App\Models\ResumeVariant;
+use App\Support\Navigation\JobHome;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -44,7 +46,7 @@ class ResumeVariantPreviewController extends Controller
     /**
      * Where this resume lives, so the standalone preview can lead back to its workspace and job.
      *
-     * @return array{title: string, workspace_url: string|null, job_url: string|null, back_label: string, back_url: string|null}
+     * @return array{title: string, workspace_url: string|null, job_url: string|null, job_label: string|null, back_label: string, back_url: string|null}
      */
     private function context(ResumeVariant $variant): array
     {
@@ -54,13 +56,15 @@ class ResumeVariantPreviewController extends Controller
         if ($job === null) {
             $profile = $variant->synthesis?->resumeProfile;
 
-            return ['title' => 'Reference resume', 'workspace_url' => null, 'job_url' => null, 'back_label' => 'Back to resume profile', 'back_url' => $profile === null ? null : route('resume-profiles.show', $profile)];
+            return ['title' => 'Reference resume', 'workspace_url' => null, 'job_url' => null, 'job_label' => null, 'back_label' => 'Back to resume profile', 'back_url' => $profile === null ? null : route('resume-profiles.show', $profile)];
         }
 
         $workspace = $variant->resume_profile_synthesis_id !== null
             ? route('jobs.profile-resumes.show', [$job, $variant])
             : route('jobs.analyses.matches.resume.show', [$job, $analysis, $variant->job_match_id, $variant]);
 
-        return ['title' => "{$job->title} at {$job->company}", 'workspace_url' => $workspace, 'job_url' => route('jobs.show', $job), 'back_label' => 'Back to resume', 'back_url' => $workspace];
+        // The job's home: its Opportunity workspace when pursued, its job page otherwise (a discovered job has no opportunity).
+        return ['title' => "{$job->title} at {$job->company}", 'workspace_url' => $workspace,
+            'job_url' => JobHome::url($job), 'job_label' => ($job->disposition === JobDisposition::Pursued ? 'Opportunity: ' : 'Job: ').$job->title, 'back_label' => 'Back to resume', 'back_url' => $workspace];
     }
 }
