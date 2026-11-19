@@ -26,7 +26,7 @@ describe('greenhouse extractor', () => {
     let page;
 
     before(async () => {
-        browser = await chromium.launch({ headless: true });
+        browser = await chromium.launch({ headless: true, chromiumSandbox: process.env.BROWSER_WORKER_CHROMIUM_SANDBOX === '1' });
         page = await browser.newPage();
     });
 

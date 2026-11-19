@@ -11,7 +11,9 @@
 set -euo pipefail
 IMAGE=${1:-career-toolkit-browser-worker:local}
 PWUSER_UID=$(docker run --rm --entrypoint id "$IMAGE" -u pwuser)
-HARDEN=(--rm --network none --init --cap-drop ALL --security-opt no-new-privileges:true --read-only
+PROFILE="$PWD/isolation/chromium-seccomp.json"
+[ -r "$PROFILE" ] || { echo "run from the worker directory (isolation/chromium-seccomp.json not found)" >&2; exit 2; }
+HARDEN=(--rm --network none --init --cap-drop ALL --security-opt no-new-privileges:true --security-opt "seccomp=$PROFILE" -e BROWSER_WORKER_CHROMIUM_SANDBOX=1 --read-only
         --tmpfs /tmp:size=512m,mode=1777 --tmpfs "/home/pwuser:size=256m,mode=0755,uid=$PWUSER_UID,gid=$PWUSER_UID"
         --shm-size 512m --memory 2g --cpus 2 --pids-limit 512)
 fail=0
@@ -28,6 +30,32 @@ docker run "${HARDEN[@]}" --entrypoint node "$IMAGE" -e '
     console.log(failures.length ? "  FAIL  " + failures.join("; ") : "  ok    no capabilities, no_new_privs set, not root");
     process.exit(failures.length ? 1 : 0);
   });' || fail=1
+
+say "== Chromium's own sandbox is IN FORCE, not just running (the container's seccomp profile is the one compose.yaml uses)"
+docker run "${HARDEN[@]}" -v "$PWD/isolation/sandbox-probe.mjs:/app/probe.mjs:ro" -e SANDBOX=true --entrypoint node "$IMAGE" /app/probe.mjs | tee /tmp/.sandbox-probe.$$ | python3 -c '
+import json, sys
+for line in sys.stdin:
+    if line.startswith("{"):
+        d = json.loads(line)
+        kids = {c["type"]: c for c in d.get("children", [])}
+        r, b = kids.get("renderer"), kids.get("browser")
+        print("  launched:", d.get("launched"), "| --no-sandbox on any process:", d.get("noSandboxFlag"))
+        if r and b:
+            print("  renderer: user ns", r["userNs"][-5:], "(browser", b["userNs"][-5:] + ")", "| pid ns", r["pidNs"][-5:], "(browser", b["pidNs"][-5:] + ")", "| seccomp", r["seccomp"], "| caps", r["capEff"])
+        print("  ok   " if d.get("sandboxActive") else "  FAIL ", "sandbox active" if d.get("sandboxActive") else "sandbox NOT active " + d.get("error", ""))
+' || fail=1
+grep -q '"sandboxActive":true' /tmp/.sandbox-probe.$$ || fail=1; rm -f /tmp/.sandbox-probe.$$
+
+say "== negative control: Playwright's DEFAULT launch runs without the sandbox; Docker's DEFAULT seccomp cannot give it one"
+DEFAULT_HARDEN=(--rm --network none --init --cap-drop ALL --security-opt no-new-privileges:true --read-only
+        --tmpfs /tmp:size=512m,mode=1777 --tmpfs "/home/pwuser:size=256m,mode=0755,uid=$PWUSER_UID,gid=$PWUSER_UID" --shm-size 512m)
+docker run "${DEFAULT_HARDEN[@]}" -v "$PWD/isolation/sandbox-probe.mjs:/app/probe.mjs:ro" -e SANDBOX=default --entrypoint node "$IMAGE" /app/probe.mjs | grep -q '"noSandboxFlag":true' \
+  && say "  ok    default launch options run with --no-sandbox (so 'Chromium starts' proves nothing about the sandbox)" || say "  note  default launch did not use --no-sandbox"
+if docker run "${DEFAULT_HARDEN[@]}" -v "$PWD/isolation/sandbox-probe.mjs:/app/probe.mjs:ro" -e SANDBOX=true --entrypoint node "$IMAGE" /app/probe.mjs >/dev/null 2>&1; then
+  say "  note  the sandbox ALSO works under Docker's default seccomp on this host: the custom profile may not be needed here"
+else
+  say "  ok    with Docker's default seccomp the sandbox cannot start on this host (why isolation/chromium-seccomp.json exists)"
+fi
 
 say "== the root filesystem is read-only; tmp and home are writable"
 docker run "${HARDEN[@]}" --entrypoint sh "$IMAGE" -c '

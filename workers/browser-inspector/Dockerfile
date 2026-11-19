@@ -15,11 +15,12 @@ RUN npm ci --omit=dev
 
 COPY src ./src
 
-# The base image's own non-root `pwuser` runs Chromium with its
-# sandbox enabled — no --privileged, no --cap-add=SYS_ADMIN, and no
-# --no-sandbox flag are required. Confirmed directly against this
-# exact image/user combination on the real deployment target (Ubuntu
-# Server, ai-box) during the investigation PoC.
+# The base image's own non-root `pwuser` runs the worker. NOTE on Chromium's own sandbox: Playwright launches Chromium with
+# --no-sandbox unless `chromiumSandbox: true` is passed, so for the original deployment Chromium ran WITHOUT its sandbox, and
+# an earlier version of this comment wrongly said otherwise. With Docker's default seccomp profile the sandbox cannot start at
+# all (it needs clone/unshare/setns/chroot for unprivileged processes). The isolated deployment (compose.yaml) enables it
+# with BROWSER_WORKER_CHROMIUM_SANDBOX=1 and a seccomp profile that is Docker's default plus exactly those four syscalls;
+# see isolation/README.md "Chromium's own sandbox" and isolation/validate-hardening.sh, which proves it is in force.
 RUN chown -R pwuser:pwuser /app
 USER pwuser
 

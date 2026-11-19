@@ -371,11 +371,12 @@ human chose to capture."
 
 - Base image: `mcr.microsoft.com/playwright:v1.63.0-noble` (exact
   version match — see "Version pinning rule").
-- Runs as the base image's built-in non-root `pwuser` — confirmed
-  directly (local build + real AI-box deployment) that Chromium's own
-  sandbox works correctly under this user with **no** `--privileged`,
-  no `--cap-add=SYS_ADMIN`, no `--no-sandbox` flag, and no host
-  networking.
+- Runs as the base image's built-in non-root `pwuser` with no `--privileged`, no `--cap-add=SYS_ADMIN` and no host networking.
+  **Correction:** this section used to say Chromium's own sandbox was confirmed working in that setup. It was not: Playwright
+  launches Chromium with `--no-sandbox` unless `chromiumSandbox: true` is passed, so in the original deployment Chromium ran
+  unsandboxed, and Docker's default seccomp profile cannot start the sandbox at all (checked on the AI box). The isolated
+  deployment enables it (`BROWSER_WORKER_CHROMIUM_SANDBOX=1` plus `isolation/chromium-seccomp.json`) and
+  `isolation/validate-hardening.sh` verifies it is actually in force. See `isolation/README.md`.
 - No Docker socket, no broad host filesystem mounts. The image has no
   writable-volume requirement at all in this pass (no screenshots or
   other diagnostic files are written to disk — see "Diagnostics"

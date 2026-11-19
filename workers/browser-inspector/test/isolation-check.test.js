@@ -12,7 +12,7 @@ import {
 import { runForever } from '../src/poll.js';
 import { loadConfig } from '../src/config.js';
 
-const GOOD_STATUS = 'Name:\tnode\nUid:\t1000\t1000\t1000\t1000\nNoNewPrivs:\t1\nCapEff:\t0000000000000000\n';
+const GOOD_STATUS = 'Name:\tnode\nUid:\t1000\t1000\t1000\t1000\nNoNewPrivs:\t1\nSeccomp:\t2\nCapEff:\t0000000000000000\n';
 const rejected = async (target) => ({ target, outcome: 'rejected', code: 'EHOSTUNREACH' });
 
 describe('canary evidence', () => {
@@ -92,10 +92,11 @@ describe('process privileges', () => {
         assert.match(processFailures(GOOD_STATUS.replace('CapEff:\t0000000000000000', 'CapEff:\t00000000a80425fb'))[0], /holds capabilities/);
         assert.match(processFailures(GOOD_STATUS.replace('NoNewPrivs:\t1', 'NoNewPrivs:\t0'))[0], /no-new-privileges/);
         assert.match(processFailures(GOOD_STATUS.replace('Uid:\t1000', 'Uid:\t0'))[0], /root/);
+        assert.match(processFailures(GOOD_STATUS.replace('Seccomp:\t2', 'Seccomp:\t0'))[0], /no seccomp filter.*unconfined/);
     });
 
     test('an unreadable or unfamiliar status is a failure, not a pass', async () => {
-        assert.equal(processFailures('').length, 3);
+        assert.equal(processFailures('').length, 4);
         const verdict = await checkIsolation({
             probe: rejected,
             readStatus: () => {

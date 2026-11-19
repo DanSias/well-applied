@@ -8,7 +8,8 @@
 //     policy answers with ICMP admin-prohibited, which Linux reports as EHOSTUNREACH. "Connection refused" would mean the
 //     packet reached a real machine's closed port, and a timeout means nothing answered, so both are failures. The canaries
 //     are unused addresses or closed ports, so a correct deployment never talks to a real service.
-//  2. The process's own privileges: no capabilities (which also rules out raw sockets), no_new_privs set, not root.
+//  2. The process's own privileges: no capabilities (which also rules out raw sockets), no_new_privs set, a seccomp filter
+//     installed (not unconfined), not root.
 import net from 'node:net';
 import fs from 'node:fs';
 
@@ -60,6 +61,11 @@ export function processFailures(statusText) {
     }
     if (field('NoNewPrivs') !== '1') {
         failures.push('no-new-privileges is not set');
+    }
+    // 2 = a seccomp filter is installed. 0 means the container runs unconfined (seccomp=unconfined or --privileged), which
+    // would quietly remove the syscall filter the rest of the hardening assumes.
+    if (field('Seccomp') !== '2') {
+        failures.push(`no seccomp filter is installed (Seccomp=${field('Seccomp') ?? 'unknown'}); the container must not run unconfined`);
     }
     const uid = field('Uid');
     if (uid === undefined || uid === '0') {

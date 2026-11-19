@@ -65,6 +65,37 @@ Stopping the policy unit stops the guard (`BindsTo=`), which stops the worker (`
 **Limits.** Between a rule being deleted and the guard reacting there is a window of milliseconds (measured: 0.09 to 0.18 s).
 Nothing here defends against root on the AI box. IPv6 is dropped for these bridges and Docker's networks here have it off.
 
+## Chromium's own sandbox
+
+**Found while validating on the AI box (Docker 29.8.1, Ubuntu 26.04):** Chromium's sandbox (each renderer in its own user, pid and
+network namespaces behind a seccomp filter) was **never on** in the original deployment, and the old documentation was wrong to
+say it was. Two separate reasons:
+
+1. Playwright launches Chromium with `--no-sandbox` unless `chromiumSandbox: true`. "Chromium launches" proves nothing.
+2. With `chromiumSandbox: true`, Chromium **refuses to start** under Docker's default seccomp profile, with no other
+   hardening applied at all ("Chromium sandboxing failed!"). Docker's default allows `clone`/`unshare`/`setns` only to a container
+   holding `CAP_SYS_ADMIN`, and `chroot` only with `CAP_SYS_CHROOT`. It is not `cap_drop`, `read_only` or `no-new-privileges`
+   (each tried alone), and AppArmor's user-namespace restriction on this host is not the blocker (`seccomp=unconfined` alone was
+   enough).
+
+The isolated deployment turns the sandbox on (`BROWSER_WORKER_CHROMIUM_SANDBOX=1`) and gives the container a seccomp profile,
+`chromium-seccomp.json`, that is **Docker's default with exactly four syscalls (`clone`, `unshare`, `setns`, `chroot`) allowed to
+unprivileged processes**. Every other rule stays (`mount`, `bpf`, module loading, `reboot`, `keyctl` ... remain blocked or
+capability-gated). It is **not** `seccomp=unconfined`. `make-chromium-seccomp.py` derives it reproducibly from upstream's
+`default.json`; `test/chromium-sandbox-config.test.js` pins its properties.
+
+`validate-hardening.sh` proves the sandbox is **in force**, not merely that Chromium starts: no process has `--no-sandbox`, the
+renderer lives in a different user and pid namespace from the browser, behind its own seccomp filter, with no capabilities. It also
+runs two negative controls (Playwright's default launch is unsandboxed; Docker's default seccomp cannot start the sandbox).
+
+**The trade-off, stated plainly.** The profile lets a process inside the container create user namespaces of its own, which enlarges
+the kernel attack surface reachable from a compromised process (a bug in kernel namespace code). The container still has no
+capabilities, `no-new-privileges`, a read-only root, the network policy above and resource limits. The alternative is a browser
+with no sandbox at all, loading untrusted pages. Docker's built-in profile can change between releases and this copy does not follow
+it: re-run `make-chromium-seccomp.py` against the new `default.json` when upgrading Docker, and diff. To go back to the old
+behaviour, remove the `seccomp=` line and `BROWSER_WORKER_CHROMIUM_SANDBOX` from `compose.yaml` (the worker's start-up check then
+still requires a seccomp filter to be installed).
+
 ## Files
 
 | File | Installed as |
@@ -77,7 +108,8 @@ Nothing here defends against root on the AI box. IPv6 is dropped for these bridg
 | `isolation/career-toolkit-browser-worker.service` | `/etc/systemd/system/` (rendered for the user and directory) |
 | `isolation/docker.service.d-inspector-isolation.conf` | `/etc/systemd/system/docker.service.d/inspector-isolation.conf` |
 | `isolation/install.sh`, `rollback.sh` | run from the repository copy |
-| `isolation/validate-hardening.sh`, `validate-network.sh` | run on the AI box |
+| `isolation/chromium-seccomp.json` (from `make-chromium-seccomp.py`) | referenced by `compose.yaml` as `./isolation/chromium-seccomp.json`; ships with the worker directory |
+| `isolation/validate-hardening.sh`, `validate-network.sh`, `sandbox-probe.mjs` | run on the AI box |
 
 ## Assumptions to confirm before deploying
 
@@ -174,7 +206,9 @@ To keep the policy but stop the worker: `sudo systemctl stop career-toolkit-brow
 `validate-hardening.sh` runs the real Chromium tests under every option compose applies. Ubuntu 26.04 restricts unprivileged
 user namespaces, and Chromium's sandbox uses them. If a test fails, change **one** option at a time and re-run: first
 `read_only: true` (and widen the tmpfs mounts), then `no-new-privileges`. Do **not** drop `cap_drop: [ALL]`: it removes
-`CAP_NET_RAW`, and the worker's start-up check (and the interface-based rules) assume it. Do not add `--no-sandbox`.
+`CAP_NET_RAW`, and the worker's start-up check (and the interface-based rules) assume it. Do not add `--no-sandbox`, and do not
+use `seccomp=unconfined`: use `chromium-seccomp.json` (see "Chromium's own sandbox"). The worker's self-check refuses to run
+without a seccomp filter.
 
 ## Tests
 | What | How | Run |
@@ -183,5 +217,5 @@ user namespaces, and Chromium's sandbox uses them. If a test fails, change **one
 | relay allow-list and normalisation | the real nginx image, fake Well Applied | `test/isolation/run-relay-test.sh` |
 | guard against the real `nft` | same container | `test/isolation/run-guard-integration-test.sh` |
 | controller, install/rollback, config consistency, worker self-check, redaction | `npm test` | |
-| hardened container | `isolation/validate-hardening.sh` | on the AI box |
+| hardened container, with the sandbox verified IN FORCE | `isolation/validate-hardening.sh` | on the AI box (passed there: 104/104) |
 | live isolation | `isolation/validate-network.sh pre|post` | on the AI box |

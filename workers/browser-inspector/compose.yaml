@@ -56,11 +56,20 @@ services:
       # Always the relay, whatever .env says: a stale .env cannot point the worker straight at the Mac.
       CAREER_TOOLKIT_URL: http://api-relay:8081
       BROWSER_WORKER_REQUIRE_ISOLATION: "1"
+      # Chromium's own sandbox. Playwright runs Chromium with --no-sandbox unless this is set, and then a launch that cannot get
+      # the sandbox fails instead of quietly running without it. Needs the seccomp profile below.
+      BROWSER_WORKER_CHROMIUM_SANDBOX: "1"
       # Canaries the policy must refuse (closed ports on this deployment's own addresses): the bridge gateways, the AI box on
       # the LAN, and the Mac.
       BROWSER_WORKER_ISOLATION_CANARIES: "172.29.60.1:9,172.29.61.1:9,172.29.62.1:9,192.168.1.111:9,192.168.1.114:9"
     depends_on:
       - api-relay
+    # Docker's default seccomp profile with exactly four syscalls (clone, unshare, setns, chroot) allowed to unprivileged
+    # processes so Chromium can build its sandbox (derived by isolation/make-chromium-seccomp.py; see isolation/README.md).
+    # NOT seccomp=unconfined: every other rule of the default profile stays.
+    security_opt:
+      - "no-new-privileges:true"
+      - "seccomp=./isolation/chromium-seccomp.json"
     dns:
       - 9.9.9.9
       - 1.1.1.1

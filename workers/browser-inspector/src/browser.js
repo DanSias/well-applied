@@ -12,8 +12,18 @@ import {
 } from './budget.js';
 import { redact } from './guard.js';
 
-export function launchChromium() {
-    return chromium.launch({ headless: true });
+/**
+ * Chromium's own sandbox (each renderer in its own user, pid and network namespaces, behind a seccomp filter) is OFF unless
+ * explicitly requested: Playwright adds --no-sandbox by default. BROWSER_WORKER_CHROMIUM_SANDBOX=1 requests it, and then a
+ * launch that cannot get it FAILS ("Chromium sandboxing failed!") instead of quietly running without. It needs a container
+ * seccomp profile that allows user namespaces: see isolation/chromium-seccomp.json and isolation/README.md.
+ */
+export function chromiumSandboxRequested(env = process.env) {
+    return env.BROWSER_WORKER_CHROMIUM_SANDBOX === '1';
+}
+
+export function launchChromium(env = process.env) {
+    return chromium.launch({ headless: true, chromiumSandbox: chromiumSandboxRequested(env) });
 }
 
 /**

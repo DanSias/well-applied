@@ -79,6 +79,9 @@ export async function startSites(definitions) {
         launch: (mapped = []) => () =>
             chromium.launch({
                 headless: true,
+                // As in production: Playwright adds --no-sandbox unless this is true. isolation/validate-hardening.sh sets it,
+                // so the whole browser suite runs under Chromium's own sandbox where the container allows it.
+                chromiumSandbox: process.env.BROWSER_WORKER_CHROMIUM_SANDBOX === '1',
                 args: mapped.length ? [`--host-resolver-rules=${mapped.join(', ')}`] : [],
             }),
         close: () => Promise.all(Object.values(sites).map((s) => s.close())),
