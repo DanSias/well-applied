@@ -367,3 +367,28 @@ it('counts an unsupported result as a reached form only when its stop reason say
     reportResult($without, ['status' => 'succeeded', 'inspection_outcome' => 'unsupported', 'fields' => [], 'resolved_url' => 'https://ats.example.com/apply/2'])->assertOk();
     expect($without->workflowStep->workflowRun->application->fresh()->application_url)->toBeNull();
 });
+
+it('rejects a result delivered after the claim lapsed and was recovered as failed, and leaves the failure in place', function () {
+    $agentRun = runningAgentRun();
+    $agentRun->update(['claim_expires_at' => now()->subMinute()]);
+
+    // The next claim poll is what notices the lapse (lazily) and settles the run.
+    test()->withHeader('Authorization', 'Bearer test-token')->postJson('/api/worker/agent-runs/claim', ['worker_identity' => 'w'])->assertNoContent();
+    expect($agentRun->fresh()->status)->toBe(AgentRunStatus::Failed);
+
+    reportResult($agentRun, completeSuccessPayload())->assertStatus(409);
+
+    $agentRun->refresh();
+    expect($agentRun->status)->toBe(AgentRunStatus::Failed)
+        ->and($agentRun->failure_category)->toBe(AgentRunFailureCategory::ClaimTimeout)
+        ->and(ApplicationQuestion::count())->toBe(0);
+});
+
+it('accepts a duplicate delivery of an already accepted result without writing twice', function () {
+    $agentRun = runningAgentRun();
+
+    reportResult($agentRun, completeSuccessPayload())->assertOk();
+    reportResult($agentRun, completeSuccessPayload())->assertOk()->assertJson(['duplicate' => true]);
+
+    expect(ApplicationQuestion::count())->toBe(2);
+});

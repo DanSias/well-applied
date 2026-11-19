@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Worker;
 
 use App\Http\Controllers\Controller;
 use App\Support\ApplicationInspection\ClaimNextAgentRun;
+use App\Support\ApplicationInspection\InspectionUrl;
 use App\Support\ApplicationInspection\RecordWorkerHeartbeat;
+use App\Support\ApplicationInspection\ResolveInspectionStartUrl;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -26,7 +28,7 @@ use Illuminate\Http\Response;
  */
 class AgentRunClaimController extends Controller
 {
-    public function store(Request $request, ClaimNextAgentRun $claimer, RecordWorkerHeartbeat $heartbeat): JsonResponse|Response
+    public function store(Request $request, ClaimNextAgentRun $claimer, RecordWorkerHeartbeat $heartbeat, ResolveInspectionStartUrl $resolver): JsonResponse|Response
     {
         $workerIdentity = (string) $request->string('worker_identity', 'unknown');
 
@@ -38,14 +40,27 @@ class AgentRunClaimController extends Controller
             return response()->noContent();
         }
 
-        $jobPosting = $agentRun->workflowStep->workflowRun->application->jobPosting;
+        $application = $agentRun->workflowStep->workflowRun->application;
+        $start = $resolver->resolve($application);
+
+        // Where this attempt began and why, kept with the run (origin + path only: a query string can carry a token).
+        $agentRun->update(['input_summary' => [
+            'start_origin' => $start['origin'],
+            'start_url' => InspectionUrl::redact($start['url']),
+        ]]);
+
+        $ttl = (int) config('services.browser_worker.claim_ttl');
 
         return response()->json([
             'agent_run_id' => $agentRun->id,
-            'application_url' => $jobPosting->source_url,
-            'inspection_policy' => [
-                'ats' => 'greenhouse',
-            ],
+            // Kept for older workers: the same URL as start_url.
+            'application_url' => $start['url'],
+            'start_url' => $start['url'],
+            'start_origin' => $start['origin'],
+            'source_url' => $start['source_url'],
+            // The most the worker may spend, ending with enough of the lease left to deliver the result. The lease is
+            // the single source of truth; the worker never decides its own budget.
+            'budget_seconds' => max(15, $ttl - (int) config('services.browser_worker.delivery_allowance')),
         ]);
     }
 }

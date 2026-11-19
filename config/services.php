@@ -119,13 +119,18 @@ return [
     | may run before Well Applied treats the worker as gone and
     | recovers the claim as failed (failure_category: claim_timeout) —
     | see App\Support\ApplicationInspection\ClaimNextAgentRun. Default
-    | (60s) is sized against the real AI-box smoke-test timing (~3.5s
-    | per Greenhouse inspection), not the earlier, more conservative
-    | 120s estimate from before that data existed.
+    | (120s) covers the worker's 90s execution budget (see
+    | delivery_allowance) plus delivering the result. A single
+    | inspection is ~4-6s in practice; the rest is headroom for slow
+    | pages and the navigation steps of URL resolution.
     */
     'browser_worker' => [
         'token' => env('BROWSER_WORKER_TOKEN'),
-        'claim_ttl' => (int) env('BROWSER_WORKER_CLAIM_TTL', 60),
+        'claim_ttl' => (int) env('BROWSER_WORKER_CLAIM_TTL', 120),
+        // Held back from the lease for the worker to deliver its result (up to three attempts with backoff plus request
+        // time). The worker's execution budget is claim_ttl minus this, sent in the claim response, so the lease and the
+        // deadline cannot drift apart: a run is stopped by the worker itself before the lease can expire under it.
+        'delivery_allowance' => (int) env('BROWSER_WORKER_DELIVERY_ALLOWANCE', 30),
 
         // The worker's own expected poll cadence
         // (BROWSER_WORKER_POLL_INTERVAL_MS in workers/browser-inspector,
