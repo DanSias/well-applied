@@ -507,7 +507,9 @@ final class CompositionChecks
      */
     private function figures(string $text): array
     {
-        preg_match_all('/\$?\d[\d,]*(?:\.\d+)?\+?%?/', $text, $m);
+        // A number that is part of a name is an identifier, not a result: "SHA-256", "AES-256-GCM", "x86", "ES2015", "256-bit".
+        // Two bullets that mention different algorithms do not state the same outcome.
+        preg_match_all('/(?<![\p{L}\d])(?<![\p{L}]-)(?<![\p{L}])\$?\d[\d,]*+(?:\.\d++)?+\+?%?(?!-?(?:bit|byte|bits|bytes|GCM|CBC|SHA|RSA|AES)\b)/iu', $text, $m);
         $out = [];
 
         foreach ($m[0] as $token) {

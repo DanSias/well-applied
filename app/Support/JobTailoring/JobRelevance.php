@@ -236,7 +236,11 @@ final class JobRelevance
             $apply('platform_tag');
         }
 
-        if ($engineeringJob && ! $engineering && preg_match('/\b(?:SEO|search engine|CRO|conversion|lead generation|landing page|paid|campaign\w*|marketing|A\/B|keyword|organic|attribution)\b/i', $text) === 1) {
+        // "Partnered with marketing, finance and engineering stakeholders to turn requirements into full-stack applications" names
+        // marketing as one of the people worked with; the work is engineering. Only a statement about marketing itself is marketing-only.
+        $crossFunctional = preg_match('/\b(?:full-stack|software|applications?|engineering)\b/i', $text) === 1;
+
+        if ($engineeringJob && ! $engineering && ! $crossFunctional && preg_match('/\b(?:SEO|search engine|CRO|conversion|lead generation|landing page|paid|campaign\w*|marketing|A\/B|keyword|organic|attribution)\b/i', $text) === 1) {
             $apply('marketing_only');
         }
 

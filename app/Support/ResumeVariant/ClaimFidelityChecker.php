@@ -55,7 +55,7 @@ final class ClaimFidelityChecker
      */
     private const PEOPLE = '/\b(?:(?:led|leading|lead|managed|managing|manage|oversaw|overseeing|headed|supervis\w+|(?:directed|directing)(?=[^.;]*?\b(?:team|teams|developers|engineers|staff|employees|contractors|designers|analysts|reports)\b(?!\s+to\b)))\s+(?:(?:a|an|the|our|my|cross-functional|distributed|small|large|engineering|development|technical|remote|\d+)\s+){0,3}(?:team|teams|developers|engineers|staff|employees|contractors|designers|analysts|reports)\b(?![\'\x{2019}]s)|team of\b|direct reports?|supervis(?:ed|ing|ion|or)\b|people management|team lead(?:er|ership)?\b)/iu';
 
-    private const FIGURE = '/(?:(?<q>approximately|about|roughly|nearly|around|over|under|more than|up to)\s+)?(?<f>\$?\d[\d,]*(?:\.\d+)?(?:\s*[–-]\s*\$?\d[\d,]*(?:\.\d+)?)?\+?%?)/iu';
+    private const FIGURE = '/(?:(?<q>approximately|about|roughly|nearly|around|over|under|more than|up to)\s+)?(?<f>\$?\d[\d,]*(?:\.\d+)?(?:(?:\s*[–-]\s*|\s+to\s+)\$?\d[\d,]*(?:\.\d+)?)?\+?%?)/iu';
 
     /**
      * @param  array<int, string>  $citedKeys
@@ -234,14 +234,16 @@ final class ClaimFidelityChecker
     private function figures(string $text, string $evidence): array
     {
         $findings = [];
-        preg_match_all(self::FIGURE, $evidence, $ev, PREG_SET_ORDER);
+        $ev = $this->figureMatches($evidence);
         $byCore = [];
 
         foreach ($ev as $e) {
             $byCore[$this->core($e['f'])][] = ['q' => strtolower($e['q']), 'f' => $e['f']];
         }
 
-        if (preg_match_all(self::FIGURE, $text, $tx, PREG_SET_ORDER) < 1) {
+        $tx = $this->figureMatches($text);
+
+        if ($tx === []) {
             return [];
         }
 
@@ -250,6 +252,11 @@ final class ClaimFidelityChecker
 
             // A bare small number ("a 3-step process", "2 pages") is not a measured claim.
             if (! preg_match('/[%$+,.–-]/u', $t['f']) && (int) $core < 10) {
+                continue;
+            }
+
+            // A range the evidence states as its two ends ("10" and "15") is the same range.
+            if (! isset($byCore[$core]) && str_contains($core, '–') && $this->rangeEndsStated($core, $byCore)) {
                 continue;
             }
 
@@ -273,7 +280,8 @@ final class ClaimFidelityChecker
 
             $want = $variants[0];
 
-            if ($want['q'] === $q && $want['f'] === $t['f']) {
+            // "10–15", "10-15" and "10 to 15" are one figure; only the numbers and the qualifier are compared.
+            if ($want['q'] === $q && $this->range($want['f']) === $this->range($t['f'])) {
                 continue;
             }
 
@@ -402,7 +410,55 @@ final class ClaimFidelityChecker
 
     private function core(string $figure): string
     {
-        return (string) preg_replace('/[^\d.–-]/u', '', str_replace(',', '', $figure));
+        return (string) preg_replace('/[^\d.–]/u', '', str_replace(',', '', $this->range($figure)));
+    }
+
+    /**
+     * A figure with its range written one way: "10 to 15", "10-15" and "10–15" all become "10–15".
+     */
+    private function range(string $figure): string
+    {
+        return (string) preg_replace('/\s*(?:[–-]|\bto\b)\s*/iu', '–', $figure);
+    }
+
+    /**
+     * Every figure in a text. A range written with "to" is one figure only when it rises ("10 to 15 hours"); "from 10 to 3
+     * hours" states two figures, as it always did.
+     *
+     * @return array<int, array<string, string>>
+     */
+    private function figureMatches(string $text): array
+    {
+        preg_match_all(self::FIGURE, $text, $found, PREG_SET_ORDER);
+        $out = [];
+
+        foreach ($found as $m) {
+            if (preg_match('/^(?<a>[^\s]+)\s+to\s+(?<b>.+)$/iu', $m['f'], $parts) === 1) {
+                $a = (float) preg_replace('/[^\d.]/', '', $parts['a']);
+                $b = (float) preg_replace('/[^\d.]/', '', $parts['b']);
+
+                if ($b <= $a) {
+                    $out[] = ['q' => $m['q'], 'f' => $parts['a']];
+                    $out[] = ['q' => '', 'f' => $parts['b']];
+
+                    continue;
+                }
+            }
+
+            $out[] = ['q' => $m['q'] ?? '', 'f' => $m['f']];
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  array<string, array<int, array{q: string, f: string}>>  $byCore
+     */
+    private function rangeEndsStated(string $core, array $byCore): bool
+    {
+        [$low, $high] = array_pad(explode('–', $core, 2), 2, '');
+
+        return $low !== '' && $high !== '' && isset($byCore[$low], $byCore[$high]);
     }
 
     /**
