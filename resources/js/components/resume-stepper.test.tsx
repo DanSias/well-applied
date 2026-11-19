@@ -32,6 +32,20 @@ describe('ResumeStepper', () => {
         expect(html).toContain('1:05 elapsed');
     });
 
+    it('shows short labels and a title row, but still announces each step by its full name', () => {
+        const html = renderToStaticMarkup(
+            <ResumeStepper
+                steps={steps('done', 'active', 'pending')}
+                elapsed="0:42 elapsed"
+            />,
+        );
+
+        expect(html).toContain('Resume generation');
+        expect(html).toContain('<span aria-hidden="true">Analyze</span>');
+        expect(html).toContain('Analyze requirements, completed');
+        expect(html).toContain('@container');
+    });
+
     it('marks only the active step as the current one, and announces every state', () => {
         const html = renderToStaticMarkup(
             <ResumeStepper steps={steps('done', 'active', 'pending')} />,

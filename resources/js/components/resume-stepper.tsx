@@ -71,10 +71,20 @@ function Marker({ state }: { state: StepState }) {
     );
 }
 
+/** What each step is called on screen; the full label stays in the accessible name. */
+const SHORT_LABEL: Record<ResumeStep['key'], string> = {
+    analyze: 'Analyze',
+    compose: 'Compose',
+    validate: 'Validate PDF',
+};
+
 /**
- * A compact horizontal three-step progress indicator for the tailored-resume run. Presentation only: the steps and their
- * states come from `resumeSteps` (the persisted pipeline status), and the elapsed time is passed in. On a narrow screen
- * the labels stay beside their markers and the row wraps rather than overflowing.
+ * A compact three-step progress indicator for the tailored-resume run. Presentation only: the steps and their states
+ * come from `resumeSteps` (the persisted pipeline status), and the elapsed time is passed in. A title row (with the
+ * elapsed time) sits above the connected steps. The layout answers to the width of the container it is placed in, not
+ * the viewport (a CSS container query): three steps share one line while there is room, and below that the steps stack
+ * vertically, so they never wrap unpredictably. Labels are short on screen; the full step name and its state are read
+ * out to assistive technology.
  */
 export function ResumeStepper({
     steps,
@@ -89,58 +99,69 @@ export function ResumeStepper({
     }
 
     return (
-        <div className="border-line bg-sunken mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-md border px-3 py-2.5">
-            <ol
-                aria-label="Resume generation progress"
-                className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-2"
-            >
-                {steps.map((step, i) => (
-                    <li
-                        key={step.key}
-                        aria-current={
-                            step.state === 'active' ? 'step' : undefined
-                        }
-                        className={cn(
-                            'flex min-w-0 items-center gap-2',
-                            i < steps.length - 1 && 'flex-1 basis-auto',
-                        )}
-                    >
-                        <Marker state={step.state} />
-                        <span
+        <div className="@container mt-3">
+            <div className="border-line bg-sunken rounded-md border px-3 py-2.5">
+                <div className="flex items-baseline justify-between gap-x-3">
+                    <p className="text-fg-muted text-xs font-medium">
+                        Resume generation
+                    </p>
+                    {elapsed && (
+                        <span className="text-fg-subtle text-xs whitespace-nowrap tabular-nums">
+                            {elapsed}
+                        </span>
+                    )}
+                </div>
+                <ol
+                    aria-label="Resume generation progress"
+                    className="mt-2 flex items-center gap-x-2 @max-[22rem]:flex-col @max-[22rem]:items-start @max-[22rem]:gap-y-2"
+                >
+                    {steps.map((step, i) => (
+                        <li
+                            key={step.key}
+                            aria-current={
+                                step.state === 'active' ? 'step' : undefined
+                            }
                             className={cn(
-                                'text-xs font-medium whitespace-nowrap',
-                                step.state === 'pending' && 'text-fg-subtle',
-                                step.state === 'done' && 'text-fg-muted',
-                                step.state === 'active' && 'text-fg',
-                                step.state === 'failed' && 'text-bad',
-                                step.state === 'interrupted' && 'text-warn',
+                                'flex min-w-0 items-center gap-2',
+                                i < steps.length - 1 &&
+                                    'flex-1 @max-[22rem]:flex-none',
                             )}
                         >
-                            {step.label}
-                            <span className="sr-only">
-                                , {STATE_WORD[step.state]}
-                                {step.note ? `, ${step.note}` : ''}
-                            </span>
-                        </span>
-                        {i < steps.length - 1 && (
+                            <Marker state={step.state} />
                             <span
-                                aria-hidden="true"
                                 className={cn(
-                                    'hidden h-px min-w-4 flex-1 sm:block',
-                                    step.state === 'done'
-                                        ? 'bg-ok-line'
-                                        : 'bg-line-strong',
+                                    'text-xs font-medium whitespace-nowrap',
+                                    step.state === 'pending' &&
+                                        'text-fg-subtle',
+                                    step.state === 'done' && 'text-fg-muted',
+                                    step.state === 'active' && 'text-fg',
+                                    step.state === 'failed' && 'text-bad',
+                                    step.state === 'interrupted' && 'text-warn',
                                 )}
-                            />
-                        )}
-                    </li>
-                ))}
-            </ol>
-            {elapsed && (
-                <span className="text-fg-subtle text-xs tabular-nums">
-                    {elapsed}
-                </span>
-            )}
+                            >
+                                <span aria-hidden="true">
+                                    {SHORT_LABEL[step.key] ?? step.label}
+                                </span>
+                                <span className="sr-only">
+                                    {step.label}, {STATE_WORD[step.state]}
+                                    {step.note ? `, ${step.note}` : ''}
+                                </span>
+                            </span>
+                            {i < steps.length - 1 && (
+                                <span
+                                    aria-hidden="true"
+                                    className={cn(
+                                        'h-px min-w-3 flex-1 @max-[22rem]:hidden',
+                                        step.state === 'done'
+                                            ? 'bg-ok-line'
+                                            : 'bg-line-strong',
+                                    )}
+                                />
+                            )}
+                        </li>
+                    ))}
+                </ol>
+            </div>
         </div>
     );
 }
