@@ -389,3 +389,8 @@ as failed is still rejected as stale.
 
 **Preparation is unchanged.** It still judges and opens only the job's `source_url` against its own host allowlist. The
 Application URL is where a later phase will join the two, behind one accessor, without widening that allowlist.
+
+**Deployment isolation.** The inspector runs untrusted pages' JavaScript, so on the AI box it is deployed behind a
+host-enforced network policy rather than on a default Docker network: dedicated bridges, a two-endpoint API relay to Well
+Applied, an nftables table that runs ahead of Docker's and Tailscale's rules, and systemd units that refuse to start (and
+kill) the worker unless that policy is intact. See `workers/browser-inspector/isolation/README.md`.

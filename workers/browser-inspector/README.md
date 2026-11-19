@@ -466,6 +466,12 @@ no tunnel, nothing reachable outside the local network.
 
 ## Persistent deployment (normal operation)
 
+> **Superseded by the isolated deployment.** The inspector follows Apply links to arbitrary employer sites, so it must not be
+> run on the AI box's default Docker network. The current deployment (dedicated networks, an API relay, a host-enforced
+> nftables policy, systemd-controlled fail-closed startup) is documented in **`isolation/README.md`**, including the exact
+> install, start, validation and rollback steps. The instructions below describe the original, unisolated deployment and are
+> kept as the rollback reference.
+
 The worker runs as a normal, always-on Docker Compose service on the
 AI box — not something started by hand for each inspection. Well
 Applied never starts, stops, or has credentials for this; the worker
@@ -619,7 +625,8 @@ Every request passes `src/guard.js`, modelled on the application-preparer's requ
 - **The page's own JavaScript runs.** Reading a page means running it, with the same exposure to the network the worker
   has.
 
-**Required deployment control: egress filtering.** The guard is defence in depth. Before the worker is pointed at pages
+**Required deployment control: egress filtering** (implemented in `isolation/`: a host-enforced nftables policy, a relay, and
+fail-closed startup; see `isolation/README.md`). The guard is defence in depth. Before the worker is pointed at pages
 other than the ones you chose yourself (and following Apply links does exactly that), run it where it cannot reach
 anything private, whatever name it asks for:
 

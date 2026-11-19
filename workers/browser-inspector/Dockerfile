@@ -23,6 +23,11 @@ COPY src ./src
 RUN chown -R pwuser:pwuser /app
 USER pwuser
 
+# Deployed with compose.yaml under isolation/ (dedicated networks, host-enforced nftables policy, systemd-controlled start): see
+# isolation/README.md. The worker holds no credentials but its Well Applied token and must not be run on a default Docker
+# network. With BROWSER_WORKER_REQUIRE_ISOLATION=1 (set by compose.yaml) it refuses to claim work unless its own self-check
+# shows it is isolated and unprivileged (src/isolation-check.js).
+#
 # Default runtime is the Phase 3 poll loop — it runs continuously,
 # claiming and reporting work against Well Applied. src/cli.js
 # remains available for manual/dev one-shot invocation:
