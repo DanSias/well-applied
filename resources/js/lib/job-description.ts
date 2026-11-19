@@ -4,7 +4,8 @@
  * parse covers all three. Nothing here produces HTML — React renders the pieces as text.
  */
 export type DescriptionBlock =
-    { kind: 'paragraph'; text: string } | { kind: 'list'; items: string[] };
+    | { kind: 'paragraph'; text: string }
+    | { kind: 'list'; items: string[] };
 
 // `*` needs a following space so `**bold**` is not mistaken for a bullet.
 const BULLET = /^\s*[-•*–·]\s+(\S.*)$/;
