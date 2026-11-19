@@ -3,6 +3,7 @@ import { GenerationStatus } from '@/components/generation-status';
 import { WaitingForWorkerNotice } from '@/components/worker-status-badge';
 import { useApplicationInspectionPolling } from '@/hooks/use-application-inspection-polling';
 import { useWorkerStatusPolling } from '@/hooks/use-worker-status-polling';
+import { describeOutcome } from '@/lib/inspection-status';
 import AppShell from '@/layouts/app-shell';
 import { store as inspectStore } from '@/routes/jobs/applications';
 import type {
@@ -108,6 +109,13 @@ function InspectionResultSection({
         return null;
     }
 
+    // The same wording as the Opportunities drawer: what the inspection found and why it stopped, never a blanket
+    // "unsupported ATS" for a page that was simply not an application.
+    const outcome =
+        result.inspection_outcome !== null
+            ? describeOutcome(result.inspection_outcome, result.stop_reason)
+            : null;
+
     return (
         <div className="mt-4">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-neutral-500 dark:text-neutral-400">
@@ -120,7 +128,7 @@ function InspectionResultSection({
                 <span>
                     Outcome:{' '}
                     <span className="font-medium text-neutral-700 dark:text-neutral-300">
-                        {result.inspection_outcome}
+                        {outcome?.label ?? result.inspection_outcome}
                     </span>
                 </span>
                 <span>{result.field_count} fields</span>
@@ -143,11 +151,12 @@ function InspectionResultSection({
                 </ul>
             )}
 
-            {result.inspection_outcome === 'unsupported' ? (
-                <p className="mt-3 text-sm text-neutral-500 dark:text-neutral-400">
-                    This application isn't on a currently supported ATS
-                    (Greenhouse only). Nothing was extracted.
-                </p>
+            {result.questions.length === 0 ? (
+                outcome?.explanation && (
+                    <p className="mt-3 text-sm text-neutral-500 dark:text-neutral-400">
+                        {outcome.explanation}
+                    </p>
+                )
             ) : (
                 <ul className="mt-3 divide-y divide-neutral-200 rounded-lg border border-neutral-200 bg-white dark:divide-neutral-800 dark:border-neutral-800 dark:bg-neutral-900">
                     {result.questions.map((question) => (

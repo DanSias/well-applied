@@ -308,3 +308,23 @@ it('removes what it wrote when the dispatch does not complete', function () {
         ->and(WorkflowRun::count())->toBe(0)
         ->and(Storage::disk('local')->allFiles(PreparationArtifacts::ROOT))->toBe([]);
 });
+
+// ---- Phase 1: an inspection's application URL does not change what preparation may open ----
+
+it('still judges and opens only the job\'s source URL: an inspection\'s application URL neither unlocks nor redirects it', function () {
+    $s = F::scenario();
+    $application = Application::factory()->for($s['job'], 'jobPosting')->create();
+
+    // A resolved or typed application URL on a supported host does not make an unsupported source URL preparable...
+    $s['job']->update(['source_url' => 'https://example.myworkdayjobs.com/en/job/1']);
+    $application->update(['application_url' => 'https://job-boards.greenhouse.io/acme/jobs/1', 'application_url_origin' => 'user']);
+
+    expect(fn () => prepDispatch($s['job']->fresh()))->toThrow(PreparationException::class, 'Applications on this site cannot be prepared yet');
+    expect(AgentRun::count())->toBe(0);
+
+    // ...and on a supported source URL, the frozen input still names that source URL, not the application URL.
+    $s['job']->update(['source_url' => 'https://job-boards.greenhouse.io/acme/jobs/1']);
+    $application->update(['application_url' => 'https://elsewhere.example.com/apply']);
+
+    expect(app(DispatchApplicationPreparation::class)->applicationUrl($s['job']->fresh()))->toBe('https://job-boards.greenhouse.io/acme/jobs/1');
+});

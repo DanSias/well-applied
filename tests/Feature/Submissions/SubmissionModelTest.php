@@ -49,7 +49,9 @@ it('keeps the inspection record as provenance only, and leaves it untouched', fu
 });
 
 it('does not change the shape of the applications table', function () {
-    expect(Schema::getColumnListing('applications'))->toEqualCanonicalizing(['id', 'job_posting_id', 'status', 'created_at', 'updated_at'])
+    // Recording a submission adds nothing here. The only columns beyond the original are the application URL (and its
+    // origin and timestamp): inspection's own operational data, not anything about having applied.
+    expect(Schema::getColumnListing('applications'))->toEqualCanonicalizing(['id', 'job_posting_id', 'status', 'application_url', 'application_url_origin', 'application_url_set_at', 'created_at', 'updated_at'])
         ->and(array_map(fn ($case) => $case->value, ApplicationStatus::cases()))->toBe(['draft']);
 });
 

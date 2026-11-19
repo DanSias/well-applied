@@ -1,39 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import type {
-    ApplicationInspectionState,
-    InspectionResult,
-    InspectionSummary,
-    InspectionWorkflowRun,
-} from '@/types/application-inspection';
-import { presentInspection, summaryBadge } from './inspection-status';
+import type { InspectionResult } from '@/types/application-inspection';
+import {
+    describeFailure,
+    describeOutcome,
+    openIntent,
+    presentInspection,
+    summaryBadge,
+} from './inspection-status';
+import { resultOf, runOf, stateOf, summaryOf } from './inspection-test-data';
 
-const run = (
-    status: InspectionWorkflowRun['status'],
-): InspectionWorkflowRun => ({
-    id: 1,
-    status,
-    failure_message: null,
-    started_at: null,
-    finished_at: null,
-});
-const result = (outcome: string, fields = 0): InspectionResult => ({
-    agent_run_id: 1,
-    ats_detected: 'greenhouse',
-    inspection_outcome: outcome,
-    finished_at: null,
-    warnings: [],
-    field_count: fields,
-    unresolved_count: 0,
-    questions: [],
-});
-const state = (
-    workflow_run: InspectionWorkflowRun | null,
-    latest_result: InspectionResult | null = null,
-): ApplicationInspectionState => ({
-    application_id: 1,
-    workflow_run,
-    latest_result,
-});
+const run = runOf;
+const result = (
+    outcome: string,
+    fields = 0,
+    stop: string | null = null,
+): InspectionResult =>
+    resultOf(outcome, { field_count: fields, stop_reason: stop });
+const state = stateOf;
 
 describe('presentInspection', () => {
     it('is idle when nothing has run', () => {
@@ -56,18 +39,40 @@ describe('presentInspection', () => {
         expect(running.outcome).toBeNull();
     });
 
-    it('reports a finished run that found an unsupported ATS as Unsupported, not as a failure or a success', () => {
+    it('reports a form that was reached but cannot be read as exactly that, not as a failure, a success or a missing application', () => {
         const p = presentInspection(
-            state(run('succeeded'), result('unsupported')),
+            state(
+                run('succeeded'),
+                result('unsupported', 0, 'form_without_adapter'),
+            ),
         );
 
         expect(p.execution).toEqual({
             label: 'Worker run finished',
             tone: 'ok',
         });
-        expect(p.headline).toEqual({ label: 'Unsupported ATS', tone: 'warn' });
-        expect(p.outcome?.explanation).toMatch(/did not fail/);
+        expect(p.headline).toEqual({
+            label: 'Form found, not readable yet',
+            tone: 'warn',
+        });
+        expect(p.outcome?.explanation).toMatch(
+            /reached what looks like an application form/,
+        );
+        expect(p.outcome?.explanation).not.toMatch(/no application/i);
+        expect(p.needsApplicationUrl).toBe(false);
         expect(p.action).toBe('Inspect again');
+    });
+
+    it('does not reinterpret an older unsupported record that has no stop reason', () => {
+        const p = presentInspection(
+            state(run('succeeded'), result('unsupported')),
+        );
+
+        expect(p.headline.label).toBe('Unsupported (earlier inspection)');
+        expect(p.headline.tone).toBe('neutral');
+        expect(p.outcome?.explanation).toMatch(
+            /cannot say whether an application form was found/,
+        );
     });
 
     it('counts fields for a complete inspection', () => {
@@ -99,31 +104,23 @@ describe('presentInspection', () => {
         expect(p.execution.label).toBe('Worker run failed');
     });
 
-    it.each(['partial', 'authentication_required', 'mutation_required'])(
-        'shows %s as its own outcome',
-        (outcome) => {
-            const p = presentInspection(
-                state(run('succeeded'), result(outcome)),
-            );
+    it.each([
+        'partial',
+        'authentication_required',
+        'mutation_required',
+        'application_not_found',
+        'needs_application_url',
+        'blocked',
+    ])('shows %s as its own outcome', (outcome) => {
+        const p = presentInspection(state(run('succeeded'), result(outcome)));
 
-            expect(p.outcome?.tone).toBe('warn');
-            expect(p.headline.tone).toBe('warn');
-        },
-    );
+        expect(p.outcome?.tone).toBe('warn');
+        expect(p.headline.tone).toBe('warn');
+    });
 });
 
 describe('summaryBadge', () => {
-    const summary = (
-        state: InspectionSummary['state'],
-        outcome: string | null = null,
-        field_count: number | null = null,
-    ): InspectionSummary => ({
-        state,
-        application_id: 1,
-        field_count,
-        latest_attempt_failed: false,
-        outcome,
-    });
+    const summary = summaryOf;
 
     it('counts questions only when usable fields were extracted', () => {
         expect(summaryBadge(summary('inspected', 'complete', 7))).toEqual({
@@ -150,8 +147,8 @@ describe('summaryBadge', () => {
             'Nothing extracted',
         );
         expect(summaryBadge(summary('unsupported', 'unsupported', 0))).toEqual({
-            label: 'Unsupported ATS',
-            tone: 'warn',
+            label: 'Unsupported (earlier inspection)',
+            tone: 'neutral',
         });
     });
 
@@ -160,5 +157,163 @@ describe('summaryBadge', () => {
         expect(summaryBadge(summary('queued')).label).toBe('Inspection queued');
         expect(summaryBadge(summary('running')).label).toBe('Inspecting…');
         expect(summaryBadge(summary('not_inspected')).tone).toBe('neutral');
+    });
+});
+
+describe('truthful outcomes', () => {
+    it('says "no application link", not "unsupported", for a listing with no Apply link, and asks for the link', () => {
+        const p = presentInspection(
+            state(
+                run('succeeded'),
+                result('application_not_found', 0, 'no_apply_link'),
+            ),
+        );
+
+        expect(p.headline.label).toBe('No application link found');
+        expect(p.outcome?.explanation).toMatch(/could not find an Apply link/);
+        expect(p.needsApplicationUrl).toBe(true);
+    });
+
+    it.each([
+        ['multiple_apply_links', 'Several places to apply', /never choose/],
+        [
+            'destination_prohibited',
+            'Destination not allowed',
+            /Nothing was opened there/,
+        ],
+        ['destination_unreachable', "Destination didn't load", /did not load/],
+        ['too_many_redirects', 'Too many redirects', /loop/],
+        ['too_many_steps', 'Application not reached', /two/],
+    ])('needs_application_url / %s', (stop, label, words) => {
+        const o = describeOutcome('needs_application_url', stop);
+
+        expect(o.label).toBe(label);
+        expect(o.explanation).toMatch(words);
+        expect(
+            presentInspection(
+                state(
+                    run('succeeded'),
+                    result('needs_application_url', 0, stop),
+                ),
+            ).needsApplicationUrl,
+        ).toBe(true);
+    });
+
+    it('tells a CAPTCHA from an anti-bot block, and a sign-in wall from both', () => {
+        expect(describeOutcome('blocked', 'captcha').label).toBe(
+            'Blocked by a CAPTCHA',
+        );
+        expect(describeOutcome('blocked', 'anti_bot').label).toBe(
+            'Blocked by the site',
+        );
+        expect(
+            describeOutcome('authentication_required', 'login_wall').label,
+        ).toBe('Sign-in required');
+        expect(describeOutcome('blocked', 'anti_bot').explanation).toMatch(
+            /Nothing was bypassed/,
+        );
+    });
+
+    it('distinguishes a Greenhouse form that read nothing from a form that cannot be read', () => {
+        expect(describeOutcome('partial', 'no_fields_extracted').label).toBe(
+            'Form found, no fields read',
+        );
+        expect(
+            describeOutcome('unsupported', 'ats_not_extractable').explanation,
+        ).toMatch(/Lever/);
+    });
+
+    it('does not offer the link prompt for a result that is only an earlier run, or while one is running', () => {
+        expect(
+            presentInspection(
+                state(
+                    run('failed'),
+                    result('application_not_found', 0, 'no_apply_link'),
+                ),
+            ).needsApplicationUrl,
+        ).toBe(false);
+        expect(
+            presentInspection(
+                state(
+                    run('running'),
+                    result('application_not_found', 0, 'no_apply_link'),
+                ),
+            ).needsApplicationUrl,
+        ).toBe(false);
+    });
+
+    it('labels list rows with the same wording', () => {
+        expect(
+            summaryBadge(
+                summaryOf(
+                    'inspected',
+                    'application_not_found',
+                    0,
+                    'no_apply_link',
+                ),
+            ).label,
+        ).toBe('No application link found');
+        expect(
+            summaryBadge(
+                summaryOf(
+                    'inspected',
+                    'unsupported',
+                    0,
+                    'form_without_adapter',
+                ),
+            ).label,
+        ).toBe('Form found, not readable yet');
+        expect(
+            summaryBadge(
+                summaryOf('inspected', 'partial', 0, 'no_fields_extracted'),
+            ).label,
+        ).toBe('Form found, no fields read');
+        expect(
+            summaryBadge(summaryOf('inspected', 'blocked', 0, 'anti_bot'))
+                .label,
+        ).toBe('Blocked by the site');
+    });
+});
+
+describe('failures', () => {
+    it('explains a timeout and a lapsed claim as execution problems, not verdicts on the application', () => {
+        expect(
+            describeFailure(
+                'navigation_timeout',
+                'Timed out loading the application URL.',
+            ),
+        ).toMatch(/Timed out/);
+        expect(describeFailure('navigation_timeout', null)).toMatch(
+            /ran out of time/,
+        );
+        expect(describeFailure('claim_timeout', null)).toMatch(
+            /never reported back/,
+        );
+        expect(describeFailure(null, null)).toMatch(/did not finish/);
+    });
+});
+
+describe('what a click on "Inspect" does', () => {
+    const url = 'https://jobicy.com/jobs/1';
+
+    it('starts the first inspection of a job that has none, and only that', () => {
+        expect(openIntent(summaryOf('not_inspected'), url)).toBe('start');
+    });
+
+    it.each([
+        'queued',
+        'running',
+        'inspected',
+        'failed',
+        'unsupported',
+    ] as const)(
+        'only opens what is already there when the state is %s',
+        (st) => {
+            expect(openIntent(summaryOf(st), url)).toBe('view');
+        },
+    );
+
+    it('only opens a job with no link to start from', () => {
+        expect(openIntent(summaryOf('not_inspected'), null)).toBe('view');
     });
 });

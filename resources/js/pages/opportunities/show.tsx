@@ -31,9 +31,10 @@ import { SubmissionUpdateDrawer } from '@/components/submission-update-drawer';
 import { Card } from '@/components/ui/surface';
 import { JobDescription } from '@/components/job-description';
 import { useJobDecisions } from '@/hooks/use-job-decisions';
+import { useStartInspection } from '@/hooks/use-start-inspection';
 import AppShell from '@/layouts/app-shell';
 import { formatCompensation } from '@/lib/job-display';
-import { summaryBadge } from '@/lib/inspection-status';
+import { openIntent, summaryBadge } from '@/lib/inspection-status';
 import { resumeSteps } from '@/lib/resume-stepper';
 import {
     headerAction,
@@ -273,7 +274,9 @@ export default function OpportunityShow({
     );
     const pay = formatCompensation(op);
     const label = `${op.title} at ${op.company}`;
-    const inspected = op.inspection.application_id !== null;
+    const inspected = op.inspection.state !== 'not_inspected';
+    // One starter for this button and the drawer: a single gate, so one click can never start two runs.
+    const inspector = useStartInspection(workspaceDestination);
     const showInspectionBadge =
         op.inspection.state !== 'not_inspected' ||
         op.inspection.latest_attempt_failed;
@@ -605,7 +608,23 @@ export default function OpportunityShow({
                                     size="sm"
                                     variant="secondary"
                                     aria-haspopup="dialog"
-                                    onClick={opening('inspection')}
+                                    onClick={(event) => {
+                                        opening('inspection')(event);
+
+                                        // The first click also starts the first inspection. Started here, in the click
+                                        // handler, and never by the drawer mounting. The server starts it only if the
+                                        // job still has no inspection. Anything already there is only opened.
+                                        if (
+                                            openIntent(
+                                                op.inspection,
+                                                op.source_url,
+                                            ) === 'start'
+                                        ) {
+                                            inspector.start(op.id, {
+                                                onlyIfNone: true,
+                                            });
+                                        }
+                                    }}
                                 >
                                     {inspected
                                         ? 'View inspection'
@@ -874,6 +893,7 @@ export default function OpportunityShow({
                     job={inspection_job}
                     fallback={null}
                     destination={workspaceDestination}
+                    starter={inspector}
                     onClose={close}
                 />
             )}

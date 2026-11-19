@@ -13,7 +13,9 @@ import { Button, ButtonLink } from '@/components/ui/button';
 import { SegmentedControl } from '@/components/ui/segmented';
 import { Card } from '@/components/ui/surface';
 import { useJobDecisions } from '@/hooks/use-job-decisions';
+import { useStartInspection } from '@/hooks/use-start-inspection';
 import AppShell from '@/layouts/app-shell';
+import { openIntent } from '@/lib/inspection-status';
 import { formatCompensation } from '@/lib/job-display';
 import { submissionIndicator } from '@/lib/submission';
 import { notify } from '@/lib/toast';
@@ -80,8 +82,8 @@ function OpportunityRow({
     const showInspection =
         op.inspection.state !== 'not_inspected' ||
         op.inspection.latest_attempt_failed;
-    const canInspect =
-        op.inspection.application_id !== null || op.source_url !== null;
+    const inspected = op.inspection.state !== 'not_inspected';
+    const canInspect = inspected || op.source_url !== null;
     const label = `${op.title} at ${op.company}`;
     // The application the person recorded, never the browser inspection, which has its own badge.
     const applied = submissionIndicator(op.submission);
@@ -142,12 +144,10 @@ function OpportunityRow({
                         size="sm"
                         data-inspect-trigger={op.id}
                         aria-haspopup="dialog"
-                        aria-label={`${op.inspection.application_id !== null ? 'View inspection' : 'Inspect application form'} for ${label}`}
+                        aria-label={`${inspected ? 'View inspection' : 'Inspect application form'} for ${label}`}
                         onClick={onInspect}
                     >
-                        {op.inspection.application_id !== null
-                            ? 'View inspection'
-                            : 'Inspect form'}
+                        {inspected ? 'View inspection' : 'Inspect form'}
                     </Button>
                 )}
                 <OverflowMenu
@@ -260,6 +260,8 @@ export default function OpportunitiesIndex({
     inspection_job,
 }: Props) {
     const decisions = useJobDecisions();
+    // One starter for the row buttons and the drawer: a single gate, so one click can never start two runs.
+    const starter = useStartInspection(listDestination(filters.resume));
 
     // The inspection drawer. Its job is in the URL (`?inspect=ID`): opening adds a history entry (Back closes it,
     // Forward reopens it) and a reload or shared link restores it. Only the drawer's own props are fetched when it
@@ -282,7 +284,13 @@ export default function OpportunitiesIndex({
         ...(inspect !== null ? { inspect } : {}),
     });
 
-    const openInspection = (id: number) => {
+    /**
+     * Opens the drawer for one job. When that job has never been inspected the same click starts the first inspection,
+     * once the drawer's data has loaded: from this handler's own continuation, never from the drawer mounting. The
+     * server starts it only if there is still no inspection (`onlyIfNone`), so a list that is out of date cannot start a
+     * second one over an existing result.
+     */
+    const openInspection = (id: number, thenStart = false) => {
         const request = ++openRequest.current;
         drawerSession.triggerId = id;
         drawerSession.openedByPush = true;
@@ -292,6 +300,11 @@ export default function OpportunitiesIndex({
             preserveState: true,
             preserveScroll: true,
             replace: false,
+            onSuccess: () => {
+                if (thenStart && openRequest.current === request) {
+                    starter.start(id, { onlyIfNone: true });
+                }
+            },
             onNetworkError: () => {
                 notify.error("Couldn't load that inspection", {
                     description: 'Check your connection and try again.',
@@ -439,7 +452,15 @@ export default function OpportunitiesIndex({
                                 onStop={() =>
                                     decisions.decide(op.id, 'shortlisted')
                                 }
-                                onInspect={() => openInspection(op.id)}
+                                onInspect={() =>
+                                    openInspection(
+                                        op.id,
+                                        openIntent(
+                                            op.inspection,
+                                            op.source_url,
+                                        ) === 'start',
+                                    )
+                                }
                             />
                         ))}
                     </ul>
@@ -480,6 +501,7 @@ export default function OpportunitiesIndex({
                         opportunities.find((op) => op.id === openId) ?? null
                     }
                     destination={listDestination(filters.resume)}
+                    starter={starter}
                     onClose={closeInspection}
                 />
             )}

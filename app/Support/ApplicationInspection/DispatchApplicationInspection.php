@@ -32,16 +32,18 @@ final class DispatchApplicationInspection
      * @param  string|null  $applicationUrl  the person's own, already-validated application URL: saved as an override and
      *                                       inspected. Never replaced automatically afterwards.
      * @param  bool  $clearApplicationUrl  drop any saved application URL and re-resolve from the original listing
+     * @param  bool  $onlyIfNone  start only when this application has never been inspected; otherwise return the latest
+     *                            inspection untouched (the one-click open must never re-inspect over an existing result)
      *
      * @throws InspectionAlreadyRunning when the URL is being changed while an inspection is queued or running
      */
-    public function dispatch(JobPosting $jobPosting, ?string $applicationUrl = null, bool $clearApplicationUrl = false): WorkflowRun
+    public function dispatch(JobPosting $jobPosting, ?string $applicationUrl = null, bool $clearApplicationUrl = false, bool $onlyIfNone = false): WorkflowRun
     {
         if (blank($jobPosting->source_url) && $applicationUrl === null) {
             throw new InvalidArgumentException('This JobPosting has no application URL to inspect.');
         }
 
-        return DB::transaction(function () use ($jobPosting, $applicationUrl, $clearApplicationUrl) {
+        return DB::transaction(function () use ($jobPosting, $applicationUrl, $clearApplicationUrl, $onlyIfNone) {
             $application = $this->findOrCreateDraftApplication($jobPosting);
 
             $active = $application->workflowRuns()
@@ -49,6 +51,14 @@ final class DispatchApplicationInspection
                 ->where('workflow_type', WorkflowType::ApplicationInspection)
                 ->latest('id')
                 ->first();
+
+            if ($onlyIfNone) {
+                $latest = $application->workflowRuns()->where('workflow_type', WorkflowType::ApplicationInspection)->latest('id')->first();
+
+                if ($latest !== null) {
+                    return $latest;
+                }
+            }
 
             $changesUrl = $applicationUrl !== null || $clearApplicationUrl;
 

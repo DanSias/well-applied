@@ -34,6 +34,9 @@ class StartInspectionRequest extends FormRequest
         return [
             'application_url' => ['nullable', 'string', 'max:2048'],
             'clear_application_url' => ['nullable', 'boolean'],
+            // The one-click open: "start an inspection only if this job has never been inspected". A list or tab that is
+            // out of date can then never start a second one over a result that already exists.
+            'only_if_none' => ['nullable', 'boolean'],
             'return_to' => ['nullable', 'string'],
             'resume' => ['nullable', 'string'],
         ];
@@ -65,6 +68,11 @@ class StartInspectionRequest extends FormRequest
         $url = $this->input('application_url');
 
         return is_string($url) && trim($url) !== '' ? InspectionUrl::acceptable($url) : null;
+    }
+
+    public function onlyIfNone(): bool
+    {
+        return $this->boolean('only_if_none');
     }
 
     public function clearsApplicationUrl(): bool

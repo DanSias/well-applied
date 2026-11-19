@@ -187,3 +187,22 @@ it('keeps a person\'s URL through a later inspection that resolves somewhere els
 
     expect(Application::firstOrFail()->application_url)->toBe('https://mine.example.com/apply');
 });
+
+it('starts the first inspection on a one-click open, and never a second over an existing one', function () {
+    $job = JobPosting::factory()->create(['source_url' => 'https://jobicy.com/jobs/1']);
+
+    startInspection($job, ['only_if_none' => true])->assertRedirect();
+    expect(WorkflowRun::count())->toBe(1);
+
+    // Finished and failed attempts alike count as "already inspected": a stale list must not start another.
+    WorkflowRun::query()->update(['status' => 'failed']);
+    startInspection($job, ['only_if_none' => true])->assertRedirect();
+    WorkflowRun::query()->update(['status' => 'succeeded']);
+    startInspection($job, ['only_if_none' => true])->assertRedirect();
+
+    expect(WorkflowRun::count())->toBe(1);
+
+    // The explicit action still starts a fresh one.
+    startInspection($job)->assertRedirect();
+    expect(WorkflowRun::count())->toBe(2);
+});

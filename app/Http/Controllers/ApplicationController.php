@@ -28,7 +28,7 @@ class ApplicationController extends Controller
     public function store(StartInspectionRequest $request, JobPosting $jobPosting, DispatchApplicationInspection $dispatcher): RedirectResponse
     {
         try {
-            $workflowRun = $dispatcher->dispatch($jobPosting, $request->applicationUrl(), $request->clearsApplicationUrl());
+            $workflowRun = $dispatcher->dispatch($jobPosting, $request->applicationUrl(), $request->clearsApplicationUrl(), $request->onlyIfNone());
         } catch (InvalidArgumentException $e) {
             abort(422, $e->getMessage());
         } catch (InspectionAlreadyRunning $e) {
