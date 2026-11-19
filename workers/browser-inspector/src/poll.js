@@ -9,6 +9,8 @@
 import { inspect } from './inspect.js';
 import { createClient } from './client.js';
 import { loadConfig } from './config.js';
+import { checkIsolation, createIsolationGate } from './isolation-check.js';
+import { describeRejection, safeMessage } from './redact.js';
 
 function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -32,17 +34,14 @@ export async function deliverResult(client, agentRunId, result, retry, log = con
             const response = await client.reportResult(agentRunId, result);
 
             if (!response.ok) {
-                log(
-                    `[poll] agent_run_id=${agentRunId} result rejected (status ${response.status}): ` +
-                        `${JSON.stringify(response.body)} — not retrying`,
-                );
+                log(`[poll] agent_run_id=${agentRunId} result rejected (${describeRejection(response)}) — not retrying`);
             } else {
                 log(`[poll] agent_run_id=${agentRunId} result delivered (duplicate=${response.body?.duplicate ?? false})`);
             }
 
             return response;
         } catch (error) {
-            log(`[poll] agent_run_id=${agentRunId} result delivery attempt ${attempt}/${retry.attempts} failed: ${error.message}`);
+            log(`[poll] agent_run_id=${agentRunId} result delivery attempt ${attempt}/${retry.attempts} failed: ${safeMessage(error)}`);
 
             if (attempt < retry.attempts) {
                 await sleep(retry.backoffMs * attempt);
@@ -84,11 +83,11 @@ export async function runOnce(client, config, log = console.error, inspectFn = i
     } catch (error) {
         // inspect() reports every expected outcome itself; this is the unexpected: still deliver a failed result now
         // rather than leave the claim to expire.
-        log(`[poll] agent_run_id=${claimed.agent_run_id} inspection threw: ${error?.message}`);
+        log(`[poll] agent_run_id=${claimed.agent_run_id} inspection threw: ${safeMessage(error)}`);
         result = {
             status: 'failed',
             failure_category: 'unexpected_error',
-            failure_message: `The worker failed unexpectedly: ${String(error?.message ?? error).replace(/https?:\/\/[^\s"']+/gi, '[url]')}`,
+            failure_message: `The worker failed unexpectedly: ${safeMessage(error)}`,
             diagnostics: { timestamp: new Date().toISOString() },
         };
     }
@@ -104,12 +103,28 @@ export async function runOnce(client, config, log = console.error, inspectFn = i
     return true;
 }
 
-export async function runForever(client, config, log = console.error, shouldStop = () => false, inspectFn = inspect) {
+/**
+ * @param {(() => Promise<{ok: boolean, failures: string[]}>) | null} [isolationGate] when given, checked before every claim; a
+ *   failing gate stops the loop (returning 'isolation_failed') instead of claiming work. Supplemental to the host's own
+ *   enforcement. See src/isolation-check.js.
+ * @returns {Promise<'stopped'|'isolation_failed'>}
+ */
+export async function runForever(client, config, log = console.error, shouldStop = () => false, inspectFn = inspect, isolationGate = null) {
     log(`[poll] starting — polling ${config.careerToolkitUrl} as "${config.workerIdentity}" every ${config.pollIntervalMs}ms`);
 
     let consecutiveFailures = 0;
 
     while (!shouldStop()) {
+        if (isolationGate !== null) {
+            const verdict = await isolationGate();
+
+            if (!verdict.ok) {
+                log(`[poll] ISOLATION CHECK FAILED — not claiming work: ${verdict.failures.map((f) => safeMessage(f)).join('; ')}`);
+
+                return 'isolation_failed';
+            }
+        }
+
         try {
             const gotWork = await runOnce(client, config, log, inspectFn);
             consecutiveFailures = 0;
@@ -120,12 +135,14 @@ export async function runForever(client, config, log = console.error, shouldStop
         } catch (error) {
             consecutiveFailures += 1;
             const backoff = Math.min(config.pollIntervalMs * 2 ** consecutiveFailures, config.maxBackoffMs);
-            log(`[poll] claim/poll error: ${error.message} — backing off ${backoff}ms`);
+            log(`[poll] claim/poll error: ${safeMessage(error)} — backing off ${backoff}ms`);
             await sleep(backoff);
         }
     }
 
     log('[poll] stopping');
+
+    return 'stopped';
 }
 
 const isMain = process.argv[1] && import.meta.url === `file://${process.argv[1]}`;
@@ -146,5 +163,26 @@ if (isMain) {
         shuttingDown = true;
     });
 
-    await runForever(client, config, console.error, () => shuttingDown);
+    let gate = null;
+
+    if (config.isolation.required) {
+        const check = () => checkIsolation({ extraTargets: config.isolation.extraTargets });
+        const startup = await check();
+
+        if (!startup.ok) {
+            // Fail closed: an isolated deployment that cannot show it is isolated never polls. The exit makes the supervisor
+            // (systemd, via compose --abort-on-container-exit) stop, and its own start-up check decides whether to try again.
+            console.error(`[poll] ISOLATION CHECK FAILED at start-up — refusing to run: ${startup.failures.join('; ')}`);
+            process.exit(70);
+        }
+
+        console.error(`[poll] isolation self-check passed (${startup.checks.length} canaries, privileges dropped)`);
+        gate = createIsolationGate(check);
+    }
+
+    const reason = await runForever(client, config, console.error, () => shuttingDown, inspect, gate);
+
+    if (reason === 'isolation_failed') {
+        process.exit(70);
+    }
 }

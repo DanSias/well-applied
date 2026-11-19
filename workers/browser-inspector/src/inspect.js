@@ -5,6 +5,7 @@
 //
 // Read-only: pages are only navigated to (GET, through the guard). Nothing is clicked, typed, submitted, accepted or
 // created, and an "Apply" button that is not a link is reported, not pressed.
+import { redactText } from './redact.js';
 import { createDeadline, DEFAULT_BUDGET_MS, DeadlineExceeded } from './budget.js';
 import { createGuard, verifyConnectedAddress } from './guard.js';
 import { launchChromium, openGuardedPage, navigate, traceFor, safeRedact } from './browser.js';
@@ -300,6 +301,3 @@ function diagnostics(state, extra = {}) {
     };
 }
 
-function redactText(text) {
-    return text.replace(/https?:\/\/[^\s"'<>)\]]+/gi, (u) => safeRedact(u) ?? '[url]');
-}
