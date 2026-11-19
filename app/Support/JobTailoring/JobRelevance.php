@@ -79,24 +79,34 @@ final class JobRelevance
             }
         }
 
-        // The job's own vocabulary (payment, onboarding, webhook ...), each word weighted by the findings that use it and by
-        // how rare it is across the record. Words are evidence of relevance, never of a claim.
+        // The job's own vocabulary (payment, onboarding, webhook ...). A shared word is weak evidence on its own: it says a fact
+        // and a requirement use a word, not that they are about the same thing ("planning" in "planning stack" and in "project
+        // planning"). So each fact is read against each requirement separately, and what a requirement shares with a fact counts
+        // in proportion to how much it shares (see wordContribution). Words are evidence of relevance, never of a claim.
+        $matching = (array) config('resume.composition.matching');
+        $tokens = array_map(fn (array $f) => $this->tokens((string) $f['statement']), $pool);
+        $findingTokens = array_map(fn (array $f) => $this->tokens($f['statement']), $findings);
         $vocab = [];
 
-        foreach ($findings as $f) {
-            foreach ($this->stems($f['statement']) as $stem) {
-                $vocab[$stem] = ($vocab[$stem] ?? 0.0) + $f['weight'];
+        foreach ($findingTokens as $list) {
+            foreach ($list as $stem) {
+                $vocab[$stem] = true;
             }
         }
 
-        $factStems = array_map(fn (array $f) => $this->stems((string) $f['statement']), $pool);
+        $factStems = array_map(fn (array $list) => array_values(array_unique($list)), $tokens);
         $df = [];
 
+        // How many facts use each stem of the job's vocabulary: a word half the record uses says nothing about any one fact.
         foreach ($factStems as $stems) {
             foreach (array_intersect($stems, array_keys($vocab)) as $stem) {
                 $df[$stem] = ($df[$stem] ?? 0) + 1;
             }
         }
+
+        $total = count($pool);
+        $stemWeight = fn (string $stem): float => log(($total + 1) / (($df[$stem] ?? 0) + 1)) / 4
+            * (($df[$stem] ?? 0) >= max((int) $matching['ubiquitous_min'], (float) $matching['ubiquitous_share'] * $total) ? (float) $matching['ubiquitous_factor'] : 1.0);
 
         $because = [];
         $capEvidence = [];
@@ -110,19 +120,28 @@ final class JobRelevance
                 $capEvidence[$key] = max($caps) + 0.35 * (array_sum($caps) - max($caps));
             }
 
-            foreach (array_intersect($factStems[$key], array_keys($vocab)) as $stem) {
-                $wordEvidence[$key] = ($wordEvidence[$key] ?? 0.0) + min(1.5, $vocab[$stem]) * log((count($pool) + 1) / (($df[$stem] ?? 0) + 1)) / 4;
-            }
+            $perStem = [];
 
-            foreach ($findings as $f) {
-                $shared = count(array_intersect($f['capabilities'], (array) $fact['capabilities']));
-                $overlap = count(array_intersect($this->stems($f['statement']), $factStems[$key]));
-                $value = ($shared > 0 ? $f['weight'] / sqrt(count($f['capabilities'])) : 0.0) + 0.1 * $overlap * $f['weight'];
+            foreach ($findings as $id => $f) {
+                $shared = array_values(array_intersect($findingTokens[$id], $factStems[$key]));
+                $corroboration = $this->corroboration($findingTokens[$id], $tokens[$key], count($shared), $matching);
+
+                foreach ($shared as $stem) {
+                    $perStem[$stem] = ($perStem[$stem] ?? 0.0) + $f['weight'] * $corroboration;
+                }
+
+                $sharedCaps = count(array_intersect($f['capabilities'], (array) $fact['capabilities']));
+                $value = ($sharedCaps > 0 ? $f['weight'] / sqrt(count($f['capabilities'])) : 0.0) + 0.1 * $corroboration * count($shared) * $f['weight'];
 
                 // A fact answers a finding only when it speaks to it substantially, not on one shared word.
                 if ($value >= 0.4 * $f['weight']) {
                     $because[$key][$f['id']] = $value;
                 }
+            }
+
+            // Each stem counts up to the weight of a requirement and a half, however many requirements repeat it.
+            foreach ($perStem as $stem => $weight) {
+                $wordEvidence[$key] = ($wordEvidence[$key] ?? 0.0) + min(1.5, $weight) * $stemWeight($stem);
             }
         }
 
@@ -132,7 +151,8 @@ final class JobRelevance
 
         foreach ($pool as $key => $fact) {
             $c = ($capEvidence[$key] ?? 0.0) / (($capEvidence[$key] ?? 0.0) + 6.0);
-            $w = ($wordEvidence[$key] ?? 0.0) / (($wordEvidence[$key] ?? 0.0) + 4.0);
+            $word = ($wordEvidence[$key] ?? 0.0) * (float) $matching['scale'] * (! isset($capEvidence[$key]) && $this->unanchored($fact) ? (float) $matching['unanchored_word_only'] : 1.0);
+            $w = $word / ($word + 4.0);
             $score[$key] = 1.0 - (1.0 - $c) * (1.0 - $w);
         }
 
@@ -290,12 +310,103 @@ final class JobRelevance
     }
 
     /**
+     * The stems of a text, in order, without the words every posting and every resume uses. Inflection only: "developer",
+     * "development" and "developing" are one stem, "executive" and "execute" are not.
+     *
+     * @return array<int, string>
+     */
+    private function tokens(string $text): array
+    {
+        $words = array_filter(preg_split('/[^a-z0-9]+/', strtolower($text)) ?: [], fn (string $w) => strlen($w) >= 5 && ! in_array($w, self::STOP, true));
+
+        return array_values(array_map(fn (string $w) => self::stem($w), $words));
+    }
+
+    /**
      * @return array<int, string>
      */
     private function stems(string $text): array
     {
-        $words = array_filter(preg_split('/[^a-z0-9]+/', strtolower($text)) ?: [], fn (string $w) => strlen($w) >= 5 && ! in_array($w, self::STOP, true));
+        return array_values(array_unique($this->tokens($text)));
+    }
 
-        return array_values(array_unique(array_map(fn (string $w) => substr($w, 0, 6), $words)));
+    /**
+     * A light suffix stemmer: plural and verb inflections (-s, -es, -ed, -ing), the agent and result forms that mean the same
+     * work (-er, -ment, -ion, -ation, -ization), the noun forms of a quality (idempotent/idempotency, scalable/scalability) and a
+     * trailing "e". Adjectives and other derivations (-ive, -al) are left alone, so words that merely start alike stay apart.
+     */
+    public static function stem(string $word): string
+    {
+        $w = strtolower($word);
+
+        // Twice, so "delivered" and "delivery" both reach "deliver" and then "deliv" like "deliver" does.
+        for ($pass = 0; $pass < 2; $pass++) {
+            $w = self::stripOnce($w);
+        }
+
+        return $w;
+    }
+
+    private static function stripOnce(string $w): string
+    {
+        foreach ([['ies', 'y', 5], ['sses', 'ss', 6], ['izations', 'iz', 11], ['ization', 'iz', 10], ['ency', 'ent', 8], ['ancy', 'ant', 8], ['ibility', 'ible', 9], ['ability', 'able', 9], ['ations', 'at', 9], ['ation', 'at', 8], ['ings', '', 7], ['ing', '', 6], ['ments', '', 9], ['ment', '', 8], ['ions', '', 7], ['ion', '', 6], ['ers', '', 8], ['er', '', 7], ['ery', '', 7], ['ed', '', 5], ['es', '', 5], ['ly', '', 6]] as [$suffix, $with, $min]) {
+            if (strlen($w) >= $min && str_ends_with($w, $suffix)) {
+                $w = substr($w, 0, -strlen($suffix)).$with;
+
+                break;
+            }
+        }
+
+        if (strlen($w) > 4 && str_ends_with($w, 's') && ! preg_match('/(?:ss|us|is)$/', $w)) {
+            $w = substr($w, 0, -1);
+        }
+
+        // "planning" and "planned" are "plan"; "stack" and "install" keep their double letters.
+        if (strlen($w) > 4 && preg_match('/([bdfgmnprt])\1$/', $w) === 1) {
+            $w = substr($w, 0, -1);
+        }
+
+        return strlen($w) > 4 && str_ends_with($w, 'e') ? substr($w, 0, -1) : $w;
+    }
+
+    /**
+     * How much a requirement and a fact corroborate each other through the words they share: one shared word is a coincidence
+     * (`single_stem`), two or more are a topic, and the same two words side by side in both is a phrase.
+     *
+     * @param  array<int, string>  $requirement  the requirement's stems in order
+     * @param  array<int, string>  $fact  the fact's stems in order
+     * @param  array<string, float>  $matching
+     */
+    private function corroboration(array $requirement, array $fact, int $shared, array $matching): float
+    {
+        if ($shared === 0) {
+            return 0.0;
+        }
+
+        $pairs = fn (array $t): array => count($t) < 2 ? [] : array_unique(array_map(fn (int $i) => $t[$i].' '.$t[$i + 1], range(0, count($t) - 2)));
+        $phrases = count(array_intersect($pairs($requirement), $pairs($fact)));
+
+        if ($shared === 1 && $phrases === 0) {
+            return (float) $matching['single_stem'];
+        }
+
+        return 1.0 + (float) $matching['extra_stem'] * min(2, max(0, $shared - 2)) + (float) $matching['phrase_bonus'] * min(2, $phrases);
+    }
+
+    /**
+     * A statement with nothing concrete to anchor it: no project, no figure, no built or integrated system, no deployment. It can
+     * be true and useful, but a shared word is all that ties it to a posting, so word evidence alone counts for a little less.
+     *
+     * @param  array<string, mixed>  $fact
+     */
+    private function unanchored(array $fact): bool
+    {
+        $text = (string) $fact['statement'];
+
+        return ($fact['project_id'] ?? null) === null
+            && preg_match('/\d/', $text) !== 1
+            && preg_match('/^(?:Built|Developed|Implemented|Integrated|Designed|Automated|Created|Engineered|Normalized|Extended)\b/', trim($text)) !== 1
+            && preg_match('/\b(?:APIs?|integrat\w+|webhooks?|pipelines?|data warehouse|retriev\w+)\b/i', $text) !== 1
+            && ! StoryRole::isDeployment($text);
     }
 }

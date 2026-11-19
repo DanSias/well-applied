@@ -1219,28 +1219,56 @@ ceiling is). Facts are not changed by any of this: a fact stays eligible exactly
 validators. Evidence added to a profile reaches generation after the profile is refreshed (`ReviewProfileSynthesis::refreshEvidence`)
 and approved.
 
-**Known limitation: generic wording scores as relevance (not changed here).** `JobRelevance` ranks a fact by capability and
-vocabulary overlap with the posting, and discounts general claims only by pattern (`generic_ownership` matches statements that open
-"Owned", `generic_leadership` mentoring and technical leadership). A role-level statement such as "Managed multiple client projects
-from requirements gathering ... through development, launch, and ongoing support" shares ordinary words (requirements, delivery,
-planning) with almost any posting and escapes both discounts. Observed on job 348 (Software Integration Engineer) with the refreshed
-profile: the new Liquid Gravity facts scored 0.40 to 0.46 against a posting that has nothing to do with client work, took a share of
-the fixed relevance plan, and the Pearson "Executive Insights Dashboard" bullet (a concrete build, scored lower) was the bullet
-dropped, Pearson going from 4 bullets to 3. Role coverage is not the cause (with it disabled the result is the same); it only adds
-Liquid Gravity bullets on top of the plan. A fix belongs in relevance scoring (for example discounting general ownership and
-delivery language the way concrete builds are credited), with its own regression cases for both roles. Until then a refreshed
-profile can shift one bullet from a concrete recent-enough build to a general responsibility statement for postings that share generic
-vocabulary.
+### How a posting's wording is matched to a fact (`JobRelevance`)
 
-**Follow-up: responsibility classifier misses some stated responsibilities (not changed here).**
-`StoryDimensions::responsibilities()` reads ownership only from the verbs "managed", "owned" and "oversaw" with a project object,
-or a requirements-to-delivery span, and collaboration only from a collaboration verb within 70 characters of "client",
-"stakeholder" or "customer". "Served as the primary technical owner of Nexus, ..." (a noun) and "Partnered with marketing, finance,
-engineering, executive leadership, and external vendors to define reporting requirements, ... to internal business stakeholders"
-(the stakeholders are far from the verb) are therefore classified as stating no responsibility. This only affects role-coverage
-diagnostics (a low-relevance posting can report "limited evidence" for the Pearson lead role although the evidence now states
-ownership and collaboration); nothing is dropped from selection. Fix by recognizing the "owner" noun and widening the
-collaboration window, with regression cases for both statements.
+Relevance ranks facts; it authorizes nothing. A fact's score combines capability evidence (a capability a requirement names and the
+fact states, weighted by rarity) and word evidence, then `ProfileJobAdapter` and the specificity factors adjust it. Word evidence
+used to pool 6-character prefixes across every requirement, so one shared word could add as much as a real match: "execute" and
+"executive", "planning stack" and "project planning", "hands-on" in two senses, and "development" (in every posting) all added score
+to facts that had nothing to do with the requirement. It is now read as follows, all deterministic and explainable by config
+(`config/resume.php` `composition.matching`):
+
+- **Stems are inflection-only** (`JobRelevance::stem`): "developer", "development" and "developing" agree, as do "idempotent" and
+  "idempotency"; "executive" and "execute", or "internal" and "international", do not.
+- **Each fact is read against each requirement.** One shared word counts `single_stem` (0.5) of its weight, each further shared word
+  adds `extra_stem`, and the same two words side by side in both add `phrase_bonus`.
+- **A word used by at least 12% of the facts** (never fewer than 6) counts `ubiquitous_factor` (0.5).
+- **A statement with nothing concrete in it** (no project, figure, built or integrated system, or deployment) and no capability
+  match counts `unanchored_word_only` (0.6) of its word evidence. When the posting asks for the capability the statement states,
+  the capability evidence applies and this does not.
+- **`scale` is 1.0, and the thresholds are set for that level.** The allocation thresholds are absolute and were calibrated to
+  the old, word-inflated scorer, so with honest scores `filler_relevance` is 0.2 (was 0.3) and `relevant_at` is 0.3 (was 0.4).
+  A multiplier on word evidence (tried at 1.6) passed the old thresholds by inflating weak evidence instead: in a posting that
+  names one capability it turned 2 words-only facts above 0.5 into 8. Measured over the stored postings, bullets per resume went
+  16.7 to 16.9.
+
+Capabilities: `end_to_end_ownership` now also reads the owner noun ("primary technical owner"), "managed ... projects" and a
+requirements-through-launch lifecycle; `stakeholder_collaboration` and `requirements_translation` are new (translation reads up to
+90 characters between the verb and "requirements", "needs", "objectives" or "priorities"); `customer_facing` also reads
+"communicating directly with customers" and "direct customer interaction"; "client relationships" counts as stakeholder work. Each names its object, so
+"collaborate with engineering and operations teams" and "derived from product requirements" are neither. A fact earns credit for a
+capability only when a posting asks for it.
+
+Not done on purpose: a bonus for verified evidence (nearly all evidence is verified), a recency or numeric-metric bonus at the fact
+level (recency stays an allocation consideration), and any rule keyed to an employer, a fact or a posting. The remaining limit is
+that relevance is still lexical: a posting outside the capability taxonomy (a vehicle-testing role, say) ranks the record on shared
+words, now discounted, so its ranking is weak evidence either way. A posting can only be matched as well as the taxonomy and
+the analysis describe it.
+
+**Deferred in the relevance-scoring phase.** Not fixed, by decision:
+- Capability recognition still misses some real asks: broad "Own X" wording ("own all third-party integrations", "own major
+  workstreams"), "track record of delivering complex projects", "turn product ideas into shipped features", requirements stated
+  next to a denial ("without formal authority ... stakeholders"), and `ai_llm` for "AI capabilities / AI-native". A posting that
+  asks for one of these is matched on shared words only, so evidence that states it (Verbatim for an AI-in-documents role) can rank
+  below evidence that merely shares vocabulary.
+- Two non-adjacent shared words that are each common ("support" and "multiple") still count as corroboration; a guard requiring one
+  non-ubiquitous stem would remove most of these.
+- Role coverage engages when the relevance plan leaves a role below its floor, measured in planned slots. If the plan has the slots
+  but fewer facts clear `filler_relevance`, the role keeps what clears it and the shortfall is reported (`role_coverage`, reason
+  `selection`) instead of being padded. It does not occur with the current evidence (Liquid Gravity gets 4 bullets in every stored
+  posting).
+- Relevance is lexical plus a capability taxonomy. For a posting outside the taxonomy (a vehicle-validation role) the ranking is
+  weak evidence either way; it is now weak by score as well as by nature.
 
 **Follow-up: no check for entities, audiences or scale the evidence does not name (not changed here).** The fidelity and scope
 checks block invented figures, qualifiers, team leadership and unsupported technologies, but a bullet that adds a project, an

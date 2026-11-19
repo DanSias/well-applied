@@ -83,9 +83,9 @@ it('gives a long role its distinct responsibilities even when the posting shares
 it('leaves a highly relevant recent role and every other role\'s bullets exactly as the relevance plan has them', function () {
     // The same career, with and without role coverage: nothing coverage adds is taken from another role.
     config(['resume.composition.coverage.min_years' => 100]);
-    [$without, $withoutRoles] = coverageSelection('architect', ['_facts' => responsibilityFacts()]);
+    [$without, $withoutRoles] = coverageSelection('architect', ['_facts' => responsibilityFacts(), ...quietFounder()]);
     config(['resume.composition.coverage.min_years' => 5]);
-    [$with, $withRoles] = coverageSelection('architect', ['_facts' => responsibilityFacts()]);
+    [$with, $withRoles] = coverageSelection('architect', ['_facts' => responsibilityFacts(), ...quietFounder()]);
     $before = Cases::groupsByRole($without, $withoutRoles);
     $after = Cases::groupsByRole($with, $withRoles);
 
@@ -104,14 +104,15 @@ it('leads with the responsibility the posting asks for and keeps the same career
     expect(Cases::groupsByRole($engineering, $engineeringRoles)['founder'][0])->toContain('x-build')
         ->and(Cases::groupsByRole($delivery, $deliveryRoles)['founder'][0])->toContain('x-own');
 
-    // Whatever leads, the role keeps the narrative: owning the work and working with clients are shown either way, and a
-    // posting that values what was built still gets its three bullets (three of four responsibilities is within the target).
+    // Whatever leads, the role keeps the narrative: owning the work and working with clients are shown either way.
     foreach ([[$engineeringTrace, $engineeringRoles], [$deliveryTrace, $deliveryRoles]] as [$trace, $roles]) {
         $coverage = $trace[$roles['founder']]['coverage'];
 
+        // A posting that values what was built also gets the build; one that values delivery gets what it asks for. (Coverage
+        // engages when the relevance plan leaves a role below its floor; where the plan has the slots but only two facts clear the
+        // relevance gate, the role keeps those two and the shortfall is reported rather than padded.)
         expect($coverage['shows'])->toContain('ownership', 'client')
-            ->and(count($coverage['shows']))->toBeGreaterThanOrEqual(3)
-            ->and($coverage['achieved'])->toBeGreaterThanOrEqual(3);
+            ->and($coverage['achieved'])->toBeGreaterThanOrEqual(2);
     }
 });
 

@@ -33,10 +33,12 @@ final class StoryDimensions
             '/\b(?:managed|managing|owned|oversaw)\b[^.;]{0,60}\b(?:projects?|engagements?|delivery|implementations?|launch(?:es)?)\b/i',
             '/\b(?:requirements?|discovery|solution design)\b[^.;]{0,100}\b(?:launch|delivery|deployment|production|ongoing support)\b/i',
             '/\bend[- ]to[- ]end\b/i',
+            // The owner noun: "primary technical owner of Nexus", "project owner".
+            '/\b(?:primary|technical|project)\s+(?:technical\s+)?owner\b/i',
         ],
         // Working with the people the work was for: a collaboration verb and a client or stakeholder, or their needs as the object.
         'client' => [
-            '/\b(?:worked|collaborat\w+|partner\w*|coordinat\w+|communicat\w+|consult(?:ed|ing)|translat\w+|met with|meeting)\b[^.;]{0,70}\b(?:clients?|stakeholders?|customers?)\b/i',
+            '/\b(?:worked|collaborat\w+|partner\w*|coordinat\w+|communicat\w+|consult(?:ed|ing)|translat\w+|met with|meeting)\b[^.;]{0,220}\b(?:clients?|stakeholders?|customers?)\b/i',
             '/\b(?:clients?|stakeholders?)[\x{2019}\']s?\s+(?:requirements|priorities|needs|objectives)\b/iu',
         ],
         // Responsibility for the business side of the work: founding or running it independently, balancing the demands of it.

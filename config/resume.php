@@ -160,7 +160,7 @@ return [
         'retention' => ['max_bullet_corrections' => 2],
         'bullets' => ['min' => 14, 'target' => 17, 'max' => 19, 'per_role_max' => 7],
         'allocation' => [
-            'relevant_at' => 0.4, 'filler_relevance' => 0.3, 'continuity_floor' => 2, 'continuity_min_years' => 3,
+            'relevant_at' => 0.3, 'filler_relevance' => 0.2, 'continuity_floor' => 2, 'continuity_min_years' => 3,
             'tenure_full_years' => 6, 'recent_years' => 3, 'facts_per_bullet_unit' => 1.5, 'generic_per_role' => 1, 'story_preference' => 1.3, 'bare_outcome' => 0.85,
         ],
         // Small multipliers on a fact's relevance to a job, applied once after the keyword and capability scoring (see
@@ -179,6 +179,15 @@ return [
         // another role, and the total stays within `bullets.max`. They are soft targets: a role with less evidence than the
         // target simply has fewer, and the shortfall is reported (CompositionChecks, check `role_coverage`).
         'coverage' => ['min_years' => 5, 'target' => 4, 'minimum' => 3],
+        // How a job's wording is matched to a fact's (see JobRelevance). A requirement and a fact that share one word corroborate
+        // each other at `single_stem`; each further shared word adds `extra_stem`, and the same two words side by side in both add
+        // `phrase_bonus`. A word used by at least `ubiquitous_share` of the facts (and never fewer than `ubiquitous_min`) is damped to `ubiquitous_factor`. A statement with
+        // nothing concrete to anchor it and no capability match counts `unanchored_word_only` of its word evidence. `scale` multiplies all word
+        // evidence and is 1.0: the discounts change which facts rank first, and weak wording is allowed to stay weak. The allocation
+        // thresholds (allocation.relevant_at, filler_relevance) are set for that honest level; raising `scale` instead would pass
+        // them by inflating weak evidence (in a posting that names almost no capability it more than doubled the words-only facts
+        // above 0.5).
+        'matching' => ['scale' => 1.0, 'single_stem' => 0.5, 'extra_stem' => 0.15, 'phrase_bonus' => 0.25, 'ubiquitous_share' => 0.12, 'ubiquitous_min' => 6, 'ubiquitous_factor' => 0.5, 'unanchored_word_only' => 0.6],
         'story' => ['max_facts' => 3, 'lead_max_facts' => 4],
         // A job gets the AI skills layout when it asks strongly for LLM work (capability weight, or the title says so).
         'skills' => ['ai_capability' => 0.6, 'isolated_tag' => 0.5],
