@@ -2,14 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StartInspectionRequest;
 use App\Models\Application;
 use App\Models\JobPosting;
 use App\Support\ApplicationInspection\DispatchApplicationInspection;
+use App\Support\ApplicationInspection\InspectionAlreadyRunning;
 use App\Support\ApplicationInspection\PresentApplicationInspection;
 use App\Support\Navigation\JobHome;
 use App\Support\Navigation\ReturnTo;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 use InvalidArgumentException;
@@ -24,12 +25,14 @@ use InvalidArgumentException;
  */
 class ApplicationController extends Controller
 {
-    public function store(Request $request, JobPosting $jobPosting, DispatchApplicationInspection $dispatcher): RedirectResponse
+    public function store(StartInspectionRequest $request, JobPosting $jobPosting, DispatchApplicationInspection $dispatcher): RedirectResponse
     {
         try {
-            $workflowRun = $dispatcher->dispatch($jobPosting);
+            $workflowRun = $dispatcher->dispatch($jobPosting, $request->applicationUrl(), $request->clearsApplicationUrl());
         } catch (InvalidArgumentException $e) {
             abort(422, $e->getMessage());
+        } catch (InspectionAlreadyRunning $e) {
+            abort(409, $e->getMessage());
         }
 
         // The Opportunities inspection drawer starts an inspection without leaving the page: it asks to come back to

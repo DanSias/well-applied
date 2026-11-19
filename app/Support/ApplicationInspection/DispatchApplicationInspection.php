@@ -28,13 +28,20 @@ use InvalidArgumentException;
  */
 final class DispatchApplicationInspection
 {
-    public function dispatch(JobPosting $jobPosting): WorkflowRun
+    /**
+     * @param  string|null  $applicationUrl  the person's own, already-validated application URL: saved as an override and
+     *                                       inspected. Never replaced automatically afterwards.
+     * @param  bool  $clearApplicationUrl  drop any saved application URL and re-resolve from the original listing
+     *
+     * @throws InspectionAlreadyRunning when the URL is being changed while an inspection is queued or running
+     */
+    public function dispatch(JobPosting $jobPosting, ?string $applicationUrl = null, bool $clearApplicationUrl = false): WorkflowRun
     {
-        if (blank($jobPosting->source_url)) {
+        if (blank($jobPosting->source_url) && $applicationUrl === null) {
             throw new InvalidArgumentException('This JobPosting has no application URL to inspect.');
         }
 
-        return DB::transaction(function () use ($jobPosting) {
+        return DB::transaction(function () use ($jobPosting, $applicationUrl, $clearApplicationUrl) {
             $application = $this->findOrCreateDraftApplication($jobPosting);
 
             $active = $application->workflowRuns()
@@ -43,8 +50,25 @@ final class DispatchApplicationInspection
                 ->latest('id')
                 ->first();
 
+            $changesUrl = $applicationUrl !== null || $clearApplicationUrl;
+
             if ($active !== null) {
+                // The running attempt already began somewhere; silently pointing the next one elsewhere would be a surprise.
+                if ($changesUrl) {
+                    throw new InspectionAlreadyRunning;
+                }
+
                 return $active;
+            }
+
+            if ($applicationUrl !== null) {
+                $application->update([
+                    'application_url' => $applicationUrl,
+                    'application_url_origin' => Application::URL_USER,
+                    'application_url_set_at' => now(),
+                ]);
+            } elseif ($clearApplicationUrl) {
+                $application->update(['application_url' => null, 'application_url_origin' => null, 'application_url_set_at' => null]);
             }
 
             $workflowRun = $application->workflowRuns()->create([
