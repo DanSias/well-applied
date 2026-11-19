@@ -10,15 +10,11 @@ the conventions worth keeping stable across future changes — the same
 split `docs/job-analysis-generation.md` and its siblings already
 establish for the generation pipelines.
 
-**Implementation status: domain foundation only.** As of this document,
-`Application`, `WorkflowRun`, `WorkflowStep`, `AgentRun`, and
-`ApplicationQuestion` exist as persisted models with relationships and
-tests. No browser worker exists yet, no HTTP endpoint accepts a claim or
-a result, and nothing in this application triggers an inspection. Every
-section below describing the worker, its protocol, or its authentication
-is recording an **approved architectural decision for a subsequent
-implementation pass**, not current behavior — each such section says so
-explicitly.
+**Implementation status.** The domain model, the browser worker (`workers/browser-inspector/`), the worker protocol and the
+Opportunity drawer are implemented. The paragraphs below that describe the worker, its protocol or its authentication
+were written as an approved design before the worker existed and are kept as historical context; where they differ from
+the code, the code and `workers/browser-inspector/README.md` are authoritative. "Phase 1: finding the application" at the
+end of this document records what changed when inspection learned to locate the actual application form.
 
 ## Purpose
 
@@ -360,3 +356,36 @@ worker; browser-use, Stagehand, Skyvern, or any browser-agent framework;
 visual/computer-use capability; a generalized workflow or agent runtime;
 WebSockets; Redis; a domain event bus; Laravel Sanctum; PDF-artifact
 durability changes.
+
+
+## Phase 1: finding the application
+
+Most stored `job_postings.source_url` values are an aggregator's own page (Jobicy, Adzuna, Himalayas), not the employer's
+application. Before Phase 1 the worker inspected whatever it was given and reported "Unsupported ATS" for anything that
+was not a Greenhouse form, so a job listing and a real but unreadable application looked the same.
+
+**Five URLs, kept apart**
+
+| URL | Where | Meaning |
+|---|---|---|
+| Source URL | `job_postings.source_url` | Where the job was discovered. Never changed by inspection. |
+| Provider destination | `discovery_metadata.discovery.applyUris` | A separate application URL a provider supplied. Only USAJobs does. |
+| Application URL | `applications.application_url` (+ `_origin`, `_set_at`) | Where the application is completed: `user` (a person's override, never replaced automatically) or `resolved` (an inspection reached a form there). |
+| Requested / final URL | `agent_runs.result_summary` | Per run, origin + path only. |
+
+`App\Support\ApplicationInspection\ResolveInspectionStartUrl` chooses where a run starts: the Application URL, then a
+valid provider destination, then the source URL. Every candidate passes `InspectionUrl` (http(s), no credentials, no
+internal hosts, tracking parameters stripped, functional ones such as `gh_jid` kept); a provider URL is not trusted for
+coming from an API. The browser then follows at most two Apply links from there. There is no second resolver.
+
+**Outcomes.** Run status stays technical (`succeeded` / `failed`). `inspection_outcome` says what was found and
+`inspection_stop_reason` why it stopped: `complete`, `partial`, `unsupported` (a form was reached that cannot be read),
+`application_not_found`, `needs_application_url`, `authentication_required`, `blocked`. A record from before stop reasons
+existed (`unsupported` with no reason) is shown as such and never reinterpreted.
+
+**Lease.** `BROWSER_WORKER_CLAIM_TTL` is 120 s. The claim response carries `budget_seconds` (the lease minus a 30 s
+delivery allowance), the worker enforces it as a hard stop, and a result that arrives after a lapsed claim was recovered
+as failed is still rejected as stale.
+
+**Preparation is unchanged.** It still judges and opens only the job's `source_url` against its own host allowlist. The
+Application URL is where a later phase will join the two, behind one accessor, without widening that allowlist.

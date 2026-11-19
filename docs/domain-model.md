@@ -1387,6 +1387,13 @@ exist, following the same `EvidenceSource`/`CareerFactType` convention
 already established elsewhere in this document — not something this
 schema needs to anticipate today.
 
+**`application_url`, `application_url_origin`, `application_url_set_at`** (all nullable) record where the application is
+actually completed, as distinct from `job_postings.source_url` (where the job was discovered, which no inspection ever
+changes). The origin is `user` (a person's own link, never replaced automatically; clearing it is an explicit action) or
+`resolved` (an inspection reached an application form there). It keeps functionally necessary query parameters, such as a
+Greenhouse `gh_jid`, and is never shown or logged with its query string. Application preparation does not read it yet. See
+`docs/application-inspector.md` "Phase 1: finding the application".
+
 **Deletion**: `applications.job_posting_id` RESTRICTs rather than
 cascades — see "Deletion behavior" above for why, and for the resulting
 transitive block on `CareerProfile` deletion. `WorkflowRun` and
