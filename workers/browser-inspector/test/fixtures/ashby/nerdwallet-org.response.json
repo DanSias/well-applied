@@ -1,0 +1,17 @@
+{
+  "data": {
+    "organization": {
+      "name": "NerdWallet",
+      "hostedJobsPageSlug": "nerdwallet",
+      "publicWebsite": "https://www.nerdwallet.com/",
+      "allowJobPostIndexing": true,
+      "isDemoOrg": false,
+      "timezone": "America/Los_Angeles",
+      "recruitingPrivacyPolicyUrl": "https://www.nerdwallet.com/privacy-policy",
+      "theme": {
+        "showAutofillApplicationsBox": true
+      },
+      "__typename": "Organization"
+    }
+  }
+}

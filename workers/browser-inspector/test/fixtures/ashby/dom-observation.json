@@ -1,0 +1,39 @@
+{
+  "about": "What a person's own Chrome showed for https://jobs.ashbyhq.com/nerdwallet/32c62385-07d5-4d6d-960e-12c05ce0cbef/application on 2026-11-20, read through the page's DOM only (no typing, clicking or uploading). The user's own Simplify browser extension panel is not part of the page and was excluded. Labels are truncated at 90 characters exactly as the enumeration returned them. This is independent evidence the schema is compared against; it is not an input to the adapter.",
+  "document_forms": 0,
+  "visible_controls": [
+    { "label": null, "type": "file", "note": "the 'Autofill from resume' upload card; unlabelled input" },
+    { "label": "Name", "type": "text", "required": true },
+    { "label": "Preferred First Name", "type": "text", "required": true },
+    { "label": "Email", "type": "email", "required": true },
+    { "label": "Phone Number", "type": "tel", "required": true },
+    { "label": "Resume", "type": "file", "required": true },
+    { "label": "Cover Letter", "type": "file", "required": false },
+    { "label": "What is your current or most recent company?", "type": "text", "required": true },
+    { "label": "LinkedIn URL", "type": "text", "required": true },
+    { "label": "Other website", "type": "text", "required": false },
+    { "label": "Describe one automation you personally built that used an LLM or generative AI. What probl", "type": "text", "required": true },
+    { "label": "Briefly describe one production software system you personally built or significantly cont", "type": "text", "required": true },
+    { "label": "Why do you want to work at NerdWallet?", "type": "textarea", "required": true },
+    { "label": "Start typing...", "type": "combobox", "required": null, "note": "accessible name is the placeholder; the question text was not resolved by the enumeration" },
+    { "label": "If other, please specify:", "type": "text", "required": false },
+    { "label": "If yes, please specify the jurisdiction (state, province, or country) and provide details ", "type": "textarea", "required": false }
+  ],
+  "yes_no_button_pairs": 7,
+  "yes_no_button_pairs_note": "Seven Yes/No button pairs; the enumeration did not resolve a label for any of them.",
+  "collapsed_survey_groups": [
+    { "options": ["Woman", "Man", "Non-binary / third gender (Inclusive of bigender, agender, androgynous, gender fluid, gend", "I prefer not to say"] },
+    { "options": ["Yes", "No", "I prefer not to say"] },
+    { "options": ["Asexual", "Bisexual, pansexual and/or queer", "Gay and/or lesbian", "Heterosexual", "I prefer not to say"] },
+    { "options": ["Asian", "Black or African American", "Hispanic or Latino", "Native Hawaiian or Other Pacific Islander", "Two or More Races", "White", "American Indian or Alaska Native", "Not specified", "I prefer not to say"] },
+    { "options": ["Yes, I am a veteran", "No, I am not a veteran", "I prefer not to say"] },
+    { "options": ["Yes", "No", "I prefer not to say"] },
+    { "options": ["I agree"] }
+  ],
+  "page_facts_not_in_a_field_schema": [
+    "a 'Submit Application' button",
+    "two reCAPTCHA iframes",
+    "tabs named Overview and Application",
+    "the survey groups are rendered but not visible (collapsed)"
+  ]
+}

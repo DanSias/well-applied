@@ -1,0 +1,1665 @@
+{
+  "provider": "ashby",
+  "operation": "ApiJobPosting",
+  "job_posting_id": "32c62385-07d5-4d6d-960e-12c05ce0cbef",
+  "controls": [
+    {
+      "position": 0,
+      "id": "_systemfield_name",
+      "schema_id": "999b4c45-fa0a-4162-b5f2-5fb3ac37655e",
+      "kind": "text",
+      "cardinality": null,
+      "widget": "not_established_from_schema",
+      "label": {
+        "text": "Name",
+        "source": "provider_schema",
+        "basis": "field_title",
+        "confidence": "declared",
+        "generic_name": false
+      },
+      "required": {
+        "value": true,
+        "basis": "provider_schema"
+      },
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "section": "Personal Information",
+      "form": "application_form",
+      "form_index": 0,
+      "options": null,
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "interaction": {
+        "mechanism": "fill",
+        "primary": null,
+        "members": [],
+        "auxiliary": []
+      },
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[0].fieldEntries[0]",
+        "schema_type": "String"
+      }
+    },
+    {
+      "position": 1,
+      "id": "7d1eed13-02ff-464f-ae66-f91aea35f4e6",
+      "schema_id": "7d1eed13-02ff-464f-ae66-f91aea35f4e6",
+      "kind": "text",
+      "cardinality": null,
+      "widget": "not_established_from_schema",
+      "label": {
+        "text": "Preferred First Name",
+        "source": "provider_schema",
+        "basis": "field_title",
+        "confidence": "declared",
+        "generic_name": false
+      },
+      "required": {
+        "value": true,
+        "basis": "provider_schema"
+      },
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "section": "Personal Information",
+      "form": "application_form",
+      "form_index": 0,
+      "options": null,
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "interaction": {
+        "mechanism": "fill",
+        "primary": null,
+        "members": [],
+        "auxiliary": []
+      },
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[0].fieldEntries[1]",
+        "schema_type": "String"
+      }
+    },
+    {
+      "position": 2,
+      "id": "_systemfield_email",
+      "schema_id": "ba655461-f807-49dc-a6af-e1e01c6035a4",
+      "kind": "email",
+      "cardinality": null,
+      "widget": "not_established_from_schema",
+      "label": {
+        "text": "Email",
+        "source": "provider_schema",
+        "basis": "field_title",
+        "confidence": "declared",
+        "generic_name": false
+      },
+      "required": {
+        "value": true,
+        "basis": "provider_schema"
+      },
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "section": "Personal Information",
+      "form": "application_form",
+      "form_index": 0,
+      "options": null,
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "interaction": {
+        "mechanism": "fill",
+        "primary": null,
+        "members": [],
+        "auxiliary": []
+      },
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[0].fieldEntries[2]",
+        "schema_type": "Email"
+      }
+    },
+    {
+      "position": 3,
+      "id": "ff503dd0-493e-4384-a236-41c1cc2b9bcc",
+      "schema_id": "ff503dd0-493e-4384-a236-41c1cc2b9bcc",
+      "kind": "tel",
+      "cardinality": null,
+      "widget": "not_established_from_schema",
+      "label": {
+        "text": "Phone Number",
+        "source": "provider_schema",
+        "basis": "field_title",
+        "confidence": "declared",
+        "generic_name": false
+      },
+      "required": {
+        "value": true,
+        "basis": "provider_schema"
+      },
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "section": "Personal Information",
+      "form": "application_form",
+      "form_index": 0,
+      "options": null,
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "interaction": {
+        "mechanism": "fill",
+        "primary": null,
+        "members": [],
+        "auxiliary": []
+      },
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[0].fieldEntries[3]",
+        "schema_type": "Phone"
+      }
+    },
+    {
+      "position": 4,
+      "id": "_systemfield_resume",
+      "schema_id": "e7e628ce-0f46-48c9-81bd-cf35016f96ef",
+      "kind": "file",
+      "cardinality": "single",
+      "widget": "not_established_from_schema",
+      "label": {
+        "text": "Resume",
+        "source": "provider_schema",
+        "basis": "field_title",
+        "confidence": "declared",
+        "generic_name": false
+      },
+      "required": {
+        "value": true,
+        "basis": "provider_schema"
+      },
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "section": "Personal Information",
+      "form": "application_form",
+      "form_index": 0,
+      "options": null,
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "interaction": {
+        "mechanism": "set_input_files",
+        "primary": null,
+        "members": [],
+        "auxiliary": []
+      },
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[0].fieldEntries[4]",
+        "schema_type": "File"
+      }
+    },
+    {
+      "position": 5,
+      "id": "9bf4f309-c431-46fd-b05c-4d4525889f33",
+      "schema_id": "9bf4f309-c431-46fd-b05c-4d4525889f33",
+      "kind": "file",
+      "cardinality": "single",
+      "widget": "not_established_from_schema",
+      "label": {
+        "text": "Cover Letter",
+        "source": "provider_schema",
+        "basis": "field_title",
+        "confidence": "declared",
+        "generic_name": false
+      },
+      "required": {
+        "value": false,
+        "basis": "provider_schema"
+      },
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "section": "Personal Information",
+      "form": "application_form",
+      "form_index": 0,
+      "options": null,
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "interaction": {
+        "mechanism": "set_input_files",
+        "primary": null,
+        "members": [],
+        "auxiliary": []
+      },
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[0].fieldEntries[5]",
+        "schema_type": "File"
+      }
+    },
+    {
+      "position": 6,
+      "id": "ce0d70fc-58d4-422f-bb8f-9b5ba77e7c0f",
+      "schema_id": "ce0d70fc-58d4-422f-bb8f-9b5ba77e7c0f",
+      "kind": "text",
+      "cardinality": null,
+      "widget": "not_established_from_schema",
+      "label": {
+        "text": "What is your current or most recent company?",
+        "source": "provider_schema",
+        "basis": "field_title",
+        "confidence": "declared",
+        "generic_name": false
+      },
+      "required": {
+        "value": true,
+        "basis": "provider_schema"
+      },
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "section": "Personal Information",
+      "form": "application_form",
+      "form_index": 0,
+      "options": null,
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "interaction": {
+        "mechanism": "fill",
+        "primary": null,
+        "members": [],
+        "auxiliary": []
+      },
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[0].fieldEntries[6]",
+        "schema_type": "String"
+      }
+    },
+    {
+      "position": 7,
+      "id": "2e2cb473-8702-464c-9d04-d2d7071a7c44",
+      "schema_id": "2e2cb473-8702-464c-9d04-d2d7071a7c44",
+      "kind": "text",
+      "cardinality": null,
+      "widget": "not_established_from_schema",
+      "label": {
+        "text": "LinkedIn URL",
+        "source": "provider_schema",
+        "basis": "field_title",
+        "confidence": "declared",
+        "generic_name": false
+      },
+      "required": {
+        "value": true,
+        "basis": "provider_schema"
+      },
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "section": "Links",
+      "form": "application_form",
+      "form_index": 0,
+      "options": null,
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "interaction": {
+        "mechanism": "fill",
+        "primary": null,
+        "members": [],
+        "auxiliary": []
+      },
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[1].fieldEntries[0]",
+        "schema_type": "String"
+      }
+    },
+    {
+      "position": 8,
+      "id": "753010f3-edf6-46ff-b25b-3d9859ddd56c",
+      "schema_id": "753010f3-edf6-46ff-b25b-3d9859ddd56c",
+      "kind": "text",
+      "cardinality": null,
+      "widget": "not_established_from_schema",
+      "label": {
+        "text": "Other website",
+        "source": "provider_schema",
+        "basis": "field_title",
+        "confidence": "declared",
+        "generic_name": false
+      },
+      "required": {
+        "value": false,
+        "basis": "provider_schema"
+      },
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "section": "Links",
+      "form": "application_form",
+      "form_index": 0,
+      "options": null,
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "interaction": {
+        "mechanism": "fill",
+        "primary": null,
+        "members": [],
+        "auxiliary": []
+      },
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[1].fieldEntries[1]",
+        "schema_type": "String"
+      }
+    },
+    {
+      "position": 9,
+      "id": "29e70557-8e36-4bc5-9660-f57f536a442a",
+      "schema_id": "c61a248b-3148-44f0-bef0-d3514a15b56f",
+      "kind": "yes_no",
+      "cardinality": "single",
+      "widget": "not_established_from_schema",
+      "label": {
+        "text": "Do you have professional experience personally designing and building production APIs using Python?",
+        "source": "provider_schema",
+        "basis": "field_title",
+        "confidence": "declared",
+        "generic_name": false
+      },
+      "required": {
+        "value": true,
+        "basis": "provider_schema"
+      },
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "section": "Role-Specific Questions",
+      "form": "application_form",
+      "form_index": 0,
+      "options": {
+        "state": "implied_by_type",
+        "count": 2,
+        "labels": [
+          "Yes",
+          "No"
+        ],
+        "values": null
+      },
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "interaction": {
+        "mechanism": "choose",
+        "primary": null,
+        "members": [],
+        "auxiliary": []
+      },
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[2].fieldEntries[0]",
+        "schema_type": "Boolean"
+      }
+    },
+    {
+      "position": 10,
+      "id": "2c0a4380-b63a-4723-ab4d-f032294035bb",
+      "schema_id": "33732088-7b86-40e4-b985-65eab5b4d78d",
+      "kind": "text",
+      "cardinality": null,
+      "widget": "not_established_from_schema",
+      "label": {
+        "text": "Describe one automation you personally built that used an LLM or generative AI. What problem did it solve?",
+        "source": "provider_schema",
+        "basis": "field_title",
+        "confidence": "declared",
+        "generic_name": false
+      },
+      "required": {
+        "value": true,
+        "basis": "provider_schema"
+      },
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "section": "Role-Specific Questions",
+      "form": "application_form",
+      "form_index": 0,
+      "options": null,
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "interaction": {
+        "mechanism": "fill",
+        "primary": null,
+        "members": [],
+        "auxiliary": []
+      },
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[2].fieldEntries[1]",
+        "schema_type": "String"
+      }
+    },
+    {
+      "position": 11,
+      "id": "b90cdc0e-3703-453c-b8ba-940e80fec653",
+      "schema_id": "d87c43ba-098e-4899-8682-03610ec03937",
+      "kind": "yes_no",
+      "cardinality": "single",
+      "widget": "not_established_from_schema",
+      "label": {
+        "text": "Have you worked on a security-focused project, tool, or initiative?",
+        "source": "provider_schema",
+        "basis": "field_title",
+        "confidence": "declared",
+        "generic_name": false
+      },
+      "required": {
+        "value": true,
+        "basis": "provider_schema"
+      },
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "section": "Role-Specific Questions",
+      "form": "application_form",
+      "form_index": 0,
+      "options": {
+        "state": "implied_by_type",
+        "count": 2,
+        "labels": [
+          "Yes",
+          "No"
+        ],
+        "values": null
+      },
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "interaction": {
+        "mechanism": "choose",
+        "primary": null,
+        "members": [],
+        "auxiliary": []
+      },
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[2].fieldEntries[2]",
+        "schema_type": "Boolean"
+      }
+    },
+    {
+      "position": 12,
+      "id": "f58a98cd-e152-48b2-a3be-151595f371bd",
+      "schema_id": "9a5c209d-a136-4f34-96fd-6fe79c872e3f",
+      "kind": "text",
+      "cardinality": null,
+      "widget": "not_established_from_schema",
+      "label": {
+        "text": "Briefly describe one production software system you personally built or significantly contributed to. What did you build and what technologies did you use?",
+        "source": "provider_schema",
+        "basis": "field_title",
+        "confidence": "declared",
+        "generic_name": false
+      },
+      "required": {
+        "value": true,
+        "basis": "provider_schema"
+      },
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "section": "Role-Specific Questions",
+      "form": "application_form",
+      "form_index": 0,
+      "options": null,
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "interaction": {
+        "mechanism": "fill",
+        "primary": null,
+        "members": [],
+        "auxiliary": []
+      },
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[2].fieldEntries[3]",
+        "schema_type": "String"
+      }
+    },
+    {
+      "position": 13,
+      "id": "d65f1faa-7153-48f7-aed8-3d2f4300f73b",
+      "schema_id": "d65f1faa-7153-48f7-aed8-3d2f4300f73b",
+      "kind": "textarea",
+      "cardinality": null,
+      "widget": "not_established_from_schema",
+      "label": {
+        "text": "Why do you want to work at NerdWallet?",
+        "source": "provider_schema",
+        "basis": "field_title",
+        "confidence": "declared",
+        "generic_name": false
+      },
+      "required": {
+        "value": true,
+        "basis": "provider_schema"
+      },
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "section": "Questions",
+      "form": "application_form",
+      "form_index": 0,
+      "options": null,
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "interaction": {
+        "mechanism": "fill",
+        "primary": null,
+        "members": [],
+        "auxiliary": []
+      },
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[3].fieldEntries[0]",
+        "schema_type": "LongText"
+      }
+    },
+    {
+      "position": 14,
+      "id": "5ad65bf0-3288-473e-9453-265bf296e54b",
+      "schema_id": "5ad65bf0-3288-473e-9453-265bf296e54b",
+      "kind": "yes_no",
+      "cardinality": "single",
+      "widget": "not_established_from_schema",
+      "label": {
+        "text": "Have you ever worked at NerdWallet?",
+        "source": "provider_schema",
+        "basis": "field_title",
+        "confidence": "declared",
+        "generic_name": false
+      },
+      "required": {
+        "value": true,
+        "basis": "provider_schema"
+      },
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "section": "Questions",
+      "form": "application_form",
+      "form_index": 0,
+      "options": {
+        "state": "implied_by_type",
+        "count": 2,
+        "labels": [
+          "Yes",
+          "No"
+        ],
+        "values": null
+      },
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "interaction": {
+        "mechanism": "choose",
+        "primary": null,
+        "members": [],
+        "auxiliary": []
+      },
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[3].fieldEntries[1]",
+        "schema_type": "Boolean"
+      }
+    },
+    {
+      "position": 15,
+      "id": "201ce8d7-006d-4e85-8f20-49550ba6c0e2",
+      "schema_id": "201ce8d7-006d-4e85-8f20-49550ba6c0e2",
+      "kind": "select",
+      "cardinality": "single",
+      "widget": "not_established_from_schema",
+      "label": {
+        "text": "How did you hear about this job?",
+        "source": "provider_schema",
+        "basis": "field_title",
+        "confidence": "declared",
+        "generic_name": false
+      },
+      "required": {
+        "value": true,
+        "basis": "provider_schema"
+      },
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "section": "Questions",
+      "form": "application_form",
+      "form_index": 0,
+      "options": {
+        "state": "known_in_schema",
+        "count": 15,
+        "labels": [
+          "LinkedIn",
+          "Job Boards (Indeed, Glassdoor, ZipRecruiter, etc.)",
+          "Social Media (Facebook, Instagram, Twitter, etc.)",
+          "Smart Money Podcast",
+          "News & Media (TV, Radio, Online Articles)",
+          "Friend or Colleague",
+          "Diversity Recruiting Partner (Techqueria, HireBlack, Blacks in Tech, Black Tech Pipeline, etc.)",
+          "NerdWallet Careers Page",
+          "Contacted by NerdWallet Directly",
+          "Contacted by Agency",
+          "Referral from a NerdWallet Employee",
+          "Reddit or Online Communities (Slack, Discord, r/forhire, etc.)",
+          "Career Fair or Conference",
+          "NerdWallet Newsletter or Blog",
+          "Other – Let us know if we are missing anything!"
+        ],
+        "values": [
+          "LinkedIn",
+          "Job Boards (Indeed, Glassdoor, ZipRecruiter, etc.)",
+          "Social Media (Facebook, Instagram, Twitter, etc.)",
+          "Smart Money Podcast",
+          "News & Media (TV, Radio, Online Articles)",
+          "Friend or Colleague",
+          "Diversity Recruiting Partner (Techqueria, HireBlack, Blacks in Tech, Black Tech Pipeline, etc.)",
+          "NerdWallet Careers Page",
+          "Contacted by NerdWallet Directly",
+          "Contacted by Agency",
+          "Referral from a NerdWallet Employee",
+          "Reddit or Online Communities (Slack, Discord, r/forhire, etc.)",
+          "Career Fair or Conference",
+          "NerdWallet Newsletter or Blog",
+          "Other – Let us know if we are missing anything!"
+        ]
+      },
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "interaction": {
+        "mechanism": "choose",
+        "primary": null,
+        "members": [],
+        "auxiliary": []
+      },
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[3].fieldEntries[2]",
+        "schema_type": "ValueSelect"
+      }
+    },
+    {
+      "position": 16,
+      "id": "d309fd9c-9a7b-44a4-84f8-0bfcb2028f6e",
+      "schema_id": "d309fd9c-9a7b-44a4-84f8-0bfcb2028f6e",
+      "kind": "text",
+      "cardinality": null,
+      "widget": "not_established_from_schema",
+      "label": {
+        "text": "If other, please specify:",
+        "source": "provider_schema",
+        "basis": "field_title",
+        "confidence": "declared",
+        "generic_name": false
+      },
+      "required": {
+        "value": false,
+        "basis": "provider_schema"
+      },
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "section": "Questions",
+      "form": "application_form",
+      "form_index": 0,
+      "options": null,
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": {
+        "state": "label_wording_only",
+        "matched": "if"
+      },
+      "interaction": {
+        "mechanism": "fill",
+        "primary": null,
+        "members": [],
+        "auxiliary": []
+      },
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[3].fieldEntries[3]",
+        "schema_type": "String"
+      }
+    },
+    {
+      "position": 17,
+      "id": "bcc3e11d-0971-4a07-b7c0-ffac3fab2a9a",
+      "schema_id": "bcc3e11d-0971-4a07-b7c0-ffac3fab2a9a",
+      "kind": "yes_no",
+      "cardinality": "single",
+      "widget": "not_established_from_schema",
+      "label": {
+        "text": "Do you currently reside in the country this role is listed in?",
+        "source": "provider_schema",
+        "basis": "field_title",
+        "confidence": "declared",
+        "generic_name": false
+      },
+      "required": {
+        "value": true,
+        "basis": "provider_schema"
+      },
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "section": "Questions",
+      "form": "application_form",
+      "form_index": 0,
+      "options": {
+        "state": "implied_by_type",
+        "count": 2,
+        "labels": [
+          "Yes",
+          "No"
+        ],
+        "values": null
+      },
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "interaction": {
+        "mechanism": "choose",
+        "primary": null,
+        "members": [],
+        "auxiliary": []
+      },
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[3].fieldEntries[4]",
+        "schema_type": "Boolean"
+      }
+    },
+    {
+      "position": 18,
+      "id": "2d339f5f-cf65-4bca-b909-2dcfcb48ae86",
+      "schema_id": "2d339f5f-cf65-4bca-b909-2dcfcb48ae86",
+      "kind": "yes_no",
+      "cardinality": "single",
+      "widget": "not_established_from_schema",
+      "label": {
+        "text": "Are you subject to a non-competition agreement or any other agreement which would preclude or restrict your employment at NerdWallet or any other NerdWallet subsidiary?",
+        "source": "provider_schema",
+        "basis": "field_title",
+        "confidence": "declared",
+        "generic_name": false
+      },
+      "required": {
+        "value": true,
+        "basis": "provider_schema"
+      },
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "section": "Questions",
+      "form": "application_form",
+      "form_index": 0,
+      "options": {
+        "state": "implied_by_type",
+        "count": 2,
+        "labels": [
+          "Yes",
+          "No"
+        ],
+        "values": null
+      },
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "interaction": {
+        "mechanism": "choose",
+        "primary": null,
+        "members": [],
+        "auxiliary": []
+      },
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[3].fieldEntries[5]",
+        "schema_type": "Boolean"
+      }
+    },
+    {
+      "position": 19,
+      "id": "c93f9e84-1fa0-41d7-a3cd-eaf976a5353b",
+      "schema_id": "c93f9e84-1fa0-41d7-a3cd-eaf976a5353b",
+      "kind": "textarea",
+      "cardinality": null,
+      "widget": "not_established_from_schema",
+      "label": {
+        "text": "If yes, please specify the jurisdiction (state, province, or country) and provide details about your agreements:",
+        "source": "provider_schema",
+        "basis": "field_title",
+        "confidence": "declared",
+        "generic_name": false
+      },
+      "required": {
+        "value": false,
+        "basis": "provider_schema"
+      },
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "section": "Questions",
+      "form": "application_form",
+      "form_index": 0,
+      "options": null,
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": {
+        "state": "label_wording_only",
+        "matched": "if"
+      },
+      "interaction": {
+        "mechanism": "fill",
+        "primary": null,
+        "members": [],
+        "auxiliary": []
+      },
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[3].fieldEntries[6]",
+        "schema_type": "LongText"
+      }
+    },
+    {
+      "position": 20,
+      "id": "cc01350d-c397-465a-981f-b7b4e38e1fed",
+      "schema_id": "cc01350d-c397-465a-981f-b7b4e38e1fed",
+      "kind": "yes_no",
+      "cardinality": "single",
+      "widget": "not_established_from_schema",
+      "label": {
+        "text": "Are you currently legally authorized to work in the United States?",
+        "source": "provider_schema",
+        "basis": "field_title",
+        "confidence": "declared",
+        "generic_name": false
+      },
+      "required": {
+        "value": true,
+        "basis": "provider_schema"
+      },
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "section": "Questions",
+      "form": "application_form",
+      "form_index": 0,
+      "options": {
+        "state": "implied_by_type",
+        "count": 2,
+        "labels": [
+          "Yes",
+          "No"
+        ],
+        "values": null
+      },
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "interaction": {
+        "mechanism": "choose",
+        "primary": null,
+        "members": [],
+        "auxiliary": []
+      },
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[3].fieldEntries[7]",
+        "schema_type": "Boolean"
+      }
+    },
+    {
+      "position": 21,
+      "id": "0f8dfb66-ee41-4d06-b101-756910ed22b5",
+      "schema_id": "0f8dfb66-ee41-4d06-b101-756910ed22b5",
+      "kind": "yes_no",
+      "cardinality": "single",
+      "widget": "not_established_from_schema",
+      "label": {
+        "text": "Will you now or in the future require NerdWallet to sponsor or provide immigration-related support for you to begin or continue employment?",
+        "source": "provider_schema",
+        "basis": "field_title",
+        "confidence": "declared",
+        "generic_name": false
+      },
+      "required": {
+        "value": true,
+        "basis": "provider_schema"
+      },
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "section": "Questions",
+      "form": "application_form",
+      "form_index": 0,
+      "options": {
+        "state": "implied_by_type",
+        "count": 2,
+        "labels": [
+          "Yes",
+          "No"
+        ],
+        "values": null
+      },
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "interaction": {
+        "mechanism": "choose",
+        "primary": null,
+        "members": [],
+        "auxiliary": []
+      },
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[3].fieldEntries[8]",
+        "schema_type": "Boolean"
+      }
+    },
+    {
+      "position": 22,
+      "id": "3a343d7d-5334-4437-b573-4b3b2c60d4fd",
+      "schema_id": "fd284fc1-b189-44ba-90f0-a43d880939c8",
+      "kind": "select",
+      "cardinality": "single",
+      "widget": "not_established_from_schema",
+      "label": {
+        "text": "I identify my gender as: (Select one)",
+        "source": "provider_schema",
+        "basis": "field_title",
+        "confidence": "declared",
+        "generic_name": false
+      },
+      "required": {
+        "value": false,
+        "basis": "provider_schema"
+      },
+      "sensitive": {
+        "value": true,
+        "basis": "section",
+        "confidence": "structural",
+        "matched": "NerdWallet Demographic Survey"
+      },
+      "section": "NerdWallet Demographic Survey",
+      "form": "survey_form",
+      "form_index": 0,
+      "options": {
+        "state": "known_in_schema",
+        "count": 4,
+        "labels": [
+          "Woman",
+          "Man",
+          "Non-binary / third gender (Inclusive of bigender, agender, androgynous, gender fluid, gender non-conforming)",
+          "I prefer not to say"
+        ],
+        "values": [
+          "Woman",
+          "Man",
+          "Non-binary / third gender (Inclusive of bigender, agender, androgynous, gender fluid, gender non-conforming) ",
+          "I prefer not to say"
+        ]
+      },
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "interaction": {
+        "mechanism": "choose",
+        "primary": null,
+        "members": [],
+        "auxiliary": []
+      },
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "surveyForms[0].sections[0].fieldEntries[0]",
+        "schema_type": "ValueSelect"
+      }
+    },
+    {
+      "position": 23,
+      "id": "ca2f78d2-9b38-4582-9c8f-fd5e14b29b99",
+      "schema_id": "8fa77887-80a7-4c93-bbb9-dafde5d7ff08",
+      "kind": "select",
+      "cardinality": "single",
+      "widget": "not_established_from_schema",
+      "label": {
+        "text": "I identify as transgender: (Select one)",
+        "source": "provider_schema",
+        "basis": "field_title",
+        "confidence": "declared",
+        "generic_name": false
+      },
+      "required": {
+        "value": false,
+        "basis": "provider_schema"
+      },
+      "sensitive": {
+        "value": true,
+        "basis": "section",
+        "confidence": "structural",
+        "matched": "NerdWallet Demographic Survey"
+      },
+      "section": "NerdWallet Demographic Survey",
+      "form": "survey_form",
+      "form_index": 0,
+      "options": {
+        "state": "known_in_schema",
+        "count": 3,
+        "labels": [
+          "Yes",
+          "No",
+          "I prefer not to say"
+        ],
+        "values": [
+          "Yes",
+          "No",
+          "I prefer not to say"
+        ]
+      },
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "interaction": {
+        "mechanism": "choose",
+        "primary": null,
+        "members": [],
+        "auxiliary": []
+      },
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "surveyForms[0].sections[0].fieldEntries[1]",
+        "schema_type": "ValueSelect"
+      }
+    },
+    {
+      "position": 24,
+      "id": "223eb238-5614-43c8-9388-567e07aed3e0",
+      "schema_id": "49cbdb15-f208-4a22-9454-612029de473b",
+      "kind": "select",
+      "cardinality": "single",
+      "widget": "not_established_from_schema",
+      "label": {
+        "text": "I identify my sexual orientation as: (Select one)",
+        "source": "provider_schema",
+        "basis": "field_title",
+        "confidence": "declared",
+        "generic_name": false
+      },
+      "required": {
+        "value": false,
+        "basis": "provider_schema"
+      },
+      "sensitive": {
+        "value": true,
+        "basis": "section",
+        "confidence": "structural",
+        "matched": "NerdWallet Demographic Survey"
+      },
+      "section": "NerdWallet Demographic Survey",
+      "form": "survey_form",
+      "form_index": 0,
+      "options": {
+        "state": "known_in_schema",
+        "count": 5,
+        "labels": [
+          "Asexual",
+          "Bisexual, pansexual and/or queer",
+          "Gay and/or lesbian",
+          "Heterosexual",
+          "I prefer not to say"
+        ],
+        "values": [
+          "Asexual",
+          "Bisexual, pansexual and/or queer",
+          "Gay and/or lesbian",
+          "Heterosexual",
+          "I prefer not to say"
+        ]
+      },
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "interaction": {
+        "mechanism": "choose",
+        "primary": null,
+        "members": [],
+        "auxiliary": []
+      },
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "surveyForms[0].sections[0].fieldEntries[2]",
+        "schema_type": "ValueSelect"
+      }
+    },
+    {
+      "position": 25,
+      "id": "abc0664c-891b-41cc-8e98-1f44bc43cbbb",
+      "schema_id": "e1ffb9f2-bf77-47eb-ae62-03e1b6d11fa6",
+      "kind": "select",
+      "cardinality": "multi",
+      "widget": "not_established_from_schema",
+      "label": {
+        "text": "I identify my ethnicity as (mark all that apply):",
+        "source": "provider_schema",
+        "basis": "field_title",
+        "confidence": "declared",
+        "generic_name": false
+      },
+      "required": {
+        "value": false,
+        "basis": "provider_schema"
+      },
+      "sensitive": {
+        "value": true,
+        "basis": "section",
+        "confidence": "structural",
+        "matched": "NerdWallet Demographic Survey"
+      },
+      "section": "NerdWallet Demographic Survey",
+      "form": "survey_form",
+      "form_index": 0,
+      "options": {
+        "state": "known_in_schema",
+        "count": 9,
+        "labels": [
+          "Asian",
+          "Black or African American",
+          "Hispanic or Latino",
+          "Native Hawaiian or Other Pacific Islander",
+          "Two or More Races",
+          "White",
+          "American Indian or Alaska Native",
+          "Not specified",
+          "I prefer not to say"
+        ],
+        "values": [
+          "Asian",
+          "Black or African American",
+          "Hispanic or Latino",
+          "Native Hawaiian or Other Pacific Islander",
+          "Two or More Races",
+          "White",
+          "American Indian or Alaska Native",
+          "Not specified",
+          "I prefer not to say"
+        ]
+      },
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "interaction": {
+        "mechanism": "choose",
+        "primary": null,
+        "members": [],
+        "auxiliary": []
+      },
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "surveyForms[0].sections[0].fieldEntries[3]",
+        "schema_type": "MultiValueSelect"
+      }
+    },
+    {
+      "position": 26,
+      "id": "52e4e842-1529-4e5d-b705-cff04c66ea44",
+      "schema_id": "15069405-9747-4d4d-be8b-be7b1f508f22",
+      "kind": "select",
+      "cardinality": "single",
+      "widget": "not_established_from_schema",
+      "label": {
+        "text": "Veteran Status: (Select one)",
+        "source": "provider_schema",
+        "basis": "field_title",
+        "confidence": "declared",
+        "generic_name": false
+      },
+      "required": {
+        "value": false,
+        "basis": "provider_schema"
+      },
+      "sensitive": {
+        "value": true,
+        "basis": "section",
+        "confidence": "structural",
+        "matched": "NerdWallet Demographic Survey"
+      },
+      "section": "NerdWallet Demographic Survey",
+      "form": "survey_form",
+      "form_index": 0,
+      "options": {
+        "state": "known_in_schema",
+        "count": 3,
+        "labels": [
+          "Yes, I am a veteran",
+          "No, I am not a veteran",
+          "I prefer not to say"
+        ],
+        "values": [
+          "Yes, I am a veteran",
+          "No, I am not a veteran",
+          "I prefer not to say"
+        ]
+      },
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "interaction": {
+        "mechanism": "choose",
+        "primary": null,
+        "members": [],
+        "auxiliary": []
+      },
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "surveyForms[0].sections[0].fieldEntries[4]",
+        "schema_type": "ValueSelect"
+      }
+    },
+    {
+      "position": 27,
+      "id": "fb71a1e1-2f85-445b-a92b-de09c7ba76fd",
+      "schema_id": "e195313d-9629-4482-8d27-ffb7f9b417f6",
+      "kind": "select",
+      "cardinality": "single",
+      "widget": "not_established_from_schema",
+      "label": {
+        "text": "I have a physical disability: (Select one)",
+        "source": "provider_schema",
+        "basis": "field_title",
+        "confidence": "declared",
+        "generic_name": false
+      },
+      "required": {
+        "value": false,
+        "basis": "provider_schema"
+      },
+      "sensitive": {
+        "value": true,
+        "basis": "section",
+        "confidence": "structural",
+        "matched": "NerdWallet Demographic Survey"
+      },
+      "section": "NerdWallet Demographic Survey",
+      "form": "survey_form",
+      "form_index": 0,
+      "options": {
+        "state": "known_in_schema",
+        "count": 3,
+        "labels": [
+          "Yes",
+          "No",
+          "I prefer not to say"
+        ],
+        "values": [
+          "Yes",
+          "No",
+          "I prefer not to say"
+        ]
+      },
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "interaction": {
+        "mechanism": "choose",
+        "primary": null,
+        "members": [],
+        "auxiliary": []
+      },
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "surveyForms[0].sections[0].fieldEntries[5]",
+        "schema_type": "ValueSelect"
+      }
+    },
+    {
+      "position": 28,
+      "id": "_systemfield_data_consent_ack",
+      "schema_id": "624754ba-e93a-45ad-a967-26d16ba3b238",
+      "kind": "select",
+      "cardinality": "multi",
+      "widget": "not_established_from_schema",
+      "label": {
+        "text": null,
+        "source": "provider_schema",
+        "basis": "title_empty",
+        "confidence": "none",
+        "generic_name": false
+      },
+      "required": {
+        "value": false,
+        "basis": "provider_schema"
+      },
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "section": null,
+      "form": "survey_form",
+      "form_index": 1,
+      "options": {
+        "state": "known_in_schema",
+        "count": 1,
+        "labels": [
+          "I agree"
+        ],
+        "values": [
+          "data_consent_ack"
+        ]
+      },
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "interaction": {
+        "mechanism": "choose",
+        "primary": null,
+        "members": [],
+        "auxiliary": []
+      },
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "surveyForms[1].sections[0].fieldEntries[0]",
+        "schema_type": "MultiValueSelect"
+      }
+    }
+  ],
+  "coverage": {
+    "application_form_fields": 22,
+    "survey_fields": 7,
+    "total": 29,
+    "required_declared": 18,
+    "required_application_form": 18,
+    "required_survey_form": 0,
+    "sensitive_flagged": 6,
+    "hidden_by_schema": 0,
+    "unknown_types": 0,
+    "unlabelled": 1,
+    "by_type": {
+      "Boolean": 7,
+      "Email": 1,
+      "File": 2,
+      "LongText": 2,
+      "MultiValueSelect": 2,
+      "Phone": 1,
+      "String": 8,
+      "ValueSelect": 6
+    },
+    "sections": [
+      {
+        "form": "application_form",
+        "form_index": 0,
+        "title": "Personal Information",
+        "fields": 7,
+        "hidden": false
+      },
+      {
+        "form": "application_form",
+        "form_index": 0,
+        "title": "Links",
+        "fields": 2,
+        "hidden": false
+      },
+      {
+        "form": "application_form",
+        "form_index": 0,
+        "title": "Role-Specific Questions",
+        "fields": 4,
+        "hidden": false
+      },
+      {
+        "form": "application_form",
+        "form_index": 0,
+        "title": "Questions",
+        "fields": 9,
+        "hidden": false
+      },
+      {
+        "form": "survey_form",
+        "form_index": 0,
+        "title": "NerdWallet Demographic Survey",
+        "fields": 6,
+        "hidden": false
+      },
+      {
+        "form": "survey_form",
+        "form_index": 1,
+        "title": null,
+        "fields": 1,
+        "hidden": false
+      }
+    ],
+    "not_established": [
+      "visibility_on_page",
+      "collapsed_or_expanded",
+      "conditional_rules",
+      "widget_used",
+      "render_order_on_page",
+      "submit_time_validation"
+    ]
+  },
+  "page_features": {
+    "recaptcha_declared": {
+      "action": "job_apply_none"
+    },
+    "autofill_from_resume_offered": true,
+    "application_limit_notice": true
+  },
+  "organization": {
+    "name": "NerdWallet",
+    "hosted_jobs_page_slug": "nerdwallet"
+  },
+  "warnings": [
+    "visibility_not_established",
+    "conditional_logic_not_in_schema",
+    "unlabelled_control",
+    "application_limit_notice"
+  ]
+}
