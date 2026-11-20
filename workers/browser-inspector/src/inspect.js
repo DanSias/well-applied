@@ -10,6 +10,7 @@ import { createDeadline, DEFAULT_BUDGET_MS, DeadlineExceeded } from './budget.js
 import { createGuard, verifyConnectedAddress } from './guard.js';
 import { launchChromium, openGuardedPage, navigate, traceFor, safeRedact } from './browser.js';
 import { collectSignals, classifyPage } from './page-kind.js';
+import { contextFor } from './page-context.js';
 import { collectLinkSignals, rankApplyCandidates } from './apply-links.js';
 import * as greenhouse from './extractors/greenhouse.js';
 import { discoverForm } from './discovery/index.js';
@@ -35,6 +36,8 @@ export const MAX_FOLLOWS = 2;
  * @param {ReturnType<typeof createGuard>} [options.guard] tests only (fixture hosts); never built from a claim
  * @param {() => Promise<import('playwright').Browser>} [options.launch]
  * @param {{navigationMs?: number, networkIdleMs?: number, settleMs?: number}} [options.timeouts] per-step overrides, tests only
+ * @param {string|null} [options.startOrigin] where Well Applied says the start URL came from ('user', 'resolved', 'provider', 'source'): context for
+ *   recognising an application form (generic discovery only)
  * @param {boolean} [options.genericDiscovery] read forms with no dedicated extractor generically (default: BROWSER_WORKER_GENERIC_DISCOVERY=1)
  * @returns {Promise<object>} one of the result.js shapes
  */
@@ -45,6 +48,7 @@ export async function inspect(rawUrl, options = {}) {
         launch = launchChromium,
         timeouts = {},
         genericDiscovery = genericDiscoveryRequested(),
+        startOrigin = null,
     } = options;
 
     const startedAt = Date.now();
@@ -82,7 +86,7 @@ export async function inspect(rawUrl, options = {}) {
         browser = await launch();
         const { page } = await openGuardedPage(browser, guard);
 
-        return await walk(page, first.url.toString(), { state, guard, deadline, rawUrl, timeouts, genericDiscovery });
+        return await walk(page, first.url.toString(), { state, guard, deadline, rawUrl, timeouts, genericDiscovery, startOrigin });
     } catch (error) {
         if (expired || error instanceof DeadlineExceeded || deadline.expired()) {
             return failed({
@@ -104,7 +108,7 @@ export async function inspect(rawUrl, options = {}) {
     }
 }
 
-async function walk(page, startUrl, { state, guard, deadline, rawUrl, timeouts, genericDiscovery }) {
+async function walk(page, startUrl, { state, guard, deadline, rawUrl, timeouts, genericDiscovery, startOrigin }) {
     let url = startUrl;
 
     for (;;) {
@@ -166,7 +170,10 @@ async function walk(page, startUrl, { state, guard, deadline, rawUrl, timeouts, 
         state.step = 'reading the page';
         const signals = await page.evaluate(collectSignals);
         state.pageTitle = signals.title;
-        const kind = classifyPage(signals, { status: nav.status });
+        // Context for recognising an application form (generic discovery only; otherwise the classifier is exactly what it was):
+        // how this page was reached. The first page is where the claim says its URL came from; any later page was reached by
+        // following an identified Apply link.
+        const kind = classifyPage(signals, { status: nav.status, context: contextFor({ hop, startOrigin }), extended: genericDiscovery });
 
         switch (kind.kind) {
             case 'blocked':
@@ -258,7 +265,8 @@ async function reachedForm(page, kind, { state, rawUrl, genericDiscovery }) {
             finalUrl: state.finalUrl,
             resolvedUrl,
             fields: found.fields,
-            warnings: [...state.warnings, ...found.warnings, 'generic_discovery'],
+            // How this page came to be read as a form is evidence too: a page that is not self-evidently an application says so.
+            warnings: [...state.warnings, ...found.warnings, 'generic_discovery', ...(kind.inferred ? [kind.inferred === 'content' ? 'application_form_inferred_from_content' : 'application_form_inferred_from_context'] : [])],
             inspectionOutcome: found.inspection_outcome,
             stopReason: found.stop_reason,
             diagnostics: diagnostics(state, { ...found.diagnostics, extraction_ms: Date.now() - extractionStartedAt, classified_as: kind.reasons }),

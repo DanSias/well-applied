@@ -138,7 +138,30 @@ named `auth` (the expectation said `work-auth`, and only matched through the lab
 `combobox-nested-search` is `null`, not `false`: a custom widget with no required signal is unknown, which is the existing rule. The
 M0 suite now also checks that every expected DOM id exists in its fixture.
 
-**What the corpus cannot show (found while integrating).** The classifier (`src/page-kind.js`) calls a page a form only on a strong
-application signal, so three of the six form fixtures (`combobox-nested-search`, `conditional-hidden-fields`,
-`sensitive-demographics`) are read by discovery but never reach it through `inspect()`; the pipeline tests document this as a known gap and
-prove the flag does not change those pages.
+## Classifier extension: context-aware recognition of application forms
+
+M1's integration showed the page classifier never routed three of the six form fixtures to discovery. `src/page-context.js` closes
+that gap (generic discovery on only; see the worker README). Its corpus is `classification/cases.json`: 39 pages, each with an
+independent **truth** label (is it really an application form?) and, for the 22 new pages, the answer the classifier is **designed** to
+give under each context (`none`, `user_supplied`, `apply_link`). The 17 older fixtures must classify exactly as before.
+
+Precision and recall against truth (12 of the 39 are real application forms):
+
+| Mode | Precision | Recall | TP / FP / FN / TN | False positives | False negatives |
+|---|---|---|---|---|---|
+| Existing classifier | 0.625 | 0.417 | 5 / 3 / 7 / 24 | account-registration, create-account-to-apply, contact-form | 7 (every form with no strong signal) |
+| Extended, no context | **1.000** | 0.917 | 11 / 0 / 1 / 27 | none | context-only-form |
+| Extended, user-supplied URL | 0.923 | **1.000** | 12 / 1 / 0 / 26 | ordinary-site-form | none |
+| Extended, via an Apply link | 0.923 | **1.000** | 12 / 1 / 0 / 26 | ordinary-site-form | none |
+
+- **The existing classifier already had three false positives** (an account sign-up, "create an account to apply", and a recruiting
+  contact form), all from its weak name-and-email signal. The extension demotes that one signal when the page is plainly one of those.
+- **The one deliberate miss** (`context-only-form`): dropdowns and a free-text field, no application wording, no application button. Without
+  context there is nothing to say it is an application, so it stays a listing. With context it is read.
+- **The one uncertain false positive** (`ordinary-site-form`, a trip planner): with no context it is correctly ignored. When a person
+  supplies its URL as their application we trust them; it is read, and the result carries `application_form_inferred_from_context`.
+- **Barriers:** every sign-in page is an authentication barrier in every context (including a password form with extra dropdowns headed
+  "continue your application", which the existing rules called a listing), and a form behind a CAPTCHA notice is `blocked`.
+- **Uncertain by construction:** a passwordless "magic link" sign-in is not an application, but it is also not detected as an
+  authentication barrier (no password field); it is simply not read.
+

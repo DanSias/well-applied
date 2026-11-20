@@ -145,7 +145,7 @@ describe('Phase 1: the claim drives the budget and the start URL', () => {
             return { status: 'succeeded' };
         });
 
-        assert.deepEqual(seen, { url: 'https://start.example.com/apply', options: { budgetMs: 90_000 } });
+        assert.deepEqual(seen, { url: 'https://start.example.com/apply', options: { budgetMs: 90_000, startOrigin: 'user' } });
     });
 
     test('an older Well Applied (no start_url or budget) still works: application_url and the worker default', async () => {
@@ -157,7 +157,7 @@ describe('Phase 1: the claim drives the budget and the start URL', () => {
             return { status: 'succeeded' };
         });
 
-        assert.deepEqual(seen, { url: 'https://old.example.com/', options: { budgetMs: undefined } });
+        assert.deepEqual(seen, { url: 'https://old.example.com/', options: { budgetMs: undefined, startOrigin: undefined } });
     });
 
     test('an inspection that throws still delivers a failed result at once, never leaving the claim to expire', async () => {

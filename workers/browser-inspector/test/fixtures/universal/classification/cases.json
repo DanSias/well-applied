@@ -1,0 +1,529 @@
+{
+  "schema": "universal-classification-corpus/1",
+  "contexts": [
+    "none",
+    "user_supplied",
+    "apply_link"
+  ],
+  "purpose": "Labelled pages for the context-aware application classifier. 'expect' gives the page kind under each context ('none': the page was found on a listing; 'user_supplied': a URL the person entered; 'apply_link': reached through an identified Apply link). Existing fixtures carry no expectation: they must classify exactly as they do without the extension.",
+  "cases": [
+    {
+      "id": "custom-widgets-only",
+      "file": "classification/pages/custom-widgets-only.html",
+      "group": "positive",
+      "expect": {
+        "none": "form",
+        "user_supplied": "form",
+        "apply_link": "form"
+      },
+      "note": "No native controls at all: ARIA radio and checkbox groups and listbox buttons. Recognised from an application submit button, application wording and three or more labelled questions.",
+      "uncertain": false,
+      "existing": false,
+      "sha256": "661a728963493612078ad94e850f9ba281e0067d6e3543ecb66a2a004a167bb5",
+      "truth": true
+    },
+    {
+      "id": "demographics-step",
+      "file": "classification/pages/demographics-step.html",
+      "group": "positive",
+      "expect": {
+        "none": "form",
+        "user_supplied": "form",
+        "apply_link": "form"
+      },
+      "note": "A self-identification step with only dropdowns. Recognised from the section and the application wording.",
+      "uncertain": false,
+      "existing": false,
+      "sha256": "27bc27ece5167709d0a85a89ed4737709638bb9a08bfc56126b2dd2abb2940d3",
+      "truth": true
+    },
+    {
+      "id": "application-with-sign-in-link",
+      "file": "classification/pages/application-with-sign-in-link.html",
+      "group": "positive",
+      "expect": {
+        "none": "form",
+        "user_supplied": "form",
+        "apply_link": "form"
+      },
+      "note": "A header 'Sign in' button must not hide a real application, because an application submit button is present.",
+      "uncertain": false,
+      "existing": false,
+      "sha256": "3c0aa1b8f6bdf3b39a0cb022e76e2bee23f03c7f35726a6fb6e77e06f99a57a6",
+      "truth": true
+    },
+    {
+      "id": "combobox-nested-search",
+      "file": "forms/combobox-nested-search.html",
+      "group": "positive",
+      "expect": {
+        "none": "form",
+        "user_supplied": "form",
+        "apply_link": "form"
+      },
+      "note": "M0: custom comboboxes and nested search inputs, dropdown-only.",
+      "uncertain": false,
+      "existing": false,
+      "sha256": "9ddf462108fb6c8231649e0eeaba89e5d2f7db5b0179075f7ba41fc09ea9e23b",
+      "truth": true
+    },
+    {
+      "id": "conditional-hidden-fields",
+      "file": "forms/conditional-hidden-fields.html",
+      "group": "positive",
+      "expect": {
+        "none": "form",
+        "user_supplied": "form",
+        "apply_link": "form"
+      },
+      "note": "M0: conditional and hidden fields.",
+      "uncertain": false,
+      "existing": false,
+      "sha256": "2062a31c9285b27e63e2daaedca2aaea46e563b68abdb4ff4934b16fa30b5dd8",
+      "truth": true
+    },
+    {
+      "id": "sensitive-demographics",
+      "file": "forms/sensitive-demographics.html",
+      "group": "positive",
+      "expect": {
+        "none": "form",
+        "user_supplied": "form",
+        "apply_link": "form"
+      },
+      "note": "M0: demographic questions.",
+      "uncertain": false,
+      "existing": false,
+      "sha256": "bb22f91dfeb3bd6e52f80ebdad76efa3f505147440dab8cf065b2ab4936d61b9",
+      "truth": true
+    },
+    {
+      "id": "context-only-form",
+      "file": "classification/pages/context-only-form.html",
+      "group": "context",
+      "expect": {
+        "none": "listing",
+        "user_supplied": "form",
+        "apply_link": "form"
+      },
+      "note": "Dropdowns and a free-text field with no application wording and no application button. Without context it is not recognised; with context it is. The one deliberate miss.",
+      "uncertain": true,
+      "existing": false,
+      "sha256": "cc1ca884370e7316d79d05d4254369bdf2cc9a8a4dbac274ed30470e8fa4474f",
+      "truth": true
+    },
+    {
+      "id": "ordinary-site-form",
+      "file": "classification/pages/ordinary-site-form.html",
+      "group": "uncertain",
+      "expect": {
+        "none": "listing",
+        "user_supplied": "form",
+        "apply_link": "form"
+      },
+      "note": "A trip planner. Without context it is correctly ignored. When a person SAYS the URL is their application we trust them: it is read, and the result carries application_form_inferred_from_context.",
+      "uncertain": true,
+      "existing": false,
+      "sha256": "53c04ecd208a83b7d32e6d67cb5df773630d29517e950fd8ea7ddd2b2b4f248f",
+      "truth": false
+    },
+    {
+      "id": "site-search",
+      "file": "classification/pages/site-search.html",
+      "group": "negative",
+      "expect": {
+        "none": "listing",
+        "user_supplied": "listing",
+        "apply_link": "listing"
+      },
+      "note": "A site search.",
+      "uncertain": false,
+      "existing": false,
+      "sha256": "ddc7310ab45c7fc94017ef8f130cd5d03caac1b2a4f23c7732693a7c9621c19e",
+      "truth": false
+    },
+    {
+      "id": "job-search-filters",
+      "file": "classification/pages/job-search-filters.html",
+      "group": "negative",
+      "expect": {
+        "none": "listing",
+        "user_supplied": "listing",
+        "apply_link": "listing"
+      },
+      "note": "Careers-page filters: dropdowns, application words, 'Apply filters'.",
+      "uncertain": false,
+      "existing": false,
+      "sha256": "12e28d110f979cedf325e1d5e92522493dd8c8560aa1d1e740d173a43b0f0389",
+      "truth": false
+    },
+    {
+      "id": "newsletter-signup",
+      "file": "classification/pages/newsletter-signup.html",
+      "group": "negative",
+      "expect": {
+        "none": "listing",
+        "user_supplied": "listing",
+        "apply_link": "listing"
+      },
+      "note": "A talent-community newsletter signup with name, email and dropdowns.",
+      "uncertain": false,
+      "existing": false,
+      "sha256": "299623308d8a79c1a776ce80a32101145dc3d6775c254f11b3d3cbcbbfd902e5",
+      "truth": false
+    },
+    {
+      "id": "job-alerts-signup",
+      "file": "classification/pages/job-alerts-signup.html",
+      "group": "negative",
+      "expect": {
+        "none": "listing",
+        "user_supplied": "listing",
+        "apply_link": "listing"
+      },
+      "note": "Job alert signup.",
+      "uncertain": false,
+      "existing": false,
+      "sha256": "6d043cbd2d8de4ea4cccc97ea15cd8b6225afb882960844864a99215cfc1c577",
+      "truth": false
+    },
+    {
+      "id": "account-registration",
+      "file": "classification/pages/account-registration.html",
+      "group": "negative",
+      "expect": {
+        "none": "listing",
+        "user_supplied": "listing",
+        "apply_link": "listing"
+      },
+      "note": "Account registration (name, email, dropdowns, no password). The EXISTING classifier calls this a form.",
+      "uncertain": false,
+      "existing": false,
+      "sha256": "07f34f6ef1d1992e4bb1978bd246efe64beea15291d320384435abd3ef201017",
+      "truth": false
+    },
+    {
+      "id": "create-account-to-apply",
+      "file": "classification/pages/create-account-to-apply.html",
+      "group": "negative",
+      "expect": {
+        "none": "listing",
+        "user_supplied": "listing",
+        "apply_link": "listing"
+      },
+      "note": "'Create an account to apply': sign-up, not the application. The EXISTING classifier calls this a form.",
+      "uncertain": false,
+      "existing": false,
+      "sha256": "8804c681d1552f465c2097a33d3b5dce241cca5c2bdaf7432fe497ea87184538",
+      "truth": false
+    },
+    {
+      "id": "contact-form",
+      "file": "classification/pages/contact-form.html",
+      "group": "negative",
+      "expect": {
+        "none": "listing",
+        "user_supplied": "listing",
+        "apply_link": "listing"
+      },
+      "note": "A recruiting contact form that mentions applications. The EXISTING classifier calls this a form.",
+      "uncertain": false,
+      "existing": false,
+      "sha256": "c3ab76526985100e343408d3c08428cadf388d428a6fff7a8594e4504587ea38",
+      "truth": false
+    },
+    {
+      "id": "survey-form",
+      "file": "classification/pages/survey-form.html",
+      "group": "negative",
+      "expect": {
+        "none": "listing",
+        "user_supplied": "listing",
+        "apply_link": "listing"
+      },
+      "note": "A customer feedback survey.",
+      "uncertain": false,
+      "existing": false,
+      "sha256": "dc4bc74c5538e1344ad991a1aed65400aa9f6de19b7c2613880a27a3aca5b003",
+      "truth": false
+    },
+    {
+      "id": "quote-request",
+      "file": "classification/pages/quote-request.html",
+      "group": "negative",
+      "expect": {
+        "none": "listing",
+        "user_supplied": "listing",
+        "apply_link": "listing"
+      },
+      "note": "A quote request.",
+      "uncertain": false,
+      "existing": false,
+      "sha256": "af47967fa9fe7b69ba322ace58736d293f7e3850c0d89cbc3c2e33a319bd548b",
+      "truth": false
+    },
+    {
+      "id": "cookie-consent",
+      "file": "classification/pages/cookie-consent.html",
+      "group": "negative",
+      "expect": {
+        "none": "listing",
+        "user_supplied": "listing",
+        "apply_link": "listing"
+      },
+      "note": "A cookie banner made of custom checkbox groups.",
+      "uncertain": false,
+      "existing": false,
+      "sha256": "1a18d3ef753cc1f673d9b83a38c882f42912ead8d2b973c5aa682417704e867b",
+      "truth": false
+    },
+    {
+      "id": "magic-link-sign-in",
+      "file": "classification/pages/magic-link-sign-in.html",
+      "group": "negative",
+      "expect": {
+        "none": "listing",
+        "user_supplied": "listing",
+        "apply_link": "listing"
+      },
+      "note": "A passwordless sign-in. Not an application; not detected as an authentication barrier either (no password field).",
+      "uncertain": false,
+      "existing": false,
+      "sha256": "1357a6c4c829c37d80db0ef7f7538981d0985bcf74bc9aff0eef7c00bfaba7fc",
+      "truth": false
+    },
+    {
+      "id": "sign-in-form",
+      "file": "classification/pages/sign-in-form.html",
+      "group": "barrier",
+      "expect": {
+        "none": "login",
+        "user_supplied": "login",
+        "apply_link": "login"
+      },
+      "note": "Email and password.",
+      "uncertain": false,
+      "existing": false,
+      "sha256": "f0199387af56096ab7f8844e17e981510be14d418e2bcdd3bfa21d8f2fb8ed69",
+      "truth": false
+    },
+    {
+      "id": "sign-in-with-selects",
+      "file": "classification/pages/sign-in-with-selects.html",
+      "group": "barrier",
+      "expect": {
+        "none": "login",
+        "user_supplied": "login",
+        "apply_link": "login"
+      },
+      "note": "Sign in with extra dropdowns, headed 'continue your application'. Must be an authentication barrier, never an application.",
+      "uncertain": false,
+      "existing": false,
+      "sha256": "2d12cf85930cf30e5bcd9994e7fe8036d1a84416098da967dd6098dafc90a01b",
+      "truth": false
+    },
+    {
+      "id": "captcha-gated-form",
+      "file": "classification/pages/captcha-gated-form.html",
+      "group": "barrier",
+      "expect": {
+        "none": "blocked",
+        "user_supplied": "blocked",
+        "apply_link": "blocked"
+      },
+      "note": "A form that would be read, behind 'Verify you are human'. The CAPTCHA barrier wins.",
+      "uncertain": false,
+      "existing": false,
+      "sha256": "a56dc93d757f732a3453a8a3e3d1aa193adb446554443a223e50038a96efb8ef",
+      "truth": false
+    },
+    {
+      "id": "unknown-ats-form",
+      "file": "phase1/unknown-ats-form.html",
+      "group": "existing",
+      "expect": {},
+      "note": "An existing fixture: whatever the current classifier says, the extension must say the same, under every context.",
+      "uncertain": false,
+      "existing": true,
+      "sha256": "9ec17da9f49c910c4f3a0eb6f59214837544a2bd5fb18c28c6e7bfbcc785f391",
+      "truth": true
+    },
+    {
+      "id": "login",
+      "file": "phase1/login.html",
+      "group": "existing",
+      "expect": {},
+      "note": "An existing fixture: whatever the current classifier says, the extension must say the same, under every context.",
+      "uncertain": false,
+      "existing": true,
+      "sha256": "76aa5496f2efc53d4f86ca87570c8e9fb0734ec23ed3147031e321676c431a4c",
+      "truth": false
+    },
+    {
+      "id": "captcha",
+      "file": "phase1/captcha.html",
+      "group": "existing",
+      "expect": {},
+      "note": "An existing fixture: whatever the current classifier says, the extension must say the same, under every context.",
+      "uncertain": false,
+      "existing": true,
+      "sha256": "952af5ac1766625cd16a64dea504e882e1d966b3ea6e57dc82b53be707384877",
+      "truth": false
+    },
+    {
+      "id": "newsletter-only",
+      "file": "phase1/newsletter-only.html",
+      "group": "existing",
+      "expect": {},
+      "note": "An existing fixture: whatever the current classifier says, the extension must say the same, under every context.",
+      "uncertain": false,
+      "existing": true,
+      "sha256": "1edb074b3ab40c90ec4f1046a43a4e05be0060b19a87e5d50677c386dc5b2d0e",
+      "truth": false
+    },
+    {
+      "id": "no-apply",
+      "file": "phase1/no-apply.html",
+      "group": "existing",
+      "expect": {},
+      "note": "An existing fixture: whatever the current classifier says, the extension must say the same, under every context.",
+      "uncertain": false,
+      "existing": true,
+      "sha256": "edbd773c2060cdc01e6688e5323659acc4e4889854154202034f6abcb6ecd7f1",
+      "truth": false
+    },
+    {
+      "id": "jobicy-listing",
+      "file": "phase1/jobicy-listing.html",
+      "group": "existing",
+      "expect": {},
+      "note": "An existing fixture: whatever the current classifier says, the extension must say the same, under every context.",
+      "uncertain": false,
+      "existing": true,
+      "sha256": "c4157e018fb6e6fdfb42ca94bd4b2728eb042abc49a127862003041fd6b500dc",
+      "truth": false
+    },
+    {
+      "id": "multiple-apply",
+      "file": "phase1/multiple-apply.html",
+      "group": "existing",
+      "expect": {},
+      "note": "An existing fixture: whatever the current classifier says, the extension must say the same, under every context.",
+      "uncertain": false,
+      "existing": true,
+      "sha256": "dd9e0ff1c3d9cc7bc5142397ec5db31a3762f04af0f40533349b902170993f2a",
+      "truth": false
+    },
+    {
+      "id": "apply-button-only",
+      "file": "phase1/apply-button-only.html",
+      "group": "existing",
+      "expect": {},
+      "note": "An existing fixture: whatever the current classifier says, the extension must say the same, under every context.",
+      "uncertain": false,
+      "existing": true,
+      "sha256": "62811f38df4e9a64c2d2f61cca477d32cff488854627892cdaf1216d0e105807",
+      "truth": false
+    },
+    {
+      "id": "access-denied",
+      "file": "phase1/access-denied.html",
+      "group": "existing",
+      "expect": {},
+      "note": "An existing fixture: whatever the current classifier says, the extension must say the same, under every context.",
+      "uncertain": false,
+      "existing": true,
+      "sha256": "61b364fac16f2a1caa38fba690ae6b7d9ec6a7ff48878573a4aa067c8ae9c3c1",
+      "truth": false
+    },
+    {
+      "id": "employer-careers",
+      "file": "phase1/employer-careers.html",
+      "group": "existing",
+      "expect": {},
+      "note": "An existing fixture: whatever the current classifier says, the extension must say the same, under every context.",
+      "uncertain": false,
+      "existing": true,
+      "sha256": "dbd8e1b8f3ddb16090fc0ea69185fb153bfac3568c4d5e7a434f73697a7488af",
+      "truth": false
+    },
+    {
+      "id": "greenhouse-form",
+      "file": "greenhouse-form.html",
+      "group": "existing",
+      "expect": {},
+      "note": "An existing fixture: whatever the current classifier says, the extension must say the same, under every context.",
+      "uncertain": false,
+      "existing": true,
+      "sha256": "5f9b7915d26179bf542472cb1cb77cebc6931fc9905dda1aa8d127b2b67605d8",
+      "truth": true
+    },
+    {
+      "id": "unsupported-page",
+      "file": "unsupported-page.html",
+      "group": "existing",
+      "expect": {},
+      "note": "An existing fixture: whatever the current classifier says, the extension must say the same, under every context.",
+      "uncertain": false,
+      "existing": true,
+      "sha256": "c1a7ce44a5ad8aa1b443c31db7d00f1867b1f70ba326574679fa8b6f6a6deacc",
+      "truth": false
+    },
+    {
+      "id": "multi-step",
+      "file": "forms/multi-step.html",
+      "group": "existing",
+      "expect": {},
+      "note": "An existing fixture: whatever the current classifier says, the extension must say the same, under every context.",
+      "uncertain": false,
+      "existing": true,
+      "sha256": "a6de8bae8bcf1ad226edefe07423795a9404e245c9eb74c5607335beb999e521",
+      "truth": true
+    },
+    {
+      "id": "labels-vs-headings",
+      "file": "forms/labels-vs-headings.html",
+      "group": "existing",
+      "expect": {},
+      "note": "An existing fixture: whatever the current classifier says, the extension must say the same, under every context.",
+      "uncertain": false,
+      "existing": true,
+      "sha256": "5f0d76f90bacb2121c8813f504c0472a8fedd545691beaca1cd9501b6129eb5f",
+      "truth": true
+    },
+    {
+      "id": "greenhouse-style-form",
+      "file": "forms/greenhouse-style-form.html",
+      "group": "existing",
+      "expect": {},
+      "note": "An existing fixture: whatever the current classifier says, the extension must say the same, under every context.",
+      "uncertain": false,
+      "existing": true,
+      "sha256": "2a276dbee9bc398db01fe1aebab2d385fd761fdfe0ff5ac6504a0f235227ff69",
+      "truth": true
+    },
+    {
+      "id": "auth-gate-aggregator",
+      "file": "forms/auth-gate-aggregator.html",
+      "group": "existing",
+      "expect": {},
+      "note": "An existing fixture: whatever the current classifier says, the extension must say the same, under every context.",
+      "uncertain": false,
+      "existing": true,
+      "sha256": "e98db850678e5c98147b446a53fe61b20e5474d7f0cfb1c1313f79ab26a89c5e",
+      "truth": false
+    },
+    {
+      "id": "apply-button-nonget",
+      "file": "forms/apply-button-nonget.html",
+      "group": "existing",
+      "expect": {},
+      "note": "An existing fixture: whatever the current classifier says, the extension must say the same, under every context.",
+      "uncertain": false,
+      "existing": true,
+      "sha256": "6fb2afbedf57db326290cf7089405a960709f72e12f5b585350022a5b30295d0",
+      "truth": false
+    }
+  ],
+  "truth_note": "truth = is this page really an application form, whatever our rules say. It is what precision and recall are measured against. 'expect' is what the classifier is designed to answer under each context, and is what the tests assert; the two differ only for the two uncertain cases."
+}

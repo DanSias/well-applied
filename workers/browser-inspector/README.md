@@ -300,9 +300,28 @@ Labelled hidden fields, labels that point at controls that are not in the page, 
 the warnings `conditional_fields_not_inspected` / `more_steps_not_inspected`; the path taken is recorded as `generic_discovery`. No
 new outcome or stop reason exists, so the worker and Laravel stay in step (`WorkerContractSyncTest`).
 
-**Known gap.** The classifier calls a page a form only on a strong application signal (a resume field, or name and email on a page
-that talks about applying). A page of other fields only (dropdowns and a name, say) is still a "listing" and never reaches
-discovery. M1 deliberately does not widen that gate.
+**Recognising an application form (`src/page-context.js`).** The existing classifier calls a page a form only on a strong signal
+(a resume field, or a name and email on a page that talks about applying). With generic discovery **on**, one more step runs, strictly
+*after* every existing barrier (blocked, CAPTCHA, sign-in), so a barrier can never be overridden, and only when nothing above matched:
+
+- **Context** is evidence. A URL the person supplied, a destination reached through an identified Apply link, one an earlier
+  inspection resolved, or a provider's application link say "this is meant to be the application"; a URL found on a job board listing
+  says nothing. The poll loop passes the claim's `start_origin` to `inspect()`; a followed Apply link is context by construction.
+- **Content** is evidence. Without context a page needs three things together: three or more labelled questions (native controls and
+  custom ARIA widgets alike, a radio or checkbox group counting once), application wording, and either an application submit button
+  ("Submit application", "Apply now"; never a bare "Submit", never "Apply filters") or a voluntary self-identification section.
+- **Exclusions apply to every context.** A search or filter, a sign-in, a sign-up or job-alert subscription, a newsletter, contact,
+  quote or feedback form, and a cookie banner are never applications, even when a person says the URL is one.
+- **Barriers win.** A page with a password field and more fields than the existing sign-in rule covers is now an authentication
+  barrier (`login_wall`), and a human-verification notice on an otherwise recognised page makes it `blocked`.
+- The one weak existing signal (a name and email on a page that mentions applying) no longer counts when the page is plainly a sign-up,
+  contact, search or consent form. Resume-upload, Greenhouse and Lever signals are never touched.
+
+How a page came to be read is recorded as a warning: `application_form_inferred_from_context` or
+`application_form_inferred_from_content`, so a page that is not self-evidently an application says so. With the flag **off** the
+classifier is byte-for-byte what it was (tested). An arbitrary page with form controls, with neither context nor content evidence, is
+still a listing: the one deliberate miss, and the one uncertain false positive (an ordinary form the person *says* is their
+application), are measured in `test/fixtures/universal/README.md`.
 
 Acceptance: the M0 corpus and `m1-criteria.json` (`test/fixtures/universal/README.md`); `test/discovery-*.test.js`.
 

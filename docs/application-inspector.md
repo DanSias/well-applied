@@ -391,6 +391,14 @@ dedicated extractor (an unknown ATS, or Lever) from what the page says, without 
 steps make it `partial` with the warnings `conditional_fields_not_inspected` / `more_steps_not_inspected`. No new column, outcome or
 stop reason: the existing contract is unchanged. See `workers/browser-inspector/README.md` "Generic form discovery".
 
+**Recognising a form (generic discovery on).** The page classifier gains one step, after every barrier check: a page with no strong
+application signal is read as a form when its *context* says it is the application (a URL the person supplied, a destination reached
+through an identified Apply link, one an earlier inspection resolved) or when it shows independent *content* evidence (application
+wording, an application submit button or a self-identification section, three or more questions). Search, sign-in, sign-up, newsletter,
+contact and cookie pages are never read, whatever the context; a sign-in or a CAPTCHA always wins. The warnings
+`application_form_inferred_from_context` / `..._from_content` record how a page came to be read. With the flag off nothing changes. See
+`workers/browser-inspector/README.md` "Generic form discovery".
+
 **How an outcome reads in the UI.** The Opportunities drawer and the full application page share one presentation
 (`resources/js/lib/inspection-status.ts`, `resources/js/components/inspection-findings.tsx`), so a result is worded the same
 in both. A run that finished but did not reach a form is a worker success with its own finding: `application_not_found` reads

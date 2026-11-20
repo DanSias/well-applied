@@ -79,7 +79,7 @@ export async function runOnce(client, config, log = console.error, inspectFn = i
 
     let result;
     try {
-        result = await inspectFn(startUrl, { budgetMs });
+        result = await inspectFn(startUrl, { budgetMs, startOrigin: claimed.start_origin });
     } catch (error) {
         // inspect() reports every expected outcome itself; this is the unexpected: still deliver a failed result now
         // rather than leave the claim to expire.

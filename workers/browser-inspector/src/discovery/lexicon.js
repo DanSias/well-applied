@@ -29,7 +29,7 @@ export function stripRequiredMarker(text) {
 // reports by label and flags, and that application preparation must never answer on its own.
 
 /** A heading, legend or section name that announces a self-identification block. */
-const SENSITIVE_SECTION = /\b(self[- ]?identif\w*|demographic\w*|equal (employment )?opportunity|eeoc?\b|voluntary (disclosure|self))/i;
+export const SENSITIVE_SECTION = /\b(self[- ]?identif\w*|demographic\w*|equal (employment )?opportunity|eeoc?\b|voluntary (disclosure|self))/i;
 
 // The QUESTION must be about the category, in question form. A bare keyword is not enough: "Describe a race condition you
 // debugged", "How many years have you supported veterans' hiring programs?" and "...software for people with disabilities"

@@ -2,6 +2,9 @@
 // Chromium, local fixture servers only; the guard allows exactly those host:port pairs and refuses everything else.
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
 import { inspect } from '../src/inspect.js';
 import { genericDiscoveryRequested } from '../src/discovery/flag.js';
 import { startSites, fixture } from './support/fixture-server.js';
@@ -17,9 +20,19 @@ let lever;
 
 before(async () => {
     const universal = Object.fromEntries(corpus.fixtures.filter((f) => !f.existing).map((f) => [`/u/${f.id}`, html(`universal/forms/${f.id}.html`)]));
+    const classification = Object.fromEntries(
+        JSON.parse(readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'universal', 'classification', 'cases.json'), 'utf8'))
+            .cases.filter((c) => c.file.startsWith('classification/pages/'))
+            .map((c) => [`/c/${c.id}`, html(`universal/${c.file}`)]),
+    );
     sites = await startSites({
         board: {
             ...universal,
+            ...classification,
+            // A listing with one Apply link, to be pointed at whichever page the test wants reached through it.
+            '/to/context-only-form': ({ origins }) => ({ body: `<title>Engineer</title><h1>Engineer</h1><a href="${origins.board}/c/context-only-form">Apply Now</a>` }),
+            '/to/job-search-filters': ({ origins }) => ({ body: `<title>Engineer</title><h1>Engineer</h1><a href="${origins.board}/c/job-search-filters">Apply Now</a>` }),
+            '/to/newsletter-signup': ({ origins }) => ({ body: `<title>Engineer</title><h1>Engineer</h1><a href="${origins.board}/c/newsletter-signup">Apply Now</a>` }),
             // The aggregator fixture links to itself by a relative path, so it must be served at that path.
             '/auth-gate-aggregator.html': html('universal/forms/auth-gate-aggregator.html'),
             '/phase1/unknown-form': html('phase1/unknown-ats-form.html'),
@@ -102,11 +115,11 @@ describe('flag ON: forms with no dedicated extractor are read, and only those', 
     });
 });
 
-// The classifier (src/page-kind.js) calls a page a form only on a strong application signal: a resume field, or a name and an
-// email field on a page that talks about applying. M1 wires discovery to the pages it already recognises as forms, and does
-// not widen that gate. These three corpus forms are read by discovery (see discovery-corpus.test.js) but never reach it here.
+// With generic discovery on, the classifier also recognises an application that lacks the strong signals (a resume field, or a name
+// and an email), from application CONTEXT or from independent application CONTENT (src/page-context.js). The three corpus forms
+// below have no such signal, so with the flag off they are listings, exactly as before.
 const RECOGNISED = ['greenhouse-style-form', 'labels-vs-headings', 'multi-step'];
-const NOT_RECOGNISED = ['combobox-nested-search', 'conditional-hidden-fields', 'sensitive-demographics'];
+const CONTENT_ONLY = ['combobox-nested-search', 'conditional-hidden-fields', 'sensitive-demographics'];
 
 describe('flag ON: a form is NOT called complete when content was seen but not read', () => {
     test('M1-F12: every recognised form fixture ends with an outcome its M0 expectation allows', async () => {
@@ -118,13 +131,16 @@ describe('flag ON: a form is NOT called complete when content was seen but not r
         }
     });
 
-    test('KNOWN GAP, unchanged by the flag: forms with no resume, email or name-and-email hallmark are not recognised as forms', async () => {
-        for (const id of NOT_RECOGNISED) {
+    test('forms with only dropdowns, conditional fields or demographic questions: unchanged with the flag OFF, read with it ON', async () => {
+        for (const id of CONTENT_ONLY) {
             const off = await run(`${sites.origins.board}/u/${id}`, false);
+            assert.deepEqual([off.inspection_outcome, off.stop_reason, off.fields.length], ['application_not_found', 'no_apply_link', 0], `${id}: flag off must be unchanged`);
+
             const on = await run(`${sites.origins.board}/u/${id}`, true);
-            assert.deepEqual([on.inspection_outcome, on.stop_reason, on.fields.length], ['application_not_found', 'no_apply_link', 0], id);
-            assert.deepEqual(stable(on).warnings, stable(off).warnings, `${id}: the flag changed a page it should not touch`);
-            assert.ok(!on.warnings.includes('generic_discovery'), id);
+            assert.ok(on.fields.length > 0, `${id}: nothing was read`);
+            assert.ok(['complete', 'partial'].includes(on.inspection_outcome), id);
+            assert.ok(on.warnings.includes('application_form_inferred_from_content'), `${id}: how it was recognised is recorded`);
+            assert.ok(on.warnings.includes('generic_discovery'), id);
         }
     });
 
@@ -172,6 +188,95 @@ describe('flag ON: listing pages still end where they did, and nothing is ever a
         });
     }
     test('M1-S3: no non-GET request ever reached a server, across every run above', () => {
+        assert.deepEqual(nonGet, []);
+    });
+});
+
+describe('flag ON: application CONTEXT decides what a page with no application hallmark is', () => {
+    const page = (id) => `${sites.origins.board}/c/${id}`;
+    const withOrigin = (url, startOrigin, flag = true) => run(url, flag, { startOrigin });
+
+    test('a URL the person supplied is strong context: the dropdown-and-free-text page is read, and says why', async () => {
+        const r = await withOrigin(page('context-only-form'), 'user');
+        assert.ok(r.fields.length === 3, JSON.stringify(r.fields.map((f) => f.raw_label)));
+        assert.deepEqual(r.fields.map((f) => f.control_type), ['select', 'select', 'text']);
+        assert.ok(r.warnings.includes('application_form_inferred_from_context'));
+        assert.ok(['complete', 'partial'].includes(r.inspection_outcome));
+    });
+
+    test('the same page found on a listing (no context) is NOT read: a URL on a job board says nothing', async () => {
+        for (const origin of [undefined, null, 'source']) {
+            const r = await withOrigin(page('context-only-form'), origin);
+            assert.deepEqual([r.inspection_outcome, r.fields.length], ['application_not_found', 0], String(origin));
+        }
+    });
+
+    test('and with the flag OFF, even a user-supplied URL behaves exactly as it does today', async () => {
+        const r = await withOrigin(page('context-only-form'), 'user', false);
+        assert.deepEqual([r.inspection_outcome, r.stop_reason, r.fields.length], ['application_not_found', 'no_apply_link', 0]);
+    });
+
+    test('a destination reached through an identified Apply link is strong context', async () => {
+        const r = await run(`${sites.origins.board}/to/context-only-form`, true, { startOrigin: 'source' });
+        assert.equal(r.diagnostics.follows, 1);
+        assert.equal(r.fields.length, 3);
+        assert.ok(r.warnings.includes('application_form_inferred_from_context'));
+    });
+
+    test('but an Apply link that leads to a job search, or a newsletter signup, is not an application', async () => {
+        for (const id of ['job-search-filters', 'newsletter-signup']) {
+            const r = await run(`${sites.origins.board}/to/${id}`, true, { startOrigin: 'source' });
+            assert.deepEqual([r.inspection_outcome, r.fields.length], ['application_not_found', 0], id);
+        }
+    });
+
+    test('even a user-supplied URL does not turn search, sign-up, contact, consent or alert pages into applications', async () => {
+        for (const id of ['site-search', 'newsletter-signup', 'account-registration', 'create-account-to-apply', 'contact-form', 'survey-form', 'job-alerts-signup', 'cookie-consent', 'quote-request', 'job-search-filters', 'magic-link-sign-in']) {
+            const r = await withOrigin(page(id), 'user');
+            assert.deepEqual(r.fields, [], id);
+            assert.notEqual(r.inspection_outcome, 'complete', id);
+        }
+    });
+});
+
+describe('flag ON: authentication and CAPTCHA outrank any application', () => {
+    const page = (id) => `${sites.origins.board}/c/${id}`;
+
+    test('a sign-in form, even one with extra dropdowns headed "continue your application", is an authentication barrier', async () => {
+        for (const origin of ['user', 'source']) {
+            for (const id of ['sign-in-form', 'sign-in-with-selects']) {
+                const r = await run(page(id), true, { startOrigin: origin });
+                assert.deepEqual([r.inspection_outcome, r.stop_reason, r.fields.length], ['authentication_required', 'login_wall', 0], `${id} (${origin})`);
+            }
+        }
+    });
+
+    test('a form behind a CAPTCHA notice is blocked, not read', async () => {
+        for (const origin of ['user', 'source']) {
+            const r = await run(page('captcha-gated-form'), true, { startOrigin: origin });
+            assert.deepEqual([r.inspection_outcome, r.stop_reason, r.fields.length], ['blocked', 'captcha', 0], origin);
+        }
+    });
+
+    test('with the flag OFF, those pages end exactly as they did before', async () => {
+        const before = {};
+        for (const id of ['sign-in-form', 'sign-in-with-selects', 'captcha-gated-form']) {
+            const r = await run(page(id), false, { startOrigin: 'user' });
+            before[id] = [r.inspection_outcome, r.stop_reason];
+        }
+        assert.deepEqual(before, { 'sign-in-form': ['authentication_required', 'login_wall'], 'sign-in-with-selects': ['application_not_found', 'no_apply_link'], 'captcha-gated-form': ['application_not_found', 'no_apply_link'] });
+    });
+
+    test('Greenhouse is identical with the flag on or off, in every context', async () => {
+        for (const origin of [undefined, 'user', 'source', 'resolved']) {
+            const off = await run(`${sites.origins.ats}/acme/jobs/1`, false, { startOrigin: origin });
+            const on = await run(`${sites.origins.ats}/acme/jobs/1`, true, { startOrigin: origin });
+            assert.deepEqual(stable(on), stable(off), String(origin));
+            assert.ok(!on.warnings.some((w) => w.startsWith('application_form_inferred')));
+        }
+    });
+
+    test('M1-S3 still holds across all of the above: no non-GET request ever reached a server', () => {
         assert.deepEqual(nonGet, []);
     });
 });

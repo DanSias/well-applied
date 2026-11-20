@@ -9,6 +9,8 @@
 // Kinds: 'form' | 'blocked' | 'login' | 'unreachable' | 'listing'. Anything that is none of the first four is a
 // 'listing' — a page that is not an application form, from which an Apply link may lead to one.
 
+import { APPLICATION_WORDS, assessApplicationForm, exclusionsFor } from './page-context.js';
+
 /**
  * Runs in the page (via page.evaluate). Plain browser JS: no Node or Playwright access.
  */
@@ -78,6 +80,57 @@ export function collectSignals() {
         text: clean(f.innerText).slice(0, 300).toLowerCase(),
     }));
 
+    // ---- additive facts (used only by the context-aware recognition; nothing above depends on them) ----
+    const takenControls = new Set(Array.from(document.querySelectorAll(controlSelector)));
+    function groupLabelOf(el) {
+        const g = el.closest('[role="radiogroup"], [role="group"], fieldset');
+        if (!g) return { group: null, label: '' };
+        if (g.tagName === 'FIELDSET') {
+            const legend = g.querySelector('legend');
+            return { group: g, label: legend ? clean(legend.textContent) : '' };
+        }
+        const by = (g.getAttribute('aria-labelledby') || '')
+            .split(/\s+/)
+            .map((id) => document.getElementById(id)?.textContent)
+            .filter(Boolean)
+            .join(' ');
+        return { group: g, label: clean(by || g.getAttribute('aria-label') || '') };
+    }
+    const customSeen = new Set();
+    const customControls = [];
+    const customSelector = ['[role="radio"]', '[role="checkbox"]', '[role="listbox"]', '[role="switch"]', 'button[aria-haspopup="listbox"]', '[role="button"][aria-haspopup="listbox"]'].join(',');
+    for (const el of Array.from(document.querySelectorAll(customSelector)).slice(0, 120)) {
+        if (takenControls.has(el) || !visible(el)) continue;
+        const role = el.getAttribute('role') || 'listbox_button';
+        const { group, label: groupLabel } = groupLabelOf(el);
+        // Radios and checkboxes of one group are ONE question.
+        if ((role === 'radio' || role === 'checkbox') && group) {
+            if (customSeen.has(group)) continue;
+            customSeen.add(group);
+        }
+        const own = describe(el);
+        const form = el.closest('form');
+        customControls.push({
+            type: role,
+            name: '',
+            id: el.id || '',
+            autocomplete: '',
+            accept: '',
+            label: (role === 'radio' || role === 'checkbox') && group ? groupLabel || own : own || groupLabel,
+            inSearch: !!el.closest('[role="search"]'),
+            form: form ? forms.indexOf(form) : -1,
+        });
+        if (customControls.length >= 60) break;
+    }
+    const buttons = Array.from(document.querySelectorAll('button, [role="button"], input[type="submit"], input[type="button"]'))
+        .filter(visible)
+        .slice(0, 40)
+        .map((b) => ({ text: clean(b.innerText || b.getAttribute('value') || b.getAttribute('aria-label') || '').slice(0, 80), inForm: !!b.closest('form') }));
+    const sections = Array.from(document.querySelectorAll('legend, h2, h3, h4, [role="heading"]'))
+        .filter(visible)
+        .slice(0, 40)
+        .map((h) => clean(h.textContent).slice(0, 100));
+
     const frames = Array.from(document.querySelectorAll('iframe'));
     const challengeFrame = frames.some((f) => {
         const src = (f.getAttribute('src') || '').toLowerCase();
@@ -104,6 +157,10 @@ export function collectSignals() {
         captchaChallengeVisible: challengeFrame,
         greenhouseAssets: /greenhouse\.io/.test(assets),
         leverAssets: /lever\.co/.test(assets),
+        customControls,
+        buttons,
+        sections,
+        searchRole: !!document.querySelector('[role="search"]'),
     };
 }
 
@@ -112,7 +169,6 @@ const BLOCK_PATTERNS =
 const CAPTCHA_PATTERNS = /verify (that )?you are (a )?human|are you a (robot|human)|captcha|prove you'?re not a robot|press (and|&) hold/;
 const LOGIN_TEXT = /\b(sign in|log in|login)\b/;
 const NEWSLETTER = /subscribe|newsletter|sign up for|get (the )?(latest|updates)|notify me|contact us|send (us )?a message|your message|enquiry|inquiry/;
-const APPLICATION_WORDS = /\b(apply|application|applicant|candidate|resume|cv|curriculum)\b/;
 
 const RESUME_FIELD = /resume|\bcv\b|curriculum|cover[ _-]?letter/i;
 const EMAIL_FIELD = /e-?mail/i;
@@ -127,7 +183,7 @@ export function hostMatches(host, domain) {
  * @param {{status?: number | null}} [response]
  * @returns {{kind: 'form'|'blocked'|'login'|'unreachable'|'listing', reasons: string[], stopReason: string|null, ats: 'greenhouse'|'lever'|null, onGreenhouseHost: boolean}}
  */
-export function classifyPage(signals, { status = null } = {}) {
+export function classifyPage(signals, { status = null, context = 'none', extended = false } = {}) {
     const controls = signals.controls.filter((c) => !c.inSearch);
     const reasons = [];
     const onGreenhouseHost = hostMatches(signals.host, 'greenhouse.io');
@@ -160,6 +216,17 @@ export function classifyPage(signals, { status = null } = {}) {
     // not rendered: that is "reached a form, extracted nothing", not "no application".
     if (onGreenhouseHost && /\/jobs?\/\d+|\/embed\/job_app/.test(signals.path)) strong.push('greenhouse_job_page');
     if (controls.length > 0 && onLeverHost && /\/apply\/?$/.test(signals.path)) strong.push('lever_form');
+
+    // With the context-aware extension on, the one WEAK existing signal (a name and an email on a page that mentions applying) no
+    // longer counts when the page is plainly a sign-up, contact, search or consent form. The strong signals (a resume upload,
+    // a Greenhouse or Lever form) are never touched.
+    if (extended && strong.length === 1 && strong[0] === 'contact_fields_on_application_page') {
+        const notApplication = exclusionsFor(signals).filter((e) => e !== 'password_field');
+        if (notApplication.length > 0) {
+            strong.length = 0;
+            reasons.push(`not_an_application:${notApplication.join('+')}`);
+        }
+    }
 
     // ---- status ----
     if (status === 403 || status === 429) {
@@ -201,6 +268,28 @@ export function classifyPage(signals, { status = null } = {}) {
 
     if (controls.length > 0 && controls.length <= 2 && LOGIN_TEXT.test(signals.headings.join(' ') + ' ' + signals.title.toLowerCase())) {
         return { kind: 'login', reasons: ['sign_in_page'], stopReason: 'login_wall', ats, onGreenhouseHost };
+    }
+
+    // ---- context-aware recognition (generic discovery only) ----
+    // Reached only when nothing above matched, so a form the existing rules recognise, and every barrier (blocked, CAPTCHA,
+    // sign-in), has already been decided and cannot be overridden here.
+    if (extended) {
+        const found = assessApplicationForm(signals, { context });
+
+        // A password form with more fields than the existing sign-in rule covers is still a sign-in: an authentication barrier,
+        // never an application.
+        if (found.excluded.includes('password_field')) {
+            return { kind: 'login', reasons: ['password_field', 'sign_in_form'], stopReason: 'login_wall', ats, onGreenhouseHost };
+        }
+
+        if (found.recognised && found.barrier) {
+            // A CAPTCHA or block notice on a page that would otherwise be read: the barrier wins.
+            return { kind: 'blocked', reasons: ['barrier_text_on_form_page'], stopReason: 'captcha', ats, onGreenhouseHost };
+        }
+        if (found.recognised) {
+            return { kind: 'form', reasons: ['context_aware_form', `basis:${found.basis}`, ...found.evidence], stopReason: null, ats, onGreenhouseHost, inferred: found.basis };
+        }
+        if (found.excluded.length > 0 && found.evidence.length > 0) reasons.push(`not_an_application:${found.excluded.join('+')}`);
     }
 
     reasons.push(controls.length > 0 ? 'controls_without_strong_signal' : 'no_form_controls');
