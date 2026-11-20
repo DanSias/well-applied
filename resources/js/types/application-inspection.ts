@@ -131,6 +131,12 @@ export type InspectionSummary = {
     outcome: string | null;
     /** Why it stopped there; null for a run from before stop reasons existed. */
     stop_reason: string | null;
+    /** Where the latest successful run's start URL came from ('user', 'resolved', 'provider', 'source'); null when unknown. */
+    start_origin: string | null;
+    /** How many of the page's own data-sending requests read-only inspection refused on that run. */
+    blocked_requests: number;
+    /** The HTTP status of the page that run opened; null when not recorded. */
+    http_status: number | null;
 };
 
 /** What the Opportunities inspection drawer is handed for one pursued job (OpportunityController::inspectionJob). */

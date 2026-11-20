@@ -206,3 +206,74 @@ it('starts the first inspection on a one-click open, and never a second over an 
     startInspection($job)->assertRedirect();
     expect(WorkflowRun::count())->toBe(2);
 });
+
+// ---- First-inspection setup: nothing exists until the person confirms, and one confirmation is one run ----
+
+it('creates nothing until the person confirms: viewing the opportunity and its drawer starts no run', function () {
+    $job = JobPosting::factory()->create(['source_url' => 'https://jobicy.com/jobs/1', 'disposition' => 'pursued']);
+
+    test()->get(route('opportunities.show', $job))->assertOk();
+    test()->get(route('opportunities.index', ['inspect' => $job->id]))->assertOk();
+
+    expect(Application::count())->toBe(0)->and(WorkflowRun::count())->toBe(0);
+});
+
+it('first inspection from the listing: one draft Application, one run, no link saved', function () {
+    $job = JobPosting::factory()->create(['source_url' => 'https://jobicy.com/jobs/1']);
+
+    startInspection($job, ['only_if_none' => true])->assertRedirect();
+
+    $application = Application::firstOrFail();
+    expect(Application::count())->toBe(1)
+        ->and(WorkflowRun::count())->toBe(1)
+        ->and($application->application_url)->toBeNull()
+        ->and($application->application_url_origin)->toBeNull();
+});
+
+it('first inspection with a supplied link: one draft Application, one run, saved as the person\'s own and started from it', function () {
+    $job = JobPosting::factory()->create(['source_url' => 'https://jobicy.com/jobs/1']);
+    $url = 'https://jobs.ashbyhq.com/nerdwallet/32c62385-07d5-4d6d-960e-12c05ce0cbef/application';
+
+    startInspection($job, ['only_if_none' => true, 'application_url' => $url])->assertRedirect();
+
+    $application = Application::firstOrFail();
+    expect(Application::count())->toBe(1)
+        ->and(WorkflowRun::count())->toBe(1)
+        ->and($application->application_url)->toBe($url)
+        ->and($application->application_url_origin)->toBe('user');
+});
+
+it('a repeated confirmation of the same first inspection (double click, second tab) creates no second run', function () {
+    $job = JobPosting::factory()->create(['source_url' => 'https://jobicy.com/jobs/1']);
+    $url = 'https://jobs.ashbyhq.com/nerdwallet/32c62385-07d5-4d6d-960e-12c05ce0cbef/application';
+
+    startInspection($job, ['only_if_none' => true, 'application_url' => $url])->assertRedirect();
+    startInspection($job, ['only_if_none' => true, 'application_url' => $url])->assertRedirect();
+    startInspection($job, ['only_if_none' => true])->assertRedirect();
+
+    expect(Application::count())->toBe(1)->and(WorkflowRun::count())->toBe(1);
+});
+
+it('a rejected link on the first inspection creates nothing', function () {
+    $job = JobPosting::factory()->create(['source_url' => 'https://jobicy.com/jobs/1']);
+
+    startInspection($job, ['only_if_none' => true, 'application_url' => 'http://localhost/x'])->assertSessionHasErrors('application_url');
+
+    expect(Application::count())->toBe(0)->and(WorkflowRun::count())->toBe(0);
+});
+
+it('a second first-inspection confirmation with a different link changes nothing, while an explicit change during the run is still a 409', function () {
+    $job = JobPosting::factory()->create(['source_url' => 'https://jobicy.com/jobs/1']);
+
+    startInspection($job, ['only_if_none' => true, 'application_url' => 'https://jobs.lever.co/acme/1'])->assertRedirect();
+
+    // Another tab confirms the setup with another link: idempotent, not an error, and it must not overwrite the first.
+    startInspection($job, ['only_if_none' => true, 'application_url' => 'https://other.example.com/apply'])->assertRedirect();
+    expect(Application::count())->toBe(1)
+        ->and(WorkflowRun::count())->toBe(1)
+        ->and(Application::firstOrFail()->application_url)->toBe('https://jobs.lever.co/acme/1');
+
+    // Only the explicit "change the link" action (no only_if_none) is refused while the run is active.
+    startInspection($job, ['application_url' => 'https://other.example.com/apply'])->assertStatus(409);
+    expect(Application::firstOrFail()->application_url)->toBe('https://jobs.lever.co/acme/1')->and(WorkflowRun::count())->toBe(1);
+});

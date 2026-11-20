@@ -1,6 +1,8 @@
 import type { Tone } from '@/components/ui/badge';
+import type { StartOptions } from '@/hooks/use-start-inspection';
 import type {
     ApplicationInspectionState,
+    InspectionResult,
     InspectionSummary,
 } from '@/types/application-inspection';
 
@@ -30,6 +32,8 @@ export type InspectionPresentation = {
     action: 'Inspect application form' | 'Inspect again' | 'Retry inspection';
     /** The person's own application link is what is needed next: offer it prominently. */
     needsApplicationUrl: boolean;
+    /** What the wording was allowed to know, so every surface words the same result the same way. */
+    context: OutcomeContext;
 };
 
 /** A record from before stop reasons existed: it cannot say why it stopped, and is not reinterpreted. */
@@ -40,11 +44,29 @@ const EARLIER_UNSUPPORTED: Explained = {
         'This result is from before inspections recorded why they stopped, so it cannot say whether an application form was found. Inspect again for a clearer answer.',
 };
 
-/** What the wording may mention about where the inspection looked. Never required: absent, the wording stays generic. */
+/**
+ * What the wording may mention about where the inspection looked and what it saw. Never required: absent, the wording stays
+ * generic. Every field is evidence from the stored result, and the wording claims no more than the evidence supports.
+ */
 export type OutcomeContext = {
     /** The host of the page the inspection started from, e.g. "jobicy.com". */
     listingHost?: string | null;
+    /** Where the start URL came from: 'user' (a link the person entered), 'resolved', 'provider', 'source' (the job listing). */
+    startOrigin?: string | null;
+    /** How many of the page's own requests that send data (POST and the like) read-only inspection refused. */
+    blockedRequests?: number;
+    /** The HTTP status of the page that was opened. */
+    httpStatus?: number | null;
 };
+
+/** The person gave this link themselves, so the page it leads to is, by their account, the application. */
+const enteredByUser = (context: OutcomeContext) =>
+    context.startOrigin === 'user';
+/** The page loaded, and it tried to send data that read-only inspection refuses: the likeliest reason a form did not appear. */
+const loadedButBlocked = (context: OutcomeContext) =>
+    enteredByUser(context) &&
+    context.httpStatus === 200 &&
+    (context.blockedRequests ?? 0) > 0;
 
 /** The host of a URL (origin + path, as the server hands it over), or null when it is missing or not a URL. */
 export function hostOf(url: string | null | undefined): string | null {
@@ -64,9 +86,22 @@ export function hostOf(url: string | null | undefined): string | null {
  * observed, not what to do (the outcome's explanation does that). Null for a record from before stop reasons existed:
  * it is never guessed.
  */
-export function describeStopReason(stopReason: string | null): string | null {
+export function describeStopReason(
+    stopReason: string | null,
+    context: OutcomeContext = {},
+): string | null {
     switch (stopReason) {
         case 'no_apply_link':
+            // For a link the person entered there is no listing to follow a link from: what stopped it is that no form appeared.
+            if (loadedButBlocked(context)) {
+                const n = context.blockedRequests ?? 0;
+
+                return `The page loaded but no application form appeared. ${n} of its own request${n === 1 ? '' : 's'} that send data ${n === 1 ? 'was' : 'were'} blocked, as every read-only inspection blocks them.`;
+            }
+            if (enteredByUser(context)) {
+                return 'No application form was found on the page you entered.';
+            }
+
             return 'The page has no link to an application form that could be followed without clicking.';
         case 'multiple_apply_links':
             return 'The page links to more than one place to apply, and the inspector never chooses between them.';
@@ -208,6 +243,30 @@ export function describeOutcome(
 
             return EARLIER_UNSUPPORTED;
         case 'application_not_found':
+            if (loadedButBlocked(context)) {
+                const n = context.blockedRequests ?? 0;
+
+                return {
+                    label: 'Page loaded, form unavailable',
+                    tone: 'warn',
+                    explanation: `We opened the application link you entered${
+                        context.listingHost ? ` (${context.listingHost})` : ''
+                    } and it loaded, but its form did not appear. The page made ${n} request${
+                        n === 1 ? '' : 's'
+                    } that send data, which a read-only inspection never allows, and a page that loads its form that way cannot be read yet. Your link is saved and nothing was filled in or submitted. Open it in your browser to see the form.`,
+                };
+            }
+
+            if (enteredByUser(context)) {
+                return {
+                    label: 'Form not located',
+                    tone: 'warn',
+                    explanation: `We opened the application link you entered${
+                        context.listingHost ? ` (${context.listingHost})` : ''
+                    } but could not find an application form on that page. The inspector itself ran normally. If the form is on a different page, enter that page's link instead.`,
+                };
+            }
+
             return {
                 label: 'Needs application URL',
                 tone: 'warn',
@@ -302,20 +361,35 @@ function needsUrl(stopReason: string | null): Explained {
 /** Outcomes where the person's own link is the natural next step. */
 const URL_NEEDED = new Set(['application_not_found', 'needs_application_url']);
 
+/** Everything the wording may know about a result, read from the stored evidence and never guessed. */
+export function contextOf(result: InspectionResult | null): OutcomeContext {
+    if (result === null) return {};
+    const d = result.diagnostics;
+
+    return {
+        listingHost: hostOf(d?.requested_url ?? d?.final_url),
+        startOrigin: d?.start_origin ?? null,
+        blockedRequests: (d?.warnings ?? result.warnings ?? []).filter(
+            (w) => w === 'blocked_non_get',
+        ).length,
+        httpStatus: d?.http_status ?? null,
+    };
+}
+
 export function presentInspection(
     state: ApplicationInspectionState | null,
 ): InspectionPresentation {
     const run = state?.workflow_run ?? null;
     const result = state?.latest_result ?? null;
     const active = run?.status === 'pending' || run?.status === 'running';
+    const context = contextOf(result);
     const outcome =
         result?.inspection_outcome != null
-            ? describeOutcome(result.inspection_outcome, result.stop_reason, {
-                  listingHost: hostOf(
-                      result.diagnostics?.requested_url ??
-                          result.diagnostics?.final_url,
-                  ),
-              })
+            ? describeOutcome(
+                  result.inspection_outcome,
+                  result.stop_reason,
+                  context,
+              )
             : null;
     const outcomeIsEarlier =
         outcome !== null &&
@@ -376,11 +450,18 @@ export function presentInspection(
                 : run === null
                   ? 'Inspect application form'
                   : 'Inspect again',
+        // A person who has just entered the link is not asked to enter it again: for them "no form" is a finding about
+        // that page, not a missing link.
         needsApplicationUrl:
             !active &&
             !outcomeIsEarlier &&
             result?.inspection_outcome != null &&
-            URL_NEEDED.has(result.inspection_outcome),
+            URL_NEEDED.has(result.inspection_outcome) &&
+            !(
+                result.inspection_outcome === 'application_not_found' &&
+                enteredByUser(context)
+            ),
+        context,
     };
 }
 
@@ -426,7 +507,11 @@ export function summaryBadge(summary: InspectionSummary): Labelled {
         case 'inspected': {
             const outcome =
                 summary.outcome !== null
-                    ? describeOutcome(summary.outcome, summary.stop_reason)
+                    ? describeOutcome(summary.outcome, summary.stop_reason, {
+                          startOrigin: summary.start_origin,
+                          blockedRequests: summary.blocked_requests,
+                          httpStatus: summary.http_status,
+                      })
                     : undefined;
             const n = summary.field_count ?? 0;
             const questions = `${n} question${n === 1 ? '' : 's'}`;
@@ -447,16 +532,17 @@ export function summaryBadge(summary: InspectionSummary): Labelled {
 }
 
 /**
- * What clicking "Inspect" on an opportunity does: start the first inspection, or just open what is already there. A
- * click that finds an inspection of any kind (running, finished, failed) only opens it; running again is always an
- * explicit action inside the drawer. The server enforces the same rule (`only_if_none`), so a stale list cannot start a
- * second one either.
+ * The two ways to start the FIRST inspection of a job, both explicit confirmations in the setup drawer. Both ride the existing
+ * inspection request: the listing choice sends nothing but `only_if_none`; the link choice adds the person's own
+ * `application_url` (validated and saved as theirs by the server). `only_if_none` makes the server start an inspection only
+ * if the job still has none, so a second tab or a stale page can never create a second run over a result that already exists.
  */
-export function openIntent(
-    summary: InspectionSummary,
-    sourceUrl: string | null,
-): 'start' | 'view' {
-    return summary.state === 'not_inspected' && sourceUrl !== null
-        ? 'start'
-        : 'view';
+export function firstInspectionOptions(
+    choice: 'listing' | 'url',
+    applicationUrl?: string,
+    onInvalid?: (message: string) => void,
+): StartOptions {
+    return choice === 'url'
+        ? { onlyIfNone: true, applicationUrl, onInvalid }
+        : { onlyIfNone: true };
 }

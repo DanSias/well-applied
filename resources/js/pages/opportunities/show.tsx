@@ -34,7 +34,7 @@ import { useJobDecisions } from '@/hooks/use-job-decisions';
 import { useStartInspection } from '@/hooks/use-start-inspection';
 import AppShell from '@/layouts/app-shell';
 import { formatCompensation } from '@/lib/job-display';
-import { openIntent, summaryBadge } from '@/lib/inspection-status';
+import { summaryBadge } from '@/lib/inspection-status';
 import { resumeSteps } from '@/lib/resume-stepper';
 import {
     headerAction,
@@ -608,23 +608,9 @@ export default function OpportunityShow({
                                     size="sm"
                                     variant="secondary"
                                     aria-haspopup="dialog"
-                                    onClick={(event) => {
-                                        opening('inspection')(event);
-
-                                        // The first click also starts the first inspection. Started here, in the click
-                                        // handler, and never by the drawer mounting. The server starts it only if the
-                                        // job still has no inspection. Anything already there is only opened.
-                                        if (
-                                            openIntent(
-                                                op.inspection,
-                                                op.source_url,
-                                            ) === 'start'
-                                        ) {
-                                            inspector.start(op.id, {
-                                                onlyIfNone: true,
-                                            });
-                                        }
-                                    }}
+                                    // Opening the drawer starts nothing. A job with no inspection gets the setup (listing or
+                                    // link); each choice there is one explicit confirmation.
+                                    onClick={opening('inspection')}
                                 >
                                     {inspected
                                         ? 'View inspection'

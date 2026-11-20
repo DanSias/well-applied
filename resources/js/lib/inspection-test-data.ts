@@ -84,6 +84,9 @@ export const summaryOf = (
     latest_attempt_failed: false,
     outcome,
     stop_reason,
+    start_origin: null,
+    blocked_requests: 0,
+    http_status: null,
 });
 
 export const jobOf = (
@@ -132,5 +135,47 @@ export const jobicyNoApplyLinkState = (
             }),
         }),
         over,
+    );
+};
+
+/**
+ * The first live generic-discovery run (NerdWallet job 258, Application 10, agent run 13): a link the person entered, an Ashby
+ * page that loaded (HTTP 200) but whose form never rendered because the two requests it makes to load it send data, which a
+ * read-only inspection blocks. Stored as application_not_found / no_apply_link with `blocked_non_get` twice.
+ */
+export const ashbyBlockedFormState = (
+    over: Partial<ApplicationInspectionState> = {},
+): ApplicationInspectionState => {
+    const url =
+        'https://jobs.ashbyhq.com/nerdwallet/32c62385-07d5-4d6d-960e-12c05ce0cbef/application';
+    const warnings = ['blocked_non_get', 'blocked_non_get'];
+
+    return stateOf(
+        runOf('succeeded', { id: 13 }),
+        resultOf('application_not_found', {
+            agent_run_id: 13,
+            stop_reason: 'no_apply_link',
+            finished_at: '2026-11-20T14:36:48Z',
+            warnings,
+            diagnostics: diagnosticsOf({
+                requested_url: url,
+                final_url: url,
+                resolved_url: null,
+                page_title: 'Software Engineer, AI & Automation @ NerdWallet',
+                http_status: 200,
+                navigation: [{ kind: 'start', url, status: 200 }],
+                candidates: [],
+                warnings,
+                start_origin: 'user',
+            }),
+        }),
+        {
+            application_url: {
+                url,
+                origin: 'user',
+                set_at: '2026-11-20T14:36:43Z',
+            },
+            ...over,
+        },
     );
 };

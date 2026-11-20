@@ -93,6 +93,15 @@ final class SummarizeInspectionStates
             // Why it stopped there, and whether a form itself was reached. A record from before stop reasons existed has
             // neither, and is not reinterpreted.
             'stop_reason' => $latestSuccessfulAgentRun?->inspection_stop_reason,
+            // The same evidence the drawer words the result from, read from the same row, so the list badge never says
+            // something different about a result: where the link came from, how many data-sending requests were refused,
+            // and the status of the page that was opened.
+            'start_origin' => ($latestSuccessfulAgentRun?->input_summary ?? [])['start_origin'] ?? null,
+            'blocked_requests' => count(array_filter(
+                ($latestSuccessfulAgentRun?->result_summary ?? [])['warnings'] ?? [],
+                fn ($w) => $w === 'blocked_non_get',
+            )),
+            'http_status' => ($latestSuccessfulAgentRun?->result_summary ?? [])['http_status'] ?? null,
         ];
 
         if ($latestRun === null) {
@@ -149,6 +158,9 @@ final class SummarizeInspectionStates
             'latest_attempt_failed' => false,
             'outcome' => null,
             'stop_reason' => null,
+            'start_origin' => null,
+            'blocked_requests' => 0,
+            'http_status' => null,
         ];
     }
 

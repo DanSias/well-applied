@@ -19,7 +19,12 @@ import type {
     InspectionStarter,
 } from '@/hooks/use-start-inspection';
 import { useWorkerStatusPolling } from '@/hooks/use-worker-status-polling';
-import { describeFailure, presentInspection } from '@/lib/inspection-status';
+import {
+    describeFailure,
+    firstInspectionOptions,
+    hostOf,
+    presentInspection,
+} from '@/lib/inspection-status';
 import { notify } from '@/lib/toast';
 import { show as applicationsShow } from '@/routes/applications';
 import type {
@@ -337,6 +342,83 @@ function InspectionBody({
     );
 }
 
+/**
+ * The setup for the FIRST inspection of a job. Opening the drawer starts nothing: it offers two ways to start and waits for the
+ * person to choose one. Each choice is one explicit confirmation that makes one request to the existing inspection endpoint
+ * (the link choice rides its `application_url` override); the Application and the run are created only then. `starter` gates
+ * double clicks, and `only_if_none` makes the server start a run only if the job still has none.
+ */
+function InspectionSetup({
+    job,
+    starter,
+}: {
+    job: InspectionJob;
+    starter: InspectionStarter;
+}) {
+    const host = hostOf(job.source_url);
+
+    return (
+        <div className="space-y-5">
+            <p className="text-fg-muted text-sm leading-relaxed">
+                Read-only: this opens the application page and reads its fields
+                and questions without filling in or submitting anything. Nothing
+                runs, and nothing is saved, until you choose one of these.
+            </p>
+
+            <section
+                aria-labelledby="setup-listing"
+                className="border-line bg-sunken space-y-2 rounded-lg border px-3 py-3"
+            >
+                <h3
+                    id="setup-listing"
+                    className="text-fg text-sm font-semibold tracking-tight"
+                >
+                    Discover from the job listing
+                </h3>
+                <p className="text-fg-muted text-xs">
+                    {job.source_url !== null
+                        ? `We open the listing${host ? ` on ${host}` : ''} and follow its Apply link to the application form.`
+                        : 'This job has no listing link to start from. Enter the application URL below.'}
+                </p>
+                <Button
+                    variant="secondary"
+                    disabled={job.source_url === null || starter.starting}
+                    onClick={() =>
+                        starter.start(job.id, firstInspectionOptions('listing'))
+                    }
+                >
+                    {starter.starting ? 'Starting…' : 'Inspect listing'}
+                </Button>
+            </section>
+
+            <ApplicationUrlForm
+                plain
+                prominent
+                heading="I have the application URL"
+                saved={null}
+                disabled={starter.starting}
+                onSubmit={(url, reject) =>
+                    starter.start(
+                        job.id,
+                        firstInspectionOptions('url', url, reject),
+                    )
+                }
+            />
+
+            {job.source_url !== null && (
+                <ButtonAnchor
+                    variant="ghost"
+                    href={job.source_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    Original posting ↗
+                </ButtonAnchor>
+            )}
+        </div>
+    );
+}
+
 /** The Opportunities inspection drawer: what the inspector found for one pursued job, and a way to run it again. */
 export function InspectionDrawer({
     state,
@@ -383,7 +465,14 @@ export function InspectionDrawer({
                     </p>
                 </div>
             )}
-            {state === 'ready' && job && (
+            {state === 'ready' && job && job.inspection === null && (
+                <InspectionSetup
+                    key={`${job.id}:setup`}
+                    job={job}
+                    starter={starter}
+                />
+            )}
+            {state === 'ready' && job && job.inspection !== null && (
                 <InspectionBody
                     key={`${job.id}:${job.application_id}`}
                     job={job}

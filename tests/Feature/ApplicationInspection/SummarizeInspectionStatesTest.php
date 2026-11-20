@@ -137,3 +137,26 @@ it('treats an unsupported result with a stop reason as a reached form, and one w
         ->and($summary['outcome'])->toBe('unsupported')
         ->and($summary['stop_reason'])->toBe('form_without_adapter');
 });
+
+it('carries the evidence the wording needs: where the link came from, the blocked requests and the page status (run 13)', function () {
+    $job = JobPosting::factory()->create();
+    $application = Application::factory()->for($job, 'jobPosting')->create();
+    $run = successfulAgentRunFor($application, 0, 'application_not_found');
+    $run->update([
+        'inspection_stop_reason' => 'no_apply_link',
+        'input_summary' => ['start_origin' => 'user'],
+        'result_summary' => ['http_status' => 200, 'warnings' => ['blocked_non_get', 'blocked_non_get', 'something_else']],
+    ]);
+
+    $summary = summarize($job)[$job->id];
+
+    expect($summary['start_origin'])->toBe('user')
+        ->and($summary['blocked_requests'])->toBe(2)
+        ->and($summary['http_status'])->toBe(200);
+});
+
+it('has no such evidence for a job that was never inspected', function () {
+    $job = JobPosting::factory()->create();
+
+    expect(summarize($job)[$job->id])->toMatchArray(['start_origin' => null, 'blocked_requests' => 0, 'http_status' => null]);
+});

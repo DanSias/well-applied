@@ -8,11 +8,12 @@ import {
     groupWarnings,
     highlightedWarnings,
     hostOf,
-    openIntent,
+    firstInspectionOptions,
     presentInspection,
     summaryBadge,
 } from './inspection-status';
 import {
+    ashbyBlockedFormState,
     diagnosticsOf,
     resultOf,
     runOf,
@@ -306,28 +307,112 @@ describe('failures', () => {
     });
 });
 
-describe('what a click on "Inspect" does', () => {
-    const url = 'https://jobicy.com/jobs/1';
-
-    it('starts the first inspection of a job that has none, and only that', () => {
-        expect(openIntent(summaryOf('not_inspected'), url)).toBe('start');
+describe('starting the first inspection (both explicit choices ride the existing request)', () => {
+    it('discovering from the listing sends nothing but only_if_none', () => {
+        expect(firstInspectionOptions('listing')).toEqual({ onlyIfNone: true });
     });
 
-    it.each([
-        'queued',
-        'running',
-        'inspected',
-        'failed',
-        'unsupported',
-    ] as const)(
-        'only opens what is already there when the state is %s',
-        (st) => {
-            expect(openIntent(summaryOf(st), url)).toBe('view');
-        },
-    );
+    it('supplying a link adds that link and its rejection handler, and keeps only_if_none', () => {
+        const onInvalid = () => {};
+        expect(
+            firstInspectionOptions(
+                'url',
+                'https://jobs.ashbyhq.com/x/y/application',
+                onInvalid,
+            ),
+        ).toEqual({
+            onlyIfNone: true,
+            applicationUrl: 'https://jobs.ashbyhq.com/x/y/application',
+            onInvalid,
+        });
+    });
+});
 
-    it('only opens a job with no link to start from', () => {
-        expect(openIntent(summaryOf('not_inspected'), null)).toBe('view');
+describe('the Ashby page that loaded but whose form did not (NerdWallet job 258, run 13)', () => {
+    const view = presentInspection(ashbyBlockedFormState());
+
+    it('says the page loaded and its form was unavailable, not that a link is needed', () => {
+        expect(view.outcome?.label).toBe('Page loaded, form unavailable');
+        expect(view.outcome?.explanation).toMatch(/you entered/);
+        expect(view.outcome?.explanation).toMatch(/2 requests that send data/);
+        expect(view.outcome?.explanation).toMatch(
+            /nothing was filled in or submitted/,
+        );
+    });
+
+    it('never tells the person to paste the link they just entered', () => {
+        expect(view.outcome?.explanation).not.toMatch(
+            /enter (it|the link) below/i,
+        );
+        expect(view.outcome?.explanation).not.toMatch(/copy the link/i);
+        expect(view.needsApplicationUrl).toBe(false);
+    });
+
+    it('explains the stop reason from the evidence, keeping the blocked count', () => {
+        expect(describeStopReason('no_apply_link', view.context)).toMatch(
+            /loaded but no application form appeared\. 2 of its own requests/,
+        );
+        expect(describeStopReason('no_apply_link', view.context)).not.toMatch(
+            /link to an application form/,
+        );
+    });
+
+    it('keeps the blocked-request diagnostics reachable', () => {
+        expect(view.context.blockedRequests).toBe(2);
+        expect(
+            groupWarnings(
+                ashbyBlockedFormState().latest_result!.diagnostics.warnings,
+            ),
+        ).toEqual([{ code: 'blocked_non_get', count: 2 }]);
+    });
+
+    it('says "form not located", not "loaded", when nothing was blocked', () => {
+        const state = ashbyBlockedFormState();
+        const clean = presentInspection({
+            ...state,
+            latest_result: {
+                ...state.latest_result!,
+                warnings: [],
+                diagnostics: {
+                    ...state.latest_result!.diagnostics,
+                    warnings: [],
+                },
+            },
+        });
+        expect(clean.outcome?.label).toBe('Form not located');
+        expect(clean.outcome?.explanation).not.toMatch(/send data/);
+        expect(clean.needsApplicationUrl).toBe(false);
+    });
+
+    it('still asks for a link when the run started from the listing', () => {
+        const state = ashbyBlockedFormState();
+        const listing = presentInspection({
+            ...state,
+            latest_result: {
+                ...state.latest_result!,
+                diagnostics: {
+                    ...state.latest_result!.diagnostics,
+                    start_origin: 'source',
+                },
+            },
+        });
+        expect(listing.outcome?.label).toBe('Needs application URL');
+        expect(listing.needsApplicationUrl).toBe(true);
+    });
+
+    it('words the list badge the same way, from the same evidence', () => {
+        const badge = summaryBadge({
+            ...summaryOf(
+                'inspected',
+                'application_not_found',
+                0,
+                'no_apply_link',
+            ),
+            start_origin: 'user',
+            blocked_requests: 2,
+            http_status: 200,
+        });
+        expect(badge.label).toBe('Page loaded, form unavailable');
     });
 });
 

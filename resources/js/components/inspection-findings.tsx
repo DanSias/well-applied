@@ -55,7 +55,7 @@ export function InspectionFindings({
     link: ApplicationUrlView | null;
 }) {
     const diagnostics = (result ?? attempt)?.diagnostics ?? null;
-    const stop = describeStopReason(result?.stop_reason ?? null);
+    const stop = describeStopReason(result?.stop_reason ?? null, view.context);
     const highlighted = highlightedWarnings(result?.warnings ?? []);
     const startOrigin = diagnostics?.start_origin ?? null;
     // The application URL this inspection knows of: the saved one (with who set it), else one this very run resolved.
@@ -302,11 +302,17 @@ export function ApplicationUrlForm({
     prominent,
     disabled,
     onSubmit,
+    heading = 'Enter application URL',
+    plain = false,
 }: {
     saved: ApplicationUrlView | null;
     prominent: boolean;
     disabled: boolean;
     onSubmit: (url: string, reject: (message: string) => void) => void;
+    /** The heading of the prominent variant. */
+    heading?: string;
+    /** A choice the person is making, not a warning: no warning border (the first-inspection setup uses it). */
+    plain?: boolean;
 }) {
     const [url, setUrl] = useState('');
     const [problem, setProblem] = useState<string | null>(null);
@@ -363,13 +369,13 @@ export function ApplicationUrlForm({
         return (
             <section
                 aria-labelledby="enter-application-url"
-                className="border-warn-line bg-sunken space-y-2 rounded-lg border px-3 py-3"
+                className={`bg-sunken space-y-2 rounded-lg border px-3 py-3 ${plain ? 'border-line' : 'border-warn-line'}`}
             >
                 <h3
                     id="enter-application-url"
                     className="text-fg text-sm font-semibold tracking-tight"
                 >
-                    Enter application URL
+                    {heading}
                 </h3>
                 {form}
             </section>

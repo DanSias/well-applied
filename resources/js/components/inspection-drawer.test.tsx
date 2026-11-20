@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import type { InspectionStarter } from '@/hooks/use-start-inspection';
 import {
+    ashbyBlockedFormState,
     diagnosticsOf,
     jobicyNoApplyLinkState,
     jobOf,
@@ -71,20 +72,54 @@ describe('opening the drawer never starts anything', () => {
     });
 });
 
-describe('first inspection', () => {
-    it('offers one clearly labelled button, and says nothing has been inspected', () => {
-        const html = render(null);
+describe('first inspection setup', () => {
+    it('opens a setup with two explicit choices and starts nothing', () => {
+        const starter = starterOf();
+        const html = render(null, starter);
 
-        expect(html).toContain('Not inspected yet');
-        expect(html).toContain('Inspect application form');
+        expect(html).toContain(
+            'Nothing runs, and nothing is saved, until you choose',
+        );
+        expect(html).toContain('Discover from the job listing');
+        expect(html).toContain('Inspect listing');
+        expect(html).toContain('I have the application URL');
+        expect(html).toContain('Save and inspect');
         expect(html).not.toContain('Technical details');
+        expect(starter.start).not.toHaveBeenCalled();
     });
 
-    it('shows that it is starting, and blocks a second start, between the click and the first poll', () => {
+    it('offers the link choice without the warning styling, since it is a choice and not a problem', () => {
+        const html = render(null);
+
+        expect(html).not.toContain('border-warn-line');
+    });
+
+    it('with no listing link, disables the listing choice and points at the URL', () => {
+        const html = render(null, starterOf(), { source_url: null });
+
+        expect(html).toMatch(/<button[^>]*disabled[^>]*>[^<]*Inspect listing/);
+        expect(html).toContain('no listing link to start from');
+    });
+
+    it('while a start is in flight, blocks both choices so one confirmation is one run', () => {
         const html = render(null, starterOf({ starting: true }));
 
-        expect(html).toContain('Starting…');
-        expect(html).toMatch(/<button[^>]*disabled[^>]*>[^<]*Queued…/);
+        expect(html).toMatch(/<button[^>]*disabled[^>]*>[^<]*Starting…/);
+        expect(html).toMatch(/<button[^>]*disabled[^>]*>[^<]*Save and inspect/);
+    });
+});
+
+describe('the Ashby result when the person entered the link (run 13)', () => {
+    it('does not ask for the link again, and says the page loaded but its form was unavailable', () => {
+        const html = render(ashbyBlockedFormState());
+
+        expect(html).toContain('Page loaded, form unavailable');
+        expect(html).toContain(
+            'The page loaded but no application form appeared',
+        );
+        expect(html).not.toContain('Needs application URL');
+        expect(html).not.toContain('copy the link you would apply through');
+        expect(html).toContain('Technical details');
     });
 });
 
