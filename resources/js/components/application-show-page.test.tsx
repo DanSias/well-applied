@@ -6,7 +6,7 @@ import {
     runOf,
 } from '@/lib/inspection-test-data';
 import type { ApplicationShowProps } from '@/types/application-inspection';
-import ApplicationShow from './show';
+import ApplicationShow from '@/pages/applications/show';
 
 vi.mock('@inertiajs/react', () => ({
     Head: () => null,
