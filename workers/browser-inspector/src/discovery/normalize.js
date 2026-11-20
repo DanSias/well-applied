@@ -9,7 +9,7 @@
 //   - what the options are, or honestly "not in the page",
 //   - how a future preparer would interact with it (a description only: nothing here ever interacts).
 // And what it saw but did NOT inspect (hidden fields, further steps) so a caller never claims full coverage it does not have.
-import { isGenericName, stripRequiredMarker, classifySensitive } from './lexicon.js';
+import { isGenericName, isGenericPrompt, stripRequiredMarker, classifySensitive } from './lexicon.js';
 
 const NON_FIELD_TYPES = new Set(['hidden', 'submit', 'button', 'image', 'reset']);
 const POPUP_VALUES = new Set(['listbox', 'true']);
@@ -51,6 +51,11 @@ function attachAuxiliaries(cands) {
 
     for (const u of cands) {
         if (isReportable(u) && u.userVisible) continue; // a visible control is its own control
+        // A hidden listbox is the popup of some widget (its options are read through `popup`), not an input and not a field.
+        if (u.role === 'listbox') {
+            consumed.add(u);
+            continue;
+        }
         if (primaries.length === 0) continue;
 
         let best = null;
@@ -109,7 +114,7 @@ function groupRows(reportable) {
  * ("Attach", "Upload") is replaced by the heading above it, but only then: a control with no name at all is never given a
  * heading, because the nearest heading is as likely to belong to the question before it.
  */
-function resolveLabel(c, { group, isGroupRow }) {
+function resolveLabel(c, { group, isGroupRow, claimed }) {
     const l = c.labels;
     const record = (text, source, basis, confidence, marker, generic = null) => {
         const s = stripRequiredMarker(text);
@@ -146,9 +151,13 @@ function resolveLabel(c, { group, isGroupRow }) {
     if (!isGroupRow && hasText(l.placeholder)) return record(l.placeholder, 'dom_placeholder', 'placeholder', 'inferred', false);
 
     // No name at all: the text just before it, never a heading. A widget's own prompt ("Select...") ends the search.
+    // A text claimed as one control's label is never also given to a later control (the existing extractor's rule).
     for (const near of c.proximity ?? []) {
-        if (near.generic) break;
-        if (hasText(near.text)) return record(near.text, 'inferred_proximity', 'proximity_text', 'inferred', false);
+        if (near.generic || isGenericPrompt(near.text)) break;
+        if (!hasText(near.text) || (near.ref != null && claimed.has(near.ref))) continue;
+        if (near.ref != null) claimed.add(near.ref);
+
+        return record(near.text, 'inferred_proximity', 'proximity_text', 'inferred', false);
     }
 
     return { text: null, source: 'unresolved', basis: 'unresolved', confidence: 'unresolved', marker: false, generic_name: null };
@@ -235,12 +244,13 @@ export function normalize(signals) {
     const reportable = cands.filter((c) => isReportable(c) && !consumed.has(c));
     const rows = groupRows(reportable);
     let genericReplaced = 0;
+    const claimed = new Set();
     let unresolved = 0;
 
     const controls = rows.map((row, position) => {
         const a = row.anchor;
         const isGroupRow = row.kind === 'radio_group' || row.kind === 'checkbox_group';
-        const label = resolveLabel(a, { group: a.group, isGroupRow });
+        const label = resolveLabel(a, { group: a.group, isGroupRow, claimed });
         if (label.basis === 'heading_context') genericReplaced += 1;
         if (label.source === 'unresolved') unresolved += 1;
 
@@ -286,7 +296,7 @@ export function normalize(signals) {
         controls,
         coverage: {
             fields_reported: controls.length,
-            auxiliary_controls: consumed.size,
+            auxiliary_controls: [...byPrimary.values()].reduce((n, list) => n + list.length, 0),
             hidden_candidates_not_reported: cands.filter((c) => !c.userVisible && !consumed.has(c) && !NON_FIELD_TYPES.has(c.type)).length,
             generic_labels_replaced: genericReplaced,
             unresolved_labels: unresolved,

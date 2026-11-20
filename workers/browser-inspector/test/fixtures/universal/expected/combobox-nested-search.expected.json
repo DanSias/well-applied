@@ -35,14 +35,15 @@
         },
         "label": "Primary programming language",
         "kind": "select",
-        "required": false,
+        "required": null,
         "widget": "listbox_button",
         "label_basis": "accessible_name",
         "max_rows": 1,
         "options": {
           "state": "known_hidden_in_dom",
           "count": 3
-        }
+        },
+        "required_note": "A custom button dropdown with no aria-required and no required marker has no required signal: unknown (null), the existing rule for custom widgets. The M0 expectation said false, which was an assumption, not evidence."
       },
       {
         "match": {
@@ -100,5 +101,7 @@
     "non_get_requests": 0,
     "dom_mutations": 0
   },
-  "notes": []
+  "notes": [
+    "M1 correction: btn-language required is null (unknown), not false."
+  ]
 }

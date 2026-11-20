@@ -8,7 +8,8 @@ import { legacyScorableRows } from './support/legacy-baseline.js';
 
 const corpus = loadCorpus();
 const criteria = loadCriteria();
-const FORM_FIXTURES = corpus.fixtures.filter((f) => criteria.applies_to.includes(f.id));
+// Discovery runs only on pages the classifier calls forms; listing pages are covered by the pipeline checks (F11).
+const FORM_FIXTURES = corpus.fixtures.filter((f) => criteria.applies_to.includes(f.id) && f.kind === 'form');
 
 /** Rows that match the expectations exactly: the harness must score these perfectly. */
 const perfectRows = (expected) =>

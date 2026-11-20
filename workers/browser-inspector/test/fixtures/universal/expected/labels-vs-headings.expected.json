@@ -55,7 +55,7 @@
       {
         "match": {
           "dom_ids": [
-            "work-auth"
+            "auth"
           ],
           "label": "Are you legally authorized to work in the United States?"
         },
@@ -127,6 +127,7 @@
     "dom_mutations": 0
   },
   "notes": [
-    "A label obtained from a heading, a placeholder or nearby text is evidence of a weaker kind and must say so (label_confidence 'inferred'); a real label always wins over the heading above it."
+    "A label obtained from a heading, a placeholder or nearby text is evidence of a weaker kind and must say so (label_confidence 'inferred'); a real label always wins over the heading above it.",
+    "M1 correction: the radio group's DOM name is 'auth' (the M0 expectation said 'work-auth', which only matched through the label fallback)."
   ]
 }

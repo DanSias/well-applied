@@ -316,7 +316,7 @@ describe('expected outputs and the M1 criteria are well formed and consistent', 
             const ids = [];
             for (const fl of e.m1.fields) {
                 assert.ok(V.kind.includes(fl.kind), `${f.id}/${fl.label}: kind ${fl.kind}`);
-                assert.equal(typeof fl.required, 'boolean');
+                assert.ok(typeof fl.required === 'boolean' || fl.required === null, `${f.id}/${fl.label}: required is true, false or null (unknown)`);
                 assert.ok(fl.match.dom_ids.length > 0);
                 ids.push(...fl.match.dom_ids);
                 if (fl.widget) assert.ok(V.widget.includes(fl.widget), `${f.id}/${fl.label}: widget ${fl.widget}`);
@@ -332,6 +332,23 @@ describe('expected outputs and the M1 criteria are well formed and consistent', 
             assert.deepEqual(Object.keys(e.safety).slice(0, 3), ['clicks', 'non_get_requests', 'dom_mutations']);
             assert.ok(Object.values(e.safety).every((v) => v === 0), `${f.id}: M1 allows no clicks, writes or page changes`);
             assert.ok(!('expected_field_count' in e.m1) && !('field_count' in e.m1), `${f.id} must not pin a field count`);
+        }
+    });
+
+    test('an expected DOM id or group name is really in its fixture (not just matched by label)', async () => {
+        const browser = await chromium.launch({ headless: true, chromiumSandbox: process.env.BROWSER_WORKER_CHROMIUM_SANDBOX === '1' });
+        try {
+            const page = await browser.newPage();
+            for (const f of corpus.fixtures) {
+                await page.setContent(readFileSync(at(f.file), 'utf8'));
+                for (const fl of expectedOf(f).m1.fields) {
+                    const id = fl.match.dom_ids[0];
+                    const n = await page.evaluate((x) => document.querySelectorAll(`[id="${x}"], [name="${x}"]`).length, id);
+                    assert.ok(n > 0, `${f.id}: expected id '${id}' is not in the fixture`);
+                }
+            }
+        } finally {
+            await browser.close();
         }
     });
 

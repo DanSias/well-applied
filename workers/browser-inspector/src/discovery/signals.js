@@ -29,7 +29,8 @@
 //   options      Array<{ text, value, disabled }> | null   a native select's options
 //   popup        { hidden: boolean, options: string[] } | null   the listbox this control opens, when it is in the markup
 //   ancestors    number[]      ids of up to 6 ancestors, nearest first; the same element has the same id for every candidate
-//   proximity    Array<{ text: string, generic: boolean }>   up to 3 preceding sibling texts, nearest first (bounded length)
+//   proximity    Array<{ text: string, ref: number }>   up to 3 preceding sibling texts, nearest first (bounded length); `ref`
+//                identifies the sibling so one text is never claimed as two controls' labels
 //   heading      string|null   nearest preceding heading in the same section
 //   section      string|null   the closest fieldset's legend, else the nearest preceding heading   (the existing rule)
 //   sectionIsGroup boolean     `section` came from a fieldset legend
