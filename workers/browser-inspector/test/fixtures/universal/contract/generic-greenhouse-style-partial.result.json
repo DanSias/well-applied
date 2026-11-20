@@ -1,0 +1,251 @@
+{
+  "_note": "A form with controls a label points to that are not in the page: partial, never complete.",
+  "status": "succeeded",
+  "inspection_outcome": "partial",
+  "stop_reason": null,
+  "ats": null,
+  "requested_url": "http://fixture.test/u/greenhouse-style-form",
+  "final_url": "http://fixture.test/u/greenhouse-style-form",
+  "resolved_url": "http://fixture.test/u/greenhouse-style-form",
+  "fields": [
+    {
+      "position": 0,
+      "external_field_id": "first_name",
+      "raw_label": "First Name",
+      "label_source": "dom_label_for",
+      "control_type": "text",
+      "required": true,
+      "options": null,
+      "section": "Apply for this job",
+      "extraction_source": "both"
+    },
+    {
+      "position": 1,
+      "external_field_id": "last_name",
+      "raw_label": "Last Name",
+      "label_source": "dom_label_for",
+      "control_type": "text",
+      "required": true,
+      "options": null,
+      "section": "Apply for this job",
+      "extraction_source": "both"
+    },
+    {
+      "position": 2,
+      "external_field_id": "email",
+      "raw_label": "Email",
+      "label_source": "dom_label_for",
+      "control_type": "text",
+      "required": true,
+      "options": null,
+      "section": "Apply for this job",
+      "extraction_source": "both"
+    },
+    {
+      "position": 3,
+      "external_field_id": "country",
+      "raw_label": "Country",
+      "label_source": "dom_label_for",
+      "control_type": "select",
+      "required": true,
+      "options": null,
+      "section": "Phone",
+      "extraction_source": "both"
+    },
+    {
+      "position": 4,
+      "external_field_id": "phone",
+      "raw_label": "Phone",
+      "label_source": "dom_label_for",
+      "control_type": "tel",
+      "required": true,
+      "options": null,
+      "section": "Phone",
+      "extraction_source": "both"
+    },
+    {
+      "position": 5,
+      "external_field_id": "resume",
+      "raw_label": "Resume/CV",
+      "label_source": "inferred_proximity",
+      "control_type": "file",
+      "required": false,
+      "options": null,
+      "section": "Resume/CV",
+      "extraction_source": "both"
+    },
+    {
+      "position": 6,
+      "external_field_id": "cover_letter",
+      "raw_label": "Cover Letter",
+      "label_source": "inferred_proximity",
+      "control_type": "file",
+      "required": false,
+      "options": null,
+      "section": "Cover Letter",
+      "extraction_source": "both"
+    },
+    {
+      "position": 7,
+      "external_field_id": "q_linkedin",
+      "raw_label": "LinkedIn Profile",
+      "label_source": "dom_label_for",
+      "control_type": "text",
+      "required": false,
+      "options": null,
+      "section": "Cover Letter",
+      "extraction_source": "both"
+    },
+    {
+      "position": 8,
+      "external_field_id": "q_website",
+      "raw_label": "Website",
+      "label_source": "dom_label_for",
+      "control_type": "text",
+      "required": false,
+      "options": null,
+      "section": "Cover Letter",
+      "extraction_source": "both"
+    },
+    {
+      "position": 9,
+      "external_field_id": "q_sponsorship",
+      "raw_label": "At this time, Example Co is unable to provide employment sponsorship. Will you now, or in the future, require Example Co to provide employment sponsorship for the country in which you are applying? (for example, H-1B, or other employment-based visas)",
+      "label_source": "dom_label_for",
+      "control_type": "text",
+      "required": true,
+      "options": null,
+      "section": "Cover Letter",
+      "extraction_source": "both"
+    },
+    {
+      "position": 10,
+      "external_field_id": "d_gender_identity",
+      "raw_label": "How would you describe your gender identity? (mark all that apply)",
+      "label_source": "dom_label_for",
+      "control_type": "select",
+      "required": false,
+      "options": null,
+      "section": "U.S. Standard Demographic Questions",
+      "extraction_source": "both"
+    },
+    {
+      "position": 11,
+      "external_field_id": "d_racial_ethnic",
+      "raw_label": "How would you describe your racial/ethnic background? (mark all that apply)",
+      "label_source": "dom_label_for",
+      "control_type": "select",
+      "required": false,
+      "options": null,
+      "section": "U.S. Standard Demographic Questions",
+      "extraction_source": "both"
+    },
+    {
+      "position": 12,
+      "external_field_id": "d_orientation",
+      "raw_label": "How would you describe your sexual orientation? (mark all that apply)",
+      "label_source": "dom_label_for",
+      "control_type": "select",
+      "required": false,
+      "options": null,
+      "section": "U.S. Standard Demographic Questions",
+      "extraction_source": "both"
+    },
+    {
+      "position": 13,
+      "external_field_id": "d_transgender",
+      "raw_label": "Do you identify as transgender?",
+      "label_source": "dom_label_for",
+      "control_type": "select",
+      "required": false,
+      "options": null,
+      "section": "U.S. Standard Demographic Questions",
+      "extraction_source": "both"
+    },
+    {
+      "position": 14,
+      "external_field_id": "d_disability",
+      "raw_label": "Do you have a disability or chronic condition that substantially limits one or more of your major life activities?",
+      "label_source": "dom_label_for",
+      "control_type": "select",
+      "required": false,
+      "options": null,
+      "section": "U.S. Standard Demographic Questions",
+      "extraction_source": "both"
+    },
+    {
+      "position": 15,
+      "external_field_id": "d_veteran",
+      "raw_label": "Are you a veteran or active member of the United States Armed Forces?",
+      "label_source": "dom_label_for",
+      "control_type": "select",
+      "required": false,
+      "options": null,
+      "section": "U.S. Standard Demographic Questions",
+      "extraction_source": "both"
+    },
+    {
+      "position": 16,
+      "external_field_id": "gender",
+      "raw_label": "Gender",
+      "label_source": "dom_label_for",
+      "control_type": "select",
+      "required": false,
+      "options": null,
+      "section": "Voluntary Self-Identification",
+      "extraction_source": "both"
+    },
+    {
+      "position": 17,
+      "external_field_id": "hispanic_ethnicity",
+      "raw_label": "Are you Hispanic/Latino?",
+      "label_source": "dom_label_for",
+      "control_type": "select",
+      "required": false,
+      "options": null,
+      "section": "Voluntary Self-Identification",
+      "extraction_source": "both"
+    },
+    {
+      "position": 18,
+      "external_field_id": "veteran_status",
+      "raw_label": "Veteran Status",
+      "label_source": "dom_label_for",
+      "control_type": "select",
+      "required": false,
+      "options": null,
+      "section": "Voluntary Self-Identification",
+      "extraction_source": "both"
+    }
+  ],
+  "warnings": [
+    "conditional_fields_not_inspected",
+    "generic_discovery"
+  ],
+  "diagnostics": {
+    "total_ms": 0,
+    "navigation_ms": 0,
+    "extraction_ms": 0,
+    "page_title": "Job Application for Staff Platform Engineer at Example Co",
+    "http_status": 200,
+    "pages_visited": 1,
+    "follows": 0,
+    "navigation": [
+      {
+        "kind": "start",
+        "url": "http://fixture.test/u/greenhouse-style-form",
+        "status": 200
+      }
+    ],
+    "candidates": [],
+    "timestamp": "1970-01-01T00:00:00.000Z",
+    "field_count": 19,
+    "unresolved_label_count": 0,
+    "hidden_field_count": 0,
+    "button_count": 5,
+    "classified_as": [
+      "resume_upload",
+      "contact_fields_on_application_page"
+    ]
+  }
+}

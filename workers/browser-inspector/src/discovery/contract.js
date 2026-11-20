@@ -6,6 +6,9 @@ import { LabelSource, ExtractionSource } from '../result.js';
 
 const LABEL_SOURCES = new Set(Object.values(LabelSource));
 const normaliseForAria = (t) => (t ?? '').trim().toLowerCase();
+// The label is stored without its required marker, but the page's accessible name may still carry it ("First Name*"): either
+// form means the DOM label was confirmed by the accessibility tree, as it is for the existing extractor.
+const namedInAria = (names, text) => [text, `${text}*`, `${text} *`].some((t) => names.has(normaliseForAria(t)));
 
 /**
  * @param {object[]} controls from normalize()
@@ -27,7 +30,7 @@ export function toContractFields(controls, { ariaNames = null } = {}) {
             required: c.required.value,
             options: labels,
             section: c.section === null ? null : c.section.slice(0, 255),
-            extraction_source: ariaNames && c.label.text && ariaNames.has(normaliseForAria(c.label.text)) ? ExtractionSource.Both : ExtractionSource.Dom,
+            extraction_source: ariaNames && c.label.text && namedInAria(ariaNames, c.label.text) ? ExtractionSource.Both : ExtractionSource.Dom,
         };
     });
 }

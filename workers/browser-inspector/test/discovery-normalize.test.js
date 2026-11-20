@@ -299,6 +299,9 @@ describe('the contract mapping: the existing shape, the existing enums, nothing 
         const src = new Set(Object.values(LabelSource));
         for (const f of fields) assert.ok(src.has(f.label_source), f.label_source);
         assert.deepEqual(fields.map((f) => f.extraction_source), [ExtractionSource.Both, ExtractionSource.Dom, ExtractionSource.Dom, ExtractionSource.Dom]);
+        // The accessibility tree may still carry the marker: "First Name*" confirms the stripped label too.
+        const marked = toContractFields(controls, { ariaNames: new Set(['first name*', 'resume/cv *']) });
+        assert.deepEqual(marked.map((f) => f.extraction_source), [ExtractionSource.Both, ExtractionSource.Both, ExtractionSource.Dom, ExtractionSource.Dom]);
         assert.throws(() => toContractFields([{ ...controls[0], label: { ...controls[0].label, source: 'heading_context' } }]), /not in the worker\/Laravel contract/);
     });
     test('the heading-derived label persists as inferred_proximity, as approved', () => {

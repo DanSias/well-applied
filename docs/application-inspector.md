@@ -383,6 +383,14 @@ coming from an API. The browser then follows at most two Apply links from there.
 `application_not_found`, `needs_application_url`, `authentication_required`, `blocked`. A record from before stop reasons
 existed (`unsupported` with no reason) is shown as such and never reinterpreted.
 
+**Generic form discovery (M1, off by default).** `BROWSER_WORKER_GENERIC_DISCOVERY=1` makes the worker read a form that has no
+dedicated extractor (an unknown ATS, or Lever) from what the page says, without interacting with it, instead of reporting it
+`unsupported`. One row per logical control: a custom combobox and its hidden validation input are one `select`, a radio group is one
+`radio_group`, a generic file label ("Attach") is replaced by the heading above it (stored as `inferred_proximity`). A result is
+`complete` only when nothing known was left unread; labelled hidden fields, labels that point at absent controls and announced further
+steps make it `partial` with the warnings `conditional_fields_not_inspected` / `more_steps_not_inspected`. No new column, outcome or
+stop reason: the existing contract is unchanged. See `workers/browser-inspector/README.md` "Generic form discovery".
+
 **How an outcome reads in the UI.** The Opportunities drawer and the full application page share one presentation
 (`resources/js/lib/inspection-status.ts`, `resources/js/components/inspection-findings.tsx`), so a result is worded the same
 in both. A run that finished but did not reach a form is a worker success with its own finding: `application_not_found` reads

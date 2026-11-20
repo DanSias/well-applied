@@ -1,0 +1,107 @@
+{
+  "_note": "An accessible form on an unknown ATS: unsupported before, complete now.",
+  "status": "succeeded",
+  "inspection_outcome": "complete",
+  "stop_reason": null,
+  "ats": null,
+  "requested_url": "http://fixture.test/phase1/unknown-form",
+  "final_url": "http://fixture.test/phase1/unknown-form",
+  "resolved_url": "http://fixture.test/phase1/unknown-form",
+  "fields": [
+    {
+      "position": 0,
+      "external_field_id": "fn",
+      "raw_label": "First name",
+      "label_source": "dom_label_for",
+      "control_type": "text",
+      "required": true,
+      "options": null,
+      "section": "Application: Senior Engineer",
+      "extraction_source": "both"
+    },
+    {
+      "position": 1,
+      "external_field_id": "ln",
+      "raw_label": "Last name",
+      "label_source": "dom_label_for",
+      "control_type": "text",
+      "required": true,
+      "options": null,
+      "section": "Application: Senior Engineer",
+      "extraction_source": "both"
+    },
+    {
+      "position": 2,
+      "external_field_id": "em",
+      "raw_label": "Email",
+      "label_source": "dom_label_for",
+      "control_type": "email",
+      "required": true,
+      "options": null,
+      "section": "Application: Senior Engineer",
+      "extraction_source": "both"
+    },
+    {
+      "position": 3,
+      "external_field_id": "ph",
+      "raw_label": "Phone",
+      "label_source": "dom_label_for",
+      "control_type": "tel",
+      "required": false,
+      "options": null,
+      "section": "Application: Senior Engineer",
+      "extraction_source": "both"
+    },
+    {
+      "position": 4,
+      "external_field_id": "cv",
+      "raw_label": "Resume",
+      "label_source": "dom_label_for",
+      "control_type": "file",
+      "required": true,
+      "options": null,
+      "section": "Application: Senior Engineer",
+      "extraction_source": "both"
+    },
+    {
+      "position": 5,
+      "external_field_id": "why",
+      "raw_label": "Why do you want to work here?",
+      "label_source": "dom_label_for",
+      "control_type": "textarea",
+      "required": false,
+      "options": null,
+      "section": "Application: Senior Engineer",
+      "extraction_source": "both"
+    }
+  ],
+  "warnings": [
+    "generic_discovery"
+  ],
+  "diagnostics": {
+    "total_ms": 0,
+    "navigation_ms": 0,
+    "extraction_ms": 0,
+    "page_title": "Apply - Senior Engineer",
+    "http_status": 200,
+    "pages_visited": 1,
+    "follows": 0,
+    "navigation": [
+      {
+        "kind": "start",
+        "url": "http://fixture.test/phase1/unknown-form",
+        "status": 200
+      }
+    ],
+    "candidates": [],
+    "timestamp": "1970-01-01T00:00:00.000Z",
+    "field_count": 6,
+    "unresolved_label_count": 0,
+    "hidden_field_count": 0,
+    "button_count": 1,
+    "classified_as": [
+      "resume_upload",
+      "contact_fields_on_application_page"
+    ]
+  }
+}

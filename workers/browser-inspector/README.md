@@ -106,6 +106,7 @@ npm run poll
 | `BROWSER_WORKER_MAX_BACKOFF_MS` | no | `60000` | Ceiling for exponential backoff after a claim/poll error (network failure, Well Applied unreachable, etc). |
 | `BROWSER_WORKER_RESULT_RETRY_ATTEMPTS` | no | `3` | Attempts to deliver one result before giving up. |
 | `BROWSER_WORKER_RESULT_RETRY_BACKOFF_MS` | no | `2000` | Linear backoff unit between result-delivery retries. |
+| `BROWSER_WORKER_GENERIC_DISCOVERY` | no | off | Exactly `1` turns on generic form discovery for a form the worker would otherwise report as `unsupported` (no extractor for its ATS). Greenhouse forms are never affected. See "Generic form discovery". |
 
 Missing a required variable fails fast at startup (`loadConfig()`
 throws) rather than running misconfigured.
@@ -270,6 +271,40 @@ code from it. For a contract this small (four enums, under 20 total
 values), a hand-synced, directly-diffable copy is simpler and more
 transparent than a codegen step — audit by diffing `src/result.js`
 against the four `app/Enums/*.php` files directly.
+
+## Generic form discovery
+
+`src/discovery/` reads an application form that has no dedicated extractor, from what the page itself says, **without interacting with
+it**. It is off unless `BROWSER_WORKER_GENERIC_DISCOVERY=1`, and even then it runs only for a page the classifier already calls a
+form and the worker would otherwise report `unsupported` (an unknown ATS, or Lever). **Greenhouse keeps its existing extractor**,
+byte-for-byte, until a separate parity gate is passed and approved.
+
+Shape: `discoverForm({ url, evaluate, ariaNames })` takes a **read-only handle** (`page-adapter.js`), never a Playwright `Page`. The
+handle runs one allow-listed reader, `collect.js`, in the page and returns plain facts; `normalize.js` (pure, no browser) turns them
+into **one row per logical control**; `contract.js` reduces each to the existing field contract. A source scan bans interaction, event
+dispatch, navigation and state-reading APIs in this directory, and the handle refuses any function that is not the approved reader.
+
+What each logical control carries internally (the contract can hold only part of it, until M2): normalized `kind` (`text`, `email`,
+`tel`, `url`, `textarea`, `file`, `select`, `radio_group`, `checkbox_group`, `checkbox`), `cardinality`, the underlying `widget`
+(`native_input`, `native_select`, `combobox`, `listbox_button`, `native_input_hidden_behind_button`), the label with its **source**,
+**basis** and **confidence**, `required` with its **basis** (and `null` when nothing says), `sensitive` with its basis, `section`,
+`options` coverage (`known_in_dom`, `known_hidden_in_dom`, `not_in_observed_dom`), and an `interaction` **description** (mechanism, primary
+target, auxiliary inputs) that nothing in the inspector uses.
+
+Persisted today, with no Laravel change: `control_type` = the normalized kind; a label taken from a heading is stored as
+`inferred_proximity` (the closest existing source); everything else uses the existing enums. Sensitive, widget, confidence and options
+coverage stay in the discovery layer for the milestone that persists them.
+
+**It never claims coverage it does not have.** A result is `complete` only when something was read and nothing known was left unread.
+Labelled hidden fields, labels that point at controls that are not in the page, and announced further steps make it `partial` and add
+the warnings `conditional_fields_not_inspected` / `more_steps_not_inspected`; the path taken is recorded as `generic_discovery`. No
+new outcome or stop reason exists, so the worker and Laravel stay in step (`WorkerContractSyncTest`).
+
+**Known gap.** The classifier calls a page a form only on a strong application signal (a resume field, or name and email on a page
+that talks about applying). A page of other fields only (dropdowns and a name, say) is still a "listing" and never reaches
+discovery. M1 deliberately does not widen that gate.
+
+Acceptance: the M0 corpus and `m1-criteria.json` (`test/fixtures/universal/README.md`); `test/discovery-*.test.js`.
 
 ## Extraction strategy
 

@@ -113,3 +113,32 @@ gate, M4 contained interaction, M7 steps). Stop-reason names marked `proposed_` 
 - Every fixture declares **traits** (selectors or expressions the tests verify in Chromium), so a fixture cannot silently stop
   exercising what it claims to.
 - Keep the four evidence classes apart. If you cannot say how you know something, it is `unknown`.
+
+## M1 status: generic read-only discovery
+
+`src/discovery/` is scored against this corpus by `test/discovery-corpus.test.js` using the criteria in `m1-criteria.json`
+(`test/support/discovery-score.js` turns them into metrics; its own tests prove each metric trips on the mutation it is about).
+
+| Criterion | Existing extractor (baseline) | Generic discovery |
+|---|---|---|
+| F1 recall / per-fixture floor | 0.96 / 0.75 | 1.00 / 1.00 |
+| F2 label accuracy | 0.84 | 1.00 |
+| F3 required accuracy | 1.00 | 1.00 |
+| F4 kind accuracy / dropdowns are `select` | 0.65 / 0.37 | 1.00 / 1.00 |
+| F5 logical-control integrity (violations) | 6 | 0 |
+| F6 extra rows / worst fixture | 0.15 / 3 | 0.00 / 0 |
+| F7 sensitive recall / F8 false positives | 0 / 0 | 1.00 / 0 |
+| F9 label-evidence honesty (violations) | 4 | 0 |
+| F10 options state | 0.18 | 1.00 |
+
+(The baseline is the unchanged Greenhouse extractor run through the same harness on the same form fixtures.)
+
+M1 also corrected two points in this corpus that the work exposed, both in `expected/`: the radio group in `labels-vs-headings` is
+named `auth` (the expectation said `work-auth`, and only matched through the label fallback), and the button dropdown's `required` in
+`combobox-nested-search` is `null`, not `false`: a custom widget with no required signal is unknown, which is the existing rule. The
+M0 suite now also checks that every expected DOM id exists in its fixture.
+
+**What the corpus cannot show (found while integrating).** The classifier (`src/page-kind.js`) calls a page a form only on a strong
+application signal, so three of the six form fixtures (`combobox-nested-search`, `conditional-hidden-fields`,
+`sensitive-demographics`) are read by discovery but never reach it through `inspect()`; the pipeline tests document this as a known gap and
+prove the flag does not change those pages.

@@ -12,6 +12,9 @@ import { launchChromium, openGuardedPage, navigate, traceFor, safeRedact } from 
 import { collectSignals, classifyPage } from './page-kind.js';
 import { collectLinkSignals, rankApplyCandidates } from './apply-links.js';
 import * as greenhouse from './extractors/greenhouse.js';
+import { discoverForm } from './discovery/index.js';
+import { readOnlyPage } from './discovery/page-adapter.js';
+import { genericDiscoveryRequested } from './discovery/flag.js';
 import {
     succeeded,
     unsupported,
@@ -32,6 +35,7 @@ export const MAX_FOLLOWS = 2;
  * @param {ReturnType<typeof createGuard>} [options.guard] tests only (fixture hosts); never built from a claim
  * @param {() => Promise<import('playwright').Browser>} [options.launch]
  * @param {{navigationMs?: number, networkIdleMs?: number, settleMs?: number}} [options.timeouts] per-step overrides, tests only
+ * @param {boolean} [options.genericDiscovery] read forms with no dedicated extractor generically (default: BROWSER_WORKER_GENERIC_DISCOVERY=1)
  * @returns {Promise<object>} one of the result.js shapes
  */
 export async function inspect(rawUrl, options = {}) {
@@ -40,6 +44,7 @@ export async function inspect(rawUrl, options = {}) {
         guard = createGuard(),
         launch = launchChromium,
         timeouts = {},
+        genericDiscovery = genericDiscoveryRequested(),
     } = options;
 
     const startedAt = Date.now();
@@ -77,7 +82,7 @@ export async function inspect(rawUrl, options = {}) {
         browser = await launch();
         const { page } = await openGuardedPage(browser, guard);
 
-        return await walk(page, first.url.toString(), { state, guard, deadline, rawUrl, timeouts });
+        return await walk(page, first.url.toString(), { state, guard, deadline, rawUrl, timeouts, genericDiscovery });
     } catch (error) {
         if (expired || error instanceof DeadlineExceeded || deadline.expired()) {
             return failed({
@@ -99,7 +104,7 @@ export async function inspect(rawUrl, options = {}) {
     }
 }
 
-async function walk(page, startUrl, { state, guard, deadline, rawUrl, timeouts }) {
+async function walk(page, startUrl, { state, guard, deadline, rawUrl, timeouts, genericDiscovery }) {
     let url = startUrl;
 
     for (;;) {
@@ -179,7 +184,7 @@ async function walk(page, startUrl, { state, guard, deadline, rawUrl, timeouts }
             case 'unreachable':
                 return halt(state, rawUrl, StopReason.DestinationUnreachable, { classified_as: kind.reasons });
             case 'form':
-                return reachedForm(page, kind, { state, rawUrl });
+                return reachedForm(page, kind, { state, rawUrl, genericDiscovery });
         }
 
         // ---- a listing: look for ONE Apply destination, never click, never pick between several ----
@@ -219,7 +224,7 @@ async function walk(page, startUrl, { state, guard, deadline, rawUrl, timeouts }
     }
 }
 
-async function reachedForm(page, kind, { state, rawUrl }) {
+async function reachedForm(page, kind, { state, rawUrl, genericDiscovery }) {
     const resolvedUrl = page.url();
 
     if (kind.ats === 'greenhouse' && (await greenhouse.detect(page))) {
@@ -237,6 +242,26 @@ async function reachedForm(page, kind, { state, rawUrl }) {
             inspectionOutcome: fields.length === 0 ? InspectionOutcome.Partial : InspectionOutcome.Complete,
             stopReason: fields.length === 0 ? StopReason.NoFieldsExtracted : null,
             diagnostics: diagnostics(state, { ...extra, extraction_ms: Date.now() - extractionStartedAt, classified_as: kind.reasons }),
+        });
+    }
+
+    // No dedicated extractor. With generic discovery on, read it from what the page itself says (read-only: nothing is clicked,
+    // typed or selected). Greenhouse never reaches here: it was handled above, unchanged.
+    if (genericDiscovery) {
+        state.step = 'reading the form generically';
+        const extractionStartedAt = Date.now();
+        const found = await discoverForm(readOnlyPage(page));
+
+        return succeeded({
+            ats: kind.ats === 'lever' ? 'lever' : null,
+            requestedUrl: state.requestedUrl,
+            finalUrl: state.finalUrl,
+            resolvedUrl,
+            fields: found.fields,
+            warnings: [...state.warnings, ...found.warnings, 'generic_discovery'],
+            inspectionOutcome: found.inspection_outcome,
+            stopReason: found.stop_reason,
+            diagnostics: diagnostics(state, { ...found.diagnostics, extraction_ms: Date.now() - extractionStartedAt, classified_as: kind.reasons }),
         });
     }
 
