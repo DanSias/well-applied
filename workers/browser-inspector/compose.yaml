@@ -10,12 +10,12 @@
 # The bridge names, subnets, the Well Applied address and the resolvers are mirrored in isolation/inspector-isolation.nft
 # and relay/nginx.conf; test/isolation-config.test.js fails if any of them drift apart.
 #
-# Start and stop it with the systemd unit (isolation/career-toolkit-browser-worker.service), not by hand: the unit refuses
+# Start and stop it with the systemd unit (isolation/well-applied-browser-inspector.service), not by hand: the unit refuses
 # to start it unless the host policy is verified, and kills it if the policy is lost. Both services therefore have
 # `restart: "no"`: Docker must never start them on its own (for instance at boot, before the policy exists). If someone does
 # `docker compose up` by hand anyway, the worker's own start-up check and the host guard (which kills any container carrying
 # the isolation label when the policy is missing) still apply.
-name: career-toolkit-browser-worker
+name: well-applied-browser-inspector
 
 x-isolated: &isolated
   restart: "no"
@@ -31,7 +31,7 @@ services:
   api-relay:
     <<: *isolated
     image: nginxinc/nginx-unprivileged:1.27-alpine
-    container_name: career-toolkit-api-relay
+    container_name: well-applied-api-relay
     volumes:
       - ./relay/nginx.conf:/etc/nginx/nginx.conf:ro
     tmpfs:
@@ -48,8 +48,8 @@ services:
   browser-inspector:
     <<: *isolated
     build: .
-    image: career-toolkit-browser-worker:local
-    container_name: career-toolkit-browser-worker
+    image: well-applied-browser-inspector:local
+    container_name: well-applied-browser-inspector
     env_file:
       - .env
     environment:

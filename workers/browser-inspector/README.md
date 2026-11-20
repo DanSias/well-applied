@@ -482,11 +482,22 @@ only source of truth for the worker's code — the AI-box deployment
 directory is a plain, non-edited copy of it, kept in sync with
 `rsync`, the same mechanism validated during Phase 3.
 
-**Deployment directory on the AI box**: `~/career-toolkit-browser-worker/`
-(a separate directory from `~/career-toolkit-browser-poc`, which
-remains untouched historical proof-of-concept evidence — see the
-disposable smoke-test workflow below if you need that instead of a
-persistent deployment).
+**Deployment layout on the AI box (current):**
+
+| Path | Purpose |
+|---|---|
+| `/opt/well-applied/browser-inspector/` | the active worker (compose file, `.env`, isolation files), owned by `daniel`, mode 0750 |
+| `/opt/well-applied/backups/` | previous deployment files (including the old `.env`, so mode 0700), owned by `daniel` |
+
+The worker and its Chromium run as the unprivileged `daniel` account inside a non-root container, never as root; `/opt/well-applied`
+itself is root-owned. The systemd unit is `well-applied-browser-inspector.service`; the Compose project, containers and image are
+`well-applied-browser-inspector` / `well-applied-api-relay` / `well-applied-browser-inspector:local`. Install, start and rollback are in
+`isolation/README.md`, which also has the one-off migration from the legacy layout.
+
+**Legacy layout (pre-isolation, kept only as the rollback reference):** `~/career-toolkit-browser-worker/`, image
+`career-toolkit-browser-worker:local`, Compose project `career-toolkit-browser-worker`. The commands in the rest of this section
+describe that legacy deployment and use its paths. `CAREER_TOOLKIT_URL` and `BROWSER_WORKER_TOKEN` keep their names on purpose:
+they are the worker's API contract with Well Applied and with the old `.env`.
 
 ### First-time setup
 

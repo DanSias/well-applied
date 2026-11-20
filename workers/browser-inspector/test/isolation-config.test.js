@@ -15,7 +15,7 @@ const compose = read('compose.yaml');
 const nft = read('isolation/inspector-isolation.nft');
 const nginx = read('relay/nginx.conf');
 const urlSafety = read('src/url-safety.js');
-const units = Object.fromEntries(['inspector-isolation.service', 'inspector-isolation-guard.service', 'career-toolkit-browser-worker.service', 'docker.service.d-inspector-isolation.conf'].map((f) => [f, read(`isolation/${f}`)]));
+const units = Object.fromEntries(['inspector-isolation.service', 'inspector-isolation-guard.service', 'well-applied-browser-inspector.service', 'docker.service.d-inspector-isolation.conf'].map((f) => [f, read(`isolation/${f}`)]));
 
 const BRIDGES = { egress: 'br-inspector', 'relay-link': 'br-relaylink', 'relay-out': 'br-relay' };
 const WELL_APPLIED = { host: '192.168.1.114', port: '8000' };
@@ -145,7 +145,7 @@ describe('the properties the design rests on', () => {
     });
 
     test('the units order and bind the way fail-closed startup needs', () => {
-        const worker = units['career-toolkit-browser-worker.service'];
+        const worker = units['well-applied-browser-inspector.service'];
         assert.match(worker, /^Requires=docker\.service inspector-isolation\.service inspector-isolation-guard\.service$/m);
         assert.match(worker, /^ExecStartPre=\+\/usr\/local\/sbin\/inspector-isolation verify$/m, 'verify runs as root before every start');
         assert.match(worker, /^ExecStart=\/usr\/bin\/docker compose up --no-build --pull never --abort-on-container-exit/m);
@@ -169,5 +169,47 @@ describe('the properties the design rests on', () => {
         const all = [read('isolation/install.sh'), read('isolation/rollback.sh'), read('isolation/bin/inspector-isolation'), ...Object.values(units)].map(strip).join('\n');
         assert.ok(!/\bufw\b|iptables|ip6tables|tailscale|flush ruleset|nft (flush|delete (?!table))/.test(all), 'no ufw/iptables/tailscale and no flushing');
         assert.ok(!/(open-webui|ollama|application-preparer|silverbullet)/i.test(all));
+    });
+});
+
+describe('Well Applied naming and the /opt layout', () => {
+    // Everything the deployment installs or runs. The legacy names may appear only in documentation (the migration and rollback
+    // sections), never in anything executed, so a rename cannot be half done.
+    const executed = ['compose.yaml', 'isolation/install.sh', 'isolation/rollback.sh', 'isolation/validate-network.sh', 'isolation/validate-hardening.sh',
+        'isolation/bin/inspector-isolation', 'isolation/well-applied-browser-inspector.service', '.env.example'];
+
+    test('nothing executed refers to the legacy names or to /home', () => {
+        for (const f of executed) {
+            const text = read(f);
+            assert.doesNotMatch(text, /career-toolkit-(browser-worker|api-relay)/, `${f} has a legacy name`);
+            assert.doesNotMatch(text, /\/home\/daniel|~\//, `${f} refers to a home directory`);
+        }
+    });
+
+    test('the project, containers, image and unit agree with each other', () => {
+        assert.match(compose, /^name: well-applied-browser-inspector$/m);
+        assert.match(compose, /container_name: well-applied-api-relay$/m);
+        assert.match(compose, /container_name: well-applied-browser-inspector$/m);
+        assert.match(compose, /image: well-applied-browser-inspector:local$/m);
+        const net = read('isolation/validate-network.sh');
+        assert.match(net, /PROJECT=\$\{PROJECT:-well-applied-browser-inspector\}/);
+        assert.match(net, /IMAGE=\$\{IMAGE:-well-applied-browser-inspector:local\}/);
+        assert.match(read('isolation/bin/inspector-isolation'), /well-applied-browser-inspector\.service/);
+    });
+
+    test('the API contract names are deliberately unchanged', () => {
+        assert.match(compose, /CAREER_TOOLKIT_URL: http:\/\/api-relay:8081/);
+        assert.match(read('.env.example'), /^BROWSER_WORKER_TOKEN=/m);
+        assert.match(compose, /com\.well-applied\.isolation: required/);
+    });
+
+    test('the unit runs as the unprivileged user from the configured directory, and the docs name the /opt layout', () => {
+        const unit = units['well-applied-browser-inspector.service'];
+        assert.match(unit, /^User=@WORKER_USER@$/m);
+        assert.doesNotMatch(unit, /^User=root/m);
+        assert.match(unit, /^WorkingDirectory=@WORKER_DIR@$/m);
+        const doc = read('isolation/README.md');
+        assert.match(doc, /\/opt\/well-applied\/browser-inspector/);
+        assert.match(doc, /\/opt\/well-applied\/backups/);
     });
 });

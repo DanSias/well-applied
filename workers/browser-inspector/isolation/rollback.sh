@@ -23,13 +23,13 @@ step() { printf '==> %s\n' "$*"; }
 
 if [ -z "$ROOT" ]; then
   step "stopping the worker, the guard and the policy (in that order)"
-  systemctl disable --now career-toolkit-browser-worker.service 2>/dev/null || true
+  systemctl disable --now well-applied-browser-inspector.service 2>/dev/null || true
   systemctl disable --now inspector-isolation-guard.service 2>/dev/null || true
   systemctl disable --now inspector-isolation.service 2>/dev/null || true
 fi
 
 step "removing files"
-rm -f "$ROOT/etc/systemd/system/career-toolkit-browser-worker.service" \
+rm -f "$ROOT/etc/systemd/system/well-applied-browser-inspector.service" \
       "$ROOT/etc/systemd/system/inspector-isolation-guard.service" \
       "$ROOT/etc/systemd/system/inspector-isolation.service" \
       "$ROOT/etc/systemd/system/docker.service.d/inspector-isolation.conf" \
@@ -45,7 +45,7 @@ fi
 if [ -z "$ROOT" ]; then
   nft delete table inet inspector_isolation 2>/dev/null || true   # in case the unit's own stop did not run
   systemctl daemon-reload
-  systemctl reset-failed 'inspector-*' 'career-toolkit-browser-worker*' 2>/dev/null || true
+  systemctl reset-failed 'inspector-*' 'well-applied-browser-inspector*' 2>/dev/null || true
   cat <<MSG
 
 Isolation removed. Docker, Tailscale and every other container were not touched. To go back to the previous worker see

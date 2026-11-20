@@ -1,6 +1,6 @@
 // Greenhouse detection and field extraction — the only ATS Phase 2
 // supports. Adapted from the disposable investigation PoC's proven
-// domExtract() (~/career-toolkit-browser-poc on the AI box), which
+// domExtract() (the earlier browser proof of concept on the AI box), which
 // successfully extracted a real 51-field Anthropic application form.
 //
 // Two deliberate departures from the PoC, both evidence-grounded — see

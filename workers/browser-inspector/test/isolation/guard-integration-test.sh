@@ -37,7 +37,7 @@ t0=$(date +%s.%N); nft delete table inet inspector_isolation
 wait_intact && ok "deleted table: restored" || bad "deleted table: not restored"
 t1=$(date +%s.%N)
 grep -q "kill victim" $SANDBOX/docker.log 2>/dev/null && ok "deleted table: labelled container killed" || bad "container not killed"
-grep -q "stop --no-block career-toolkit-browser-worker.service" $SANDBOX/systemctl.log 2>/dev/null && ok "deleted table: worker unit stopped" || bad "unit not stopped"
+grep -q "stop --no-block well-applied-browser-inspector.service" $SANDBOX/systemctl.log 2>/dev/null && ok "deleted table: worker unit stopped" || bad "unit not stopped"
 python3 - <<PY
 import re
 t0=$t0; t1=$t1

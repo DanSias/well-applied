@@ -5,11 +5,11 @@
 # deployment, because kernel and AppArmor settings differ between hosts (Ubuntu 26.04 restricts unprivileged user namespaces,
 # which Chromium's sandbox uses).
 #
-#   isolation/validate-hardening.sh [IMAGE]        (default: career-toolkit-browser-worker:local)
+#   isolation/validate-hardening.sh [IMAGE]        (default: well-applied-browser-inspector:local)
 #
 # From the worker directory, so ./test is found. Exits non-zero on any failure.
 set -euo pipefail
-IMAGE=${1:-career-toolkit-browser-worker:local}
+IMAGE=${1:-well-applied-browser-inspector:local}
 PWUSER_UID=$(docker run --rm --entrypoint id "$IMAGE" -u pwuser)
 PROFILE="$PWD/isolation/chromium-seccomp.json"
 [ -r "$PROFILE" ] || { echo "run from the worker directory (isolation/chromium-seccomp.json not found)" >&2; exit 2; }

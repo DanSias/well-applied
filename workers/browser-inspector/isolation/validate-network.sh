@@ -4,17 +4,17 @@
 # one neutral public site. It never connects to an open internal service and never starts an inspection.
 #
 #   isolation/validate-network.sh pre     after install.sh and `docker compose up --no-start`, BEFORE the worker is started
-#   isolation/validate-network.sh post    after `systemctl start career-toolkit-browser-worker`
+#   isolation/validate-network.sh post    after `systemctl start well-applied-browser-inspector`
 #
 # "pre" runs throwaway containers (no ports, no volumes, removed on exit) on the same networks, with the same hardening,
 # using the worker image. "post" executes inside the running worker and relay.
 # NOTE: this script has been syntax-checked but not run against a live host; its first run is on the AI box.
 set -uo pipefail
 MODE=${1:-}
-IMAGE=${IMAGE:-career-toolkit-browser-worker:local}
-PROJECT=${PROJECT:-career-toolkit-browser-worker}
+IMAGE=${IMAGE:-well-applied-browser-inspector:local}
+PROJECT=${PROJECT:-well-applied-browser-inspector}
 EGRESS=${PROJECT}_egress; LINK=${PROJECT}_relay-link
-WORKER=career-toolkit-browser-worker; RELAY=career-toolkit-api-relay
+WORKER=well-applied-browser-inspector; RELAY=well-applied-api-relay
 CANARIES="172.29.60.1:9,172.29.61.1:9,172.29.62.1:9,192.168.1.111:9,192.168.1.114:9"
 pass=0; fail=0
 ok()  { pass=$((pass+1)); echo "  ok    $1"; }

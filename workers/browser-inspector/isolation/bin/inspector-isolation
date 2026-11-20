@@ -17,7 +17,7 @@ CONF_DIR=${INSPECTOR_ISOLATION_CONF:-/etc/inspector-isolation}
 STATE_DIR=${INSPECTOR_ISOLATION_STATE:-/var/lib/inspector-isolation}
 RULES=${INSPECTOR_ISOLATION_RULES:-$CONF_DIR/inspector-isolation.nft}
 LABEL=${INSPECTOR_ISOLATION_LABEL:-com.well-applied.isolation=required}
-WORKER_UNIT=${INSPECTOR_WORKER_UNIT:-career-toolkit-browser-worker.service}
+WORKER_UNIT=${INSPECTOR_WORKER_UNIT:-well-applied-browser-inspector.service}
 GUARD_INTERVAL=${INSPECTOR_GUARD_INTERVAL:-3}
 NFT=${NFT:-nft}
 DOCKER=${DOCKER:-docker}

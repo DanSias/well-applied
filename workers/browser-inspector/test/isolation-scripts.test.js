@@ -159,7 +159,7 @@ describe('guard: when isolation is lost the worker is killed first, then the pol
         g.kill();
 
         assert.match(log('docker.log'), /kill abc123 def456/, 'both containers killed');
-        assert.match(log('systemctl.log'), /stop --no-block career-toolkit-browser-worker\.service/);
+        assert.match(log('systemctl.log'), /stop --no-block well-applied-browser-inspector\.service/);
         assert.equal(existsSync(kernelTable()), true, 'the policy is back');
         assert.equal(run('verify').status, 0, 'and verifies');
     });
@@ -196,7 +196,7 @@ describe('guard: when isolation is lost the worker is killed first, then the pol
 });
 
 describe('install.sh and rollback.sh', () => {
-    const install = (root, ...extra) => spawnSync('bash', [path.join(ROOT, 'isolation/install.sh'), '--user', 'daniel', '--dir', '/home/daniel/career-toolkit-browser-worker', '--root', root, ...extra], { encoding: 'utf8' });
+    const install = (root, ...extra) => spawnSync('bash', [path.join(ROOT, 'isolation/install.sh'), '--user', 'daniel', '--dir', '/opt/well-applied/browser-inspector', '--root', root, ...extra], { encoding: 'utf8' });
     const rollback = (root, ...extra) => spawnSync('bash', [path.join(ROOT, 'isolation/rollback.sh'), '--root', root, ...extra], { encoding: 'utf8' });
     const files = (root) => {
         const out = [];
@@ -212,10 +212,10 @@ describe('install.sh and rollback.sh', () => {
             assert.equal(r.status, 0, r.stderr);
             assert.deepEqual(files(root).filter((f) => !f.endsWith('README.md')), [
                 '/etc/inspector-isolation/inspector-isolation.nft',
-                '/etc/systemd/system/career-toolkit-browser-worker.service',
                 '/etc/systemd/system/docker.service.d/inspector-isolation.conf',
                 '/etc/systemd/system/inspector-isolation-guard.service',
                 '/etc/systemd/system/inspector-isolation.service',
+                '/etc/systemd/system/well-applied-browser-inspector.service',
                 '/usr/local/sbin/inspector-isolation',
             ]);
             assert.equal(statSync(path.join(root, 'usr/local/sbin/inspector-isolation')).mode & 0o777, 0o755);
@@ -229,9 +229,9 @@ describe('install.sh and rollback.sh', () => {
         const root = mkdtempSync(path.join(tmpdir(), 'install-'));
         try {
             install(root);
-            const unit = readFileSync(path.join(root, 'etc/systemd/system/career-toolkit-browser-worker.service'), 'utf8');
+            const unit = readFileSync(path.join(root, 'etc/systemd/system/well-applied-browser-inspector.service'), 'utf8');
             assert.match(unit, /^User=daniel$/m);
-            assert.match(unit, /^WorkingDirectory=\/home\/daniel\/career-toolkit-browser-worker$/m);
+            assert.match(unit, /^WorkingDirectory=\/opt\/well-applied\/browser-inspector$/m);
             assert.ok(!unit.includes('@'), 'no @PLACEHOLDER@ left');
         } finally {
             rmSync(root, { recursive: true, force: true });
@@ -282,7 +282,7 @@ describe('install.sh and rollback.sh', () => {
         const src = readFileSync(path.join(ROOT, 'isolation/install.sh'), 'utf8').replace(/<<MSG[\s\S]*?\nMSG\n/g, '').replace(/^\s*#.*$/gm, '');
         assert.ok(!/docker\s+(compose|run|start|stop|restart|build|kill|rm)/.test(src), 'no docker commands');
         assert.ok(!/systemctl\s+(restart|reload-or-restart)\s+docker/.test(src));
-        assert.ok(!/systemctl[^\n]*\b(start|enable --now)\b[^\n]*career-toolkit-browser-worker/.test(src), 'the worker unit is enabled, never started');
+        assert.ok(!/systemctl[^\n]*\b(start|enable --now)\b[^\n]*well-applied-browser-inspector/.test(src), 'the worker unit is enabled, never started');
         assert.ok(!/flush ruleset|nft\s+flush|iptables|ufw/.test(src), 'touches no firewall but its own table');
     });
 });

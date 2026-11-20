@@ -47,7 +47,7 @@ priority 0) and checks both statements, in both `br_netfilter` modes.
 
 1. **The policy exists before Docker does.** `inspector-isolation.service` loads it atomically (`Before=docker.service`; a
    drop-in makes Docker `Wants=` it, never `Requires=`, so a firewall error cannot take Ollama or Open WebUI down).
-2. **Only systemd starts the worker, and only after verifying the policy.** `career-toolkit-browser-worker.service` has
+2. **Only systemd starts the worker, and only after verifying the policy.** `well-applied-browser-inspector.service` has
    `Requires=` on the policy and its guard, and `ExecStartPre=+inspector-isolation verify`, which refuses to start unless the
    table loaded in the kernel is exactly what was applied (file hash, table hash, both base chains at priority -10). Compose's
    `restart: "no"` stops Docker starting the containers on its own. `Restart=on-failure` goes back through `verify`.
@@ -100,12 +100,12 @@ still requires a seccomp filter to be installed).
 
 | File | Installed as |
 |---|---|
-| `compose.yaml` | in the worker directory |
+| `compose.yaml` | in the worker directory (`/opt/well-applied/browser-inspector/`) |
 | `relay/nginx.conf` | `<worker dir>/relay/nginx.conf` |
 | `isolation/inspector-isolation.nft` | `/etc/inspector-isolation/inspector-isolation.nft` |
 | `isolation/bin/inspector-isolation` | `/usr/local/sbin/inspector-isolation` |
 | `isolation/inspector-isolation.service`, `…-guard.service` | `/etc/systemd/system/` |
-| `isolation/career-toolkit-browser-worker.service` | `/etc/systemd/system/` (rendered for the user and directory) |
+| `isolation/well-applied-browser-inspector.service` | `/etc/systemd/system/` (rendered for the user and directory) |
 | `isolation/docker.service.d-inspector-isolation.conf` | `/etc/systemd/system/docker.service.d/inspector-isolation.conf` |
 | `isolation/install.sh`, `rollback.sh` | run from the repository copy |
 | `isolation/chromium-seccomp.json` (from `make-chromium-seccomp.py`) | referenced by `compose.yaml` as `./isolation/chromium-seccomp.json`; ships with the worker directory |
@@ -114,93 +114,130 @@ still requires a seccomp filter to be installed).
 ## Assumptions to confirm before deploying
 
 * **`192.168.1.114` (the Mac) stays that address.** Reserve it in your router's DHCP. It appears in the policy, the relay and
-  the canaries (a test fails if they disagree). To change it: `sudo systemctl stop career-toolkit-browser-worker`, edit all
+  the canaries (a test fails if they disagree). To change it: `sudo systemctl stop well-applied-browser-inspector`, edit all
   three, copy the policy to `/etc/inspector-isolation/`, `sudo inspector-isolation apply`, then start the worker. (Stop the
   worker first: while the table and its recorded fingerprint disagree, the guard rightly treats the policy as lost.)
 * DNS is **9.9.9.9 / 1.1.1.1**, not the router, so internal names are never resolved for the worker.
 * Only **TCP 80/443 and UDP 443** leave the worker. An application site on another port will fail.
 * Well Applied listens on `0.0.0.0:8000` (`SERVER_HOST=0.0.0.0`) and the Mac accepts the AI box's address (as it does today).
 
-## Deployment sequence
+## Layout and naming
 
-Nothing on the AI box is changed by merging this. Steps 3 to 8 are the cutover; the inspector is **offline from step 4 to
-step 8** (a few minutes). Ollama, Open WebUI, Tailscale, the Application Preparer and the NAS are never touched.
+| | Path / name |
+|---|---|
+| Active worker | `/opt/well-applied/browser-inspector/` (owner `daniel:daniel`, mode 0750; contains `.env`, mode 0600) |
+| Backups | `/opt/well-applied/backups/` (owner `daniel:daniel`, mode 0700: it holds the old `.env`) |
+| `/opt/well-applied` | `root:root`, 0755 (the worker cannot rewrite its own parent) |
+| systemd unit | `well-applied-browser-inspector.service` |
+| Compose project / containers | `well-applied-browser-inspector`: `well-applied-browser-inspector`, `well-applied-api-relay` |
+| Image | `well-applied-browser-inspector:local` |
+| Docker networks | `well-applied-browser-inspector_{egress,relay-link,relay-out}` (bridges `br-inspector`, `br-relaylink`, `br-relay`, unchanged) |
+| **Unchanged on purpose** | `CAREER_TOOLKIT_URL`, `BROWSER_WORKER_TOKEN`, `BROWSER_WORKER_IDENTITY` (the worker's API contract and the existing `.env`), the `/api/worker/...` paths, the `com.well-applied.isolation=required` label, the `inspector-isolation*` units and `inspector_isolation` nft table |
 
-On the Mac (the repository):
+Everything runs as `daniel`, never root: the unit has `User=daniel`, and inside the container Chromium runs as `pwuser` with no capabilities.
+Only `/opt/well-applied` and the unit/policy files are created with sudo.
 
-1. `rsync -az --delete --exclude node_modules --exclude .env workers/browser-inspector/ daniel@ai-box:~/career-toolkit-browser-worker-next/`
+The **legacy** worker is `~/career-toolkit-browser-worker/` (Compose project and image `career-toolkit-browser-worker`, container
+`career-toolkit-browser-worker`, network `career-toolkit-browser-worker_default`). The new project has different names for all of these, so the two
+can never collide or share a network, and **the legacy directory and images are never modified or moved by the migration**: that is
+the rollback. The staged `~/career-toolkit-browser-worker-next/` is superseded; it is archived, not deleted.
 
-On the AI box:
+## Deployment sequence (migration from the legacy layout)
 
-2. **Build alongside the running worker** (it is not affected), and keep the old image:
+Nothing on the AI box is changed by merging this. The inspector is **offline only from step 6 to step 9**. Ollama, Open WebUI,
+Tailscale, the Application Preparer and the NAS are never touched. `[Mac]` / `[AI box]` marks where a command runs; `sudo` is
+needed only where shown.
+
+1. **[AI box, sudo]** Create the layout. Nothing running is affected.
    ```sh
-   docker tag career-toolkit-browser-worker:local career-toolkit-browser-worker:pre-isolation
-   cd ~/career-toolkit-browser-worker-next
-   docker build -t career-toolkit-browser-worker:next .
-   docker tag career-toolkit-browser-worker:next career-toolkit-browser-worker:local   # the running container keeps its own image
-   isolation/validate-hardening.sh career-toolkit-browser-worker:local                  # Chromium under the exact hardening, no network
+   sudo install -d -o root   -g root   -m 0755 /opt/well-applied
+   sudo install -d -o daniel -g daniel -m 0750 /opt/well-applied/browser-inspector
+   sudo install -d -o daniel -g daniel -m 0700 /opt/well-applied/backups
+   ```
+2. **[Mac]** Copy the worker files (from the repository, on `master` once merged). `--delete` is safe: the target is new.
+   ```sh
+   rsync -az --delete --exclude node_modules --exclude .env workers/browser-inspector/ daniel@ai-box:/opt/well-applied/browser-inspector/
+   ```
+3. **[AI box]** Back up the legacy deployment and carry the token over. `cp -a` keeps the legacy directory in place (it is the
+   rollback); the running worker is not affected.
+   ```sh
+   STAMP=$(date +%Y%m%d-%H%M%S)
+   cp -a ~/career-toolkit-browser-worker /opt/well-applied/backups/career-toolkit-browser-worker.legacy-$STAMP
+   cp ~/career-toolkit-browser-worker/.env /opt/well-applied/browser-inspector/.env
+   chmod 600 /opt/well-applied/browser-inspector/.env
+   # the superseded staging directory (no secrets) is archived, not deleted:
+   [ -d ~/career-toolkit-browser-worker-next ] && mv ~/career-toolkit-browser-worker-next /opt/well-applied/backups/career-toolkit-browser-worker-next.staged-$STAMP
+   ```
+4. **[AI box]** Make sure the rollback image tag exists (it must not be removed), then build the new image alongside the running worker:
+   ```sh
+   docker image inspect career-toolkit-browser-worker:pre-isolation >/dev/null 2>&1 || docker tag career-toolkit-browser-worker:local career-toolkit-browser-worker:pre-isolation
+   cd /opt/well-applied/browser-inspector
+   docker build -t well-applied-browser-inspector:local .
+   isolation/validate-hardening.sh well-applied-browser-inspector:local     # Chromium under the exact hardening, no network
    docker pull nginxinc/nginx-unprivileged:1.27-alpine
    ```
    Stop here if `validate-hardening.sh` fails; see "If Chromium will not start hardened".
-3. **Cutover begins.** Stop the old worker with its own compose file, then swap directories (the token in `.env` carries over):
+5. **[AI box]** Confirm what is about to be replaced: `docker ps` shows `career-toolkit-browser-worker` running, and
+   `ls /opt/well-applied/backups` shows the backup.
+6. **Cutover begins [AI box]**: stop the legacy worker with its own compose file. The legacy directory, image and `.env` stay as they are.
    ```sh
    cd ~/career-toolkit-browser-worker && docker compose down
-   mv ~/career-toolkit-browser-worker ~/career-toolkit-browser-worker.pre-isolation
-   mv ~/career-toolkit-browser-worker-next ~/career-toolkit-browser-worker
-   cp ~/career-toolkit-browser-worker.pre-isolation/.env ~/career-toolkit-browser-worker/.env && chmod 600 ~/career-toolkit-browser-worker/.env
    ```
-4. **Install the isolation (privileged).** It checks the policy with `nft -c` first, loads it atomically, starts the guard, and
+7. **[AI box, sudo]** Install the isolation. It checks the policy with `nft -c` first, loads it atomically, starts the guard, and
    installs and enables (but does not start) the worker unit:
    ```sh
-   cd ~/career-toolkit-browser-worker
-   sudo isolation/install.sh --user daniel --dir /home/daniel/career-toolkit-browser-worker
+   cd /opt/well-applied/browser-inspector
+   sudo isolation/install.sh --user daniel --dir /opt/well-applied/browser-inspector
    sudo /usr/local/sbin/inspector-isolation verify && echo intact
    sudo nft list table inet inspector_isolation | head -30
    ```
-5. **Create the networks and containers without starting them, then test them (the worker is still stopped):**
+8. **[AI box]** Create the networks and containers without starting them, then test them (the worker is still stopped):
    ```sh
+   cd /opt/well-applied/browser-inspector
    docker compose up --no-start
    isolation/validate-network.sh pre
    ```
-6. **Start the worker (privileged, through systemd, the only supported way):**
+9. **[AI box, sudo]** Start the worker (through systemd, the only supported way):
    ```sh
-   sudo systemctl start career-toolkit-browser-worker
-   journalctl -u career-toolkit-browser-worker -n 40 --no-pager      # expect: "isolation self-check passed", then polling
+   sudo systemctl start well-applied-browser-inspector
+   journalctl -u well-applied-browser-inspector -n 40 --no-pager      # expect: "isolation self-check passed", then polling
    isolation/validate-network.sh post
    ```
-7. Confirm the worker shows **online** in Well Applied (its presence badge), and `budget_s=90` in the first claim's log line.
-8. **Fail-closed drill** (optional, interrupts only the inspector): `sudo nft delete table inet inspector_isolation` → within a
-   second `systemctl status career-toolkit-browser-worker` shows it stopped, `docker ps` no longer lists it,
-   `sudo /usr/local/sbin/inspector-isolation verify` passes again, and `journalctl -u inspector-isolation-guard` says
-   `ISOLATION LOST`. Then `sudo systemctl start career-toolkit-browser-worker`.
+10. Confirm the worker shows **online** in Well Applied (its presence badge), and `budget_s=90` in the first claim's log line.
+11. **Fail-closed drill** (optional, interrupts only the inspector): `sudo nft delete table inet inspector_isolation` → within a
+    second `systemctl status well-applied-browser-inspector` shows it stopped, `docker ps` no longer lists it,
+    `sudo /usr/local/sbin/inspector-isolation verify` passes again, and `journalctl -u inspector-isolation-guard` says
+    `ISOLATION LOST`. Then `sudo systemctl start well-applied-browser-inspector`.
+12. **Later, after you are satisfied (a separate decision):** the legacy directory and the `career-toolkit-browser-worker:*` images may
+    be archived or removed. Until then they are the rollback.
 
 The single, separately-authorised read-only Jobicy inspection comes after this.
 
 ### Privileged commands in total
 `install.sh` (does: `nft -c -f`, `nft -f` via the unit, `systemctl daemon-reload`, `enable --now inspector-isolation`,
-`enable --now inspector-isolation-guard`, `enable career-toolkit-browser-worker`), `systemctl start career-toolkit-browser-worker`,
+`enable --now inspector-isolation-guard`, `enable well-applied-browser-inspector`), `systemctl start well-applied-browser-inspector`,
 `inspector-isolation verify`, `nft list table …`, `rollback.sh`.
 
 ### What installing does to the running system
-It adds one nftables table. Its rules match three interface names that do not exist until step 5, so no existing packet
+It adds one nftables table. Its rules match three interface names that do not exist until step 8, so no existing packet
 matches them; each packet entering the host's forward and input hooks does one extra interface-name comparison. It adds a
 Docker drop-in that takes effect at Docker's **next** start (it is not restarted by this). No existing container, network,
 firewall rule, Tailscale setting or Docker configuration is modified.
 
 ## Rollback
 
-Fast path (isolation off, old worker back):
+Fast path (isolation off, legacy worker back). Valid at any point after step 6, because the legacy directory and image are never modified:
 ```sh
-cd ~/career-toolkit-browser-worker
+cd /opt/well-applied/browser-inspector
 sudo isolation/rollback.sh --purge          # stops worker, guard and policy (in that order); removes units, drop-in, script, table
 docker compose down                          # the new project's containers and networks
-cd ~ && mv career-toolkit-browser-worker career-toolkit-browser-worker.isolated
-mv career-toolkit-browser-worker.pre-isolation career-toolkit-browser-worker
-docker tag career-toolkit-browser-worker:pre-isolation career-toolkit-browser-worker:local
-cd ~/career-toolkit-browser-worker && docker compose up -d     # the original compose file and its restart policy
+cd ~/career-toolkit-browser-worker && docker compose up -d     # the legacy compose file, image (:local) and restart policy
 ```
+`/opt/well-applied/` is left in place (it is inert once the unit is gone); remove it with `sudo rm -rf /opt/well-applied` only if you
+want it gone. If the legacy directory was removed after step 12, restore it from
+`/opt/well-applied/backups/career-toolkit-browser-worker.legacy-*` and `docker tag career-toolkit-browser-worker:pre-isolation career-toolkit-browser-worker:local`.
 Then confirm the worker is online in Well Applied. `rollback.sh` is idempotent and removes nothing but what `install.sh` wrote.
-To keep the policy but stop the worker: `sudo systemctl stop career-toolkit-browser-worker`.
+To keep the policy but stop the worker: `sudo systemctl stop well-applied-browser-inspector`.
 
 ## If Chromium will not start hardened
 `validate-hardening.sh` runs the real Chromium tests under every option compose applies. Ubuntu 26.04 restricts unprivileged
