@@ -98,3 +98,39 @@ export const jobOf = (
     inspection,
     ...over,
 });
+
+/**
+ * The reference case for "the inspector ran but the application was not located": Jobicy job 348, agent run 11. The listing
+ * answered 200, had no Apply link (only a JavaScript Apply button), and the page sent 18 non-GET requests that the
+ * read-only guard blocked. Technically a successful run; the application was simply not found.
+ */
+export const jobicyNoApplyLinkState = (
+    over: Partial<ApplicationInspectionState> = {},
+): ApplicationInspectionState => {
+    const url = 'https://jobicy.com/jobs/162959-software-integration-engineer';
+    const warnings = [
+        ...Array.from({ length: 18 }, () => 'blocked_non_get'),
+        'apply_is_button',
+    ];
+
+    return stateOf(
+        runOf('succeeded', { id: 11 }),
+        resultOf('application_not_found', {
+            agent_run_id: 11,
+            stop_reason: 'no_apply_link',
+            finished_at: '2026-11-20T12:51:46Z',
+            warnings,
+            diagnostics: diagnosticsOf({
+                requested_url: url,
+                final_url: url,
+                resolved_url: null,
+                page_title:
+                    'Remote Software Integration Engineer at PlusAI - Jobicy',
+                navigation: [{ kind: 'start', url, status: 200 }],
+                warnings,
+                start_origin: 'source',
+            }),
+        }),
+        over,
+    );
+};

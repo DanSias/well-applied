@@ -212,7 +212,10 @@ needed only where shown.
    journalctl -u well-applied-browser-inspector -n 40 --no-pager      # expect: "isolation self-check passed", then polling
    isolation/validate-network.sh post
    ```
-10. Confirm the worker shows **online** in Well Applied (its presence badge), and `budget_s=90` in the first claim's log line.
+10. Confirm the worker shows **online** in Well Applied (its presence badge). When the first claim arrives, its log line shows
+    `budget_s=<n>`. Do not expect a fixed value: **Well Applied assigns the budget at claim time** (its
+    `BROWSER_WORKER_CLAIM_TTL` lease minus a 30 s delivery allowance, so 90 s with the default 120 s lease and 30 s with a 60 s
+    one) and the worker never picks its own. Check that `<n>` equals the lease configured in Well Applied's `.env` minus 30.
 11. **Fail-closed drill** (optional, interrupts only the inspector): `sudo nft delete table inet inspector_isolation` → within a
     second `systemctl status well-applied-browser-inspector` shows it stopped, `docker ps` no longer lists it,
     `sudo /usr/local/sbin/inspector-isolation verify` passes again, and `journalctl -u inspector-isolation-guard` says

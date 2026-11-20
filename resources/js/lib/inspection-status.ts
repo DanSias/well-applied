@@ -40,6 +40,123 @@ const EARLIER_UNSUPPORTED: Explained = {
         'This result is from before inspections recorded why they stopped, so it cannot say whether an application form was found. Inspect again for a clearer answer.',
 };
 
+/** What the wording may mention about where the inspection looked. Never required: absent, the wording stays generic. */
+export type OutcomeContext = {
+    /** The host of the page the inspection started from, e.g. "jobicy.com". */
+    listingHost?: string | null;
+};
+
+/** The host of a URL (origin + path, as the server hands it over), or null when it is missing or not a URL. */
+export function hostOf(url: string | null | undefined): string | null {
+    if (!url) {
+        return null;
+    }
+
+    try {
+        return new URL(url).hostname.replace(/^www\./, '');
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Why the inspection stopped, as a sentence. This is the specific detail behind the outcome label, so it says what was
+ * observed, not what to do (the outcome's explanation does that). Null for a record from before stop reasons existed:
+ * it is never guessed.
+ */
+export function describeStopReason(stopReason: string | null): string | null {
+    switch (stopReason) {
+        case 'no_apply_link':
+            return 'The page has no link to an application form that could be followed without clicking.';
+        case 'multiple_apply_links':
+            return 'The page links to more than one place to apply, and the inspector never chooses between them.';
+        case 'destination_prohibited':
+            return 'A link or redirect led somewhere the inspector never goes, so nothing was opened there.';
+        case 'destination_unreachable':
+            return 'The destination did not load.';
+        case 'too_many_redirects':
+            return 'The link redirected too many times.';
+        case 'too_many_steps':
+            return 'The page and link limit was used up before an application form was reached.';
+        case 'login_wall':
+            return 'The page is behind a sign-in, which the inspector never completes.';
+        case 'captcha':
+            return 'The site asked for a CAPTCHA, which the inspector never solves.';
+        case 'anti_bot':
+            return 'The site refused automated access.';
+        case 'form_without_adapter':
+            return 'An application form was reached, but reading forms from this site is not supported yet.';
+        case 'ats_not_extractable':
+            return 'A recognised application system was reached, but reading its forms is not supported yet.';
+        case 'no_fields_extracted':
+            return 'A form was reached, but no fields could be read from it.';
+        default:
+            return null;
+    }
+}
+
+/** Where the inspection began, in words. Shared by every inspection view so they cannot disagree. */
+export const START_ORIGIN: Record<string, string> = {
+    user: 'The link you entered',
+    resolved: 'The link an earlier inspection found',
+    provider: 'The job source’s application link',
+    source: 'The job listing',
+};
+
+/** How a saved application link got there, in words. */
+export function describeLinkOrigin(origin: string | null): string {
+    return origin === 'user'
+        ? 'you entered this'
+        : origin === 'resolved'
+          ? 'found by an inspection'
+          : 'origin not recorded';
+}
+
+/**
+ * What a warning code means, for the few worth saying out loud in the main view. Every code, known or not, is still listed
+ * (grouped) in the technical details.
+ */
+const WARNING_TEXT: Record<string, string> = {
+    apply_is_button:
+        'This listing uses an Apply button rather than a link. The inspector never presses buttons, so it could not safely follow it automatically.',
+    apply_is_email:
+        'The page applies by email, which is not something the inspector opens.',
+    destination_is_download:
+        'The Apply link leads to a file, not an application form.',
+};
+
+export function describeWarning(code: string): string | null {
+    return WARNING_TEXT[code] ?? null;
+}
+
+/** The warnings worth saying out loud: each distinct code once, in the order first seen. */
+export function highlightedWarnings(
+    warnings: string[],
+): { code: string; text: string }[] {
+    return groupWarnings(warnings).flatMap(({ code }) => {
+        const text = describeWarning(code);
+
+        return text === null ? [] : [{ code, text }];
+    });
+}
+
+export type WarningGroup = { code: string; count: number };
+
+/**
+ * One entry per distinct warning, in the order first seen, with how many times it occurred. A page can report the same
+ * code dozens of times (every blocked request); the evidence stays in the stored result, and the view shows the code once
+ * with its count.
+ */
+export function groupWarnings(warnings: string[]): WarningGroup[] {
+    const counts = new Map<string, number>();
+
+    for (const warning of warnings) {
+        counts.set(warning, (counts.get(warning) ?? 0) + 1);
+    }
+
+    return [...counts].map(([code, count]) => ({ code, count }));
+}
+
 /**
  * What an outcome means in words, using the stop reason for the specifics. Never says "Unsupported ATS" for a page that
  * simply wasn't an application: that is "No application link found".
@@ -47,6 +164,7 @@ const EARLIER_UNSUPPORTED: Explained = {
 export function describeOutcome(
     outcome: string,
     stopReason: string | null,
+    context: OutcomeContext = {},
 ): Explained {
     switch (outcome) {
         case 'complete':
@@ -91,10 +209,13 @@ export function describeOutcome(
             return EARLIER_UNSUPPORTED;
         case 'application_not_found':
             return {
-                label: 'No application link found',
+                label: 'Needs application URL',
                 tone: 'warn',
-                explanation:
-                    'We opened the job page but could not find an Apply link to follow. Open the posting, copy the link you would apply through, and enter it below.',
+                explanation: `We reached ${
+                    context.listingHost
+                        ? `the listing on ${context.listingHost}`
+                        : 'the job listing'
+                }, but could not find the employer's application form, so there was nothing to read. The inspector itself ran normally. Open the posting, copy the link you would apply through, and enter it below.`,
             };
         case 'needs_application_url':
             return needsUrl(stopReason);
@@ -170,9 +291,10 @@ function needsUrl(stopReason: string | null): Explained {
             };
         default:
             return {
-                label: 'Needs an application link',
+                label: 'Needs application URL',
                 tone: 'warn',
-                explanation: 'Enter the link you would apply through.',
+                explanation:
+                    'The application form was not reached. Enter the link you would apply through.',
             };
     }
 }
@@ -188,7 +310,12 @@ export function presentInspection(
     const active = run?.status === 'pending' || run?.status === 'running';
     const outcome =
         result?.inspection_outcome != null
-            ? describeOutcome(result.inspection_outcome, result.stop_reason)
+            ? describeOutcome(result.inspection_outcome, result.stop_reason, {
+                  listingHost: hostOf(
+                      result.diagnostics?.requested_url ??
+                          result.diagnostics?.final_url,
+                  ),
+              })
             : null;
     const outcomeIsEarlier =
         outcome !== null &&

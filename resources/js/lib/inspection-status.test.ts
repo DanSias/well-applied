@@ -2,12 +2,23 @@ import { describe, expect, it } from 'vitest';
 import type { InspectionResult } from '@/types/application-inspection';
 import {
     describeFailure,
+    describeLinkOrigin,
     describeOutcome,
+    describeStopReason,
+    groupWarnings,
+    highlightedWarnings,
+    hostOf,
     openIntent,
     presentInspection,
     summaryBadge,
 } from './inspection-status';
-import { resultOf, runOf, stateOf, summaryOf } from './inspection-test-data';
+import {
+    diagnosticsOf,
+    resultOf,
+    runOf,
+    stateOf,
+    summaryOf,
+} from './inspection-test-data';
 
 const run = runOf;
 const result = (
@@ -161,7 +172,7 @@ describe('summaryBadge', () => {
 });
 
 describe('truthful outcomes', () => {
-    it('says "no application link", not "unsupported", for a listing with no Apply link, and asks for the link', () => {
+    it('says "Needs application URL", not "unsupported", for a listing with no Apply link, and asks for the link', () => {
         const p = presentInspection(
             state(
                 run('succeeded'),
@@ -169,8 +180,10 @@ describe('truthful outcomes', () => {
             ),
         );
 
-        expect(p.headline.label).toBe('No application link found');
-        expect(p.outcome?.explanation).toMatch(/could not find an Apply link/);
+        expect(p.headline.label).toBe('Needs application URL');
+        expect(p.outcome?.explanation).toMatch(
+            /could not find the employer's application form/,
+        );
         expect(p.needsApplicationUrl).toBe(true);
     });
 
@@ -252,7 +265,7 @@ describe('truthful outcomes', () => {
                     'no_apply_link',
                 ),
             ).label,
-        ).toBe('No application link found');
+        ).toBe('Needs application URL');
         expect(
             summaryBadge(
                 summaryOf(
@@ -315,5 +328,143 @@ describe('what a click on "Inspect" does', () => {
 
     it('only opens a job with no link to start from', () => {
         expect(openIntent(summaryOf('not_inspected'), null)).toBe('view');
+    });
+});
+
+describe('the listing that had no application form (Jobicy job 348, run 11)', () => {
+    const jobicy = diagnosticsOf({
+        requested_url:
+            'https://jobicy.com/jobs/162959-software-integration-engineer',
+        final_url:
+            'https://jobicy.com/jobs/162959-software-integration-engineer',
+    });
+    const noForm = result('application_not_found', 0, 'no_apply_link');
+
+    it('is "Needs application URL", and names the site the inspector did reach', () => {
+        const p = presentInspection(
+            state(run('succeeded'), { ...noForm, diagnostics: jobicy }),
+        );
+
+        expect(p.headline.label).toBe('Needs application URL');
+        expect(p.outcome?.explanation).toContain('the listing on jobicy.com');
+        expect(p.outcome?.explanation).toMatch(/application form/);
+        expect(p.needsApplicationUrl).toBe(true);
+    });
+
+    it('stays generic when it does not know the site', () => {
+        expect(
+            describeOutcome('application_not_found', 'no_apply_link')
+                .explanation,
+        ).toContain('the job listing');
+    });
+
+    it('is still a worker success: the run finished, the application was just not located', () => {
+        const p = presentInspection(state(run('succeeded'), noForm));
+
+        expect(p.execution).toEqual({
+            label: 'Worker run finished',
+            tone: 'ok',
+        });
+        expect(p.outcome?.tone).toBe('warn');
+        expect(p.headline.tone).toBe('warn');
+    });
+
+    it('is the same wording in a list row', () => {
+        expect(
+            summaryBadge(
+                summaryOf(
+                    'inspected',
+                    'application_not_found',
+                    0,
+                    'no_apply_link',
+                ),
+            ).label,
+        ).toBe(
+            presentInspection(state(run('succeeded'), noForm)).headline.label,
+        );
+    });
+});
+
+describe('describeStopReason', () => {
+    it.each([
+        'no_apply_link',
+        'multiple_apply_links',
+        'destination_prohibited',
+        'destination_unreachable',
+        'too_many_redirects',
+        'too_many_steps',
+        'login_wall',
+        'captcha',
+        'anti_bot',
+        'form_without_adapter',
+        'ats_not_extractable',
+        'no_fields_extracted',
+    ])('explains %s in a sentence', (reason) => {
+        const text = describeStopReason(reason);
+
+        expect(text).toMatch(/\.$/);
+        expect(text).not.toContain('_');
+    });
+
+    it('never guesses: an older record, or a reason it does not know, has no sentence', () => {
+        expect(describeStopReason(null)).toBeNull();
+        expect(describeStopReason('something_new')).toBeNull();
+    });
+});
+
+describe('groupWarnings', () => {
+    it('shows each code once with its count, in the order first seen', () => {
+        const warnings = [
+            ...Array.from({ length: 18 }, () => 'blocked_non_get'),
+            'apply_is_button',
+        ];
+
+        expect(groupWarnings(warnings)).toEqual([
+            { code: 'blocked_non_get', count: 18 },
+            { code: 'apply_is_button', count: 1 },
+        ]);
+    });
+
+    it('keeps interleaved codes together without reordering them', () => {
+        expect(groupWarnings(['b', 'a', 'b', 'c', 'a', 'b'])).toEqual([
+            { code: 'b', count: 3 },
+            { code: 'a', count: 2 },
+            { code: 'c', count: 1 },
+        ]);
+    });
+
+    it('is empty for no warnings', () => {
+        expect(groupWarnings([])).toEqual([]);
+    });
+});
+
+describe('highlightedWarnings', () => {
+    it('explains only the warnings worth saying, each once, and says an Apply button was not pressed', () => {
+        const out = highlightedWarnings([
+            'blocked_non_get',
+            'apply_is_button',
+            'blocked_non_get',
+            'apply_is_button',
+        ]);
+
+        expect(out.map((w) => w.code)).toEqual(['apply_is_button']);
+        expect(out[0].text).toMatch(/Apply button/);
+        expect(out[0].text).toMatch(/never presses buttons/);
+        expect(out[0].text).toMatch(/automatically/);
+    });
+});
+
+describe('small helpers', () => {
+    it('takes the host from a URL, tolerating a missing or malformed one', () => {
+        expect(hostOf('https://www.jobicy.com/jobs/1')).toBe('jobicy.com');
+        expect(hostOf('https://jobs.lever.co/acme')).toBe('jobs.lever.co');
+        expect(hostOf(null)).toBeNull();
+        expect(hostOf('not a url')).toBeNull();
+    });
+
+    it('says where a saved application link came from', () => {
+        expect(describeLinkOrigin('user')).toBe('you entered this');
+        expect(describeLinkOrigin('resolved')).toBe('found by an inspection');
+        expect(describeLinkOrigin(null)).toBe('origin not recorded');
     });
 });

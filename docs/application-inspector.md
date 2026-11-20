@@ -383,6 +383,16 @@ coming from an API. The browser then follows at most two Apply links from there.
 `application_not_found`, `needs_application_url`, `authentication_required`, `blocked`. A record from before stop reasons
 existed (`unsupported` with no reason) is shown as such and never reinterpreted.
 
+**How an outcome reads in the UI.** The Opportunities drawer and the full application page share one presentation
+(`resources/js/lib/inspection-status.ts`, `resources/js/components/inspection-findings.tsx`), so a result is worded the same
+in both. A run that finished but did not reach a form is a worker success with its own finding: `application_not_found` reads
+"Needs application URL" (the listing was reached, the employer's application form was not), with where it started, the
+application URL known so far and who set it (`user` or `resolved`), and the stop reason as a sentence. A listing that applies
+through a JavaScript button is explained as one the inspector could not safely follow automatically (`apply_is_button`).
+"Enter application URL" is the existing override (`application_url` on the inspection request: validated, saved with `user`
+provenance, then inspected). Raw codes, the page trace and every warning stay in a collapsed "Technical details" section;
+repeated warnings are listed once per code with a count (`blocked_non_get ×18`).
+
 **Lease.** `BROWSER_WORKER_CLAIM_TTL` is 120 s. The claim response carries `budget_seconds` (the lease minus a 30 s
 delivery allowance), the worker enforces it as a hard stop, and a result that arrives after a lapsed claim was recovered
 as failed is still rejected as stale.

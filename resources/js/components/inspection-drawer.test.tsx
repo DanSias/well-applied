@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { InspectionStarter } from '@/hooks/use-start-inspection';
 import {
     diagnosticsOf,
+    jobicyNoApplyLinkState,
     jobOf,
     resultOf,
     runOf,
@@ -169,11 +170,12 @@ describe('truthful explanations', () => {
             ),
         );
 
-        expect(html).toContain('No application link found');
+        expect(html).toContain('Needs application URL');
+        // Prominent and open, not tucked into a collapsed section.
         expect(html).toMatch(
-            /<details open[^>]*>\s*<summary[^>]*>\s*Enter the application link yourself/,
+            /<section aria-labelledby="enter-application-url"[^>]*>\s*<h3[^>]*>Enter application URL<\/h3>/,
         );
-        expect(html).toContain('Inspect this link');
+        expect(html).toContain('Save and inspect');
     });
 
     it('lists the candidate destinations when there are several, without choosing one', () => {
@@ -216,7 +218,7 @@ describe('truthful explanations', () => {
             ),
         );
 
-        expect(html).toContain('Buttons are never pressed');
+        expect(html).toContain('never presses buttons');
         // The raw readiness warning stays in the technical details, not in the main view.
         expect(html.split('Technical details')[0]).not.toContain(
             'networkidle_timeout',
@@ -269,7 +271,7 @@ describe('the application link and the technical details', () => {
         expect(html).toContain('https://boards.greenhouse.io/acme/jobs/9');
         expect(html).toContain('(you entered this)');
         expect(html).toContain('Start again from the listing');
-        expect(html).toContain('Use a different application link');
+        expect(html).toContain('Use a different application URL');
     });
 
     it('keeps the technical details collapsed, with the URL trace and the page title inside', () => {
@@ -325,5 +327,100 @@ describe('the application link and the technical details', () => {
         expect(html).toContain('Unsupported (earlier inspection)');
         expect(html).toContain('Not recorded for this inspection');
         expect(html).toContain('Old page');
+    });
+});
+
+describe('a listing whose application form was not found (Jobicy job 348, run 11)', () => {
+    const html = render(jobicyNoApplyLinkState());
+    const main = html.split('Technical details')[0];
+
+    it('says "Needs application URL" and never shows the raw outcome code in the main view', () => {
+        expect(main).toContain('Needs application URL');
+        expect(main).not.toContain('application_not_found');
+        expect(main).not.toContain('no_apply_link');
+        // The code is still available, just secondary.
+        expect(html.split('Technical details')[1]).toContain(
+            'application_not_found / no_apply_link',
+        );
+    });
+
+    it('explains that the listing was reached but the employer form was not found', () => {
+        expect(main).toContain('the listing on jobicy.com');
+        expect(main).toContain(
+            'application form, so there was nothing to read',
+        );
+        expect(main).toContain('The inspector itself ran normally');
+    });
+
+    it('shows where it started, what application URL is known, and why it stopped', () => {
+        expect(main).toContain('Started from');
+        expect(main).toContain('The job listing');
+        expect(main).toContain(
+            'https://jobicy.com/jobs/162959-software-integration-engineer',
+        );
+        expect(main).toContain('Application URL');
+        expect(main).toContain('None yet');
+        expect(main).toContain('Why it stopped');
+        expect(main).toContain('no link to an application form');
+    });
+
+    it('explains that the Apply button could not safely be followed', () => {
+        expect(main).toContain('uses an Apply button rather than a link');
+        expect(main).toContain('never presses buttons');
+    });
+
+    it('shows each repeated warning once with its count, in the technical details only', () => {
+        expect(main).not.toContain('blocked_non_get');
+        expect(html.split('blocked_non_get').length - 1).toBe(1);
+        expect(html).toContain('blocked_non_get ×18');
+        expect(html).toContain('apply_is_button');
+    });
+
+    it('keeps the worker success distinct from the missing application', () => {
+        expect(main).toContain('Needs application URL');
+        expect(html.split('Technical details')[1]).toContain(
+            'Worker run finished',
+        );
+        expect(html).not.toContain('Inspection failed');
+    });
+
+    it('offers a prominent Enter application URL action, with no second, parallel form', () => {
+        expect(main).toMatch(
+            /<section aria-labelledby="enter-application-url"/,
+        );
+        expect(main).toContain('Enter application URL');
+        expect(html.split('id="application-url"').length - 1).toBe(1);
+    });
+
+    it('starts nothing on its own: the Enter application URL form only renders', () => {
+        const start = vi.fn();
+
+        render(jobicyNoApplyLinkState(), starterOf({ start }));
+
+        expect(start).not.toHaveBeenCalled();
+    });
+
+    it('shows who set a saved application link', () => {
+        const user = render(
+            jobicyNoApplyLinkState({
+                application_url: {
+                    url: 'https://boards.greenhouse.io/plusai/jobs/1',
+                    origin: 'user',
+                    set_at: null,
+                },
+            }),
+        );
+        const found = render(
+            jobicyNoApplyLinkState({
+                application_url: {
+                    url: 'https://boards.greenhouse.io/plusai/jobs/1',
+                    origin: 'resolved',
+                    set_at: null,
+                },
+            }),
+        );
+
+        expect(user).toContain('(you entered this)');
+        expect(found).toContain('(found by an inspection)');
     });
 });

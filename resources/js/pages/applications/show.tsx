@@ -1,9 +1,16 @@
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
+import { useState } from 'react';
 import { GenerationStatus } from '@/components/generation-status';
+import {
+    ApplicationUrlForm,
+    InspectionFindings,
+    TechnicalDetails,
+} from '@/components/inspection-findings';
+import { Badge } from '@/components/ui/badge';
 import { WaitingForWorkerNotice } from '@/components/worker-status-badge';
 import { useApplicationInspectionPolling } from '@/hooks/use-application-inspection-polling';
 import { useWorkerStatusPolling } from '@/hooks/use-worker-status-polling';
-import { describeOutcome } from '@/lib/inspection-status';
+import { describeFailure, presentInspection } from '@/lib/inspection-status';
 import AppShell from '@/layouts/app-shell';
 import { store as inspectStore } from '@/routes/jobs/applications';
 import type {
@@ -98,84 +105,13 @@ function QuestionRow({ question }: { question: ApplicationQuestionView }) {
     );
 }
 
-function InspectionResultSection({
-    inspection,
-}: {
-    inspection: ApplicationShowProps['inspection'];
-}) {
-    const result = inspection.latest_result;
-
-    if (!result) {
-        return null;
-    }
-
-    // The same wording as the Opportunities drawer: what the inspection found and why it stopped, never a blanket
-    // "unsupported ATS" for a page that was simply not an application.
-    const outcome =
-        result.inspection_outcome !== null
-            ? describeOutcome(result.inspection_outcome, result.stop_reason)
-            : null;
-
-    return (
-        <div className="mt-4">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-neutral-500 dark:text-neutral-400">
-                <span>
-                    ATS:{' '}
-                    <span className="font-medium text-neutral-700 dark:text-neutral-300">
-                        {result.ats_detected ?? 'unknown'}
-                    </span>
-                </span>
-                <span>
-                    Outcome:{' '}
-                    <span className="font-medium text-neutral-700 dark:text-neutral-300">
-                        {outcome?.label ?? result.inspection_outcome}
-                    </span>
-                </span>
-                <span>{result.field_count} fields</span>
-                {result.unresolved_count > 0 && (
-                    <span>{result.unresolved_count} unresolved</span>
-                )}
-                {result.finished_at && (
-                    <span>
-                        Last inspected{' '}
-                        {new Date(result.finished_at).toLocaleString()}
-                    </span>
-                )}
-            </div>
-
-            {result.warnings.length > 0 && (
-                <ul className="mt-2 space-y-0.5 text-xs text-amber-600 dark:text-amber-400">
-                    {result.warnings.map((warning, index) => (
-                        <li key={index}>⚠ {warning}</li>
-                    ))}
-                </ul>
-            )}
-
-            {result.questions.length === 0 ? (
-                outcome?.explanation && (
-                    <p className="mt-3 text-sm text-neutral-500 dark:text-neutral-400">
-                        {outcome.explanation}
-                    </p>
-                )
-            ) : (
-                <ul className="mt-3 divide-y divide-neutral-200 rounded-lg border border-neutral-200 bg-white dark:divide-neutral-800 dark:border-neutral-800 dark:bg-neutral-900">
-                    {result.questions.map((question) => (
-                        <QuestionRow
-                            key={question.position}
-                            question={question}
-                        />
-                    ))}
-                </ul>
-            )}
-        </div>
-    );
-}
-
 function InspectApplicationAction({
     jobPostingId,
+    sourceUrl,
     inspection,
 }: {
     jobPostingId: number;
+    sourceUrl: string | null;
     inspection: ApplicationShowProps['inspection'];
 }) {
     const form = useForm({});
@@ -184,13 +120,49 @@ function InspectApplicationAction({
         inspection,
     );
     const workerStatus = useWorkerStatusPolling();
+    const view = presentInspection(state);
     const run = state.workflow_run;
-    const isActive = run?.status === 'pending' || run?.status === 'running';
-    const disabled = form.processing || isActive;
+    const result = state.latest_result;
+    const attempt = state.latest_attempt;
+    const link = state.application_url;
+    const diagnostics = (result ?? attempt)?.diagnostics ?? null;
+    const [sendingUrl, setSendingUrl] = useState(false);
+    const isActive = view.active;
+    const disabled = form.processing || sendingUrl || isActive;
+    const failure =
+        run?.status === 'failed'
+            ? describeFailure(
+                  attempt?.failure_category ?? null,
+                  run.failure_message,
+              )
+            : null;
+
+    // The existing override: the same request the drawer makes. The server validates the URL, saves it as the person's own
+    // and inspects it; a refusal comes back as an error on `application_url`.
+    const submitUrl = (
+        url: string,
+        reject: (message: string) => void,
+    ): void => {
+        setSendingUrl(true);
+        router.post(
+            inspectStore.url({ jobPosting: jobPostingId }),
+            { application_url: url },
+            {
+                showProgress: false,
+                preserveScroll: true,
+                onError: (errors) =>
+                    reject(
+                        errors.application_url ??
+                            "Couldn't start the inspection. Nothing was queued.",
+                    ),
+                onFinish: () => setSendingUrl(false),
+            },
+        );
+    };
 
     return (
         <div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
                 <button
                     type="button"
                     disabled={disabled}
@@ -204,20 +176,12 @@ function InspectApplicationAction({
                     }
                     className={buttonClass('primary', 'md')}
                 >
-                    {isActive
-                        ? 'Inspecting…'
-                        : run?.status === 'failed'
-                          ? 'Retry Inspection'
-                          : 'Inspect Application'}
+                    {isActive ? 'Inspecting…' : view.action}
                 </button>
                 {run && (
-                    <span className="text-xs text-neutral-500 dark:text-neutral-400">
-                        {run.status === 'succeeded' &&
-                            'Last inspection succeeded'}
-                        {run.status === 'failed' && 'Last inspection failed'}
-                        {run.status === 'pending' && 'Queued…'}
-                        {run.status === 'running' && 'Inspecting…'}
-                    </span>
+                    <Badge tone={view.headline.tone}>
+                        {view.headline.label}
+                    </Badge>
                 )}
             </div>
 
@@ -229,18 +193,53 @@ function InspectApplicationAction({
                 startedAt={run?.started_at}
             />
 
-            {run?.status === 'failed' && run.failure_message && (
-                <p
-                    role="alert"
-                    className="mt-2 text-sm text-red-600 dark:text-red-400"
-                >
-                    {run.failure_message}
+            {failure !== null && (
+                <p role="alert" className="text-bad mt-2 text-sm break-words">
+                    {failure}
                 </p>
             )}
 
             {isActive && <WaitingForWorkerNotice status={workerStatus} />}
 
-            <InspectionResultSection inspection={state} />
+            <div className="mt-4 space-y-4">
+                {result && (
+                    <InspectionFindings
+                        view={view}
+                        result={result}
+                        attempt={attempt}
+                        link={link}
+                    />
+                )}
+
+                {result && result.questions.length > 0 && (
+                    <ul className="divide-y divide-neutral-200 rounded-lg border border-neutral-200 bg-white dark:divide-neutral-800 dark:border-neutral-800 dark:bg-neutral-900">
+                        {result.questions.map((question) => (
+                            <QuestionRow
+                                key={question.position}
+                                question={question}
+                            />
+                        ))}
+                    </ul>
+                )}
+
+                {(sourceUrl !== null || link?.url) && result && (
+                    <ApplicationUrlForm
+                        saved={link}
+                        prominent={view.needsApplicationUrl}
+                        disabled={disabled}
+                        onSubmit={submitUrl}
+                    />
+                )}
+
+                {diagnostics !== null && (
+                    <TechnicalDetails
+                        diagnostics={diagnostics}
+                        view={view}
+                        run={run}
+                        result={result}
+                    />
+                )}
+            </div>
         </div>
     );
 }
@@ -282,6 +281,7 @@ export default function ApplicationShow({
                 <div className="mt-3">
                     <InspectApplicationAction
                         jobPostingId={application.job_posting.id}
+                        sourceUrl={application.job_posting.source_url}
                         inspection={inspection}
                     />
                 </div>

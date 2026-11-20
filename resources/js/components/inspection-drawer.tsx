@@ -1,6 +1,11 @@
 import { router } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 import { GenerationStatus } from '@/components/generation-status';
+import {
+    ApplicationUrlForm,
+    InspectionFindings,
+    TechnicalDetails,
+} from '@/components/inspection-findings';
 import { Badge } from '@/components/ui/badge';
 import { Button, ButtonAnchor, ButtonLink } from '@/components/ui/button';
 import { Drawer } from '@/components/ui/drawer';
@@ -95,154 +100,6 @@ function Question({ question }: { question: ApplicationQuestionView }) {
     );
 }
 
-function Fact({
-    label,
-    children,
-}: {
-    label: string;
-    children: React.ReactNode;
-}) {
-    return (
-        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-            <dt className="text-fg-subtle text-xs">{label}</dt>
-            <dd className="text-fg text-sm">{children}</dd>
-        </div>
-    );
-}
-
-/** The few warnings worth saying out loud in the main view; every warning is in the technical details. */
-const WARNING_TEXT: Record<string, string> = {
-    apply_is_button:
-        'The page has an "Apply" button rather than a link. Buttons are never pressed, so it was not followed.',
-    apply_is_email:
-        'The page applies by email, which is not something the inspector opens.',
-    destination_is_download:
-        'The Apply link leads to a file, not an application form.',
-};
-
-function TechnicalDetails({
-    diagnostics,
-    run,
-    result,
-}: {
-    diagnostics: InspectionDiagnostics;
-    run: InspectionWorkflowRun | null;
-    result: InspectionResult | null;
-}) {
-    const view = presentInspection({
-        application_id: 0,
-        application_url: null,
-        workflow_run: run,
-        latest_attempt: null,
-        latest_result: result,
-        earlier_result: null,
-    });
-
-    return (
-        <details className="border-line bg-sunken rounded-lg border px-3 py-2">
-            <summary className="text-fg-muted cursor-pointer text-sm">
-                Technical details
-            </summary>
-            <dl className="mt-2 space-y-1.5">
-                <Fact label="Browser worker run">
-                    <Badge tone={view.execution.tone}>
-                        {view.execution.label}
-                    </Badge>
-                </Fact>
-                {result?.inspection_outcome && (
-                    <Fact label="Outcome">
-                        <code className="text-xs">
-                            {result.inspection_outcome}
-                            {result.stop_reason
-                                ? ` / ${result.stop_reason}`
-                                : ''}
-                        </code>
-                    </Fact>
-                )}
-                <Fact label="ATS">
-                    {result?.ats_detected ?? 'Not identified'}
-                </Fact>
-                {!diagnostics.recorded && (
-                    <Fact label="Pages and links">
-                        <span className="text-fg-subtle">
-                            Not recorded for this inspection
-                        </span>
-                    </Fact>
-                )}
-                {diagnostics.start_origin && (
-                    <Fact label="Started from">
-                        {START_ORIGIN[diagnostics.start_origin] ??
-                            diagnostics.start_origin}
-                    </Fact>
-                )}
-                {diagnostics.requested_url && (
-                    <Fact label="Requested">
-                        <span className="text-xs break-all">
-                            {diagnostics.requested_url}
-                        </span>
-                    </Fact>
-                )}
-                {diagnostics.final_url && (
-                    <Fact label="Ended on">
-                        <span className="text-xs break-all">
-                            {diagnostics.final_url}
-                        </span>
-                    </Fact>
-                )}
-                {diagnostics.page_title && (
-                    <Fact label="Page title">
-                        <span className="text-xs break-words">
-                            {diagnostics.page_title}
-                        </span>
-                    </Fact>
-                )}
-                {diagnostics.http_status !== null && (
-                    <Fact label="HTTP status">{diagnostics.http_status}</Fact>
-                )}
-                {diagnostics.total_ms !== null && (
-                    <Fact label="Took">
-                        {(diagnostics.total_ms / 1000).toFixed(1)}s
-                    </Fact>
-                )}
-            </dl>
-            {diagnostics.navigation.length > 0 && (
-                <ol className="text-fg-subtle mt-2 space-y-0.5 text-xs">
-                    {diagnostics.navigation.map((step, index) => (
-                        <li key={index} className="break-all">
-                            {index + 1}. {step.kind}
-                            {step.status !== null
-                                ? ` (${step.status})`
-                                : ''}{' '}
-                            {step.url}
-                        </li>
-                    ))}
-                </ol>
-            )}
-            {diagnostics.warnings.length > 0 && (
-                <ul className="text-warn mt-2 space-y-0.5 text-xs">
-                    {diagnostics.warnings.map((warning, index) => (
-                        <li key={index} className="break-words">
-                            ⚠ {warning}
-                        </li>
-                    ))}
-                </ul>
-            )}
-            {diagnostics.failure_message && (
-                <p className="text-fg-subtle mt-2 text-xs break-words">
-                    {diagnostics.failure_message}
-                </p>
-            )}
-        </details>
-    );
-}
-
-const START_ORIGIN: Record<string, string> = {
-    user: 'The link you entered',
-    resolved: 'The link an earlier inspection found',
-    provider: 'The job source’s application link',
-    source: 'The job listing',
-};
-
 function QuestionList({ result }: { result: InspectionResult }) {
     return (
         <ul className="divide-line border-line bg-surface divide-y rounded-lg border">
@@ -250,92 +107,6 @@ function QuestionList({ result }: { result: InspectionResult }) {
                 <Question key={question.position} question={question} />
             ))}
         </ul>
-    );
-}
-
-/** The person's own application link: enter, replace, or go back to the listing. */
-function ApplicationLinkForm({
-    job,
-    starter,
-    saved,
-    prominent,
-    disabled,
-}: {
-    job: InspectionJob;
-    starter: InspectionStarter;
-    saved: ApplicationInspectionState['application_url'];
-    prominent: boolean;
-    disabled: boolean;
-}) {
-    const [url, setUrl] = useState('');
-    const [problem, setProblem] = useState<string | null>(null);
-
-    const submit = (event: React.FormEvent) => {
-        event.preventDefault();
-        setProblem(null);
-
-        if (url.trim() === '') {
-            setProblem('Enter the application link first.');
-
-            return;
-        }
-
-        starter.start(job.id, {
-            applicationUrl: url.trim(),
-            onInvalid: setProblem,
-        });
-    };
-
-    return (
-        <details open={prominent} className="space-y-2">
-            <summary className="text-fg-muted cursor-pointer text-sm">
-                {saved?.origin === 'user'
-                    ? 'Use a different application link'
-                    : 'Enter the application link yourself'}
-            </summary>
-            <form onSubmit={submit} className="mt-2 space-y-2" noValidate>
-                <label
-                    htmlFor="application-link"
-                    className="text-fg-muted block text-xs"
-                >
-                    The page you would apply through. It is inspected straight
-                    away and kept for next time.
-                </label>
-                <div className="flex flex-wrap gap-2">
-                    <input
-                        id="application-link"
-                        type="url"
-                        inputMode="url"
-                        value={url}
-                        onChange={(event) => setUrl(event.target.value)}
-                        placeholder="https://…"
-                        aria-invalid={problem !== null}
-                        aria-describedby={
-                            problem !== null
-                                ? 'application-link-error'
-                                : undefined
-                        }
-                        className="border-line bg-surface text-fg focus-visible:ring-focus min-w-0 flex-1 basis-64 rounded-md border px-2.5 py-1.5 text-sm focus-visible:ring-2 focus-visible:outline-none"
-                    />
-                    <Button
-                        type="submit"
-                        variant="secondary"
-                        disabled={disabled || starter.starting}
-                    >
-                        Inspect this link
-                    </Button>
-                </div>
-                {problem !== null && (
-                    <p
-                        id="application-link-error"
-                        role="alert"
-                        className="text-bad text-sm"
-                    >
-                        {problem}
-                    </p>
-                )}
-            </form>
-        </details>
     );
 }
 
@@ -446,77 +217,12 @@ function InspectionBody({
                     </p>
                 )}
 
-                {view.outcome && view.outcome.explanation && (
-                    <p
-                        className={
-                            result?.inspection_outcome === 'complete'
-                                ? 'sr-only'
-                                : 'text-fg-muted text-sm leading-relaxed'
-                        }
-                    >
-                        {view.outcomeIsEarlier ? 'Earlier run: ' : ''}
-                        {view.outcome.explanation}
-                    </p>
-                )}
-
-                {result &&
-                    result.warnings
-                        .filter((warning) => warning in WARNING_TEXT)
-                        .map((warning) => (
-                            <p
-                                key={warning}
-                                className="text-warn text-xs leading-relaxed"
-                            >
-                                {WARNING_TEXT[warning]}
-                            </p>
-                        ))}
-
-                {result?.stop_reason === 'multiple_apply_links' &&
-                    result.diagnostics.candidates.length > 0 && (
-                        <ul className="text-fg-muted space-y-0.5 text-xs">
-                            {result.diagnostics.candidates.map(
-                                (candidate, index) => (
-                                    <li key={index} className="break-all">
-                                        {candidate.text
-                                            ? `“${candidate.text}” — `
-                                            : ''}
-                                        {candidate.url}
-                                    </li>
-                                ),
-                            )}
-                        </ul>
-                    )}
-
-                <dl className="border-line bg-sunken space-y-1.5 rounded-lg border px-3 py-2.5">
-                    {link?.url && (
-                        <Fact label="Application link">
-                            <span className="text-xs break-all">
-                                {link.url}
-                            </span>
-                            <span className="text-fg-subtle ml-1.5 text-xs">
-                                {link.origin === 'user'
-                                    ? '(you entered this)'
-                                    : '(found by an inspection)'}
-                            </span>
-                        </Fact>
-                    )}
-                    {result && (
-                        <>
-                            <Fact label="Fields and questions">
-                                {result.field_count}
-                                {result.unresolved_count > 0 &&
-                                    ` (${result.unresolved_count} unresolved)`}
-                            </Fact>
-                            {result.finished_at && (
-                                <Fact label="Last inspected">
-                                    {new Date(
-                                        result.finished_at,
-                                    ).toLocaleString()}
-                                </Fact>
-                            )}
-                        </>
-                    )}
-                </dl>
+                <InspectionFindings
+                    view={view}
+                    result={result}
+                    attempt={attempt}
+                    link={link}
+                />
             </section>
 
             {result && result.questions.length > 0 && (
@@ -606,17 +312,22 @@ function InspectionBody({
                     )}
                 </div>
 
-                <ApplicationLinkForm
-                    job={job}
-                    starter={starter}
+                <ApplicationUrlForm
                     saved={link}
                     prominent={view.needsApplicationUrl}
                     disabled={busy}
+                    onSubmit={(url, reject) =>
+                        starter.start(job.id, {
+                            applicationUrl: url,
+                            onInvalid: reject,
+                        })
+                    }
                 />
 
                 {diagnostics !== null && (
                     <TechnicalDetails
                         diagnostics={diagnostics}
+                        view={view}
                         run={run}
                         result={result}
                     />
