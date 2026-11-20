@@ -15,7 +15,8 @@
 # Three bridges, three roles. The rules key on the INTERFACE the packet arrived on, not a source address, so a forged
 # source address on one bridge cannot borrow another bridge's permissions:
 #   br-inspector  the worker's only path to the internet:   public addresses, TCP 80/443, UDP 443, DNS to two resolvers
-#   br-relay      the API relay's only path to Well Applied: 192.168.1.114 TCP 8000, nothing else
+#   br-relay      the API relay's only path to Well Applied: the Mac's Tailscale address 100.84.185.81 TCP 8000, and only
+#                 when it leaves through tailscale0, nothing else
 #   br-relaylink  internal worker<->relay link (no gateway): forwards nothing
 # Everything from the three bridges to the host itself (the AI box, its LAN and tailnet addresses, Docker's bridge
 # gateways) is refused at the input hook. UFW is inactive on this host, so INPUT would otherwise be open.
@@ -69,7 +70,9 @@ table inet inspector_isolation {
 
   chain from_relay {
     meta nfproto ipv6 drop
-    ip daddr 192.168.1.114 tcp dport 8000 accept
+    # Well Applied, over the tailnet. The interface match is deliberate: if tailscale0 is down the route falls back to the
+    # LAN or default gateway, and then this does not match, so the relay is refused instead of leaving by another path.
+    ip daddr 100.84.185.81 oifname "tailscale0" tcp dport 8000 accept
     meta nfproto ipv4 reject with icmp type admin-prohibited
   }
 

@@ -18,7 +18,7 @@ const urlSafety = read('src/url-safety.js');
 const units = Object.fromEntries(['inspector-isolation.service', 'inspector-isolation-guard.service', 'well-applied-browser-inspector.service', 'docker.service.d-inspector-isolation.conf'].map((f) => [f, read(`isolation/${f}`)]));
 
 const BRIDGES = { egress: 'br-inspector', 'relay-link': 'br-relaylink', 'relay-out': 'br-relay' };
-const WELL_APPLIED = { host: '192.168.1.114', port: '8000' };
+const WELL_APPLIED = { host: '100.84.185.81', port: '8000' };
 
 /** The text of one top-level service block of compose.yaml. */
 const service = (name) => compose.split(/^  (?=[a-z-]+:\n)/m).find((b) => b.startsWith(`${name}:`)) ?? '';
@@ -35,11 +35,15 @@ describe('the same facts in every file', () => {
 
     test('Well Applied is the same address and port in the policy, the relay, the canaries and the relay test', () => {
         const { host, port } = WELL_APPLIED;
-        assert.match(nft, new RegExp(`ip daddr ${host.replaceAll('.', '\\.')} tcp dport ${port} accept`));
+        assert.match(nft, new RegExp(`ip daddr ${host.replaceAll('.', '\\.')} oifname "tailscale0" tcp dport ${port} accept`), 'allowed only out of tailscale0');
         assert.match(nginx, new RegExp(`server ${host.replaceAll('.', '\\.')}:${port};`));
         assert.match(compose, new RegExp(`${host.replaceAll('.', '\\.')}:9`), 'the Mac is a canary (closed port)');
         assert.match(read('test/isolation/relay-test.py'), new RegExp(`${host.replaceAll('.', '\\.')}', ${port}`));
-        assert.equal((strip(nft).match(/192\.168\.1\.114/g) ?? []).length, 1, 'the policy names the Mac exactly once');
+        assert.equal((strip(nft).match(/100\.84\.185\.81/g) ?? []).length, 1, 'the policy names the Mac exactly once');
+        // The old LAN address (a DHCP lease) is not allowed, proxied to or a canary anywhere. (The network tests name it only to prove it is refused.)
+        for (const f of ['isolation/inspector-isolation.nft', 'relay/nginx.conf', 'compose.yaml', 'test/isolation/relay-test.py']) {
+            assert.ok(!strip(read(f)).includes('192.168.1.114'), `${f} still depends on the Mac's LAN address`);
+        }
     });
 
     test('the container resolvers are exactly the resolvers the policy allows', () => {
@@ -152,6 +156,14 @@ describe('the properties the design rests on', () => {
         assert.match(worker, /^Restart=on-failure$/m, 'a restart goes through verify again');
         assert.ok(!/^Restart=always/m.test(worker));
 
+        // Tailscale ordering: the worker starts after tailscaled and waits (bounded) for tailscale0, but never requires, wants,
+        // starts or restarts it, and no other unit depends on the worker.
+        assert.match(worker, /^After=[^\n]*\btailscaled\.service\b/m);
+        assert.match(worker, /^ExecStartPre=\/usr\/bin\/timeout 30 \/bin\/sh -c 'until \[ -e \/sys\/class\/net\/tailscale0 \]; do sleep 1; done'$/m);
+        assert.ok(!/^(Requires|Wants|BindsTo|PartOf|Upholds)=[^\n]*tailscale/m.test(worker), 'the worker does not pull in or bind to tailscaled');
+        assert.ok(worker.indexOf('timeout 30') < worker.indexOf('inspector-isolation verify'), 'the Tailscale wait precedes verify');
+        for (const [name, text] of Object.entries(units)) if (!name.startsWith('well-applied-browser-inspector')) assert.ok(!/well-applied-browser-inspector/.test(strip(text)), `${name} must not depend on the worker`);
+
         const guard = units['inspector-isolation-guard.service'];
         assert.match(guard, /^BindsTo=inspector-isolation\.service$/m);
         assert.match(guard, /^Restart=always$/m);
@@ -167,7 +179,8 @@ describe('the properties the design rests on', () => {
 
     test('nothing in the deployment files touches another service\'s firewall, containers or configuration', () => {
         const all = [read('isolation/install.sh'), read('isolation/rollback.sh'), read('isolation/bin/inspector-isolation'), ...Object.values(units)].map(strip).join('\n');
-        assert.ok(!/\bufw\b|iptables|ip6tables|tailscale|flush ruleset|nft (flush|delete (?!table))/.test(all), 'no ufw/iptables/tailscale and no flushing');
+        assert.ok(!/\bufw\b|iptables|ip6tables|flush ruleset|nft (flush|delete (?!table))/.test(all), 'no ufw/iptables and no flushing');
+        assert.ok(!/\btailscale\s+(up|down|set|serve|funnel|file|ssh|login|logout|cert)\b|systemctl[^\n]*tailscale/.test(all), 'Tailscale is never configured, started or restarted');
         assert.ok(!/(open-webui|ollama|application-preparer|silverbullet)/i.test(all));
     });
 });

@@ -4,12 +4,15 @@ Description=Well Applied browser inspector (isolated)
 # refuses to start it unless the policy loaded in the kernel is exactly what was applied. Compose's own restart policies are
 # "no": nothing but this unit starts the containers.
 Requires=docker.service inspector-isolation.service inspector-isolation-guard.service
-After=docker.service inspector-isolation.service inspector-isolation-guard.service network-online.target
+After=docker.service inspector-isolation.service inspector-isolation-guard.service network-online.target tailscaled.service
 Wants=network-online.target
 
 [Service]
 User=@WORKER_USER@
 WorkingDirectory=@WORKER_DIR@
+# The relay reaches Well Applied over the tailnet, so wait (at most 30 s) for tailscale0 before starting. This is ordering and a
+# bounded check only: nothing here starts, stops or restarts tailscaled, and tailscaled does not depend on this unit.
+ExecStartPre=/usr/bin/timeout 30 /bin/sh -c 'until [ -e /sys/class/net/tailscale0 ]; do sleep 1; done'
 # "+" runs this one step as root (nft needs it) whatever User= says. A failure here means the worker does not start.
 ExecStartPre=+/usr/local/sbin/inspector-isolation verify
 ExecStart=/usr/bin/docker compose up --no-build --pull never --abort-on-container-exit --no-color

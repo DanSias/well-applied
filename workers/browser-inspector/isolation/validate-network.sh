@@ -15,7 +15,7 @@ IMAGE=${IMAGE:-well-applied-browser-inspector:local}
 PROJECT=${PROJECT:-well-applied-browser-inspector}
 EGRESS=${PROJECT}_egress; LINK=${PROJECT}_relay-link
 WORKER=well-applied-browser-inspector; RELAY=well-applied-api-relay
-CANARIES="172.29.60.1:9,172.29.61.1:9,172.29.62.1:9,192.168.1.111:9,192.168.1.114:9"
+CANARIES="172.29.60.1:9,172.29.61.1:9,172.29.62.1:9,192.168.1.111:9,100.119.215.69:9,100.84.185.81:9"
 pass=0; fail=0
 ok()  { pass=$((pass+1)); echo "  ok    $1"; }
 bad() { fail=$((fail+1)); echo "  FAIL  $1"; }
@@ -51,6 +51,22 @@ pre)
       console.log("   ", JSON.stringify(results));
       process.exit(results.web === "connected" && results.port8080 !== "connected" && results.v6 !== "connected" ? 0 : 1);
     })().catch((e) => { console.log("   error", e.code ?? e.message); process.exit(1); });' && ok "public web reachable; :8080 and IPv6 are not" || bad "public/port/IPv6 expectations failed"
+
+  echo "== from the relay network (br-relay): Well Applied over the tailnet and nothing else"
+  # Same hardening and network as the relay. TCP connects only, no data is sent. 100.84.185.81:8000 needs the Mac online on
+  # the tailnet with Well Applied listening; every other target must be refused by the policy (EHOSTUNREACH) at once.
+  docker run "${HARDEN[@]}" --network "${PROJECT}_relay-out" --user pwuser --entrypoint node "$IMAGE" -e '
+    const net = require("net");
+    const t = (h, p) => new Promise((res) => { const s = net.connect({ host: h, port: p, timeout: 4000 });
+      s.on("connect", () => { s.destroy(); res("connected"); }); s.on("error", (e) => res(e.code)); s.on("timeout", () => { s.destroy(); res("timeout"); }); });
+    (async () => {
+      const want = [["100.84.185.81", 8000, "connected"], ["100.84.185.81", 9, "EHOSTUNREACH"], ["100.127.255.254", 9, "EHOSTUNREACH"],
+        ["100.100.100.100", 9, "EHOSTUNREACH"], ["192.168.1.114", 9, "EHOSTUNREACH"], ["192.168.1.111", 9, "EHOSTUNREACH"], ["93.184.216.34", 443, "EHOSTUNREACH"]];
+      let ok = true;
+      for (const [h, p, w] of want) { const g = await t(h, p); const good = g === w; ok = ok && good; console.log("   ", h + ":" + p, g, good ? "" : "(wanted " + w + ")"); }
+      process.exit(ok ? 0 : 1);
+    })();' && ok "the relay network reaches only 100.84.185.81:8000 (through tailscale0); everything else is refused" \
+         || bad "relay network: unexpected result (is the Mac online on the tailnet with Well Applied listening on :8000?)"
   ;;
 
 post)

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Runs inside the test container that owns the network namespace. The real nginx (relay/nginx.conf, unmodified) runs in a
-# second container sharing this namespace. A fake "Well Applied" listens on 192.168.1.114:8000 and records everything it
+# second container sharing this namespace. A fake "Well Applied" listens on 100.84.185.81:8000 and records everything it
 # is sent; the relay must pass exactly two kinds of request and nothing else.
 import socket, subprocess, sys, threading, time
 
@@ -9,7 +9,7 @@ lock = threading.Lock()
 
 def upstream():
     s = socket.socket(); s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    s.bind(('192.168.1.114', 8000)); s.listen(16)
+    s.bind(('100.84.185.81', 8000)); s.listen(16)
     while True:
         c, _ = s.accept()
         threading.Thread(target=handle, args=(c,), daemon=True).start()
@@ -142,7 +142,7 @@ check(f'all {len(everything)} requests that reached Well Applied are canonical, 
 print('== the relay has no way to name another upstream')
 conf = open('/relay/nginx.conf').read()
 check('no resolver directive', 'resolver ' not in conf)
-check('exactly one upstream address', conf.count('server 192.168.1.114:8000;') == 1 and conf.count('proxy_pass') == 2)
+check('exactly one upstream address', conf.count('server 100.84.185.81:8000;') == 1 and conf.count('proxy_pass') == 2)
 check('proxy_pass only to the named upstream', all(l.strip().startswith('proxy_pass http://well_applied$uri;') for l in conf.splitlines() if 'proxy_pass' in l and not l.strip().startswith('#')))
 
 print(f'\nRESULT: {passed} passed, {failed} failed')

@@ -5,7 +5,11 @@
 #   H  the "host": bridges br-inspector / br-relaylink / br-relay, its own LAN address 192.168.1.111, Docker-style and
 #      Tailscale-style chains at priority 0 (FORWARD policy DROP, accept for br-* and for oifname tailscale0)
 #   W  the worker (on br-inspector and br-relaylink)      R  the relay (on br-relay and br-relaylink)
-#   X  "the internet" and every blocked range             M  the Mac (192.168.1.114)       T  a tailnet peer (100.64.1.5)
+#   X  "the internet" and every blocked range
+#   T  the tailnet, behind the interface named tailscale0: the Mac (100.84.185.81, fd7a:115c:a1e0::e233:b953), the address next to
+#      it (100.84.185.82) and another peer (100.64.1.5)
+#   M  a machine on the physical LAN: the Mac's OLD LAN address (192.168.1.114), and (for the "wrong interface" test) a second,
+#      non-tailnet route to 100.84.185.81
 set -u
 RULES=${RULES:-/rules/inspector-isolation.nft}
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -17,6 +21,7 @@ probe(){ local ns=$1; shift; ip netns exec "$ns" python3 "$HERE/probe.py" "$@"; 
 expect(){ local ns=$1 desc=$2 want=$3; shift 3; local got; got=$(probe "$ns" "$1" "$2" "${TMO:-1.2}" "${3:-}"); [ "$got" = "$want" ] && ok "$desc" || bad "$desc" "$got" "$want"; }
 not_connected(){ local ns=$1 desc=$2; shift 2; local got; got=$(probe "$ns" "$1" "$2" "${TMO:-1.2}" "${3:-}"); [ "$got" != connected ] && ok "$desc ($got)" || bad "$desc" "$got" "anything but connected"; }
 
+MAC4=100.84.185.81; NEXT4=100.84.185.82; PEER4=100.64.1.5; MAC6=fd7a:115c:a1e0::e233:b953
 sysctl -qw net.ipv4.ip_forward=1 net.ipv6.conf.all.forwarding=1
 # Linux rate-limits the ICMP errors a reject sends (a burst of 6, then one a second, per peer), so back-to-back probes would
 # see "timeout" for some refusals. A timeout is still not a connection, but this test wants deterministic answers, so it is
@@ -50,15 +55,21 @@ PUBLIC="8.8.8.8 1.1.1.1 93.184.216.34"
 BLOCKED="10.255.255.254 169.254.169.254 100.127.255.254 192.168.255.254 172.31.255.254"
 for a in $PUBLIC $BLOCKED; do ip netns exec X ip addr add $a/32 dev lo; ip route add $a/32 via 10.99.1.2; done
 ip netns exec X ip -6 addr add fd00:ee::1/128 dev lo nodad; ip -6 route add fd00:ee::1/128 via fd00:99::2
-# --- M: the Mac. T: a tailnet peer behind the interface named tailscale0
+# --- M: a machine on the LAN. T: the tailnet, behind the interface named tailscale0 (the real one is Tailscale's, 100.64/10)
 link hm0 M hm1; ip addr add 10.99.2.1/30 dev hm0; ip netns exec M ip addr add 10.99.2.2/30 dev hm1; ip netns exec M ip route add default via 10.99.2.1
 ip netns exec M ip addr add 192.168.1.114/32 dev lo; ip route add 192.168.1.114/32 via 10.99.2.2
+ip netns exec M ip addr add $MAC4/32 dev lo      # reachable ONLY when the route to the Mac's tailnet address is switched to hm0
 link tailscale0 T t1; ip addr add 10.99.3.1/30 dev tailscale0; ip netns exec T ip addr add 10.99.3.2/30 dev t1; ip netns exec T ip route add default via 10.99.3.1
-ip netns exec T ip addr add 100.64.1.5/32 dev lo; ip route add 100.64.0.0/10 via 10.99.3.2 dev tailscale0
+ip -6 addr add fd00:93::1/64 dev tailscale0 nodad; ip netns exec T ip -6 addr add fd00:93::2/64 dev t1 nodad; ip netns exec T ip -6 route add default via fd00:93::1
+for a in $MAC4 $NEXT4 $PEER4; do ip netns exec T ip addr add $a/32 dev lo; done
+ip netns exec T ip -6 addr add $MAC6/128 dev lo nodad
+ip route add 100.64.0.0/10 via 10.99.3.2 dev tailscale0
+ip route add $MAC4/32 via 10.99.3.2 dev tailscale0
+ip -6 route add fd7a:115c:a1e0::/48 via fd00:93::2 dev tailscale0
 # --- stand-in services
 ip netns exec X python3 "$HERE/listen.py" 80 443 53 8080 22 >/dev/null 2>&1 &
-ip netns exec M python3 "$HERE/listen.py" 8000 >/dev/null 2>&1 &
-ip netns exec T python3 "$HERE/listen.py" 80 >/dev/null 2>&1 &
+ip netns exec M python3 "$HERE/listen.py" 8000 80 >/dev/null 2>&1 &
+ip netns exec T python3 "$HERE/listen.py" 80 8000 22 >/dev/null 2>&1 &
 ip netns exec R python3 "$HERE/listen.py" 8081 >/dev/null 2>&1 &
 ip netns exec W python3 "$HERE/listen.py" 7777 >/dev/null 2>&1 &
 python3 "$HERE/listen.py" 22 11434 3000 >/dev/null 2>&1 &     # services on the host itself
@@ -77,11 +88,15 @@ nft 'add chain ip6 simfilter6 FORWARD { type filter hook forward priority 0; pol
 
 sleep 2   # let IPv6 duplicate-address detection and neighbour discovery settle before the baseline
 echo "== baseline: no isolation policy loaded (proves every probe below CAN succeed, so a later block means something)"
-for t in "93.184.216.34 443" "10.255.255.254 80" "169.254.169.254 80" "100.127.255.254 80" "100.64.1.5 80" "192.168.1.114 8000" "192.168.1.111 11434" "172.29.60.1 22" "fd00:ee::1 443"; do
+for t in "93.184.216.34 443" "10.255.255.254 80" "169.254.169.254 80" "100.127.255.254 80" "100.64.1.5 80" "100.84.185.81 8000" "fd7a:115c:a1e0::e233:b953 8000" "192.168.1.114 8000" "192.168.1.111 11434" "172.29.60.1 22" "fd00:ee::1 443"; do
   set -- $t; expect W "worker reaches $1:$2 with no policy" connected "$1" "$2"
 done
-expect R "relay reaches the Mac with no policy" connected 192.168.1.114 8000
+expect R "relay reaches the Mac (tailnet address) with no policy" connected 100.84.185.81 8000
 expect R "relay reaches the internet with no policy" connected 93.184.216.34 443
+# the alternative path used by the interface test below must work without the policy, or its refusal would prove nothing
+ip route replace $MAC4/32 via 10.99.2.2 dev hm0
+expect R "relay reaches 100.84.185.81:8000 through hm0 with no policy (the wrong-interface path is real)" connected $MAC4 8000
+ip route replace $MAC4/32 via 10.99.3.2 dev tailscale0
 
 echo "== policy loaded"
 nft -c -f "$RULES" && ok "policy passes nft -c" || bad "policy passes nft -c" fail ok
@@ -95,8 +110,13 @@ expect W "worker -> public :22 refused" rejected 93.184.216.34 22
 echo "-- worker: every private range, with Docker's and Tailscale's accepts sitting at priority 0"
 for a in $BLOCKED; do expect W "worker -> $a:80 refused fast" rejected $a 80; done
 expect W "worker -> tailnet peer 100.64.1.5:80 (forwarded out of tailscale0) refused" rejected 100.64.1.5 80
-expect W "worker -> Mac 192.168.1.114:8000 directly refused" rejected 192.168.1.114 8000
-expect W "worker -> Mac closed port :9 refused by the policy, not by the Mac" rejected 192.168.1.114 9
+expect W "worker -> the Mac's tailnet address 100.84.185.81:8000 directly refused" rejected 100.84.185.81 8000
+expect W "worker -> the Mac's tailnet address, closed port :9, refused by the policy, not by the Mac" rejected 100.84.185.81 9
+expect W "worker -> the address next to the Mac's (100.84.185.82:8000) refused" rejected 100.84.185.82 8000
+expect W "worker -> tailnet peer on the Mac's port (100.64.1.5:8000) refused" rejected 100.64.1.5 8000
+expect W "worker -> the Mac's old LAN address 192.168.1.114:8000 refused" rejected 192.168.1.114 8000
+TMO=1.0 not_connected W "worker -> the Mac's IPv6 tailnet address :8000 (dropped)" $MAC6 8000
+TMO=1.0 not_connected W "worker -> the Mac's IPv6 tailnet address :80 (dropped)" $MAC6 80
 echo "-- worker -> the host itself (INPUT is open on the real box: UFW is inactive)"
 expect W "worker -> host LAN address :11434 refused" rejected 192.168.1.111 11434
 expect W "worker -> its own gateway :22 refused" rejected 172.29.60.1 22
@@ -105,25 +125,37 @@ expect W "worker -> the relay's gateway :22 refused" rejected 172.29.62.1 22
 echo "-- worker <-> relay on the internal link (same bridge, not routed)"
 expect W "worker -> relay 172.29.61.2:8081 allowed" connected 172.29.61.2 8081
 echo "-- relay (br-relay): Well Applied and nothing else"
-expect R "relay -> Mac :8000 allowed" connected 192.168.1.114 8000
-expect R "relay -> Mac :9 refused" rejected 192.168.1.114 9
+expect R "relay -> the Mac over tailscale0, 100.84.185.81:8000 allowed" connected 100.84.185.81 8000
+expect R "relay -> the Mac :9 refused" rejected 100.84.185.81 9
+expect R "relay -> the Mac, wrong port :80 refused (a service IS listening there)" rejected 100.84.185.81 80
+expect R "relay -> the Mac, wrong port :22 refused (a service IS listening there)" rejected 100.84.185.81 22
+expect R "relay -> the address next to the Mac's (100.84.185.82:8000) refused" rejected 100.84.185.82 8000
+expect R "relay -> another tailnet peer on the same port (100.64.1.5:8000) refused" rejected 100.64.1.5 8000
+expect R "relay -> tailnet peer :80 refused" rejected 100.64.1.5 80
+expect R "relay -> the Mac's old LAN address 192.168.1.114:8000 refused" rejected 192.168.1.114 8000
+TMO=1.0 not_connected R "relay -> the Mac's IPv6 tailnet address :8000 (dropped)" $MAC6 8000
 expect R "relay -> the internet refused" rejected 93.184.216.34 443
-expect R "relay -> tailnet peer refused" rejected 100.64.1.5 80
 expect R "relay -> host LAN address refused" rejected 192.168.1.111 11434
 expect R "relay -> blocked range refused" rejected 10.255.255.254 80
 expect R "relay -> worker over the relay link works (replies to the worker)" connected 172.29.61.3 7777
+echo "-- relay: the allowed destination is allowed only out of tailscale0"
+# tailscale down or misrouted: the Mac's tailnet address is now reachable (and listening on 8000) through the LAN interface instead
+ip route replace $MAC4/32 via 10.99.2.2 dev hm0
+expect R "relay -> 100.84.185.81:8000 leaving through hm0 (not tailscale0) refused, although a service answers there" rejected $MAC4 8000
+ip route replace $MAC4/32 via 10.99.3.2 dev tailscale0
+expect R "route restored: allowed again through tailscale0" connected $MAC4 8000
 echo "-- a worker that tries to cheat"
 # spoof the relay's address on the egress bridge: rules follow the interface, not the source address
 ip netns exec W ip addr add 172.29.62.2/32 dev w1
 # (the ICMP refusal goes to the FORGED source, so the worker never hears it: a timeout is the correct, blocked result)
-not_connected W "worker spoofing the relay's source address cannot reach the Mac :8000" 192.168.1.114 8000 172.29.62.2
+not_connected W "worker spoofing the relay's source address cannot reach the Mac :8000" 100.84.185.81 8000 172.29.62.2
 ip netns exec W ip addr del 172.29.62.2/32 dev w1
 # route the Mac over the relay link: that bridge forwards nothing
-ip netns exec W ip route add 192.168.1.114/32 via 172.29.61.1 dev wl1
-expect W "worker routing the Mac over the relay link refused" rejected 192.168.1.114 8000
+ip netns exec W ip route add 100.84.185.81/32 via 172.29.61.1 dev wl1
+expect W "worker routing the Mac over the relay link refused" rejected 100.84.185.81 8000
 ip netns exec W ip route add 93.184.216.34/32 via 172.29.61.1 dev wl1 2>/dev/null
 expect W "worker routing even a public address over the relay link refused" rejected 93.184.216.34 443
-ip netns exec W ip route del 192.168.1.114/32; ip netns exec W ip route del 93.184.216.34/32
+ip netns exec W ip route del 100.84.185.81/32; ip netns exec W ip route del 93.184.216.34/32
 echo "-- IPv6"
 TMO=1.0 not_connected W "worker -> IPv6 destination via the egress bridge" fd00:ee:: 443
 TMO=1.0 not_connected W "worker -> IPv6 destination (host form)" fd00:ee::1 443

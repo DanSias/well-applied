@@ -42,12 +42,12 @@ describe('canary evidence', () => {
     test('includes the operator\'s extra canaries (this deployment\'s gateways, the host and the Mac)', async () => {
         const seen = [];
         await checkIsolation({
-            extraTargets: ['172.29.60.1:9', '192.168.1.114:9'],
+            extraTargets: ['172.29.60.1:9', '100.84.185.81:9'],
             probe: async (t) => (seen.push(t), rejected(t)),
             readStatus: () => GOOD_STATUS,
         });
 
-        assert.ok(seen.includes('172.29.60.1:9') && seen.includes('192.168.1.114:9'));
+        assert.ok(seen.includes('172.29.60.1:9') && seen.includes('100.84.185.81:9'));
     });
 
     test('refusals lost to the ICMP rate limit are retried one by one, but only when the policy has shown itself', async () => {
@@ -60,7 +60,7 @@ describe('canary evidence', () => {
 
             return limited && n === 1 ? { target, outcome: 'timeout' } : { target, outcome: 'rejected', code: 'EHOSTUNREACH' };
         };
-        const extra = ['172.29.60.1:9', '172.29.61.1:9', '192.168.1.114:9', '192.168.1.111:9'];
+        const extra = ['172.29.60.1:9', '172.29.61.1:9', '100.84.185.81:9', '192.168.1.111:9'];
         const verdict = await checkIsolation({ extraTargets: extra, probe, readStatus: () => GOOD_STATUS, sleep: async () => {} });
 
         assert.equal(verdict.ok, true, verdict.failures.join('; '));
@@ -155,9 +155,9 @@ describe('configuration', () => {
         const base = { CAREER_TOOLKIT_URL: 'http://api-relay:8081', BROWSER_WORKER_TOKEN: 't' };
 
         assert.equal(loadConfig(base).isolation.required, false);
-        const config = loadConfig({ ...base, BROWSER_WORKER_REQUIRE_ISOLATION: '1', BROWSER_WORKER_ISOLATION_CANARIES: '172.29.60.1:9, bad ,10.0.0.1:x,192.168.1.114:9' });
+        const config = loadConfig({ ...base, BROWSER_WORKER_REQUIRE_ISOLATION: '1', BROWSER_WORKER_ISOLATION_CANARIES: '172.29.60.1:9, bad ,10.0.0.1:x,100.84.185.81:9' });
         assert.equal(config.isolation.required, true);
-        assert.deepEqual(config.isolation.extraTargets, ['172.29.60.1:9', '192.168.1.114:9']);
+        assert.deepEqual(config.isolation.extraTargets, ['172.29.60.1:9', '100.84.185.81:9']);
         assert.deepEqual(parseTargets(undefined), []);
     });
 });

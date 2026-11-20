@@ -10,7 +10,7 @@ enforce what the worker's containers can reach, and makes the worker unable to r
                          ┌──────────── AI box (Ubuntu, Docker 29, iptables-nft, Tailscale) ────────────┐
  internet  ◄── 80/443 ── │ br-inspector ── browser-inspector ──┐                                          │
  (public only)           │   172.29.60.0/24                    │ br-relaylink (internal, no gateway)      │
-                         │                                     └──── api-relay ── br-relay ── 192.168.1.114:8000
+                         │                                     └──── api-relay ── br-relay ── 100.84.185.81:8000 (tailscale0)
                          │  nftables table inet inspector_isolation @ priority -10 (host-enforced)        │   (Well Applied, the Mac)
                          │  systemd: policy unit ▸ guard unit ▸ worker unit                               │
                          └────────────────────────────────────────────────────────────────────────────────┘
@@ -20,7 +20,7 @@ enforce what the worker's containers can reach, and makes the worker unable to r
 |---|---|---|
 | `br-inspector` | the worker (Chromium) | **public** addresses, TCP 80/443, UDP 443, DNS to 9.9.9.9 / 1.1.1.1. Not: any private, loopback, link-local (cloud metadata), CGNAT (**all of Tailscale**), documentation, multicast or reserved range; not the AI box; not IPv6. |
 | `br-relaylink` | worker ⇄ relay | each other (layer 2). Forwards nothing. |
-| `br-relay` | the relay | `192.168.1.114:8000` (Well Applied) and nothing else. |
+| `br-relay` | the relay | `100.84.185.81:8000` (Well Applied, the Mac's **Tailscale** address) and nothing else, and only when the packet leaves through `tailscale0`: if Tailscale is down the route falls back to the LAN or default gateway, which the policy refuses. |
 
 Anything arriving from these bridges and addressed to **the AI box itself** (its LAN and tailnet addresses, Docker's bridge
 gateways, SSH, Ollama, Open WebUI) is refused at the input hook. UFW is inactive on this host, so INPUT would otherwise be open.
@@ -113,13 +113,21 @@ still requires a seccomp filter to be installed).
 
 ## Assumptions to confirm before deploying
 
-* **`192.168.1.114` (the Mac) stays that address.** Reserve it in your router's DHCP. It appears in the policy, the relay and
-  the canaries (a test fails if they disagree). To change it: `sudo systemctl stop well-applied-browser-inspector`, edit all
-  three, copy the policy to `/etc/inspector-isolation/`, `sudo inspector-isolation apply`, then start the worker. (Stop the
-  worker first: while the table and its recorded fingerprint disagree, the guard rightly treats the policy as lost.)
+* **The Mac is `100.84.185.81` on the tailnet** (`daniels-macbook-air`). No DHCP reservation is needed: the Mac's LAN address no
+  longer appears anywhere (the relay, the policy and the canaries use the Tailscale address, and a test fails if they disagree).
+  A node keeps its Tailscale address until it is removed from the tailnet and re-added; then it gets a new one, the relay fails
+  closed, and you update the three places. To change it: `sudo systemctl stop well-applied-browser-inspector`, edit
+  `inspector-isolation.nft`, `relay/nginx.conf` and `compose.yaml` (canaries), copy the policy to `/etc/inspector-isolation/`,
+  `sudo inspector-isolation apply`, then start the worker. (Stop the worker first: while the table and its recorded fingerprint
+  disagree, the guard rightly treats the policy as lost.) Use the **IP, not the MagicDNS name**: the relay has no resolver by design.
+* **Tailscale must be running on both machines** (the worker unit orders itself after `tailscaled` and waits up to 30 s for
+  `tailscale0`, but never starts, stops or restarts it), and the tailnet ACL must allow `ai-box` to reach the Mac on TCP 8000 (it
+  does today; no change is needed). Optional hardening: restrict that grant to `tcp:8000`. The ACL sees the AI box, not the relay,
+  so the nftables policy is what limits which container may use the grant. If the Mac's Tailscale key expires, the Mac drops off
+  the tailnet (its address is kept) until you re-authenticate; the Mac asleep is offline, exactly as it was on the LAN.
 * DNS is **9.9.9.9 / 1.1.1.1**, not the router, so internal names are never resolved for the worker.
 * Only **TCP 80/443 and UDP 443** leave the worker. An application site on another port will fail.
-* Well Applied listens on `0.0.0.0:8000` (`SERVER_HOST=0.0.0.0`) and the Mac accepts the AI box's address (as it does today).
+* Well Applied listens on `0.0.0.0:8000` (`SERVER_HOST=0.0.0.0`), which includes the Mac's Tailscale interface, and the Mac's own firewall allows it (it did when checked; Tailscale's ShieldsUp is off).
 
 ## Layout and naming
 
@@ -197,6 +205,7 @@ needed only where shown.
    docker compose up --no-start
    isolation/validate-network.sh pre
    ```
+   `pre` includes a throwaway container on the relay network that must reach `100.84.185.81:8000` (so the Mac must be online on the tailnet with Well Applied running) and be refused everywhere else.
 9. **[AI box, sudo]** Start the worker (through systemd, the only supported way):
    ```sh
    sudo systemctl start well-applied-browser-inspector
@@ -250,7 +259,7 @@ without a seccomp filter.
 ## Tests
 | What | How | Run |
 |---|---|---|
-| nftables policy semantics (62 checks: ordering vs Docker/Tailscale-style chains, every blocked range, host, Mac, relay-link, spoofing, IPv6, atomic reload) | privileged, network-less container with network namespaces | `docker build -t isolation-nft-test test/isolation/image && test/isolation/run-netns-test.sh` (set `BRNF=0/1`) |
+| nftables policy semantics (78 checks: ordering vs Docker/Tailscale-style chains, every blocked range, host, the Mac over a simulated tailscale0, wrong ports and neighbouring tailnet addresses, the wrong outgoing interface, relay-link, spoofing, IPv6, atomic reload) | privileged, network-less container with network namespaces | `docker build -t isolation-nft-test test/isolation/image && test/isolation/run-netns-test.sh` (set `BRNF=0/1`) |
 | relay allow-list and normalisation | the real nginx image, fake Well Applied | `test/isolation/run-relay-test.sh` |
 | guard against the real `nft` | same container | `test/isolation/run-guard-integration-test.sh` |
 | controller, install/rollback, config consistency, worker self-check, redaction | `npm test` | |

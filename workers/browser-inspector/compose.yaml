@@ -5,7 +5,7 @@
 #                               web ports only: no LAN, no tailnet, no cloud metadata, no host, no IPv6.
 #   relay-link   br-relaylink   internal (no gateway): worker <-> relay, nothing else. The worker reaches Well Applied
 #                               ONLY through the relay, which exposes two POST endpoints and nothing more.
-#   relay-out    br-relay       the RELAY's only route to Well Applied (192.168.1.114:8000), and nothing else.
+#   relay-out    br-relay       the RELAY's only route to Well Applied (the Mac's Tailscale address, 100.84.185.81:8000, through tailscale0), and nothing else.
 #
 # The bridge names, subnets, the Well Applied address and the resolvers are mirrored in isolation/inspector-isolation.nft
 # and relay/nginx.conf; test/isolation-config.test.js fails if any of them drift apart.
@@ -60,8 +60,9 @@ services:
       # the sandbox fails instead of quietly running without it. Needs the seccomp profile below.
       BROWSER_WORKER_CHROMIUM_SANDBOX: "1"
       # Canaries the policy must refuse (closed ports on this deployment's own addresses): the bridge gateways, the AI box on
-      # the LAN, and the Mac.
-      BROWSER_WORKER_ISOLATION_CANARIES: "172.29.60.1:9,172.29.61.1:9,172.29.62.1:9,192.168.1.111:9,192.168.1.114:9"
+      # the LAN, the AI box's own tailnet address, and the Mac's tailnet address (the worker may never reach Well Applied
+      # directly; only the relay may).
+      BROWSER_WORKER_ISOLATION_CANARIES: "172.29.60.1:9,172.29.61.1:9,172.29.62.1:9,192.168.1.111:9,100.119.215.69:9,100.84.185.81:9"
     depends_on:
       - api-relay
     # Docker's default seccomp profile with exactly four syscalls (clone, unshare, setns, chroot) allowed to unprivileged
