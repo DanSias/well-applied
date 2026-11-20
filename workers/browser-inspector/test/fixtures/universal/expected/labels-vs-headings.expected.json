@@ -1,0 +1,132 @@
+{
+  "schema": "universal-form-expected/1",
+  "fixture": "labels-vs-headings",
+  "page_kind": "form",
+  "m1": {
+    "outcome_any_of": [
+      "complete"
+    ],
+    "stop_reason": null,
+    "fields": [
+      {
+        "match": {
+          "dom_ids": [
+            "up-resume"
+          ],
+          "label": "Resume"
+        },
+        "label": "Resume",
+        "kind": "file",
+        "required": false,
+        "widget": "native_input",
+        "label_basis": "heading_context",
+        "label_confidence": "inferred",
+        "generic_accessible_name": "Upload"
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "up-portfolio"
+          ],
+          "label": "Portfolio"
+        },
+        "label": "Portfolio",
+        "kind": "file",
+        "required": false,
+        "widget": "native_input",
+        "label_basis": "heading_context",
+        "label_confidence": "inferred",
+        "generic_accessible_name": "Choose file"
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "why-us"
+          ],
+          "label": "Why do you want to work here?"
+        },
+        "label": "Why do you want to work here?",
+        "kind": "text",
+        "required": false,
+        "widget": "native_input",
+        "label_basis": "placeholder",
+        "label_confidence": "inferred"
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "work-auth"
+          ],
+          "label": "Are you legally authorized to work in the United States?"
+        },
+        "label": "Are you legally authorized to work in the United States?",
+        "kind": "radio_group",
+        "required": false,
+        "cardinality": "single",
+        "label_basis": "accessible_name",
+        "options": {
+          "state": "known_in_dom",
+          "count": 2
+        },
+        "match_by": "name"
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "skill"
+          ],
+          "label": "Which of these have you used?"
+        },
+        "label": "Which of these have you used?",
+        "kind": "checkbox_group",
+        "required": false,
+        "cardinality": "multi",
+        "label_basis": "accessible_name",
+        "options": {
+          "state": "known_in_dom",
+          "count": 2
+        },
+        "match_by": "name"
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "start-date"
+          ],
+          "label": "Earliest start date"
+        },
+        "label": "Earliest start date",
+        "kind": "text",
+        "required": false,
+        "widget": "native_input",
+        "label_basis": "proximity_text",
+        "label_confidence": "inferred"
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "salary"
+          ],
+          "label": "Desired salary (USD)"
+        },
+        "label": "Desired salary (USD)",
+        "kind": "text",
+        "required": false,
+        "widget": "native_input",
+        "label_basis": "accessible_name",
+        "label_must_not_be": "Compensation"
+      }
+    ],
+    "must_not_report": [],
+    "unobserved": []
+  },
+  "later": {},
+  "safety": {
+    "clicks": 0,
+    "non_get_requests": 0,
+    "dom_mutations": 0
+  },
+  "notes": [
+    "A label obtained from a heading, a placeholder or nearby text is evidence of a weaker kind and must say so (label_confidence 'inferred'); a real label always wins over the heading above it."
+  ]
+}

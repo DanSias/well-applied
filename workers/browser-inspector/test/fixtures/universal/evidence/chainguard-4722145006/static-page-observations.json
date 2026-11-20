@@ -1,0 +1,303 @@
+{
+  "schema": "universal-form-evidence/1",
+  "evidence_class": "observed",
+  "what_this_is": "Facts read from ONE plain HTTP GET of the application page (no JavaScript executed, nothing clicked, no sign-in). This is the server-rendered markup, not the page after scripts run. The HTML itself is deliberately not stored; only these facts are.",
+  "fetched_on": "2026-11-20",
+  "url": "https://job-boards.greenhouse.io/chainguard/jobs/4722145006",
+  "http_status": 200,
+  "bytes": 83877,
+  "sha256_of_html": "6b0b7bd1098676c8d146554170fbe7ae402d041e796d111e5bf4db6e37a9c508",
+  "document": {
+    "title": "Job Application for Principal Software Engineer, Containers at Chainguard",
+    "form_elements": 1,
+    "textarea_elements": 0,
+    "select_elements": 0,
+    "password_inputs": 0,
+    "visible_captcha_challenge_markup": false,
+    "captcha_note": "Only Greenhouse's page configuration names an invisible reCAPTCHA Enterprise key (config entry names GOOGLE_RECAPTCHA_INVISIBLE_KEY and GOOGLE_RECAPTCHA_ENDPOINT). No challenge widget or frame is in the markup."
+  },
+  "controls_by_id": [
+    {
+      "id": "first_name",
+      "tag": "input",
+      "type": "text",
+      "role": null,
+      "aria_required": "true",
+      "aria_haspopup": null,
+      "aria_autocomplete": null,
+      "accept": null,
+      "label_text": "First Name*",
+      "label_visually_hidden": false
+    },
+    {
+      "id": "last_name",
+      "tag": "input",
+      "type": "text",
+      "role": null,
+      "aria_required": "true",
+      "aria_haspopup": null,
+      "aria_autocomplete": null,
+      "accept": null,
+      "label_text": "Last Name*",
+      "label_visually_hidden": false
+    },
+    {
+      "id": "email",
+      "tag": "input",
+      "type": "text",
+      "role": null,
+      "aria_required": "true",
+      "aria_haspopup": null,
+      "aria_autocomplete": null,
+      "accept": null,
+      "label_text": "Email*",
+      "label_visually_hidden": false
+    },
+    {
+      "id": "country",
+      "tag": "input",
+      "type": "text",
+      "role": "combobox",
+      "aria_required": "true",
+      "aria_haspopup": "true",
+      "aria_autocomplete": "list",
+      "accept": null,
+      "label_text": "Country*",
+      "label_visually_hidden": false
+    },
+    {
+      "id": "phone",
+      "tag": "input",
+      "type": "tel",
+      "role": null,
+      "aria_required": "true",
+      "aria_haspopup": null,
+      "aria_autocomplete": null,
+      "accept": null,
+      "label_text": "Phone*",
+      "label_visually_hidden": false
+    },
+    {
+      "id": "resume",
+      "tag": "input",
+      "type": "file",
+      "role": null,
+      "aria_required": null,
+      "aria_haspopup": null,
+      "aria_autocomplete": null,
+      "accept": ".pdf,.doc,.docx,.txt,.rtf",
+      "label_text": "Attach",
+      "label_visually_hidden": true
+    },
+    {
+      "id": "cover_letter",
+      "tag": "input",
+      "type": "file",
+      "role": null,
+      "aria_required": null,
+      "aria_haspopup": null,
+      "aria_autocomplete": null,
+      "accept": ".pdf,.doc,.docx,.txt,.rtf",
+      "label_text": "Attach",
+      "label_visually_hidden": true
+    },
+    {
+      "id": "question_8759088006",
+      "tag": "input",
+      "type": "text",
+      "role": null,
+      "aria_required": "false",
+      "aria_haspopup": null,
+      "aria_autocomplete": null,
+      "accept": null,
+      "label_text": "LinkedIn Profile",
+      "label_visually_hidden": false
+    },
+    {
+      "id": "question_8759089006",
+      "tag": "input",
+      "type": "text",
+      "role": null,
+      "aria_required": "false",
+      "aria_haspopup": null,
+      "aria_autocomplete": null,
+      "accept": null,
+      "label_text": "Website",
+      "label_visually_hidden": false
+    },
+    {
+      "id": "question_8759090006",
+      "tag": "input",
+      "type": "text",
+      "role": null,
+      "aria_required": "true",
+      "aria_haspopup": null,
+      "aria_autocomplete": null,
+      "accept": null,
+      "label_text": "At this time, Chainguard is unable to provide employment sponsorship. Will you now, or in the future, require Chainguard to provide employment sponsorship for the country in which you are applying? (for example, H-1B, or other employment-based visas)*",
+      "label_visually_hidden": false
+    },
+    {
+      "id": "4004578006",
+      "tag": "input",
+      "type": "text",
+      "role": "combobox",
+      "aria_required": "false",
+      "aria_haspopup": "true",
+      "aria_autocomplete": "list",
+      "accept": null,
+      "label_text": "How would you describe your gender identity? (mark all that apply)",
+      "label_visually_hidden": false
+    },
+    {
+      "id": "4004579006",
+      "tag": "input",
+      "type": "text",
+      "role": "combobox",
+      "aria_required": "false",
+      "aria_haspopup": "true",
+      "aria_autocomplete": "list",
+      "accept": null,
+      "label_text": "How would you describe your racial/ethnic background? (mark all that apply)",
+      "label_visually_hidden": false
+    },
+    {
+      "id": "4004580006",
+      "tag": "input",
+      "type": "text",
+      "role": "combobox",
+      "aria_required": "false",
+      "aria_haspopup": "true",
+      "aria_autocomplete": "list",
+      "accept": null,
+      "label_text": "How would you describe your sexual orientation? (mark all that apply)",
+      "label_visually_hidden": false
+    },
+    {
+      "id": "4004581006",
+      "tag": "input",
+      "type": "text",
+      "role": "combobox",
+      "aria_required": "false",
+      "aria_haspopup": "true",
+      "aria_autocomplete": "list",
+      "accept": null,
+      "label_text": "Do you identify as transgender?",
+      "label_visually_hidden": false
+    },
+    {
+      "id": "4004582006",
+      "tag": "input",
+      "type": "text",
+      "role": "combobox",
+      "aria_required": "false",
+      "aria_haspopup": "true",
+      "aria_autocomplete": "list",
+      "accept": null,
+      "label_text": "Do you have a disability or chronic condition (physical, visual, auditory, cognitive, mental, emotional, or other) that substantially limits one or more of your major life activities, including mobility, communication (seeing, hearing, speaking), and learning?",
+      "label_visually_hidden": false
+    },
+    {
+      "id": "4004583006",
+      "tag": "input",
+      "type": "text",
+      "role": "combobox",
+      "aria_required": "false",
+      "aria_haspopup": "true",
+      "aria_autocomplete": "list",
+      "accept": null,
+      "label_text": "Are you a veteran or active member of the United States Armed Forces?",
+      "label_visually_hidden": false
+    },
+    {
+      "id": "gender",
+      "tag": "input",
+      "type": "text",
+      "role": "combobox",
+      "aria_required": "false",
+      "aria_haspopup": "true",
+      "aria_autocomplete": "list",
+      "accept": null,
+      "label_text": "Gender",
+      "label_visually_hidden": false
+    },
+    {
+      "id": "hispanic_ethnicity",
+      "tag": "input",
+      "type": "text",
+      "role": "combobox",
+      "aria_required": "false",
+      "aria_haspopup": "true",
+      "aria_autocomplete": "list",
+      "accept": null,
+      "label_text": "Are you Hispanic/Latino?",
+      "label_visually_hidden": false
+    },
+    {
+      "id": "veteran_status",
+      "tag": "input",
+      "type": "text",
+      "role": "combobox",
+      "aria_required": "false",
+      "aria_haspopup": "true",
+      "aria_autocomplete": "list",
+      "accept": null,
+      "label_text": "Veteran Status",
+      "label_visually_hidden": false
+    }
+  ],
+  "unlabeled_hidden_inputs": [
+    {
+      "tag": "input",
+      "type": null,
+      "id": null,
+      "tabindex": "-1",
+      "aria_hidden": "true",
+      "required_attribute_present": true
+    }
+  ],
+  "ids_with_a_label_but_no_control": [
+    "resume_text",
+    "cover_letter_text"
+  ],
+  "labels_for_those_ids": {
+    "resume_text": "Enter manually",
+    "cover_letter_text": "Enter manually"
+  },
+  "manual_entry_buttons": [
+    {
+      "text": "Attach",
+      "data_testid": null
+    },
+    {
+      "text": "Enter manually",
+      "data_testid": "resume-text"
+    },
+    {
+      "text": "Attach",
+      "data_testid": null
+    },
+    {
+      "text": "Enter manually",
+      "data_testid": "cover_letter-text"
+    }
+  ],
+  "elements_with_id_resume_text_or_cover_letter_text": [],
+  "race": {
+    "embedded_page_data_contains_question": true,
+    "embedded_field_name": "race",
+    "embedded_field_type": "multi_value_single_select",
+    "rendered_label_elements_reading_Race": 0,
+    "rendered_control_with_id_race": false,
+    "note": "Facts only. WHY the question is not rendered is NOT established by this observation."
+  },
+  "rendered_sections": [
+    "U.S. Standard Demographic Questions",
+    "Voluntary Self-Identification"
+  ],
+  "rendered_compliance_control_ids": [
+    "gender",
+    "hispanic_ethnicity",
+    "veteran_status"
+  ]
+}

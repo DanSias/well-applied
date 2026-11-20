@@ -1,0 +1,130 @@
+{
+  "schema": "universal-form-expected/1",
+  "fixture": "conditional-hidden-fields",
+  "page_kind": "form",
+  "m1": {
+    "outcome_any_of": [
+      "complete",
+      "partial"
+    ],
+    "stop_reason": null,
+    "fields": [
+      {
+        "match": {
+          "dom_ids": [
+            "full-name"
+          ],
+          "label": "Full name"
+        },
+        "label": "Full name",
+        "kind": "text",
+        "required": true,
+        "widget": "native_input",
+        "label_basis": "accessible_name"
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "visa"
+          ],
+          "label": "Do you require visa sponsorship?"
+        },
+        "label": "Do you require visa sponsorship?",
+        "kind": "radio_group",
+        "required": false,
+        "cardinality": "single",
+        "label_basis": "accessible_name",
+        "options": {
+          "state": "known_in_dom",
+          "count": 2
+        },
+        "match_by": "name"
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "hear"
+          ],
+          "label": "How did you hear about us?"
+        },
+        "label": "How did you hear about us?",
+        "kind": "select",
+        "required": false,
+        "widget": "native_select",
+        "label_basis": "accessible_name",
+        "options": {
+          "state": "known_in_dom",
+          "count": 3
+        }
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "region"
+          ],
+          "label": "Region"
+        },
+        "label": "Region",
+        "kind": "select",
+        "required": false,
+        "widget": "native_select",
+        "label_basis": "accessible_name",
+        "options": {
+          "state": "known_in_dom",
+          "count": 2
+        }
+      }
+    ],
+    "must_not_report": [
+      {
+        "id": "province",
+        "reason": "Created by script only after a change event. Nothing static says it exists, so it must not be reported or guessed."
+      }
+    ],
+    "unobserved": []
+  },
+  "later": {
+    "M2": {
+      "outcome": "partial",
+      "hidden_in_dom": [
+        {
+          "id": "visa-type",
+          "label": "Visa type",
+          "kind": "text",
+          "required": true,
+          "visibility": "hidden_in_dom",
+          "trigger": {
+            "value": "#visa-yes aria-controls=visa-details",
+            "relation_class": "declared"
+          },
+          "milestone": "M2"
+        },
+        {
+          "id": "hear-other",
+          "label": "Please specify",
+          "kind": "text",
+          "required": false,
+          "visibility": "hidden_in_dom",
+          "trigger": {
+            "value": null,
+            "relation_class": "unknown"
+          },
+          "milestone": "M2",
+          "note": "hidden by CSS with no declared relationship: the trigger must not be asserted"
+        }
+      ],
+      "proposed_stop_reason": "conditional_content_unobserved",
+      "not_discoverable_without_interaction": [
+        "province"
+      ]
+    }
+  },
+  "safety": {
+    "clicks": 0,
+    "non_get_requests": 0,
+    "dom_mutations": 0
+  },
+  "notes": [
+    "Until M2, hidden fields are not reported as ordinary visible fields: M1 either omits them or marks them hidden_in_dom."
+  ]
+}

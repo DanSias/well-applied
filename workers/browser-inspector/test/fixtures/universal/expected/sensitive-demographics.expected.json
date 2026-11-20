@@ -1,0 +1,170 @@
+{
+  "schema": "universal-form-expected/1",
+  "fixture": "sensitive-demographics",
+  "page_kind": "form",
+  "m1": {
+    "outcome_any_of": [
+      "complete"
+    ],
+    "stop_reason": null,
+    "fields": [
+      {
+        "match": {
+          "dom_ids": [
+            "name"
+          ],
+          "label": "Full name"
+        },
+        "label": "Full name",
+        "kind": "text",
+        "required": true,
+        "widget": "native_input",
+        "label_basis": "accessible_name",
+        "sensitive": false
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "work-auth"
+          ],
+          "label": "Are you authorized to work in the country where this role is based?"
+        },
+        "label": "Are you authorized to work in the country where this role is based?",
+        "kind": "radio_group",
+        "required": false,
+        "cardinality": "single",
+        "label_basis": "accessible_name",
+        "match_by": "name",
+        "sensitive": false,
+        "decoy": "contains no demographic category"
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "vets-program"
+          ],
+          "label": "How many years have you supported veterans' hiring programs?"
+        },
+        "label": "How many years have you supported veterans' hiring programs?",
+        "kind": "text",
+        "required": false,
+        "widget": "native_input",
+        "label_basis": "accessible_name",
+        "sensitive": false,
+        "decoy": "the word 'veterans' does not make a question demographic"
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "a11y"
+          ],
+          "label": "Describe your experience building software for people with disabilities."
+        },
+        "label": "Describe your experience building software for people with disabilities.",
+        "kind": "textarea",
+        "required": false,
+        "widget": "native_input",
+        "label_basis": "accessible_name",
+        "sensitive": false,
+        "decoy": "the word 'disabilities' does not make a question demographic"
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "salary"
+          ],
+          "label": "Desired salary (USD)"
+        },
+        "label": "Desired salary (USD)",
+        "kind": "text",
+        "required": false,
+        "widget": "native_input",
+        "label_basis": "accessible_name",
+        "sensitive": false
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "sid-gender"
+          ],
+          "label": "Gender"
+        },
+        "label": "Gender",
+        "kind": "select",
+        "required": false,
+        "widget": "native_select",
+        "label_basis": "accessible_name",
+        "sensitive": true
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "sid-race"
+          ],
+          "label": "Race / ethnicity"
+        },
+        "label": "Race / ethnicity",
+        "kind": "select",
+        "required": false,
+        "widget": "native_select",
+        "label_basis": "accessible_name",
+        "sensitive": true
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "sid-veteran"
+          ],
+          "label": "Veteran status"
+        },
+        "label": "Veteran status",
+        "kind": "select",
+        "required": false,
+        "widget": "native_select",
+        "label_basis": "accessible_name",
+        "sensitive": true
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "disability"
+          ],
+          "label": "Disability status"
+        },
+        "label": "Disability status",
+        "kind": "radio_group",
+        "required": false,
+        "cardinality": "single",
+        "label_basis": "accessible_name",
+        "match_by": "name",
+        "sensitive": true
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "sid-orientation"
+          ],
+          "label": "Sexual orientation"
+        },
+        "label": "Sexual orientation",
+        "kind": "select",
+        "required": false,
+        "widget": "native_select",
+        "label_basis": "accessible_name",
+        "sensitive": true
+      }
+    ],
+    "must_not_report": [],
+    "unobserved": []
+  },
+  "later": {},
+  "safety": {
+    "clicks": 0,
+    "non_get_requests": 0,
+    "dom_mutations": 0
+  },
+  "notes": [
+    "Sensitive means a voluntary demographic or EEO category. Values are never entered or recorded; only the question's label and its sensitive flag are.",
+    "The decoys (work authorization, 'veterans' programs', 'disabilities') must NOT be flagged."
+  ]
+}

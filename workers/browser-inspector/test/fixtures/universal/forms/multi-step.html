@@ -1,0 +1,25 @@
+<!doctype html>
+<!-- M0 fixture (synthetic). A three-step application. Step 1 is visible, step 2 is in the DOM but hidden, step 3 does not exist until "Next" is pressed. -->
+<html lang="en"><head><meta charset="utf-8"><title>Apply - Frontend Engineer, Example Co</title></head>
+<body><main><h1>Apply: Frontend Engineer</h1>
+<ol aria-label="Progress"><li aria-current="step">1. Personal details</li><li>2. Experience</li><li>3. Review</li></ol>
+<p>Step 1 of 3</p>
+<form id="wizard">
+<section id="step-1"><h2>Personal details</h2>
+ <div><label for="s1-first">First name<span aria-hidden="true">*</span></label><input id="s1-first" type="text" required></div>
+ <div><label for="s1-last">Last name<span aria-hidden="true">*</span></label><input id="s1-last" type="text" required></div>
+ <div><label for="s1-email">Email<span aria-hidden="true">*</span></label><input id="s1-email" type="email" required></div></section>
+<section id="step-2" hidden><h2>Experience</h2>
+ <div><label for="s2-years">Years of experience<span aria-hidden="true">*</span></label><select id="s2-years" required><option value="">Choose</option><option>0-2</option><option>3-5</option><option>6+</option></select></div>
+ <div><label for="s2-portfolio">Portfolio URL</label><input id="s2-portfolio" type="url"></div></section>
+<div id="step-3-slot"></div>
+<button id="next" type="button">Next</button>
+</form>
+<script>
+// Pressing Next is the only thing that ever creates step 3 (and its submit button). Nothing here runs on load.
+document.getElementById('next').addEventListener('click',function(){
+  var s=document.createElement('section');s.id='step-3';
+  s.innerHTML='<h2>Review</h2><div><label for="s3-consent">I agree to the privacy notice</label><input id="s3-consent" type="checkbox" required></div><button type="submit">Submit application</button>';
+  document.getElementById('step-3-slot').appendChild(s);
+});
+</script></main></body></html>

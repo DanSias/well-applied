@@ -1,0 +1,448 @@
+{
+  "schema": "universal-form-corpus/1",
+  "purpose": "Offline, deterministic corpus for Universal Application Inspection (M0). Fixtures are append-only: changing one means updating its hash here, in review.",
+  "vocabulary": {
+    "kind": [
+      "text",
+      "email",
+      "tel",
+      "url",
+      "textarea",
+      "file",
+      "select",
+      "radio_group",
+      "checkbox_group"
+    ],
+    "cardinality": [
+      "single",
+      "multi",
+      "unknown"
+    ],
+    "widget": [
+      "native_input",
+      "native_input_hidden_behind_button",
+      "native_select",
+      "combobox",
+      "listbox_button"
+    ],
+    "label_basis": [
+      "accessible_name",
+      "heading_context",
+      "placeholder",
+      "proximity_text",
+      "unresolved"
+    ],
+    "label_confidence": [
+      "structural",
+      "inferred",
+      "unresolved"
+    ],
+    "options_state": [
+      "known_in_dom",
+      "known_hidden_in_dom",
+      "not_in_observed_dom",
+      "unknown"
+    ],
+    "visibility": [
+      "visible",
+      "hidden_in_dom"
+    ],
+    "relation_class": [
+      "declared",
+      "inferred",
+      "unknown"
+    ],
+    "outcome": [
+      "complete",
+      "partial",
+      "unsupported",
+      "application_not_found",
+      "needs_application_url",
+      "authentication_required",
+      "mutation_required",
+      "blocked"
+    ],
+    "evidence_class": [
+      "observed",
+      "api_derived",
+      "inferred",
+      "unknown"
+    ],
+    "milestone": [
+      "M1",
+      "M2",
+      "M3",
+      "M4",
+      "M7"
+    ]
+  },
+  "offline_rules": {
+    "external_urls_allowed_hosts": [
+      "example.test",
+      "www.example.test",
+      "jobs.example.test"
+    ],
+    "forbidden_in_fixtures": [
+      "<script src",
+      "<link ",
+      "@import",
+      "url(http",
+      "Math.random",
+      "Date.now",
+      "new Date",
+      "setTimeout",
+      "setInterval",
+      "XMLHttpRequest",
+      "WebSocket",
+      "EventSource",
+      "sendBeacon"
+    ],
+    "scripts_may_not_run_side_effects_on_load": true
+  },
+  "fixtures": [
+    {
+      "id": "greenhouse-style-form",
+      "file": "forms/greenhouse-style-form.html",
+      "origin": "synthetic, modelled on observed facts (evidence/chainguard-4722145006)",
+      "kind": "form",
+      "covers": [
+        "custom comboboxes and nested/hidden inputs",
+        "accessible labels versus headings",
+        "conditional content not in the DOM",
+        "sensitive demographic questions"
+      ],
+      "traits": [
+        {
+          "id": "combobox_inputs",
+          "selector": "input[role='combobox']",
+          "min": 10
+        },
+        {
+          "id": "single_hidden_validation_input",
+          "selector": "input[aria-hidden='true'][tabindex='-1'][required]",
+          "min": 1,
+          "max": 1
+        },
+        {
+          "id": "generic_file_labels",
+          "selector": "label.visually-hidden",
+          "min": 4
+        },
+        {
+          "id": "manual_entry_buttons",
+          "selector": "button[data-testid$='-text']",
+          "min": 2,
+          "max": 2
+        },
+        {
+          "id": "no_textarea_in_dom",
+          "selector": "textarea",
+          "max": 0
+        },
+        {
+          "id": "race_only_in_inert_page_data",
+          "selector": "script#page-data[type='application/json']",
+          "min": 1,
+          "max": 1
+        },
+        {
+          "id": "race_not_rendered_as_control",
+          "expr": "!document.querySelector('#race, [for=race]')",
+          "equals": true
+        }
+      ],
+      "sha256": "2a276dbee9bc398db01fe1aebab2d385fd761fdfe0ff5ac6504a0f235227ff69",
+      "expected": "expected/greenhouse-style-form.expected.json"
+    },
+    {
+      "id": "combobox-nested-search",
+      "file": "forms/combobox-nested-search.html",
+      "origin": "synthetic",
+      "kind": "form",
+      "covers": [
+        "custom comboboxes and nested search inputs"
+      ],
+      "traits": [
+        {
+          "id": "aria_comboboxes",
+          "selector": "[role='combobox']",
+          "min": 2
+        },
+        {
+          "id": "nested_search_input",
+          "selector": "[hidden] input[type='search']",
+          "min": 1,
+          "max": 1
+        },
+        {
+          "id": "hidden_mirror_input",
+          "selector": "input[type='hidden']",
+          "min": 1,
+          "max": 1
+        },
+        {
+          "id": "listbox_options_hidden_in_dom",
+          "selector": "ul[role='listbox'][hidden] li[role='option']",
+          "min": 4,
+          "max": 4
+        },
+        {
+          "id": "native_select",
+          "selector": "select#work-mode",
+          "min": 1,
+          "max": 1
+        }
+      ],
+      "sha256": "9ddf462108fb6c8231649e0eeaba89e5d2f7db5b0179075f7ba41fc09ea9e23b",
+      "expected": "expected/combobox-nested-search.expected.json"
+    },
+    {
+      "id": "labels-vs-headings",
+      "file": "forms/labels-vs-headings.html",
+      "origin": "synthetic",
+      "kind": "form",
+      "covers": [
+        "accessible labels versus nearby headings"
+      ],
+      "traits": [
+        {
+          "id": "generic_label_file",
+          "selector": "label.visually-hidden + input[type='file']",
+          "min": 1,
+          "max": 1
+        },
+        {
+          "id": "generic_aria_label_file",
+          "selector": "input[type='file'][aria-label='Choose file']",
+          "min": 1,
+          "max": 1
+        },
+        {
+          "id": "placeholder_only_input",
+          "selector": "input#why-us[placeholder]",
+          "min": 1,
+          "max": 1
+        },
+        {
+          "id": "legend_radio_group",
+          "selector": "fieldset > legend",
+          "min": 1,
+          "max": 1
+        },
+        {
+          "id": "labelledby_checkbox_group",
+          "selector": "[role='group'][aria-labelledby='h-skills']",
+          "min": 1,
+          "max": 1
+        },
+        {
+          "id": "unlabeled_input_with_nearby_text",
+          "expr": "!document.querySelector('label[for=start-date]') && !document.getElementById('start-date').getAttribute('aria-label')",
+          "equals": true
+        }
+      ],
+      "sha256": "5f0d76f90bacb2121c8813f504c0472a8fedd545691beaca1cd9501b6129eb5f",
+      "expected": "expected/labels-vs-headings.expected.json"
+    },
+    {
+      "id": "conditional-hidden-fields",
+      "file": "forms/conditional-hidden-fields.html",
+      "origin": "synthetic",
+      "kind": "form",
+      "covers": [
+        "conditional or hidden fields"
+      ],
+      "traits": [
+        {
+          "id": "declared_hidden_dependent",
+          "selector": "#visa-yes[aria-controls='visa-details'] ~ #visa-details[hidden], #visa-details[hidden]",
+          "min": 1
+        },
+        {
+          "id": "css_hidden_dependent",
+          "expr": "getComputedStyle(document.getElementById('hear-other').parentElement).display",
+          "equals": "none"
+        },
+        {
+          "id": "script_created_field_absent_at_load",
+          "expr": "document.getElementById('province')===null",
+          "equals": true
+        }
+      ],
+      "sha256": "2062a31c9285b27e63e2daaedca2aaea46e563b68abdb4ff4934b16fa30b5dd8",
+      "expected": "expected/conditional-hidden-fields.expected.json"
+    },
+    {
+      "id": "sensitive-demographics",
+      "file": "forms/sensitive-demographics.html",
+      "origin": "synthetic",
+      "kind": "form",
+      "covers": [
+        "sensitive demographic questions"
+      ],
+      "traits": [
+        {
+          "id": "voluntary_self_identification_block",
+          "selector": "fieldset > legend",
+          "min": 2
+        },
+        {
+          "id": "lexical_decoys_present",
+          "selector": "#vets-program, #a11y",
+          "min": 2,
+          "max": 2
+        }
+      ],
+      "sha256": "bb22f91dfeb3bd6e52f80ebdad76efa3f505147440dab8cf065b2ab4936d61b9",
+      "expected": "expected/sensitive-demographics.expected.json"
+    },
+    {
+      "id": "multi-step",
+      "file": "forms/multi-step.html",
+      "origin": "synthetic",
+      "kind": "form",
+      "covers": [
+        "multi-step applications"
+      ],
+      "traits": [
+        {
+          "id": "progress_list",
+          "selector": "ol[aria-label='Progress'] li",
+          "min": 3,
+          "max": 3
+        },
+        {
+          "id": "current_step_marked",
+          "selector": "li[aria-current='step']",
+          "min": 1,
+          "max": 1
+        },
+        {
+          "id": "step_two_hidden_in_dom",
+          "selector": "#step-2[hidden] select, #step-2[hidden] input",
+          "min": 2
+        },
+        {
+          "id": "step_three_absent_at_load",
+          "expr": "document.getElementById('step-3')===null",
+          "equals": true
+        },
+        {
+          "id": "next_is_a_plain_button",
+          "selector": "button#next[type='button']",
+          "min": 1,
+          "max": 1
+        }
+      ],
+      "sha256": "a6de8bae8bcf1ad226edefe07423795a9404e245c9eb74c5607335beb999e521",
+      "expected": "expected/multi-step.expected.json"
+    },
+    {
+      "id": "auth-gate-aggregator",
+      "file": "forms/auth-gate-aggregator.html",
+      "origin": "synthetic, modelled on an observed aggregator pattern",
+      "kind": "listing",
+      "covers": [
+        "authentication gates"
+      ],
+      "traits": [
+        {
+          "id": "apply_opens_dialog",
+          "selector": "button#open-apply[aria-haspopup='dialog']",
+          "min": 1,
+          "max": 1
+        },
+        {
+          "id": "hidden_dialog_with_password",
+          "selector": "#gate[hidden][role='dialog'] input[type='password']",
+          "min": 1,
+          "max": 1
+        },
+        {
+          "id": "fragment_only_apply_anchor",
+          "selector": "a[href^='#']",
+          "min": 1,
+          "max": 1
+        },
+        {
+          "id": "employer_homepage_only_in_structured_data",
+          "selector": "script[type='application/ld+json']",
+          "min": 1,
+          "max": 1
+        }
+      ],
+      "sha256": "e98db850678e5c98147b446a53fe61b20e5474d7f0cfb1c1313f79ab26a89c5e",
+      "expected": "expected/auth-gate-aggregator.expected.json"
+    },
+    {
+      "id": "apply-button-nonget",
+      "file": "forms/apply-button-nonget.html",
+      "origin": "synthetic",
+      "kind": "listing",
+      "covers": [
+        "apply buttons with non-GET side effects"
+      ],
+      "allowed_script_calls": [
+        "fetch"
+      ],
+      "traits": [
+        {
+          "id": "button_that_posts",
+          "selector": "button#apply-now[type='button'][onclick*='POST']",
+          "min": 1,
+          "max": 1
+        },
+        {
+          "id": "button_in_post_form",
+          "selector": "form[method='post'] button[type='submit']",
+          "min": 1,
+          "max": 1
+        },
+        {
+          "id": "role_button_with_script",
+          "selector": "[role='button'][onclick]",
+          "min": 1,
+          "max": 1
+        },
+        {
+          "id": "trap_counter_untouched_at_load",
+          "expr": "window.__trap.fired",
+          "equals": 0
+        }
+      ],
+      "sha256": "6fb2afbedf57db326290cf7089405a960709f72e12f5b585350022a5b30295d0",
+      "expected": "expected/apply-button-nonget.expected.json"
+    },
+    {
+      "id": "unknown-ats-form",
+      "file": "../phase1/unknown-ats-form.html",
+      "origin": "existing Phase 1 fixture (synthetic)",
+      "kind": "form",
+      "existing": true,
+      "covers": [
+        "an accessible direct-hosted form on an unknown ATS"
+      ],
+      "traits": [
+        {
+          "id": "labelled_inputs",
+          "selector": "label[for]",
+          "min": 6,
+          "max": 6
+        },
+        {
+          "id": "required_inputs",
+          "selector": "input[required]",
+          "min": 4,
+          "max": 4
+        },
+        {
+          "id": "no_comboboxes",
+          "selector": "[role='combobox']",
+          "max": 0
+        }
+      ],
+      "sha256": "9ec17da9f49c910c4f3a0eb6f59214837544a2bd5fb18c28c6e7bfbcc785f391",
+      "expected": "expected/unknown-ats-form.expected.json"
+    }
+  ]
+}

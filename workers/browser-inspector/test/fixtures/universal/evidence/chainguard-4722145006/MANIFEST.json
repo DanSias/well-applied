@@ -1,0 +1,38 @@
+{
+  "schema": "universal-form-evidence-manifest/1",
+  "subject": "Chainguard — Principal Software Engineer, Containers (Greenhouse)",
+  "rule": "Evidence is immutable. A test fails if any file here changes. Semantic interpretation lives in ../../golden/, never in these files.",
+  "files": {
+    "run12.agent_run.json": {
+      "class": "observed",
+      "what": "Well Applied agent_runs row 12, exported verbatim from the live database (read-only) on 2026-11-20. Run #12: succeeded / complete, ATS greenhouse, 3 s, from the saved user URL.",
+      "origin": "sqlite3 -json export, unmodified",
+      "modified": false,
+      "sha256": "0a4f08ed421c1e573432c4a55aa66a47044991ac72b141354a8fb14316c84fe9"
+    },
+    "run12.application_questions.json": {
+      "class": "observed",
+      "what": "The 20 application_questions rows run #12 extracted, exported verbatim. They contain known extraction errors (see the golden's observed_extraction_errors_in_run12). They are the baseline, not the target.",
+      "origin": "sqlite3 -json export, unmodified",
+      "modified": false,
+      "sha256": "1b963a40841e33f1c804db6c625298bca742e55195e3ce2e86023ab20c8dffb1"
+    },
+    "greenhouse-api-schema.json": {
+      "class": "api_derived",
+      "what": "Greenhouse's public job-board API response for job 4722145006 (boards-api.greenhouse.io/v1/boards/chainguard/jobs/4722145006?questions=true), fetched 2026-11-20.",
+      "origin": "curl, no authentication",
+      "modified": true,
+      "modification": "The 'content' key (the job description prose, 12238 characters) was removed to keep this a schema capture, not a copy of the posting. Nothing else was changed.",
+      "original_sha256": "dbc9af4d91239b443fea051a2e512059d3427d6f3174ae0a001fa9473c034271",
+      "sha256": "3443a2b1a2a6ca7e261de5862ec59b78019f3fbfcb675476f7937f6b924dc7c7"
+    },
+    "static-page-observations.json": {
+      "class": "observed",
+      "what": "Facts read from ONE plain GET of the application page: server-rendered markup only, no JavaScript executed, nothing clicked. The HTML itself is not stored.",
+      "origin": "curl + a parser, 2026-11-20",
+      "modified": false,
+      "source_html_sha256": "6b0b7bd1098676c8d146554170fbe7ae402d041e796d111e5bf4db6e37a9c508",
+      "sha256": "30e5b7273a505f883da0fad14793e1513fa445bcb157966dcb7dc2f1dff7ae3a"
+    }
+  }
+}

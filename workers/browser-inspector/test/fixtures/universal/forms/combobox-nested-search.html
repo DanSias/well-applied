@@ -1,0 +1,22 @@
+<!doctype html>
+<!-- M0 fixture (synthetic). Custom comboboxes: one logical control must never become several rows. -->
+<html lang="en"><head><meta charset="utf-8"><title>Apply - Backend Engineer, Example Co</title></head>
+<body><main><h1>Apply: Backend Engineer</h1>
+<form>
+<!-- A. ARIA 1.2 combobox: labelled input + listbox. Options ARE in the DOM (hidden), so they are knowable without any click. -->
+<div><label id="lbl-residence" for="cb-residence">Country of residence<span aria-hidden="true">*</span></label>
+ <input id="cb-residence" type="text" role="combobox" aria-controls="lb-residence" aria-expanded="false" aria-autocomplete="list" aria-required="true">
+ <ul id="lb-residence" role="listbox" hidden><li role="option">Canada</li><li role="option">Germany</li><li role="option">United Kingdom</li><li role="option">United States</li></ul></div>
+<!-- B. Button-style dropdown with a NESTED search box inside its popup. The search box is chrome, not a question. -->
+<div role="group" aria-labelledby="lbl-language"><span id="lbl-language">Primary programming language</span>
+ <button id="btn-language" type="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="lbl-language btn-language-value"><span id="btn-language-value">Select</span></button>
+ <div class="panel" hidden><input type="search" aria-label="Search languages" placeholder="Search languages">
+  <ul role="listbox" aria-labelledby="lbl-language"><li role="option">Go</li><li role="option">Python</li><li role="option">Rust</li></ul></div></div>
+<!-- C. Visible combobox plus a hidden mirror input that carries its value: still ONE control. -->
+<div><label for="cb-timezone">Time zone</label>
+ <input id="cb-timezone" type="text" role="combobox" aria-haspopup="listbox" aria-autocomplete="list" aria-expanded="false">
+ <input type="hidden" name="timezone" value=""><input tabindex="-1" aria-hidden="true" style="opacity:0;position:absolute" value=""></div>
+<!-- D. Native select, for contrast. -->
+<div><label for="work-mode">Preferred work mode<span aria-hidden="true">*</span></label>
+ <select id="work-mode" required><option value="">Choose</option><option>Remote</option><option>Hybrid</option><option>On-site</option></select></div>
+<button type="submit">Submit application</button></form></main></body></html>

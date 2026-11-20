@@ -1,0 +1,12 @@
+<!doctype html>
+<!-- M0 fixture (synthetic). Apply controls whose activation would cause a NON-GET request or other state change. The page only counts clicks in window.__trap and issues requests from click handlers: nothing runs on load. -->
+<html lang="en"><head><meta charset="utf-8"><title>Platform Engineer at Example Co</title></head>
+<body><main><h1>Platform Engineer</h1><p>Example Co is hiring.</p>
+<script>window.__trap={fired:0};</script>
+<!-- 1. A real button whose handler POSTs. -->
+<button id="apply-now" type="button" onclick="window.__trap.fired++;fetch('/__trap/apply',{method:'POST'})">Apply now</button>
+<!-- 2. A button inside a POST form: submitting it is a state change, whatever it is called. -->
+<form method="post" action="/__trap/job-alert"><label for="alert-email">Get job alerts</label><input id="alert-email" type="email"><button id="apply-alerts" type="submit">Apply</button></form>
+<!-- 3. A role=button that only runs script. -->
+<span id="apply-role" role="button" tabindex="0" onclick="window.__trap.fired++">Apply</span>
+</main></body></html>

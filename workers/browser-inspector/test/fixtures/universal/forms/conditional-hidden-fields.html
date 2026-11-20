@@ -1,0 +1,22 @@
+<!doctype html>
+<!-- M0 fixture (synthetic). Fields that exist only conditionally: some are in the DOM but hidden, one is created by script after a change. -->
+<html lang="en"><head><meta charset="utf-8"><title>Apply - Data Engineer, Example Co</title></head>
+<body><main><h1>Apply: Data Engineer</h1><form>
+<div><label for="full-name">Full name<span aria-hidden="true">*</span></label><input id="full-name" type="text" required></div>
+<!-- 1. Hidden in the DOM, and the page DECLARES the relationship with aria-controls. -->
+<fieldset><legend>Do you require visa sponsorship?</legend>
+ <label><input id="visa-yes" type="radio" name="visa" value="yes" aria-controls="visa-details"> Yes</label>
+ <label><input id="visa-no" type="radio" name="visa" value="no"> No</label>
+ <div id="visa-details" hidden><label for="visa-type">Visa type<span aria-hidden="true">*</span></label><input id="visa-type" type="text" required></div></fieldset>
+<!-- 2. Hidden by CSS, no declared relationship: the trigger can only be guessed. -->
+<div><label for="hear">How did you hear about us?</label>
+ <select id="hear"><option value="">Choose</option><option>Job board</option><option>Referral</option><option value="other">Other</option></select>
+ <div style="display:none"><label for="hear-other">Please specify</label><input id="hear-other" type="text"></div></div>
+<!-- 3. Created by script only AFTER a change event. Not in the DOM at load; nothing static says it exists. -->
+<div><label for="region">Region</label><select id="region"><option value="">Choose</option><option value="ca">Canada</option><option value="us">United States</option></select><div id="region-extra"></div></div>
+<script>
+document.getElementById('region').addEventListener('change',function(e){
+  if(e.target.value==='ca'){var d=document.createElement('div');d.innerHTML='<label for="province">Province</label><input id="province" type="text" required>';document.getElementById('region-extra').appendChild(d);}
+});
+</script>
+<button type="submit">Submit application</button></form></main></body></html>

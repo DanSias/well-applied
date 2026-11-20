@@ -1,0 +1,104 @@
+{
+  "schema": "universal-form-expected/1",
+  "fixture": "combobox-nested-search",
+  "page_kind": "form",
+  "m1": {
+    "outcome_any_of": [
+      "complete"
+    ],
+    "stop_reason": null,
+    "fields": [
+      {
+        "match": {
+          "dom_ids": [
+            "cb-residence"
+          ],
+          "label": "Country of residence"
+        },
+        "label": "Country of residence",
+        "kind": "select",
+        "required": true,
+        "widget": "combobox",
+        "label_basis": "accessible_name",
+        "max_rows": 1,
+        "options": {
+          "state": "known_hidden_in_dom",
+          "count": 4
+        }
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "btn-language"
+          ],
+          "label": "Primary programming language"
+        },
+        "label": "Primary programming language",
+        "kind": "select",
+        "required": false,
+        "widget": "listbox_button",
+        "label_basis": "accessible_name",
+        "max_rows": 1,
+        "options": {
+          "state": "known_hidden_in_dom",
+          "count": 3
+        }
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "cb-timezone"
+          ],
+          "label": "Time zone"
+        },
+        "label": "Time zone",
+        "kind": "select",
+        "required": false,
+        "widget": "combobox",
+        "label_basis": "accessible_name",
+        "max_rows": 1,
+        "options": {
+          "state": "not_in_observed_dom"
+        }
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "work-mode"
+          ],
+          "label": "Preferred work mode"
+        },
+        "label": "Preferred work mode",
+        "kind": "select",
+        "required": true,
+        "widget": "native_select",
+        "label_basis": "accessible_name",
+        "max_rows": 1,
+        "options": {
+          "state": "known_in_dom",
+          "count": 3
+        }
+      }
+    ],
+    "must_not_report": [
+      {
+        "id": "nested_search_input",
+        "dom_selector": "input[type='search']",
+        "reason": "The search box inside a dropdown's popup is chrome, not a question."
+      },
+      {
+        "id": "hidden_mirror_inputs",
+        "dom_selector": "input[type='hidden'], input[aria-hidden='true'][tabindex='-1']",
+        "reason": "Mirror and validation inputs belong to the control they mirror."
+      }
+    ],
+    "unobserved": []
+  },
+  "later": {},
+  "safety": {
+    "clicks": 0,
+    "non_get_requests": 0,
+    "dom_mutations": 0
+  },
+  "notes": []
+}

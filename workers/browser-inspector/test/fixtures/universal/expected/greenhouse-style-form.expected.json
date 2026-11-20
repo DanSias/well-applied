@@ -1,0 +1,361 @@
+{
+  "schema": "universal-form-expected/1",
+  "fixture": "greenhouse-style-form",
+  "page_kind": "form",
+  "m1": {
+    "outcome_any_of": [
+      "complete",
+      "partial"
+    ],
+    "stop_reason": null,
+    "fields": [
+      {
+        "match": {
+          "dom_ids": [
+            "first_name"
+          ],
+          "label": "First Name"
+        },
+        "label": "First Name",
+        "kind": "text",
+        "required": true,
+        "widget": "native_input",
+        "label_basis": "accessible_name",
+        "sensitive": false
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "last_name"
+          ],
+          "label": "Last Name"
+        },
+        "label": "Last Name",
+        "kind": "text",
+        "required": true,
+        "widget": "native_input",
+        "label_basis": "accessible_name",
+        "sensitive": false
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "email"
+          ],
+          "label": "Email"
+        },
+        "label": "Email",
+        "kind": "text",
+        "required": true,
+        "widget": "native_input",
+        "label_basis": "accessible_name",
+        "sensitive": false
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "country"
+          ],
+          "label": "Country"
+        },
+        "label": "Country",
+        "kind": "select",
+        "required": true,
+        "widget": "combobox",
+        "label_basis": "accessible_name",
+        "max_rows": 1,
+        "options": {
+          "state": "not_in_observed_dom"
+        },
+        "sensitive": false
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "phone"
+          ],
+          "label": "Phone"
+        },
+        "label": "Phone",
+        "kind": "tel",
+        "required": true,
+        "widget": "native_input",
+        "label_basis": "accessible_name",
+        "sensitive": false
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "resume"
+          ],
+          "label": "Resume/CV"
+        },
+        "label": "Resume/CV",
+        "kind": "file",
+        "required": false,
+        "widget": "native_input_hidden_behind_button",
+        "label_basis": "heading_context",
+        "label_confidence": "inferred",
+        "generic_accessible_name": "Attach",
+        "accepts": ".pdf,.doc,.docx,.txt,.rtf",
+        "distinct_from": "cover_letter",
+        "sensitive": false
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "cover_letter"
+          ],
+          "label": "Cover Letter"
+        },
+        "label": "Cover Letter",
+        "kind": "file",
+        "required": false,
+        "widget": "native_input_hidden_behind_button",
+        "label_basis": "heading_context",
+        "label_confidence": "inferred",
+        "generic_accessible_name": "Attach",
+        "accepts": ".pdf,.doc,.docx,.txt,.rtf",
+        "distinct_from": "resume",
+        "sensitive": false
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "q_linkedin"
+          ],
+          "label": "LinkedIn Profile"
+        },
+        "label": "LinkedIn Profile",
+        "kind": "text",
+        "required": false,
+        "widget": "native_input",
+        "label_basis": "accessible_name",
+        "sensitive": false
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "q_website"
+          ],
+          "label": "Website"
+        },
+        "label": "Website",
+        "kind": "text",
+        "required": false,
+        "widget": "native_input",
+        "label_basis": "accessible_name",
+        "sensitive": false
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "q_sponsorship"
+          ],
+          "label": "At this time, Example Co is unable to provide employment sponsorship. Will you now, or in the future, require Example Co to provide employment sponsorship for the country in which you are applying? (for example, H-1B, or other employment-based visas)"
+        },
+        "label": "At this time, Example Co is unable to provide employment sponsorship. Will you now, or in the future, require Example Co to provide employment sponsorship for the country in which you are applying? (for example, H-1B, or other employment-based visas)",
+        "kind": "text",
+        "required": true,
+        "widget": "native_input",
+        "label_basis": "accessible_name",
+        "sensitive": false
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "d_gender_identity"
+          ],
+          "label": "How would you describe your gender identity? (mark all that apply)"
+        },
+        "label": "How would you describe your gender identity? (mark all that apply)",
+        "kind": "select",
+        "required": false,
+        "widget": "combobox",
+        "label_basis": "accessible_name",
+        "options": {
+          "state": "not_in_observed_dom"
+        },
+        "sensitive": true
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "d_racial_ethnic"
+          ],
+          "label": "How would you describe your racial/ethnic background? (mark all that apply)"
+        },
+        "label": "How would you describe your racial/ethnic background? (mark all that apply)",
+        "kind": "select",
+        "required": false,
+        "widget": "combobox",
+        "label_basis": "accessible_name",
+        "options": {
+          "state": "not_in_observed_dom"
+        },
+        "sensitive": true
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "d_orientation"
+          ],
+          "label": "How would you describe your sexual orientation? (mark all that apply)"
+        },
+        "label": "How would you describe your sexual orientation? (mark all that apply)",
+        "kind": "select",
+        "required": false,
+        "widget": "combobox",
+        "label_basis": "accessible_name",
+        "options": {
+          "state": "not_in_observed_dom"
+        },
+        "sensitive": true
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "d_transgender"
+          ],
+          "label": "Do you identify as transgender?"
+        },
+        "label": "Do you identify as transgender?",
+        "kind": "select",
+        "required": false,
+        "widget": "combobox",
+        "label_basis": "accessible_name",
+        "options": {
+          "state": "not_in_observed_dom"
+        },
+        "sensitive": true
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "d_disability"
+          ],
+          "label": "Do you have a disability or chronic condition that substantially limits one or more of your major life activities?"
+        },
+        "label": "Do you have a disability or chronic condition that substantially limits one or more of your major life activities?",
+        "kind": "select",
+        "required": false,
+        "widget": "combobox",
+        "label_basis": "accessible_name",
+        "options": {
+          "state": "not_in_observed_dom"
+        },
+        "sensitive": true
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "d_veteran"
+          ],
+          "label": "Are you a veteran or active member of the United States Armed Forces?"
+        },
+        "label": "Are you a veteran or active member of the United States Armed Forces?",
+        "kind": "select",
+        "required": false,
+        "widget": "combobox",
+        "label_basis": "accessible_name",
+        "options": {
+          "state": "not_in_observed_dom"
+        },
+        "sensitive": true
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "gender"
+          ],
+          "label": "Gender"
+        },
+        "label": "Gender",
+        "kind": "select",
+        "required": false,
+        "widget": "combobox",
+        "label_basis": "accessible_name",
+        "options": {
+          "state": "not_in_observed_dom"
+        },
+        "sensitive": true
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "hispanic_ethnicity"
+          ],
+          "label": "Are you Hispanic/Latino?"
+        },
+        "label": "Are you Hispanic/Latino?",
+        "kind": "select",
+        "required": false,
+        "widget": "combobox",
+        "label_basis": "accessible_name",
+        "options": {
+          "state": "not_in_observed_dom"
+        },
+        "sensitive": true
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "veteran_status"
+          ],
+          "label": "Veteran Status"
+        },
+        "label": "Veteran Status",
+        "kind": "select",
+        "required": false,
+        "widget": "combobox",
+        "label_basis": "accessible_name",
+        "options": {
+          "state": "not_in_observed_dom"
+        },
+        "sensitive": true
+      }
+    ],
+    "must_not_report": [
+      {
+        "id": "country_hidden_validation_input",
+        "dom_selector": "input[aria-hidden='true'][tabindex='-1'][required]",
+        "reason": "One logical control (Country) must not also appear as a second, unlabeled, required row."
+      },
+      {
+        "id": "race_embedded_only",
+        "reason": "'Race' exists only in inert embedded page data. A control that is not rendered must not be reported as a field."
+      }
+    ],
+    "unobserved": []
+  },
+  "later": {
+    "M2": {
+      "outcome": "partial",
+      "unobserved_conditional": [
+        {
+          "id": "resume_text",
+          "kind": "textarea",
+          "evidence": "button 'Enter manually' and a hidden label for id resume_text, but no element with that id",
+          "relation_class": "inferred"
+        },
+        {
+          "id": "cover_letter_text",
+          "kind": "textarea",
+          "evidence": "button 'Enter manually' and a hidden label for id cover_letter_text, but no element with that id",
+          "relation_class": "inferred"
+        }
+      ],
+      "proposed_stop_reason": "conditional_content_unobserved",
+      "note": "Only M2 defines the coverage block. Until then M1 simply does not invent these fields."
+    }
+  },
+  "safety": {
+    "clicks": 0,
+    "non_get_requests": 0,
+    "dom_mutations": 0
+  },
+  "notes": [
+    "Structure modelled on observed facts about one real Greenhouse form; names and text are invented.",
+    "Do not require an exact field count: the live baseline run #12 contained known extraction errors."
+  ]
+}

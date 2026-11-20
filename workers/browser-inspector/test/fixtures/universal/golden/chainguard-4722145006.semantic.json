@@ -1,0 +1,1528 @@
+{
+  "schema": "universal-form-golden/1",
+  "purpose": "The Chainguard application form as it SHOULD be understood by a universal inspector. A semantic target, not a record of what run #12 produced. Every assertion carries an evidence class, so nothing inferred reads as confirmed.",
+  "subject": {
+    "employer": "Chainguard",
+    "position": "Principal Software Engineer, Containers",
+    "application_url": "https://job-boards.greenhouse.io/chainguard/jobs/4722145006",
+    "ats": "greenhouse",
+    "captured_on": "2026-11-20",
+    "well_applied": {
+      "job_posting_id": 177,
+      "application_id": 5,
+      "agent_run_id": 12
+    }
+  },
+  "evidence_classes": {
+    "observed": "Seen directly: a stored row of run #12 (post-script DOM extraction), or a fact read from the one plain GET of the page (server-rendered markup, no scripts run).",
+    "api_derived": "Stated by Greenhouse's public job-board API (boards-api.greenhouse.io, ?questions=true). The API describes the form's data model, not necessarily what is rendered.",
+    "inferred": "Concluded from observed or API facts by reasoning. Plausible, not confirmed. Each carries the basis.",
+    "unknown": "Not established by any evidence we hold. Recorded so it is not mistaken for a finding."
+  },
+  "evidence_files": {
+    "run12_agent_run": "evidence/chainguard-4722145006/run12.agent_run.json",
+    "run12_questions": "evidence/chainguard-4722145006/run12.application_questions.json",
+    "api_schema": "evidence/chainguard-4722145006/greenhouse-api-schema.json",
+    "static_observations": "evidence/chainguard-4722145006/static-page-observations.json"
+  },
+  "vocabulary": {
+    "kind": [
+      "text",
+      "tel",
+      "textarea",
+      "file",
+      "select"
+    ],
+    "cardinality": [
+      "single",
+      "multi",
+      "unknown"
+    ],
+    "widget": [
+      "native_input",
+      "native_input_hidden_behind_button",
+      "combobox"
+    ],
+    "status": [
+      "present",
+      "unobserved",
+      "api_only_not_rendered"
+    ]
+  },
+  "fields": [
+    {
+      "id": "first_name",
+      "group": "application",
+      "status": "present",
+      "api": {
+        "names": [
+          "first_name"
+        ],
+        "src": "api:questions[0]"
+      },
+      "observed": {
+        "rows": [
+          0
+        ],
+        "dom_ids": [
+          "first_name"
+        ]
+      },
+      "facts": {
+        "label": {
+          "v": "First Name",
+          "c": "api_derived",
+          "src": "api:questions[0].label",
+          "corroborated_by": [
+            "observed:run12 row 0 (raw label has a trailing required marker: First Name*)"
+          ]
+        },
+        "kind": {
+          "v": "text",
+          "c": "observed",
+          "src": "static:controls_by_id[first_name] type=text",
+          "note": "API calls it input_text; the rendered input is a plain text input (no email/tel type)"
+        },
+        "widget": {
+          "v": "native_input",
+          "c": "observed",
+          "src": "static:controls_by_id[first_name] no role"
+        },
+        "required": {
+          "v": true,
+          "c": "api_derived",
+          "src": "api:questions[0].required",
+          "corroborated_by": [
+            "observed:run12 row 0 required=1",
+            "observed:static aria-required=true"
+          ]
+        },
+        "sensitive": {
+          "v": false,
+          "c": "api_derived",
+          "src": "api:standard question, not demographic or EEOC"
+        }
+      }
+    },
+    {
+      "id": "last_name",
+      "group": "application",
+      "status": "present",
+      "api": {
+        "names": [
+          "last_name"
+        ],
+        "src": "api:questions[1]"
+      },
+      "observed": {
+        "rows": [
+          1
+        ],
+        "dom_ids": [
+          "last_name"
+        ]
+      },
+      "facts": {
+        "label": {
+          "v": "Last Name",
+          "c": "api_derived",
+          "src": "api:questions[1].label",
+          "corroborated_by": [
+            "observed:run12 row 1 (raw label has a trailing required marker: Last Name*)"
+          ]
+        },
+        "kind": {
+          "v": "text",
+          "c": "observed",
+          "src": "static:controls_by_id[last_name] type=text",
+          "note": "API calls it input_text; the rendered input is a plain text input (no email/tel type)"
+        },
+        "widget": {
+          "v": "native_input",
+          "c": "observed",
+          "src": "static:controls_by_id[last_name] no role"
+        },
+        "required": {
+          "v": true,
+          "c": "api_derived",
+          "src": "api:questions[1].required",
+          "corroborated_by": [
+            "observed:run12 row 1 required=1",
+            "observed:static aria-required=true"
+          ]
+        },
+        "sensitive": {
+          "v": false,
+          "c": "api_derived",
+          "src": "api:standard question, not demographic or EEOC"
+        }
+      }
+    },
+    {
+      "id": "email",
+      "group": "application",
+      "status": "present",
+      "api": {
+        "names": [
+          "email"
+        ],
+        "src": "api:questions[2]"
+      },
+      "observed": {
+        "rows": [
+          2
+        ],
+        "dom_ids": [
+          "email"
+        ]
+      },
+      "facts": {
+        "label": {
+          "v": "Email",
+          "c": "api_derived",
+          "src": "api:questions[2].label",
+          "corroborated_by": [
+            "observed:run12 row 2 (raw label has a trailing required marker: Email*)"
+          ]
+        },
+        "kind": {
+          "v": "text",
+          "c": "observed",
+          "src": "static:controls_by_id[email] type=text",
+          "note": "API calls it input_text; the rendered input is a plain text input (no email/tel type)"
+        },
+        "widget": {
+          "v": "native_input",
+          "c": "observed",
+          "src": "static:controls_by_id[email] no role"
+        },
+        "required": {
+          "v": true,
+          "c": "api_derived",
+          "src": "api:questions[2].required",
+          "corroborated_by": [
+            "observed:run12 row 2 required=1",
+            "observed:static aria-required=true"
+          ]
+        },
+        "sensitive": {
+          "v": false,
+          "c": "api_derived",
+          "src": "api:standard question, not demographic or EEOC"
+        },
+        "purpose": {
+          "v": "email_address",
+          "c": "inferred",
+          "src": "API field name is 'email'",
+          "note": "a name is a hint, not a guarantee"
+        }
+      }
+    },
+    {
+      "id": "country",
+      "group": "phone",
+      "status": "present",
+      "api": null,
+      "observed": {
+        "rows": [
+          3
+        ],
+        "dom_ids": [
+          "country"
+        ],
+        "duplicate_rows": [
+          {
+            "row": 4,
+            "c": "inferred",
+            "basis": "run12 row 4 has no label, no field id and is required; the static markup has exactly one unlabeled input (aria-hidden=true, tabindex=-1, required attribute) next to the country combobox. The match is by those traits, not by identity."
+          }
+        ]
+      },
+      "facts": {
+        "label": {
+          "v": "Country",
+          "c": "observed",
+          "src": "run12 row 3 raw label 'Country*'; static label[for=country]"
+        },
+        "kind": {
+          "v": "select",
+          "c": "inferred",
+          "src": "static: input role=combobox aria-haspopup aria-autocomplete=list",
+          "note": "a country choice; the widget is a combobox, so a selection control rather than free text"
+        },
+        "cardinality": {
+          "v": "single",
+          "c": "inferred",
+          "src": "one value shown; not confirmed"
+        },
+        "widget": {
+          "v": "combobox",
+          "c": "observed",
+          "src": "static:controls_by_id[country] role=combobox, aria-haspopup=true, aria-autocomplete=list"
+        },
+        "required": {
+          "v": true,
+          "c": "observed",
+          "src": "run12 row 3 required=1; static aria-required=true; label carries a required marker"
+        },
+        "options": {
+          "v": {
+            "state": "not_in_observed_dom",
+            "api_count": null
+          },
+          "c": "unknown",
+          "src": "not in the API schema and no listbox in the rendered markup"
+        },
+        "sensitive": {
+          "v": false,
+          "c": "inferred",
+          "src": "a country/phone-widget control, not a demographic question"
+        },
+        "belongs_to": {
+          "v": "phone",
+          "c": "inferred",
+          "src": "it sits in the Phone section of the rendered form; the API does not list it"
+        }
+      }
+    },
+    {
+      "id": "phone",
+      "group": "phone",
+      "status": "present",
+      "api": {
+        "names": [
+          "phone"
+        ],
+        "src": "api:questions[3]"
+      },
+      "observed": {
+        "rows": [
+          5
+        ],
+        "dom_ids": [
+          "phone"
+        ]
+      },
+      "facts": {
+        "label": {
+          "v": "Phone",
+          "c": "api_derived",
+          "src": "api:questions[3].label",
+          "corroborated_by": [
+            "observed:run12 row 5 'Phone*'"
+          ]
+        },
+        "kind": {
+          "v": "tel",
+          "c": "observed",
+          "src": "static:controls_by_id[phone] type=tel; run12 row 5 control_type=tel",
+          "note": "API type is input_text"
+        },
+        "widget": {
+          "v": "native_input",
+          "c": "observed",
+          "src": "static:controls_by_id[phone]"
+        },
+        "required": {
+          "v": true,
+          "c": "api_derived",
+          "src": "api:questions[3].required",
+          "corroborated_by": [
+            "observed:run12 row 5 required=1"
+          ]
+        },
+        "sensitive": {
+          "v": false,
+          "c": "api_derived",
+          "src": "api:standard question"
+        }
+      }
+    },
+    {
+      "id": "resume",
+      "group": "documents",
+      "status": "present",
+      "api": {
+        "names": [
+          "resume"
+        ],
+        "src": "api:questions[4]"
+      },
+      "observed": {
+        "rows": [
+          6
+        ],
+        "dom_ids": [
+          "resume"
+        ]
+      },
+      "facts": {
+        "label": {
+          "v": "Resume/CV",
+          "c": "api_derived",
+          "src": "api:questions[4].label",
+          "corroborated_by": [
+            "observed: the rendered input id 'resume' equals the API field name 'resume'"
+          ]
+        },
+        "dom_accessible_label": {
+          "v": "Attach",
+          "c": "observed",
+          "src": "static:controls_by_id[resume].label_text (visually hidden); run12 row 6 raw label"
+        },
+        "kind": {
+          "v": "file",
+          "c": "observed",
+          "src": "static:controls_by_id[resume] type=file; run12 row 6"
+        },
+        "widget": {
+          "v": "native_input_hidden_behind_button",
+          "c": "observed",
+          "src": "static: visually-hidden file input beside a visible 'Attach' button"
+        },
+        "required": {
+          "v": false,
+          "c": "api_derived",
+          "src": "api:questions[4].required",
+          "corroborated_by": [
+            "observed:run12 row 6 required=0"
+          ]
+        },
+        "accepts": {
+          "v": ".pdf,.doc,.docx,.txt,.rtf",
+          "c": "observed",
+          "src": "static:controls_by_id[resume].accept"
+        },
+        "distinct_from": {
+          "v": "cover_letter",
+          "c": "api_derived",
+          "src": "two separate API questions and two separate DOM ids"
+        },
+        "sensitive": {
+          "v": false,
+          "c": "api_derived",
+          "src": "api:standard question"
+        }
+      }
+    },
+    {
+      "id": "cover_letter",
+      "group": "documents",
+      "status": "present",
+      "api": {
+        "names": [
+          "cover_letter"
+        ],
+        "src": "api:questions[5]"
+      },
+      "observed": {
+        "rows": [
+          7
+        ],
+        "dom_ids": [
+          "cover_letter"
+        ]
+      },
+      "facts": {
+        "label": {
+          "v": "Cover Letter",
+          "c": "api_derived",
+          "src": "api:questions[5].label",
+          "corroborated_by": [
+            "observed: the rendered input id 'cover_letter' equals the API field name 'cover_letter'"
+          ]
+        },
+        "dom_accessible_label": {
+          "v": "Attach",
+          "c": "observed",
+          "src": "static:controls_by_id[cover_letter].label_text (visually hidden); run12 row 7 raw label"
+        },
+        "kind": {
+          "v": "file",
+          "c": "observed",
+          "src": "static:controls_by_id[cover_letter] type=file; run12 row 7"
+        },
+        "widget": {
+          "v": "native_input_hidden_behind_button",
+          "c": "observed",
+          "src": "static: visually-hidden file input beside a visible 'Attach' button"
+        },
+        "required": {
+          "v": false,
+          "c": "api_derived",
+          "src": "api:questions[5].required",
+          "corroborated_by": [
+            "observed:run12 row 7 required=0"
+          ]
+        },
+        "accepts": {
+          "v": ".pdf,.doc,.docx,.txt,.rtf",
+          "c": "observed",
+          "src": "static:controls_by_id[cover_letter].accept"
+        },
+        "distinct_from": {
+          "v": "resume",
+          "c": "api_derived",
+          "src": "two separate API questions and two separate DOM ids"
+        },
+        "sensitive": {
+          "v": false,
+          "c": "api_derived",
+          "src": "api:standard question"
+        }
+      }
+    },
+    {
+      "id": "resume_text",
+      "group": "documents",
+      "status": "unobserved",
+      "api": {
+        "names": [
+          "resume_text"
+        ],
+        "src": "api:questions[4].fields[1]"
+      },
+      "observed": null,
+      "facts": {
+        "label": {
+          "v": "Resume/CV (entered manually)",
+          "c": "api_derived",
+          "src": "api:questions[4].label"
+        },
+        "kind": {
+          "v": "textarea",
+          "c": "api_derived",
+          "src": "api:questions[4].fields[1].type"
+        },
+        "required": {
+          "v": false,
+          "c": "api_derived",
+          "src": "api:questions[4].required"
+        },
+        "conditional": {
+          "v": "unobserved_conditional",
+          "c": "inferred",
+          "src": "the rendered markup has an 'Enter manually' button and a visually hidden label for this id, but no element with this id and no textarea at all",
+          "note": "that the button reveals this field is inferred from those facts; it has not been observed"
+        },
+        "trigger_candidate": {
+          "v": "button 'Enter manually' (data-testid resume-text)",
+          "c": "inferred",
+          "src": "static:manual_entry_buttons"
+        },
+        "reveals_this_field": {
+          "v": null,
+          "c": "unknown",
+          "src": "no click was made and no script ran"
+        },
+        "sensitive": {
+          "v": false,
+          "c": "api_derived",
+          "src": "api:standard question"
+        }
+      }
+    },
+    {
+      "id": "cover_letter_text",
+      "group": "documents",
+      "status": "unobserved",
+      "api": {
+        "names": [
+          "cover_letter_text"
+        ],
+        "src": "api:questions[5].fields[1]"
+      },
+      "observed": null,
+      "facts": {
+        "label": {
+          "v": "Cover Letter (entered manually)",
+          "c": "api_derived",
+          "src": "api:questions[5].label"
+        },
+        "kind": {
+          "v": "textarea",
+          "c": "api_derived",
+          "src": "api:questions[5].fields[1].type"
+        },
+        "required": {
+          "v": false,
+          "c": "api_derived",
+          "src": "api:questions[5].required"
+        },
+        "conditional": {
+          "v": "unobserved_conditional",
+          "c": "inferred",
+          "src": "the rendered markup has an 'Enter manually' button and a visually hidden label for this id, but no element with this id and no textarea at all",
+          "note": "that the button reveals this field is inferred from those facts; it has not been observed"
+        },
+        "trigger_candidate": {
+          "v": "button 'Enter manually' (data-testid cover_letter-text)",
+          "c": "inferred",
+          "src": "static:manual_entry_buttons"
+        },
+        "reveals_this_field": {
+          "v": null,
+          "c": "unknown",
+          "src": "no click was made and no script ran"
+        },
+        "sensitive": {
+          "v": false,
+          "c": "api_derived",
+          "src": "api:standard question"
+        }
+      }
+    },
+    {
+      "id": "question_8759088006",
+      "group": "application",
+      "status": "present",
+      "api": {
+        "names": [
+          "question_8759088006"
+        ],
+        "src": "api:questions[6]"
+      },
+      "observed": {
+        "rows": [
+          8
+        ],
+        "dom_ids": [
+          "question_8759088006"
+        ]
+      },
+      "facts": {
+        "label": {
+          "v": "LinkedIn Profile",
+          "c": "api_derived",
+          "src": "api:questions[6].label",
+          "corroborated_by": [
+            "observed:run12 row 8"
+          ]
+        },
+        "kind": {
+          "v": "text",
+          "c": "observed",
+          "src": "static:controls_by_id[question_8759088006] type=text; no role"
+        },
+        "widget": {
+          "v": "native_input",
+          "c": "observed",
+          "src": "static:controls_by_id[question_8759088006]"
+        },
+        "required": {
+          "v": false,
+          "c": "api_derived",
+          "src": "api:questions[6].required",
+          "corroborated_by": [
+            "observed:run12 row 8 required=0"
+          ]
+        },
+        "sensitive": {
+          "v": false,
+          "c": "api_derived",
+          "src": "api:standard question"
+        }
+      }
+    },
+    {
+      "id": "question_8759089006",
+      "group": "application",
+      "status": "present",
+      "api": {
+        "names": [
+          "question_8759089006"
+        ],
+        "src": "api:questions[7]"
+      },
+      "observed": {
+        "rows": [
+          9
+        ],
+        "dom_ids": [
+          "question_8759089006"
+        ]
+      },
+      "facts": {
+        "label": {
+          "v": "Website",
+          "c": "api_derived",
+          "src": "api:questions[7].label",
+          "corroborated_by": [
+            "observed:run12 row 9"
+          ]
+        },
+        "kind": {
+          "v": "text",
+          "c": "observed",
+          "src": "static:controls_by_id[question_8759089006] type=text; no role"
+        },
+        "widget": {
+          "v": "native_input",
+          "c": "observed",
+          "src": "static:controls_by_id[question_8759089006]"
+        },
+        "required": {
+          "v": false,
+          "c": "api_derived",
+          "src": "api:questions[7].required",
+          "corroborated_by": [
+            "observed:run12 row 9 required=0"
+          ]
+        },
+        "sensitive": {
+          "v": false,
+          "c": "api_derived",
+          "src": "api:standard question"
+        }
+      }
+    },
+    {
+      "id": "question_8759090006",
+      "group": "application",
+      "status": "present",
+      "api": {
+        "names": [
+          "question_8759090006"
+        ],
+        "src": "api:questions[8]"
+      },
+      "observed": {
+        "rows": [
+          10
+        ],
+        "dom_ids": [
+          "question_8759090006"
+        ]
+      },
+      "facts": {
+        "label": {
+          "v": "At this time, Chainguard is unable to provide employment sponsorship. Will you now, or in the future, require Chainguard to provide employment sponsorship for the country in which you are applying? (for example, H-1B, or other employment-based visas)",
+          "c": "api_derived",
+          "src": "api:questions[8].label",
+          "corroborated_by": [
+            "observed:run12 row 10"
+          ]
+        },
+        "kind": {
+          "v": "text",
+          "c": "observed",
+          "src": "static:controls_by_id[question_8759090006] type=text; no role"
+        },
+        "widget": {
+          "v": "native_input",
+          "c": "observed",
+          "src": "static:controls_by_id[question_8759090006]"
+        },
+        "required": {
+          "v": true,
+          "c": "api_derived",
+          "src": "api:questions[8].required",
+          "corroborated_by": [
+            "observed:run12 row 10 required=1"
+          ]
+        },
+        "sensitive": {
+          "v": false,
+          "c": "api_derived",
+          "src": "api:standard question"
+        },
+        "answer_format": {
+          "v": null,
+          "c": "unknown",
+          "src": "the label asks a yes/no style question (sponsorship needed, now or later) but the control is a free-text input; what answer it accepts is not stated"
+        }
+      }
+    },
+    {
+      "id": "demographic_4004578006",
+      "group": "U.S. Standard Demographic Questions",
+      "status": "present",
+      "api": {
+        "names": [
+          "4004578006"
+        ],
+        "src": "api:demographic_questions.questions[0]"
+      },
+      "observed": {
+        "rows": [
+          11
+        ],
+        "dom_ids": [
+          "4004578006"
+        ]
+      },
+      "facts": {
+        "label": {
+          "v": "How would you describe your gender identity? (mark all that apply)",
+          "c": "api_derived",
+          "src": "api:demographic_questions.questions[0].label",
+          "corroborated_by": [
+            "observed:run12 row 11"
+          ]
+        },
+        "kind": {
+          "v": "select",
+          "c": "api_derived",
+          "src": "api:demographic_questions.questions[0].type = multi_value_multi_select",
+          "note": "run12 recorded control_type 'text'"
+        },
+        "cardinality": {
+          "v": "multi",
+          "c": "api_derived",
+          "src": "api:demographic_questions.questions[0].type = multi_value_multi_select"
+        },
+        "widget": {
+          "v": "combobox",
+          "c": "observed",
+          "src": "static:controls_by_id[4004578006] role=combobox, aria-haspopup=true, aria-autocomplete=list"
+        },
+        "required": {
+          "v": false,
+          "c": "api_derived",
+          "src": "api:demographic_questions.questions[0].required",
+          "corroborated_by": [
+            "observed:run12 row 11 required=0"
+          ]
+        },
+        "options": {
+          "v": {
+            "state": "not_in_observed_dom",
+            "api_count": 5
+          },
+          "c": "api_derived",
+          "src": "answer_options are in the API; the rendered markup has no listbox until opened"
+        },
+        "sensitive": {
+          "v": true,
+          "c": "api_derived",
+          "src": "api:demographic_questions (voluntary demographic category)"
+        }
+      }
+    },
+    {
+      "id": "demographic_4004579006",
+      "group": "U.S. Standard Demographic Questions",
+      "status": "present",
+      "api": {
+        "names": [
+          "4004579006"
+        ],
+        "src": "api:demographic_questions.questions[1]"
+      },
+      "observed": {
+        "rows": [
+          12
+        ],
+        "dom_ids": [
+          "4004579006"
+        ]
+      },
+      "facts": {
+        "label": {
+          "v": "How would you describe your racial/ethnic background? (mark all that apply)",
+          "c": "api_derived",
+          "src": "api:demographic_questions.questions[1].label",
+          "corroborated_by": [
+            "observed:run12 row 12"
+          ]
+        },
+        "kind": {
+          "v": "select",
+          "c": "api_derived",
+          "src": "api:demographic_questions.questions[1].type = multi_value_multi_select",
+          "note": "run12 recorded control_type 'text'"
+        },
+        "cardinality": {
+          "v": "multi",
+          "c": "api_derived",
+          "src": "api:demographic_questions.questions[1].type = multi_value_multi_select"
+        },
+        "widget": {
+          "v": "combobox",
+          "c": "observed",
+          "src": "static:controls_by_id[4004579006] role=combobox, aria-haspopup=true, aria-autocomplete=list"
+        },
+        "required": {
+          "v": false,
+          "c": "api_derived",
+          "src": "api:demographic_questions.questions[1].required",
+          "corroborated_by": [
+            "observed:run12 row 12 required=0"
+          ]
+        },
+        "options": {
+          "v": {
+            "state": "not_in_observed_dom",
+            "api_count": 11
+          },
+          "c": "api_derived",
+          "src": "answer_options are in the API; the rendered markup has no listbox until opened"
+        },
+        "sensitive": {
+          "v": true,
+          "c": "api_derived",
+          "src": "api:demographic_questions (voluntary demographic category)"
+        }
+      }
+    },
+    {
+      "id": "demographic_4004580006",
+      "group": "U.S. Standard Demographic Questions",
+      "status": "present",
+      "api": {
+        "names": [
+          "4004580006"
+        ],
+        "src": "api:demographic_questions.questions[2]"
+      },
+      "observed": {
+        "rows": [
+          13
+        ],
+        "dom_ids": [
+          "4004580006"
+        ]
+      },
+      "facts": {
+        "label": {
+          "v": "How would you describe your sexual orientation? (mark all that apply)",
+          "c": "api_derived",
+          "src": "api:demographic_questions.questions[2].label",
+          "corroborated_by": [
+            "observed:run12 row 13"
+          ]
+        },
+        "kind": {
+          "v": "select",
+          "c": "api_derived",
+          "src": "api:demographic_questions.questions[2].type = multi_value_multi_select",
+          "note": "run12 recorded control_type 'text'"
+        },
+        "cardinality": {
+          "v": "multi",
+          "c": "api_derived",
+          "src": "api:demographic_questions.questions[2].type = multi_value_multi_select"
+        },
+        "widget": {
+          "v": "combobox",
+          "c": "observed",
+          "src": "static:controls_by_id[4004580006] role=combobox, aria-haspopup=true, aria-autocomplete=list"
+        },
+        "required": {
+          "v": false,
+          "c": "api_derived",
+          "src": "api:demographic_questions.questions[2].required",
+          "corroborated_by": [
+            "observed:run12 row 13 required=0"
+          ]
+        },
+        "options": {
+          "v": {
+            "state": "not_in_observed_dom",
+            "api_count": 8
+          },
+          "c": "api_derived",
+          "src": "answer_options are in the API; the rendered markup has no listbox until opened"
+        },
+        "sensitive": {
+          "v": true,
+          "c": "api_derived",
+          "src": "api:demographic_questions (voluntary demographic category)"
+        }
+      }
+    },
+    {
+      "id": "demographic_4004581006",
+      "group": "U.S. Standard Demographic Questions",
+      "status": "present",
+      "api": {
+        "names": [
+          "4004581006"
+        ],
+        "src": "api:demographic_questions.questions[3]"
+      },
+      "observed": {
+        "rows": [
+          14
+        ],
+        "dom_ids": [
+          "4004581006"
+        ]
+      },
+      "facts": {
+        "label": {
+          "v": "Do you identify as transgender?",
+          "c": "api_derived",
+          "src": "api:demographic_questions.questions[3].label",
+          "corroborated_by": [
+            "observed:run12 row 14"
+          ]
+        },
+        "kind": {
+          "v": "select",
+          "c": "api_derived",
+          "src": "api:demographic_questions.questions[3].type = multi_value_single_select",
+          "note": "run12 recorded control_type 'text'"
+        },
+        "cardinality": {
+          "v": "single",
+          "c": "api_derived",
+          "src": "api:demographic_questions.questions[3].type = multi_value_single_select"
+        },
+        "widget": {
+          "v": "combobox",
+          "c": "observed",
+          "src": "static:controls_by_id[4004581006] role=combobox, aria-haspopup=true, aria-autocomplete=list"
+        },
+        "required": {
+          "v": false,
+          "c": "api_derived",
+          "src": "api:demographic_questions.questions[3].required",
+          "corroborated_by": [
+            "observed:run12 row 14 required=0"
+          ]
+        },
+        "options": {
+          "v": {
+            "state": "not_in_observed_dom",
+            "api_count": 4
+          },
+          "c": "api_derived",
+          "src": "answer_options are in the API; the rendered markup has no listbox until opened"
+        },
+        "sensitive": {
+          "v": true,
+          "c": "api_derived",
+          "src": "api:demographic_questions (voluntary demographic category)"
+        }
+      }
+    },
+    {
+      "id": "demographic_4004582006",
+      "group": "U.S. Standard Demographic Questions",
+      "status": "present",
+      "api": {
+        "names": [
+          "4004582006"
+        ],
+        "src": "api:demographic_questions.questions[4]"
+      },
+      "observed": {
+        "rows": [
+          15
+        ],
+        "dom_ids": [
+          "4004582006"
+        ]
+      },
+      "facts": {
+        "label": {
+          "v": "Do you have a disability or chronic condition (physical, visual, auditory, cognitive, mental, emotional, or other) that substantially limits one or more of your major life activities, including mobility, communication (seeing, hearing, speaking), and learning?",
+          "c": "api_derived",
+          "src": "api:demographic_questions.questions[4].label",
+          "corroborated_by": [
+            "observed:run12 row 15"
+          ]
+        },
+        "kind": {
+          "v": "select",
+          "c": "api_derived",
+          "src": "api:demographic_questions.questions[4].type = multi_value_single_select",
+          "note": "run12 recorded control_type 'text'"
+        },
+        "cardinality": {
+          "v": "single",
+          "c": "api_derived",
+          "src": "api:demographic_questions.questions[4].type = multi_value_single_select"
+        },
+        "widget": {
+          "v": "combobox",
+          "c": "observed",
+          "src": "static:controls_by_id[4004582006] role=combobox, aria-haspopup=true, aria-autocomplete=list"
+        },
+        "required": {
+          "v": false,
+          "c": "api_derived",
+          "src": "api:demographic_questions.questions[4].required",
+          "corroborated_by": [
+            "observed:run12 row 15 required=0"
+          ]
+        },
+        "options": {
+          "v": {
+            "state": "not_in_observed_dom",
+            "api_count": 4
+          },
+          "c": "api_derived",
+          "src": "answer_options are in the API; the rendered markup has no listbox until opened"
+        },
+        "sensitive": {
+          "v": true,
+          "c": "api_derived",
+          "src": "api:demographic_questions (voluntary demographic category)"
+        }
+      }
+    },
+    {
+      "id": "demographic_4004583006",
+      "group": "U.S. Standard Demographic Questions",
+      "status": "present",
+      "api": {
+        "names": [
+          "4004583006"
+        ],
+        "src": "api:demographic_questions.questions[5]"
+      },
+      "observed": {
+        "rows": [
+          16
+        ],
+        "dom_ids": [
+          "4004583006"
+        ]
+      },
+      "facts": {
+        "label": {
+          "v": "Are you a veteran or active member of the United States Armed Forces?",
+          "c": "api_derived",
+          "src": "api:demographic_questions.questions[5].label",
+          "corroborated_by": [
+            "observed:run12 row 16"
+          ]
+        },
+        "kind": {
+          "v": "select",
+          "c": "api_derived",
+          "src": "api:demographic_questions.questions[5].type = multi_value_single_select",
+          "note": "run12 recorded control_type 'text'"
+        },
+        "cardinality": {
+          "v": "single",
+          "c": "api_derived",
+          "src": "api:demographic_questions.questions[5].type = multi_value_single_select"
+        },
+        "widget": {
+          "v": "combobox",
+          "c": "observed",
+          "src": "static:controls_by_id[4004583006] role=combobox, aria-haspopup=true, aria-autocomplete=list"
+        },
+        "required": {
+          "v": false,
+          "c": "api_derived",
+          "src": "api:demographic_questions.questions[5].required",
+          "corroborated_by": [
+            "observed:run12 row 16 required=0"
+          ]
+        },
+        "options": {
+          "v": {
+            "state": "not_in_observed_dom",
+            "api_count": 4
+          },
+          "c": "api_derived",
+          "src": "answer_options are in the API; the rendered markup has no listbox until opened"
+        },
+        "sensitive": {
+          "v": true,
+          "c": "api_derived",
+          "src": "api:demographic_questions (voluntary demographic category)"
+        }
+      }
+    },
+    {
+      "id": "gender",
+      "group": "Voluntary Self-Identification",
+      "status": "present",
+      "api": {
+        "names": [
+          "gender"
+        ],
+        "src": "api:compliance[1] type=eeoc"
+      },
+      "observed": {
+        "rows": [
+          17
+        ],
+        "dom_ids": [
+          "gender"
+        ]
+      },
+      "facts": {
+        "label": {
+          "v": "Gender",
+          "c": "observed",
+          "src": "run12 row 17; static label[for=gender]",
+          "note": "the API labels this 'Gender' / 'VeteranStatus'"
+        },
+        "kind": {
+          "v": "select",
+          "c": "api_derived",
+          "src": "api:compliance field type multi_value_single_select",
+          "note": "run12 recorded control_type 'text'"
+        },
+        "cardinality": {
+          "v": "single",
+          "c": "api_derived",
+          "src": "api:compliance field type multi_value_single_select"
+        },
+        "widget": {
+          "v": "combobox",
+          "c": "observed",
+          "src": "static:controls_by_id[gender] role=combobox"
+        },
+        "required": {
+          "v": false,
+          "c": "api_derived",
+          "src": "api:compliance question required=false",
+          "corroborated_by": [
+            "observed:run12 row 17 required=0"
+          ]
+        },
+        "options": {
+          "v": {
+            "state": "not_in_observed_dom",
+            "api_count": 3
+          },
+          "c": "api_derived",
+          "src": "api:compliance field values"
+        },
+        "sensitive": {
+          "v": true,
+          "c": "api_derived",
+          "src": "api:compliance type=eeoc"
+        }
+      }
+    },
+    {
+      "id": "veteran_status",
+      "group": "Voluntary Self-Identification",
+      "status": "present",
+      "api": {
+        "names": [
+          "veteran_status"
+        ],
+        "src": "api:compliance[0] type=eeoc"
+      },
+      "observed": {
+        "rows": [
+          19
+        ],
+        "dom_ids": [
+          "veteran_status"
+        ]
+      },
+      "facts": {
+        "label": {
+          "v": "Veteran Status",
+          "c": "observed",
+          "src": "run12 row 19; static label[for=veteran_status]",
+          "note": "the API labels this 'Gender' / 'VeteranStatus'"
+        },
+        "kind": {
+          "v": "select",
+          "c": "api_derived",
+          "src": "api:compliance field type multi_value_single_select",
+          "note": "run12 recorded control_type 'text'"
+        },
+        "cardinality": {
+          "v": "single",
+          "c": "api_derived",
+          "src": "api:compliance field type multi_value_single_select"
+        },
+        "widget": {
+          "v": "combobox",
+          "c": "observed",
+          "src": "static:controls_by_id[veteran_status] role=combobox"
+        },
+        "required": {
+          "v": false,
+          "c": "api_derived",
+          "src": "api:compliance question required=false",
+          "corroborated_by": [
+            "observed:run12 row 19 required=0"
+          ]
+        },
+        "options": {
+          "v": {
+            "state": "not_in_observed_dom",
+            "api_count": 3
+          },
+          "c": "api_derived",
+          "src": "api:compliance field values"
+        },
+        "sensitive": {
+          "v": true,
+          "c": "api_derived",
+          "src": "api:compliance type=eeoc"
+        }
+      }
+    },
+    {
+      "id": "hispanic_ethnicity",
+      "group": "Voluntary Self-Identification",
+      "status": "present",
+      "api": null,
+      "observed": {
+        "rows": [
+          18
+        ],
+        "dom_ids": [
+          "hispanic_ethnicity"
+        ]
+      },
+      "facts": {
+        "label": {
+          "v": "Are you Hispanic/Latino?",
+          "c": "observed",
+          "src": "run12 row 18; static label[for=hispanic_ethnicity]"
+        },
+        "kind": {
+          "v": "select",
+          "c": "inferred",
+          "src": "static: input role=combobox",
+          "note": "a combobox; single vs multi is not established"
+        },
+        "cardinality": {
+          "v": "unknown",
+          "c": "unknown",
+          "src": "no API entry; the widget does not say"
+        },
+        "widget": {
+          "v": "combobox",
+          "c": "observed",
+          "src": "static:controls_by_id[hispanic_ethnicity] role=combobox"
+        },
+        "required": {
+          "v": false,
+          "c": "observed",
+          "src": "run12 row 18 required=0; static aria-required=false"
+        },
+        "options": {
+          "v": {
+            "state": "not_in_observed_dom",
+            "api_count": null
+          },
+          "c": "unknown",
+          "src": "no API entry"
+        },
+        "sensitive": {
+          "v": true,
+          "c": "inferred",
+          "src": "rendered inside the Voluntary Self-Identification section next to API-classified EEOC fields; it has no API entry of its own"
+        },
+        "relation_to_api_race": {
+          "v": null,
+          "c": "unknown",
+          "src": "whether this control stands in for, or complements, the API's 'Race' question is not established"
+        }
+      }
+    },
+    {
+      "id": "race",
+      "group": "Voluntary Self-Identification",
+      "status": "api_only_not_rendered",
+      "api": {
+        "names": [
+          "race"
+        ],
+        "src": "api:compliance[1] type=eeoc"
+      },
+      "observed": null,
+      "facts": {
+        "label": {
+          "v": "Race",
+          "c": "api_derived",
+          "src": "api:compliance[1].questions[0].label"
+        },
+        "kind": {
+          "v": "select",
+          "c": "api_derived",
+          "src": "api:compliance field type multi_value_single_select"
+        },
+        "cardinality": {
+          "v": "single",
+          "c": "api_derived",
+          "src": "api:compliance field type multi_value_single_select"
+        },
+        "required": {
+          "v": false,
+          "c": "api_derived",
+          "src": "api:compliance question required=false"
+        },
+        "options": {
+          "v": {
+            "state": "not_in_observed_dom",
+            "api_count": 8
+          },
+          "c": "api_derived",
+          "src": "api:compliance field values"
+        },
+        "sensitive": {
+          "v": true,
+          "c": "api_derived",
+          "src": "api:compliance type=eeoc"
+        },
+        "present_in_embedded_page_data": {
+          "v": true,
+          "c": "observed",
+          "src": "static:race.embedded_page_data_contains_question"
+        },
+        "rendered_as_a_control": {
+          "v": false,
+          "c": "observed",
+          "src": "static: no label reading Race and no element with id race; run12 extracted no Race question"
+        },
+        "why_not_rendered": {
+          "v": null,
+          "c": "unknown",
+          "src": "UNVERIFIED. Not established as a conditional follow-up, a form variant, a rendering rule or anything else. Do not assume."
+        }
+      }
+    }
+  ],
+  "discrepancies": [
+    {
+      "id": "race_not_rendered",
+      "api_side": "compliance[1] 'Race' (field race, multi_value_single_select, 8 options)",
+      "rendered_side": "No control: no label reading Race, no element with id race, and run #12 extracted none. The page's embedded data DOES contain the question.",
+      "status": "observed",
+      "explanation_status": "unknown",
+      "explanation": "UNVERIFIED. The reason it is not rendered is not established. It is not asserted to be conditional."
+    },
+    {
+      "id": "hispanic_ethnicity_not_in_api",
+      "api_side": "Not a question in the API (compliance lists Race, Gender, VeteranStatus)",
+      "rendered_side": "Rendered as 'Are you Hispanic/Latino?' (id hispanic_ethnicity, combobox, optional)",
+      "status": "observed",
+      "explanation_status": "unknown",
+      "explanation": "How this relates to the API's Race question is not established."
+    },
+    {
+      "id": "country_widget_not_in_api",
+      "api_side": "No country question",
+      "rendered_side": "A labelled combobox 'Country*' (id country) plus one unlabeled aria-hidden required input beside it",
+      "status": "observed",
+      "explanation_status": "inferred",
+      "explanation": "Inferred to belong to the phone control. The unlabeled input is inferred to be run #12 row 4 by matching traits."
+    },
+    {
+      "id": "manual_text_not_rendered",
+      "api_side": "resume_text and cover_letter_text textarea fields (optional)",
+      "rendered_side": "'Enter manually' buttons and visually hidden labels for those ids, but no element with either id and no textarea in the markup",
+      "status": "observed",
+      "explanation_status": "inferred",
+      "explanation": "Inferred: the buttons reveal the textareas. Not observed; no click was made."
+    },
+    {
+      "id": "file_labels_generic",
+      "api_side": "Labels 'Resume/CV' and 'Cover Letter'",
+      "rendered_side": "Accessible labels 'Attach' and 'Attach' (visually hidden) on inputs resume and cover_letter",
+      "status": "observed",
+      "explanation_status": "observed",
+      "explanation": "The headings are separate container text; the association is by DOM id equal to API name."
+    },
+    {
+      "id": "dropdown_controls_typed_text",
+      "api_side": "Single- and multi-select question types",
+      "rendered_side": "input type=text with role=combobox, aria-haspopup=true, aria-autocomplete=list",
+      "status": "observed",
+      "explanation_status": "observed",
+      "explanation": "The widget is a combobox. Run #12 recorded these as control_type 'text' with no options."
+    },
+    {
+      "id": "phone_type",
+      "api_side": "input_text",
+      "rendered_side": "input type=tel",
+      "status": "observed",
+      "explanation_status": "observed",
+      "explanation": "Rendered type is more specific than the API's."
+    },
+    {
+      "id": "gdpr_consent_rendering",
+      "api_side": "data_compliance: gdpr, requires_consent false",
+      "rendered_side": "Not examined",
+      "status": "unexamined",
+      "explanation_status": "unknown",
+      "explanation": "Whether any consent notice is rendered was not checked."
+    }
+  ],
+  "observed_extraction_errors_in_run12": [
+    {
+      "id": "duplicate_row_for_one_control",
+      "rows": [
+        4
+      ],
+      "kind": "duplicate_widget_row",
+      "c": "inferred",
+      "note": "Inferred to be the hidden validation input of the Country combobox, reported as a separate unresolved required field."
+    },
+    {
+      "id": "generic_file_labels",
+      "rows": [
+        6,
+        7
+      ],
+      "kind": "mislabeled",
+      "c": "observed",
+      "note": "Labels are 'Attach' for both; the logical labels are Resume/CV and Cover Letter."
+    },
+    {
+      "id": "dropdowns_typed_text",
+      "rows": [
+        3,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19
+      ],
+      "kind": "mistyped",
+      "c": "observed",
+      "note": "Combobox controls recorded as control_type 'text' with no options."
+    },
+    {
+      "id": "required_marker_in_label",
+      "rows": [
+        0,
+        1,
+        2,
+        3,
+        5
+      ],
+      "kind": "label_not_normalized",
+      "c": "observed",
+      "note": "A trailing '*' (the required marker) is part of the stored label."
+    },
+    {
+      "id": "sensitive_not_flagged",
+      "rows": [
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19
+      ],
+      "kind": "missing_sensitive_flag",
+      "c": "observed",
+      "note": "The data model has no sensitive flag; these are distinguishable only by section name."
+    }
+  ],
+  "unknowns": [
+    "Why the Race question is not rendered (explicitly not assumed to be conditional).",
+    "Whether 'Enter manually' reveals the resume and cover-letter textareas.",
+    "The option lists of the rendered comboboxes (counts and labels come from the API only; none are in the rendered markup).",
+    "Whether the Country combobox starts with a default selection, and its options.",
+    "Whether further fields appear after any answer is chosen. No answer was entered.",
+    "What answer format the required sponsorship input accepts (it is a free-text input asking a yes/no style question).",
+    "Whether a GDPR/consent notice is rendered.",
+    "Whether the invisible reCAPTCHA gates submission (only its configuration entry was seen)."
+  ]
+}

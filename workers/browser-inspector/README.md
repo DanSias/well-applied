@@ -412,7 +412,7 @@ cleanup policy — not implemented here because nothing yet needs it.
 npm test          # everything under test/ — see below for prerequisites
 ```
 
-Three kinds:
+Four kinds:
 
 - **Deterministic, fixture-based** (`test/url-safety.test.js`,
   `test/result-contract.test.js`, `test/greenhouse-extractor.test.js`)
@@ -432,6 +432,12 @@ Three kinds:
   in-memory client object with an injectable `inspect()` stub, so no
   test here ever launches a real browser or requires the real Laravel
   server — see `src/poll.js`'s `inspectFn` parameter.
+- **The Universal Application Inspection corpus** (`test/universal-corpus.test.js`, fixtures in
+  `test/fixtures/universal/`) — the M0 fixtures, golden expectations and M1 criteria for a generic, read-only form
+  inspector. It checks the corpus itself (immutable run #12 evidence, the semantic golden's evidence classes, hash-locked
+  offline fixtures with declared traits); it does **not** test inspector behaviour yet. Offline and deterministic: Chromium
+  only reads fixtures loaded with `setContent()`, and a request made while loading fails the test. See that directory's
+  README.
 - **Live smoke test** (not an automated test file — see "AI-box
   deployment" below) — run explicitly, by hand, against a real public
   Greenhouse posting. Never part of `npm test`, exactly because a live

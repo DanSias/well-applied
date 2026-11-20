@@ -1,0 +1,43 @@
+<!doctype html>
+<!-- M0 fixture. SYNTHETIC: structure modelled on facts observed on one real Greenhouse form (see ../evidence/chainguard-4722145006/static-page-observations.json). Not a copy: names, text and ids are invented. Deterministic: no network, no timers, no script that runs on load. -->
+<html lang="en"><head><meta charset="utf-8"><title>Job Application for Staff Platform Engineer at Example Co</title>
+<style>.visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}.select__control{display:inline-block;border:1px solid #888}</style></head>
+<body><main>
+<h1>Job Application for Staff Platform Engineer at Example Co</h1>
+<form>
+<h2>Apply for this job</h2>
+<div><label for="first_name">First Name<span aria-hidden="true">*</span></label><input id="first_name" type="text" aria-required="true" autocomplete="given-name"></div>
+<div><label for="last_name">Last Name<span aria-hidden="true">*</span></label><input id="last_name" type="text" aria-required="true" autocomplete="family-name"></div>
+<div><label for="email">Email<span aria-hidden="true">*</span></label><input id="email" type="text" aria-required="true" autocomplete="email"></div>
+<section aria-label="Phone"><h3>Phone</h3>
+ <div class="select"><label id="country-label" for="country">Country<span aria-hidden="true">*</span></label>
+  <div class="select__control"><input id="country" type="text" role="combobox" aria-haspopup="true" aria-autocomplete="list" aria-expanded="false" aria-required="true" tabindex="0"></div>
+  <input tabindex="-1" aria-hidden="true" required value="" style="opacity:0;position:absolute;pointer-events:none"></div>
+ <div><label for="phone">Phone<span aria-hidden="true">*</span></label><input id="phone" type="tel" aria-required="true"></div></section>
+<section><h3>Resume/CV</h3>
+ <button type="button">Attach</button><label class="visually-hidden" for="resume">Attach</label><input id="resume" class="visually-hidden" type="file" accept=".pdf,.doc,.docx,.txt,.rtf">
+ <button type="button" data-testid="resume-text">Enter manually</button><label class="visually-hidden" for="resume_text">Enter manually</label>
+ <p>Accepted file types: pdf, doc, docx, txt, rtf</p></section>
+<section><h3>Cover Letter</h3>
+ <button type="button">Attach</button><label class="visually-hidden" for="cover_letter">Attach</label><input id="cover_letter" class="visually-hidden" type="file" accept=".pdf,.doc,.docx,.txt,.rtf">
+ <button type="button" data-testid="cover_letter-text">Enter manually</button><label class="visually-hidden" for="cover_letter_text">Enter manually</label>
+ <p>Accepted file types: pdf, doc, docx, txt, rtf</p></section>
+<div><label for="q_linkedin">LinkedIn Profile</label><input id="q_linkedin" type="text" aria-required="false"></div>
+<div><label for="q_website">Website</label><input id="q_website" type="text" aria-required="false"></div>
+<div><label for="q_sponsorship">At this time, Example Co is unable to provide employment sponsorship. Will you now, or in the future, require Example Co to provide employment sponsorship for the country in which you are applying? (for example, H-1B, or other employment-based visas)<span aria-hidden="true">*</span></label><input id="q_sponsorship" type="text" aria-required="true"></div>
+<section aria-label="U.S. Standard Demographic Questions"><h3>U.S. Standard Demographic Questions</h3>
+ <div><label id="d1-label" for="d_gender_identity">How would you describe your gender identity? (mark all that apply)</label><div class="select__control"><input id="d_gender_identity" type="text" role="combobox" aria-haspopup="true" aria-autocomplete="list" aria-expanded="false" aria-required="false" tabindex="0"></div></div>
+ <div><label id="d2-label" for="d_racial_ethnic">How would you describe your racial/ethnic background? (mark all that apply)</label><div class="select__control"><input id="d_racial_ethnic" type="text" role="combobox" aria-haspopup="true" aria-autocomplete="list" aria-expanded="false" aria-required="false" tabindex="0"></div></div>
+ <div><label id="d3-label" for="d_orientation">How would you describe your sexual orientation? (mark all that apply)</label><div class="select__control"><input id="d_orientation" type="text" role="combobox" aria-haspopup="true" aria-autocomplete="list" aria-expanded="false" aria-required="false" tabindex="0"></div></div>
+ <div><label id="d4-label" for="d_transgender">Do you identify as transgender?</label><div class="select__control"><input id="d_transgender" type="text" role="combobox" aria-haspopup="true" aria-autocomplete="list" aria-expanded="false" aria-required="false" tabindex="0"></div></div>
+ <div><label id="d5-label" for="d_disability">Do you have a disability or chronic condition that substantially limits one or more of your major life activities?</label><div class="select__control"><input id="d_disability" type="text" role="combobox" aria-haspopup="true" aria-autocomplete="list" aria-expanded="false" aria-required="false" tabindex="0"></div></div>
+ <div><label id="d6-label" for="d_veteran">Are you a veteran or active member of the United States Armed Forces?</label><div class="select__control"><input id="d_veteran" type="text" role="combobox" aria-haspopup="true" aria-autocomplete="list" aria-expanded="false" aria-required="false" tabindex="0"></div></div></section>
+<section aria-label="Voluntary Self-Identification"><h3>Voluntary Self-Identification</h3>
+ <div><label for="gender">Gender</label><div class="select__control"><input id="gender" type="text" role="combobox" aria-haspopup="true" aria-autocomplete="list" aria-expanded="false" aria-required="false" tabindex="0"></div></div>
+ <div><label for="hispanic_ethnicity">Are you Hispanic/Latino?</label><div class="select__control"><input id="hispanic_ethnicity" type="text" role="combobox" aria-haspopup="true" aria-autocomplete="list" aria-expanded="false" aria-required="false" tabindex="0"></div></div>
+ <div><label for="veteran_status">Veteran Status</label><div class="select__control"><input id="veteran_status" type="text" role="combobox" aria-haspopup="true" aria-autocomplete="list" aria-expanded="false" aria-required="false" tabindex="0"></div></div></section>
+<button type="submit">Submit application</button>
+</form></main>
+<!-- Embedded page data, as on the observed page: it names a "Race" question that is NOT rendered as a control anywhere above. Inert: type is not JavaScript. -->
+<script type="application/json" id="page-data">{"compliance":[{"questions":[{"required":false,"label":"Race","fields":[{"name":"race","type":"multi_value_single_select"}]}]}]}</script>
+</body></html>

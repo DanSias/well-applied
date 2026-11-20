@@ -1,0 +1,50 @@
+{
+  "schema": "universal-m1-criteria/1",
+  "milestone": "M1",
+  "title": "Generic, read-only form discovery in the inspector, without clicks",
+  "applies_to": ["greenhouse-style-form", "combobox-nested-search", "labels-vs-headings", "conditional-hidden-fields", "sensitive-demographics", "multi-step", "auth-gate-aggregator", "apply-button-nonget", "unknown-ats-form"],
+  "not_required": [
+    "Any exact field count. The live baseline (run #12) holds 20 rows, including known extraction errors; matching that count would mean reproducing them.",
+    "Reproducing run #12's rows, labels, control types or ordering.",
+    "Access to the live Greenhouse page, the network, the AI box, or the database. Everything is scored offline.",
+    "Reading options of a combobox that needs a click to open (reveal-tier interaction, a later milestone).",
+    "Recognising conditional or multi-step content as such (M2). M1 only must not invent it.",
+    "Detecting a sign-in gate (M3). M1 only must not report the gate's inputs as application fields."
+  ],
+  "matching": {
+    "rule": "An expected field matches an extracted row when the row's DOM id (or, for groups, name) equals one of match.dom_ids; failing that, when the normalised label equals match.label. A row matches at most one expected field.",
+    "normalise_label": "lower-case, collapse whitespace, strip the required marker (a trailing '*'), trim",
+    "extra_row": "A row that matches no expected field and no must_not_report entry.",
+    "max_rows": "A field with max_rows: 1 is one logical control: more than one row for it is a failure."
+  },
+  "functional": [
+    {"id": "M1-F1", "name": "field recall", "formula": "matched expected M1 fields / expected M1 fields, over all applicable fixtures", "threshold": ">= 0.95", "per_fixture_floor": ">= 0.80"},
+    {"id": "M1-F2", "name": "label accuracy", "formula": "matched fields whose normalised label equals the expected label / matched fields", "threshold": ">= 0.95"},
+    {"id": "M1-F3", "name": "required accuracy", "formula": "matched fields whose required flag equals the expected one / matched fields", "threshold": "== 1.00"},
+    {"id": "M1-F4", "name": "kind accuracy", "formula": "matched fields whose kind equals the expected one / matched fields", "threshold": ">= 0.95", "also": "every combobox, listbox button and native select is kind 'select' (1.00); none is 'text'"},
+    {"id": "M1-F5", "name": "logical control integrity", "formula": "count of: rows beyond max_rows, rows matching a must_not_report entry", "threshold": "== 0"},
+    {"id": "M1-F6", "name": "extra rows", "formula": "extra rows / extracted rows", "threshold": "<= 0.02", "per_fixture_cap": "<= 1 extra row"},
+    {"id": "M1-F7", "name": "sensitive recall", "formula": "expected sensitive fields flagged sensitive / expected sensitive fields", "threshold": "== 1.00"},
+    {"id": "M1-F8", "name": "sensitive false positives", "formula": "fields flagged sensitive that are expected not sensitive (including the lexical decoys)", "threshold": "== 0"},
+    {"id": "M1-F9", "name": "label evidence honesty", "formula": "fields whose expected label_confidence is 'inferred' that are reported as structural", "threshold": "== 0", "also": "a real label is never replaced by a heading (labels-vs-headings: salary is not 'Compensation')"},
+    {"id": "M1-F10", "name": "options state", "formula": "fields with an expected options.state that report the same state, and the same count when the state is known_*", "threshold": ">= 0.90", "note": "not_in_observed_dom is the right answer for a combobox whose list is not in the DOM"},
+    {"id": "M1-F11", "name": "non-form pages", "formula": "auth-gate-aggregator and apply-button-nonget end with their expected m1 outcome and stop reason, report warnings_include, and extract no fields", "threshold": "== 1.00 of 2"},
+    {"id": "M1-F12", "name": "form outcomes", "formula": "form fixtures whose outcome is in outcome_any_of", "threshold": "== 1.00", "note": "multi-step must not be reported as a fully inspected form once more steps are known (checked from M2)"}
+  ],
+  "safety": [
+    {"id": "M1-S1", "name": "no clicks", "measure": "pointer or keyboard activations issued by the worker", "threshold": "== 0"},
+    {"id": "M1-S2", "name": "no data entered", "measure": "fill, type, select, check, upload actions", "threshold": "== 0"},
+    {"id": "M1-S3", "name": "no non-GET request", "measure": "non-GET requests attempted by the page, and any that reach the fixture server", "threshold": "== 0 reaching the server", "also": "apply-button-nonget: window.__trap.fired === 0 afterwards"},
+    {"id": "M1-S4", "name": "page not modified", "measure": "serialised DOM before discovery equals the DOM after", "threshold": "identical", "note": "run #12's baseline path tags nothing; the Preparer's discovery sets data-wa-id and must not be copied as is"},
+    {"id": "M1-S5", "name": "no egress", "measure": "requests to any host other than the fixture host", "threshold": "== 0"},
+    {"id": "M1-S6", "name": "no values recorded", "measure": "answer or option values present in the stored result for sensitive fields", "threshold": "== 0"},
+    {"id": "M1-S7", "name": "existing protections intact", "measure": "worker suite, isolation checks, sandbox validation", "threshold": "all existing tests pass; no change to guard.js allowances"}
+  ],
+  "quality": [
+    {"id": "M1-Q1", "name": "determinism", "measure": "two runs over the same fixture produce identical normalised results (timestamps and durations excluded)", "threshold": "identical"},
+    {"id": "M1-Q2", "name": "speed", "measure": "time to discover one fixture, excluding browser start", "threshold": "<= 5 s each"},
+    {"id": "M1-Q3", "name": "backward compatibility", "measure": "results from before M1 (including run #12) still render and persist", "threshold": "no migration required for M1"},
+    {"id": "M1-Q4", "name": "live baseline, reported not gated", "measure": "one supervised run on the live Chainguard form, scored against golden/chainguard-4722145006.semantic.json: Country as one control, resume and cover letter distinct with correct labels, comboboxes as 'select', demographic and EEOC fields flagged sensitive, Race not invented", "threshold": "reported, requires your approval to run; not part of the offline gate"}
+  ],
+  "report_shape": "One JSON per fixture: {fixture, outcome, stop_reason, rows:[...], matched, extra, violations, safety:{clicks,non_get_reaching_server,dom_changed}, runtime_ms}, plus a summary of every metric above. Any safety failure fails M1 regardless of the functional scores."
+}

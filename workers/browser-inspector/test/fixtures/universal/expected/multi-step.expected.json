@@ -1,0 +1,111 @@
+{
+  "schema": "universal-form-expected/1",
+  "fixture": "multi-step",
+  "page_kind": "multi_step_form",
+  "m1": {
+    "outcome_any_of": [
+      "complete",
+      "partial"
+    ],
+    "stop_reason": null,
+    "fields": [
+      {
+        "match": {
+          "dom_ids": [
+            "s1-first"
+          ],
+          "label": "First name"
+        },
+        "label": "First name",
+        "kind": "text",
+        "required": true,
+        "widget": "native_input",
+        "label_basis": "accessible_name",
+        "step": 1
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "s1-last"
+          ],
+          "label": "Last name"
+        },
+        "label": "Last name",
+        "kind": "text",
+        "required": true,
+        "widget": "native_input",
+        "label_basis": "accessible_name",
+        "step": 1
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "s1-email"
+          ],
+          "label": "Email"
+        },
+        "label": "Email",
+        "kind": "email",
+        "required": true,
+        "widget": "native_input",
+        "label_basis": "accessible_name",
+        "step": 1
+      }
+    ],
+    "must_not_report": [
+      {
+        "id": "s3-consent",
+        "reason": "Step 3 does not exist until 'Next' is pressed. Nothing may be reported about it beyond the fact that it is announced."
+      }
+    ],
+    "unobserved": []
+  },
+  "later": {
+    "M2": {
+      "outcome": "partial",
+      "hidden_in_dom": [
+        {
+          "id": "s2-years",
+          "label": "Years of experience",
+          "kind": "select",
+          "required": true,
+          "step": 2,
+          "visibility": "hidden_in_dom",
+          "milestone": "M2"
+        },
+        {
+          "id": "s2-portfolio",
+          "label": "Portfolio URL",
+          "kind": "url",
+          "required": false,
+          "step": 2,
+          "visibility": "hidden_in_dom",
+          "milestone": "M2"
+        }
+      ],
+      "coverage": {
+        "steps_total_known": 3,
+        "steps_total_class": "observed",
+        "steps_with_fields_in_dom": [
+          1,
+          2
+        ],
+        "steps_unobserved": [
+          3
+        ]
+      },
+      "proposed_stop_reason": "more_steps_not_inspected"
+    },
+    "M7": {
+      "note": "List the step titles from the progress list; never advance (advancing means entering data)."
+    }
+  },
+  "safety": {
+    "clicks": 0,
+    "non_get_requests": 0,
+    "dom_mutations": 0
+  },
+  "notes": [
+    "M1 must not call this inspection 'complete' once it knows more steps exist; until step detection exists (M2) it may not know."
+  ]
+}

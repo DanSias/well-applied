@@ -1,0 +1,20 @@
+<!doctype html>
+<!-- M0 fixture (synthetic). Sensitive demographic questions, plus look-alikes that are NOT sensitive (word-matching must not decide this). -->
+<html lang="en"><head><meta charset="utf-8"><title>Apply - Site Reliability Engineer, Example Co</title></head>
+<body><main><h1>Apply: Site Reliability Engineer</h1><form>
+<div><label for="name">Full name<span aria-hidden="true">*</span></label><input id="name" type="text" required></div>
+<!-- Non-sensitive questions whose text contains sensitive-sounding words. -->
+<fieldset><legend>Are you authorized to work in the country where this role is based?</legend>
+ <label><input type="radio" name="work-auth" value="yes"> Yes</label><label><input type="radio" name="work-auth" value="no"> No</label></fieldset>
+<div><label for="vets-program">How many years have you supported veterans' hiring programs?</label><input id="vets-program" type="text"></div>
+<div><label for="a11y">Describe your experience building software for people with disabilities.</label><textarea id="a11y"></textarea></div>
+<div><label for="salary">Desired salary (USD)</label><input id="salary" type="text"></div>
+<!-- The voluntary self-identification block. -->
+<fieldset><legend>Voluntary Self-Identification (optional)</legend>
+ <div><label for="sid-gender">Gender</label><select id="sid-gender"><option value="">Select</option><option>Man</option><option>Woman</option><option>Non-binary</option><option>Decline to self-identify</option></select></div>
+ <div><label for="sid-race">Race / ethnicity</label><select id="sid-race"><option value="">Select</option><option>Asian</option><option>Black or African American</option><option>Hispanic or Latino</option><option>White</option><option>Decline to self-identify</option></select></div>
+ <div><label for="sid-veteran">Veteran status</label><select id="sid-veteran"><option value="">Select</option><option>I am a protected veteran</option><option>I am not a protected veteran</option><option>Decline to self-identify</option></select></div>
+ <fieldset><legend>Disability status</legend>
+  <label><input type="radio" name="disability" value="yes"> Yes, I have a disability</label><label><input type="radio" name="disability" value="no"> No, I do not have a disability</label><label><input type="radio" name="disability" value="decline"> I do not want to answer</label></fieldset>
+ <div><label for="sid-orientation">Sexual orientation</label><select id="sid-orientation"><option value="">Select</option><option>Heterosexual</option><option>Gay or lesbian</option><option>Bisexual</option><option>Decline to self-identify</option></select></div></fieldset>
+<button type="submit">Submit application</button></form></main></body></html>

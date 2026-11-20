@@ -1,0 +1,44 @@
+{
+  "schema": "universal-form-expected/1",
+  "fixture": "auth-gate-aggregator",
+  "page_kind": "listing",
+  "m1": {
+    "outcome": "application_not_found",
+    "stop_reason": "no_apply_link",
+    "warnings_include": [
+      "apply_is_button"
+    ],
+    "fields": [],
+    "must_not_report": [
+      {
+        "id": "hidden_dialog_inputs",
+        "dom_selector": "#gate input",
+        "reason": "The sign-in dialog's inputs are hidden and are not application fields."
+      }
+    ],
+    "unobserved": []
+  },
+  "later": {
+    "M3": {
+      "outcome": "authentication_required",
+      "proposed_stop_reason": "sign_in_required_to_apply",
+      "detect_without_clicking": "a hidden role=dialog whose text asks to sign in or create an account and whose opener is the Apply button",
+      "user_message_contains": [
+        "sign in",
+        "employer"
+      ],
+      "never": [
+        "sign in",
+        "create an account"
+      ]
+    }
+  },
+  "safety": {
+    "clicks": 0,
+    "non_get_requests": 0,
+    "dom_mutations": 0
+  },
+  "notes": [
+    "Modelled on an observed aggregator pattern. The employer's application URL is not in the page, so even a perfect clicker could not resolve it without signing in, which is never done."
+  ]
+}

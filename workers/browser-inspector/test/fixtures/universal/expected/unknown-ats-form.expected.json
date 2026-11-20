@@ -1,0 +1,102 @@
+{
+  "schema": "universal-form-expected/1",
+  "fixture": "unknown-ats-form",
+  "page_kind": "form",
+  "m1": {
+    "outcome_any_of": [
+      "complete"
+    ],
+    "stop_reason": null,
+    "fields": [
+      {
+        "match": {
+          "dom_ids": [
+            "fn"
+          ],
+          "label": "First name"
+        },
+        "label": "First name",
+        "kind": "text",
+        "required": true,
+        "widget": "native_input",
+        "label_basis": "accessible_name"
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "ln"
+          ],
+          "label": "Last name"
+        },
+        "label": "Last name",
+        "kind": "text",
+        "required": true,
+        "widget": "native_input",
+        "label_basis": "accessible_name"
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "em"
+          ],
+          "label": "Email"
+        },
+        "label": "Email",
+        "kind": "email",
+        "required": true,
+        "widget": "native_input",
+        "label_basis": "accessible_name"
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "ph"
+          ],
+          "label": "Phone"
+        },
+        "label": "Phone",
+        "kind": "tel",
+        "required": false,
+        "widget": "native_input",
+        "label_basis": "accessible_name"
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "cv"
+          ],
+          "label": "Resume"
+        },
+        "label": "Resume",
+        "kind": "file",
+        "required": true,
+        "widget": "native_input",
+        "label_basis": "accessible_name"
+      },
+      {
+        "match": {
+          "dom_ids": [
+            "why"
+          ],
+          "label": "Why do you want to work here?"
+        },
+        "label": "Why do you want to work here?",
+        "kind": "textarea",
+        "required": false,
+        "widget": "native_input",
+        "label_basis": "accessible_name"
+      }
+    ],
+    "must_not_report": [],
+    "unobserved": []
+  },
+  "later": {},
+  "safety": {
+    "clicks": 0,
+    "non_get_requests": 0,
+    "dom_mutations": 0
+  },
+  "notes": [
+    "The existing Phase 1 fixture: a plain accessible direct-hosted form on an unknown ATS. Today it ends 'unsupported'; M1's first measurable win is reading it."
+  ]
+}

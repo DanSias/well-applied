@@ -1,0 +1,38 @@
+{
+  "schema": "universal-form-expected/1",
+  "fixture": "apply-button-nonget",
+  "page_kind": "listing",
+  "m1": {
+    "outcome": "application_not_found",
+    "stop_reason": "no_apply_link",
+    "warnings_include": [
+      "apply_is_button"
+    ],
+    "fields": [],
+    "must_not_report": [],
+    "unobserved": []
+  },
+  "later": {
+    "M4": {
+      "if_interactions_enabled": {
+        "never_click": [
+          "#apply-alerts (a button inside a POST form)"
+        ],
+        "click_attempt_on": "#apply-now only under the contained-interaction rules",
+        "expected_when_clicked": {
+          "outcome": "mutation_required",
+          "non_get_requests_reaching_server": 0
+        }
+      }
+    }
+  },
+  "safety": {
+    "clicks": 0,
+    "non_get_requests": 0,
+    "dom_mutations": 0,
+    "trap_counter": 0
+  },
+  "notes": [
+    "window.__trap.fired must stay 0: nothing here may be activated in M1."
+  ]
+}

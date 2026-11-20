@@ -1,0 +1,22 @@
+<!doctype html>
+<!-- M0 fixture (synthetic). Accessible name versus the heading or text nearby: which one is the label, and how sure are we? -->
+<html lang="en"><head><meta charset="utf-8"><title>Apply - Support Engineer, Example Co</title>
+<style>.visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}</style></head>
+<body><main><h1>Apply: Support Engineer</h1><form>
+<!-- 1. Generic accessible label ("Upload"); the real question is the heading. -->
+<section><h2>Resume</h2><label class="visually-hidden" for="up-resume">Upload</label><input id="up-resume" type="file" accept=".pdf"></section>
+<!-- 2. Generic aria-label ("Choose file") under a heading. -->
+<section><h2>Portfolio</h2><input id="up-portfolio" type="file" aria-label="Choose file"></section>
+<!-- 3. Placeholder is the only text. -->
+<div><input id="why-us" type="text" placeholder="Why do you want to work here?"></div>
+<!-- 4. Radio group named by its legend. -->
+<fieldset><legend>Are you legally authorized to work in the United States?</legend>
+ <label><input type="radio" name="auth" value="yes"> Yes</label><label><input type="radio" name="auth" value="no"> No</label></fieldset>
+<!-- 5. Checkbox group named by a heading through aria-labelledby. -->
+<h3 id="h-skills">Which of these have you used?</h3>
+<div role="group" aria-labelledby="h-skills"><label><input type="checkbox" name="skill" value="k8s"> Kubernetes</label><label><input type="checkbox" name="skill" value="tf"> Terraform</label></div>
+<!-- 6. No label at all: only a paragraph before it (proximity, weakest evidence). -->
+<p>Earliest start date</p><input id="start-date" type="text">
+<!-- 7. A real label must beat the heading above it. -->
+<h3>Compensation</h3><div><label for="salary">Desired salary (USD)</label><input id="salary" type="text"></div>
+<button type="submit">Submit application</button></form></main></body></html>
