@@ -1,5 +1,8 @@
 import { router } from '@inertiajs/react';
-import { ProviderCredit, sourceLinkLabel } from '@/components/provider-attribution';
+import {
+    ProviderCredit,
+    sourceLinkLabel,
+} from '@/components/provider-attribution';
 import { useEffect, useRef, useState } from 'react';
 import { GenerationStatus } from '@/components/generation-status';
 import {

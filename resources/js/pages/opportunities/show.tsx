@@ -1,7 +1,10 @@
 import { Head, Link } from '@inertiajs/react';
 import { useRef, useState } from 'react';
 import { InspectionStateBadge } from '@/components/badges';
-import { ProviderCredit, sourceLinkLabel } from '@/components/provider-attribution';
+import {
+    ProviderCredit,
+    sourceLinkLabel,
+} from '@/components/provider-attribution';
 import {
     StepBadge,
     WorkflowStep,
