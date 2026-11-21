@@ -1,3 +1,17 @@
+/**
+ * The credit a discovery provider's terms require, and how its stored link is labelled (App\Support\JobDiscovery\ProviderAttribution).
+ * null for a source with no attribution rule: its link keeps the generic wording. The link's URL is never changed by this.
+ */
+export type ProviderAttribution = {
+    provider: 'jobicy' | 'himalayas';
+    name: string;
+    home_url: string;
+    link_label: string;
+    notice: string;
+    /** 'canonical_listing' (Jobicy: the provider's own page) or 'apply_link' (Himalayas: its applicationLink, to be used unchanged). */
+    kind: 'canonical_listing' | 'apply_link';
+};
+
 import type { InspectionSummary } from '@/types/application-inspection';
 import type {
     ApprovedEvidence,
@@ -77,6 +91,7 @@ export type JobPostingSummary = {
     location: string | null;
     has_source_url: boolean;
     source_url: string | null;
+    attribution: ProviderAttribution | null;
     captured_at: string | null;
     inspection: InspectionSummary;
     triage: OpportunityTriage;
@@ -227,6 +242,7 @@ export type JobPostingDetail = {
     title: string;
     location: string | null;
     source_url: string | null;
+    attribution: ProviderAttribution | null;
     captured_at: string | null;
     description: string;
     analyses: JobAnalysisSummary[];

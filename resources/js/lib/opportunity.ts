@@ -1,5 +1,8 @@
 import type { Tone } from '@/components/ui/badge';
-import type { OpportunityTriageStage } from '@/types/job-posting';
+import type {
+    OpportunityTriageStage,
+    ProviderAttribution,
+} from '@/types/job-posting';
 import type { SubmissionIndicator } from '@/lib/submission';
 import type { InspectionSummary } from '@/types/application-inspection';
 import type { TailoredResumeStatus } from '@/types/tailored-resume';
@@ -30,6 +33,7 @@ export type Opportunity = {
     compensation_max: number | null;
     compensation_currency: string | null;
     source_url: string | null;
+    attribution: ProviderAttribution | null;
     posting_status: 'open' | 'closed';
     pursued_at: string | null;
     stage: OpportunityTriageStage;

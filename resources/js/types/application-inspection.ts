@@ -1,3 +1,5 @@
+import type { ProviderAttribution } from './job-posting';
+
 /**
  * Matches App\Support\ApplicationInspection\PresentApplicationInspection's
  * shape exactly — the one safe JSON representation used both in
@@ -164,6 +166,7 @@ export type InspectionJob = {
     title: string;
     company: string;
     source_url: string | null;
+    attribution: ProviderAttribution | null;
     application_id: number | null;
     inspection: ApplicationInspectionState | null;
 };

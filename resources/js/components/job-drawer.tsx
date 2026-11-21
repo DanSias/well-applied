@@ -10,6 +10,7 @@ import {
     type DecideFn,
 } from '@/components/job-decisions';
 import { JobDescription } from '@/components/job-description';
+import { ProviderCredit, sourceLinkLabel } from '@/components/provider-attribution';
 import { QualificationPanel } from '@/components/qualification-panel';
 import { Badge } from '@/components/ui/badge';
 import { Drawer } from '@/components/ui/drawer';
@@ -216,9 +217,10 @@ export function JobDrawer({
                                     rel="noopener noreferrer"
                                     className="-my-1"
                                 >
-                                    Original posting ↗
+                                    {sourceLinkLabel(job.attribution)}
                                 </ButtonAnchor>
                             )}
+                            <ProviderCredit attribution={job.attribution} />
                         </div>
                     </div>
                 ) : undefined

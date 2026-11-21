@@ -1,6 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
 import { useRef, useState } from 'react';
 import { InspectionStateBadge } from '@/components/badges';
+import { ProviderCredit, sourceLinkLabel } from '@/components/provider-attribution';
 import {
     StepBadge,
     WorkflowStep,
@@ -455,9 +456,10 @@ export default function OpportunityShow({
                                 rel="noopener noreferrer"
                                 className="-my-1 -ml-1"
                             >
-                                Original posting ↗
+                                {sourceLinkLabel(op.attribution)}
                             </ButtonAnchor>
                         )}
+                        <ProviderCredit attribution={op.attribution} />
                     </div>
                     <StopPursuingPopover jobId={op.id} company={op.company} />
                 </div>

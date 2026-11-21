@@ -9,6 +9,7 @@ use App\Models\JobPosting;
 use App\Support\ApplicationInspection\SummarizeInspectionStates;
 use App\Support\CurrentCareerProfile;
 use App\Support\JobDecisions\ReportJobsWithWork;
+use App\Support\JobDiscovery\ProviderAttribution;
 use App\Support\OpportunityTriage\SummarizeTriageStates;
 use App\Support\ResumeRevision\JobResumes;
 use App\Support\Submissions\PresentSubmissions;
@@ -105,6 +106,7 @@ final class PresentOpportunities
             'compensation_max' => $job->compensation_max,
             'compensation_currency' => $job->compensation_currency,
             'source_url' => $job->source_url,
+            'attribution' => ProviderAttribution::for($job),
             'posting_status' => $job->status->value,
             'pursued_at' => $job->pursued_at?->toIso8601String(),
             'stage' => $stage,

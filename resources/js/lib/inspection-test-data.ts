@@ -98,6 +98,7 @@ export const jobOf = (
     title: 'Platform Engineer',
     company: 'Acme',
     source_url: 'https://jobicy.com/jobs/1',
+    attribution: null,
     application_id: inspection === null ? null : 1,
     inspection,
     ...over,

@@ -16,6 +16,7 @@ use App\Support\ApplicationInspection\SummarizeInspectionStates;
 use App\Support\Clarification\PresentApprovedEvidence;
 use App\Support\CurrentCareerProfile;
 use App\Support\GenerationAttempt\PresentGenerationAttempt;
+use App\Support\JobDiscovery\ProviderAttribution;
 use App\Support\JobQualification\PresentJobQualification;
 use App\Support\Navigation\JobHome;
 use App\Support\OpportunityTriage\SummarizeTriageStates;
@@ -267,6 +268,7 @@ class JobPostingController extends Controller
             'location' => $job->location,
             'has_source_url' => $job->source_url !== null,
             'source_url' => $job->source_url,
+            'attribution' => ProviderAttribution::for($job),
             'captured_at' => $job->created_at?->toDateString(),
             'inspection' => $inspection,
             'triage' => $triage,
@@ -322,6 +324,7 @@ class JobPostingController extends Controller
             'title' => $job->title,
             'location' => $job->location,
             'source_url' => $job->source_url,
+            'attribution' => ProviderAttribution::for($job),
             'captured_at' => $job->created_at?->toDateString(),
             'description' => $job->description,
             'analyses' => $job->jobAnalyses()

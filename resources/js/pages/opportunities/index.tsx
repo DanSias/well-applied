@@ -1,6 +1,7 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { TriageStageBadge, InspectionStateBadge } from '@/components/badges';
+import { sourceLinkLabel } from '@/components/provider-attribution';
 import { DispositionBadge } from '@/components/job-decisions';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -156,7 +157,7 @@ function OpportunityRow({
                         ...(op.source_url !== null
                             ? [
                                   {
-                                      label: 'Original posting ↗',
+                                      label: sourceLinkLabel(op.attribution),
                                       href: op.source_url,
                                       external: true,
                                   },

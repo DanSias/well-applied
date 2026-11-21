@@ -1,4 +1,5 @@
 import { router } from '@inertiajs/react';
+import { ProviderCredit, sourceLinkLabel } from '@/components/provider-attribution';
 import { useEffect, useRef, useState } from 'react';
 import { GenerationStatus } from '@/components/generation-status';
 import {
@@ -320,9 +321,10 @@ function InspectionBody({
                             target="_blank"
                             rel="noopener noreferrer"
                         >
-                            Original posting ↗
+                            {sourceLinkLabel(job.attribution)}
                         </ButtonAnchor>
                     )}
+                    <ProviderCredit attribution={job.attribution} />
                 </div>
 
                 <ApplicationUrlForm
@@ -420,9 +422,10 @@ function InspectionSetup({
                     target="_blank"
                     rel="noopener noreferrer"
                 >
-                    Original posting ↗
+                    {sourceLinkLabel(job.attribution)}
                 </ButtonAnchor>
             )}
+            <ProviderCredit attribution={job.attribution} />
         </div>
     );
 }
