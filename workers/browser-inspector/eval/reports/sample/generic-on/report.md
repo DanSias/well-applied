@@ -1,6 +1,6 @@
 # Application inspection evaluation
 
-Configuration `generic-on` · manifest 0.1.0 (`b5abb3aa0d91`) · inspector `ac897f9d39ab` (source `ada0fb9cebc0`)
+Configuration `generic-on` · manifest 0.1.0 (`b5abb3aa0d91`) · inspector `ac897f9d39ab` (source `2bb7c6759b43`, modified)
 
 Offline evaluation of committed evidence. Each metric is `value (numerator/denominator, scorable cases)`. A case with missing or inapplicable evidence is **unscored**, never counted as a pass or a failure. Synthetic and real-world cases are reported separately and never pooled.
 

@@ -46,6 +46,12 @@ export const MAX_FOLLOWS = 2;
  * @param {boolean} [options.ashbySchema] read a verified jobs.ashbyhq.com job link from Ashby's public form schema before any browser
  *   is launched (default: BROWSER_WORKER_ASHBY_SCHEMA=1). Anything else, and every other provider, is unchanged.
  * @param {(deadline: object) => {send: Function}} [options.ashbyTransport] tests only: a transport factory. Production uses the real, fixed-destination one.
+ * @param {Function} [options.onForm] Destination Resolution only (src/resolution/): called INSTEAD of form extraction when the walk reaches
+ *   a page classified as an application form. Default: extract, exactly as before.
+ * @param {(event: object) => void} [options.observe] Destination Resolution only: told what the walk saw (navigations, classifications, Apply
+ *   candidates). Read-only; default: nothing.
+ * @param {(candidate: object, context: object) => Promise<object|null>} [options.onCandidate] Destination Resolution only: may stop the walk
+ *   BEFORE the single Apply destination is requested (a policy gate). Default: always follow, exactly as before.
  * @returns {Promise<object>} one of the result.js shapes
  */
 export async function inspect(rawUrl, options = {}) {
@@ -58,6 +64,9 @@ export async function inspect(rawUrl, options = {}) {
         startOrigin = null,
         ashbySchema = ashbySchemaRequested(),
         ashbyTransport = (d) => createAshbyTransport({ deadline: d }),
+        onForm = null,
+        observe = null,
+        onCandidate = null,
     } = options;
 
     const startedAt = Date.now();
@@ -115,7 +124,7 @@ export async function inspect(rawUrl, options = {}) {
         browser = await launch();
         const { page } = await openGuardedPage(browser, guard);
 
-        return await walk(page, first.url.toString(), { state, guard, deadline, rawUrl, timeouts, genericDiscovery, startOrigin });
+        return await walk(page, first.url.toString(), { state, guard, deadline, rawUrl, timeouts, genericDiscovery, startOrigin, onForm, observe, onCandidate });
     } catch (error) {
         if (expired || error instanceof DeadlineExceeded || deadline.expired()) {
             return failed({
@@ -175,7 +184,7 @@ export function ashbyResult(outcome, state) {
     });
 }
 
-async function walk(page, startUrl, { state, guard, deadline, rawUrl, timeouts, genericDiscovery, startOrigin }) {
+async function walk(page, startUrl, { state, guard, deadline, rawUrl, timeouts, genericDiscovery, startOrigin, onForm, observe, onCandidate }) {
     let url = startUrl;
 
     for (;;) {
@@ -195,7 +204,9 @@ async function walk(page, startUrl, { state, guard, deadline, rawUrl, timeouts, 
         const subresource = nav.violations.filter((v) => !v.main);
         for (const v of subresource) state.warnings.push(`blocked_${v.kind}`);
 
-        state.trace.push(...(await traceFor(nav.response, hop === 0 ? 'start' : 'link')));
+        const pageTrace = await traceFor(nav.response, hop === 0 ? 'start' : 'link');
+        state.trace.push(...pageTrace);
+        observe?.({ event: 'navigated', hop, requested: safeRedact(url), final: safeRedact(nav.finalUrl), status: nav.status, trace: pageTrace, refused: prohibited?.reason ?? null, error: nav.error ? String(nav.error?.message ?? nav.error).match(/net::ERR_\w+/)?.[0] ?? nav.error?.name ?? 'error' : null });
         if (nav.response === null) state.trace.push({ kind: hop === 0 ? 'start' : 'link', url: safeRedact(url), status: null });
 
         if (prohibited) {
@@ -241,6 +252,7 @@ async function walk(page, startUrl, { state, guard, deadline, rawUrl, timeouts, 
         // how this page was reached. The first page is where the claim says its URL came from; any later page was reached by
         // following an identified Apply link.
         const kind = classifyPage(signals, { status: nav.status, context: contextFor({ hop, startOrigin }), extended: genericDiscovery });
+        observe?.({ event: 'classified', hop, kind: kind.kind, ats: kind.ats ?? null, reasons: kind.reasons, title: signals.title });
 
         switch (kind.kind) {
             case 'blocked':
@@ -258,7 +270,7 @@ async function walk(page, startUrl, { state, guard, deadline, rawUrl, timeouts, 
             case 'unreachable':
                 return halt(state, rawUrl, StopReason.DestinationUnreachable, { classified_as: kind.reasons });
             case 'form':
-                return reachedForm(page, kind, { state, rawUrl, genericDiscovery });
+                return onForm ? onForm(page, kind, { hop, state }) : reachedForm(page, kind, { state, rawUrl, genericDiscovery });
         }
 
         // ---- a listing: look for ONE Apply destination, never click, never pick between several ----
@@ -266,6 +278,7 @@ async function walk(page, startUrl, { state, guard, deadline, rawUrl, timeouts, 
         const { candidates, warnings } = rankApplyCandidates(await page.evaluate(collectLinkSignals), nav.finalUrl);
         state.warnings.push(...warnings);
         state.candidates = candidates.slice(0, 5).map((c) => ({ url: safeRedact(c.url), text: c.text, kind: c.kind }));
+        observe?.({ event: 'candidates', hop, count: candidates.length, candidates: state.candidates, warnings });
 
         if (candidates.length === 0) {
             return stopped({
@@ -285,6 +298,12 @@ async function walk(page, startUrl, { state, guard, deadline, rawUrl, timeouts, 
 
         if (state.follows >= MAX_FOLLOWS || state.pages >= MAX_PAGES) {
             return halt(state, rawUrl, StopReason.TooManySteps);
+        }
+
+        // A policy gate (Destination Resolution only) sees the single destination before anything is requested from it.
+        if (onCandidate) {
+            const stopped = await onCandidate(candidates[0], { hop });
+            if (stopped) return stopped;
         }
 
         // The destination is checked BEFORE any request is made to it.

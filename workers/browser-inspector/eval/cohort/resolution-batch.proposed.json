@@ -1,0 +1,196 @@
+{
+  "cases": [
+    {
+      "duplicate_group": "dup-jobicy-1",
+      "hand_review_slot": false,
+      "host": "jobicy.com",
+      "id": "prod-109",
+      "job_posting_id": 109,
+      "needs_tracker_permission": false,
+      "source": "jobicy",
+      "url_sha256": "fa0c97ecee15e0155af6b282e5b466cd34a8d095bd7943f691d553e46717aa21",
+      "url_shape": "jobicy.com/jobs/N-senior-software-engineer-business-technology-N"
+    },
+    {
+      "duplicate_group": "dup-jobicy-2",
+      "hand_review_slot": false,
+      "host": "jobicy.com",
+      "id": "prod-110",
+      "job_posting_id": 110,
+      "needs_tracker_permission": false,
+      "source": "jobicy",
+      "url_sha256": "f80a11e521643517a9e1860fa866a4c4ebfa34a4f6c4681d29667d7f93642ee8",
+      "url_shape": "jobicy.com/jobs/N-senior-software-engineer-N"
+    },
+    {
+      "duplicate_group": null,
+      "hand_review_slot": true,
+      "host": "jobicy.com",
+      "id": "prod-180",
+      "job_posting_id": 180,
+      "needs_tracker_permission": false,
+      "source": "jobicy",
+      "url_sha256": "f963957e5ba17970292044a38dc6685d6bdfe9d53c5b74181f47751ae9db75ab",
+      "url_shape": "jobicy.com/jobs/N-software-engineer-backend-platform"
+    },
+    {
+      "duplicate_group": null,
+      "hand_review_slot": true,
+      "host": "www.adzuna.com",
+      "id": "prod-246",
+      "job_posting_id": 246,
+      "needs_tracker_permission": true,
+      "source": "adzuna",
+      "url_sha256": "d5ebe54725f54d87bcd5c4848e03e6fa95175d9dc21269a2fb2f9743ef941c0a",
+      "url_shape": "www.adzuna.com/land/ad/N?…"
+    },
+    {
+      "duplicate_group": null,
+      "hand_review_slot": false,
+      "host": "www.adzuna.com",
+      "id": "prod-310",
+      "job_posting_id": 310,
+      "needs_tracker_permission": true,
+      "source": "adzuna",
+      "url_sha256": "7f9db24f5b848dda7cb1fb9220dcd5b40361c6d1eaca469b151ae973c29c255e",
+      "url_shape": "www.adzuna.com/land/ad/N?…"
+    },
+    {
+      "duplicate_group": null,
+      "hand_review_slot": false,
+      "host": "www.adzuna.com",
+      "id": "prod-324",
+      "job_posting_id": 324,
+      "needs_tracker_permission": true,
+      "source": "adzuna",
+      "url_sha256": "8a6e9c6c1a4daad6a4fd5c5a76b37abd8ef1766211111b033a8e08bee692bf75",
+      "url_shape": "www.adzuna.com/land/ad/N?…"
+    },
+    {
+      "duplicate_group": "dup-adzuna-1",
+      "hand_review_slot": false,
+      "host": "www.adzuna.com",
+      "id": "prod-355",
+      "job_posting_id": 355,
+      "needs_tracker_permission": true,
+      "source": "adzuna",
+      "url_sha256": "e6c7f639e9c8d224d29a4693f8e7c7fee292700bdea7078cbaea80324e5f251f",
+      "url_shape": "www.adzuna.com/land/ad/N?…"
+    },
+    {
+      "duplicate_group": "dup-adzuna-1",
+      "hand_review_slot": false,
+      "host": "www.adzuna.com",
+      "id": "prod-356",
+      "job_posting_id": 356,
+      "needs_tracker_permission": true,
+      "source": "adzuna",
+      "url_sha256": "367406dafa8f4476769115f81e49ebc57d5db4a751d5924e3d22048290fdaa7e",
+      "url_shape": "www.adzuna.com/land/ad/N?…"
+    },
+    {
+      "duplicate_group": null,
+      "hand_review_slot": false,
+      "host": "jobicy.com",
+      "id": "prod-393",
+      "job_posting_id": 393,
+      "needs_tracker_permission": false,
+      "source": "jobicy",
+      "url_sha256": "8b086c457edd2e84b43af4b2e5875bea2f39ecb29e17d2469882934f2bcc8d75",
+      "url_shape": "jobicy.com/jobs/N-security-systems-solutions-engineer"
+    },
+    {
+      "duplicate_group": "dup-jobicy-1",
+      "hand_review_slot": false,
+      "host": "jobicy.com",
+      "id": "prod-40",
+      "job_posting_id": 40,
+      "needs_tracker_permission": false,
+      "source": "jobicy",
+      "url_sha256": "21711d65a3f41dc535889125b22479b7c7f71429900186e48f71bbb3cb7978b0",
+      "url_shape": "jobicy.com/jobs/N-senior-software-engineer-business-technology"
+    },
+    {
+      "duplicate_group": "dup-jobicy-2",
+      "hand_review_slot": false,
+      "host": "jobicy.com",
+      "id": "prod-41",
+      "job_posting_id": 41,
+      "needs_tracker_permission": false,
+      "source": "jobicy",
+      "url_sha256": "c48953f0a19f251c7725231275722c25763c5904e6666a74361cf9f52650c889",
+      "url_shape": "jobicy.com/jobs/N-senior-software-engineer-N"
+    },
+    {
+      "duplicate_group": null,
+      "hand_review_slot": true,
+      "host": "himalayas.app",
+      "id": "prod-83",
+      "job_posting_id": 83,
+      "needs_tracker_permission": false,
+      "source": "himalayas",
+      "url_sha256": "1f113fb5bbabd64673522b9fe3dda13b69d950db54a0682d10fcf2d57a180bca",
+      "url_shape": "himalayas.app/companies/hercules/jobs/staff-software-engineer-data-platfo"
+    },
+    {
+      "duplicate_group": null,
+      "hand_review_slot": false,
+      "host": "himalayas.app",
+      "id": "prod-84",
+      "job_posting_id": 84,
+      "needs_tracker_permission": false,
+      "source": "himalayas",
+      "url_sha256": "28fb7ede2854118534ed6e1cd1c9f8587d0e23094da025b980f1569b6eb2b4b2",
+      "url_shape": "himalayas.app/companies/airbnb/jobs/staff-software-engineer-passport-comm"
+    }
+  ],
+  "execution": {
+    "concurrency": 1,
+    "order": "ascending by id, one case at a time, Adzuna (tracker) cases last",
+    "pacing": {
+      "min_ms_between_cases": 2000,
+      "min_ms_between_requests_to_the_same_host": 5000
+    },
+    "per_case": {
+      "budget_ms": 90000,
+      "max_follows": 2,
+      "max_pages": 3,
+      "max_redirects": 8
+    },
+    "per_host_request_cap": {
+      "destination_host": "two navigations per case",
+      "source_listing_host": "one navigation per case"
+    },
+    "retries": 0,
+    "total_page_navigation_cap": 39,
+    "wall_clock_cap_minutes": 20
+  },
+  "human_review": [
+    "every unresolved:multiple_apply_links",
+    "every proposed_by_resolution with needs_human_review",
+    "every unresolved:too_many_steps and unclassified stop",
+    "a seeded 20% spot-check of the automatic proposals",
+    "every case in a hand_review_slot"
+  ],
+  "purpose": "A PROPOSED supervised, read-only destination-resolution run over the aggregator-listing cases of the proposed Stage 1 cohort. It authorises nothing and has not run.",
+  "resolver": {
+    "allow_tracker_redirects": false,
+    "module": "src/resolution/resolve.js",
+    "version": "0.1.0"
+  },
+  "schema": "eval-resolution-batch/1",
+  "source_cohort": {
+    "cohort_version": "0.1.0-proposed",
+    "file": "eval/cohort/stage1.proposed.json",
+    "sha256": "c44bb6bbcfc72ac780cf175f165900b8c664c6bbf94a010c31e1be423b20b71f"
+  },
+  "status": "proposed",
+  "stop_conditions": [
+    "any security refusal that is not an expected policy refusal of a prohibited destination",
+    "HTTP 403 or 429, or a CAPTCHA/anti-bot page, on two cases from the same host (stop that host); on any three cases overall (stop the run)",
+    "two consecutive infrastructure failures (timeouts, connection errors)",
+    "the total page-navigation cap or the wall-clock cap",
+    "any request that is not a GET, or any attempt to interact with a page",
+    "a changed url_sha256 when the URL is re-read from the database by id"
+  ]
+}
