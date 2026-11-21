@@ -1,3 +1,4 @@
+import { FreshnessBadge } from '@/components/job-freshness';
 import { Head, Link, router, useForm, usePoll } from '@inertiajs/react';
 import {
     Fragment,
@@ -210,6 +211,8 @@ function JobRow({
     const showInspection =
         inspection.state !== 'not_inspected' ||
         inspection.latest_attempt_failed;
+    // Job freshness: new inspections are not offered on an expired or closed job (viewing existing results still is).
+    const blocked = job.freshness?.new_work_block ?? null;
     const inspectItem: MenuItem[] =
         inspection.application_id !== null
             ? [
@@ -289,6 +292,7 @@ function JobRow({
                     )}
                     <DispositionBadge disposition={job.disposition} />
                     <TriageStageBadge value={job.triage.stage} />
+                    <FreshnessBadge freshness={job.freshness} warnOnly />
                     {job.discovery.description_completeness === 'preview' && (
                         <DescriptionCompletenessBadge
                             value={job.discovery.description_completeness}
@@ -313,6 +317,7 @@ function JobRow({
                     disabled={decisionsDisabled}
                     onDecide={onDecide}
                     extraItems={inspectItem}
+                    blocked={blocked}
                 />
             </div>
         </li>
@@ -340,6 +345,7 @@ export default function JobsIndex({
     pagination,
     disposition_counts,
     hidden_inactive,
+    left_out_counts,
     selected_job,
 }: JobsIndexProps) {
     const [q, setQ] = useState(filters.q);
@@ -910,6 +916,19 @@ export default function JobsIndex({
                     </button>
                 </p>
             )}
+
+            {left_out_counts !== undefined &&
+                left_out_counts.inbox + left_out_counts.shortlist > 0 && (
+                    <p
+                        className="text-fg-subtle mt-1 text-xs"
+                        data-testid="count-legend"
+                    >
+                        Inbox and Shortlist count the jobs you can act on now;
+                        All counts every job, including{' '}
+                        {left_out_counts.inbox + left_out_counts.shortlist}{' '}
+                        expired or closed.
+                    </p>
+                )}
 
             {filters.source !== null && (
                 <p className="mt-4 flex flex-wrap items-center gap-2 text-sm">

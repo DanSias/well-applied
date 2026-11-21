@@ -1,7 +1,11 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { TriageStageBadge, InspectionStateBadge } from '@/components/badges';
-import { FreshnessBadge } from '@/components/job-freshness';
+import {
+    FreshnessBadge,
+    FreshnessNote,
+    newWorkBlock,
+} from '@/components/job-freshness';
 import { sourceLinkLabel } from '@/components/provider-attribution';
 import { DispositionBadge } from '@/components/job-decisions';
 import { Badge } from '@/components/ui/badge';
@@ -206,8 +210,12 @@ function ReviewRow({
                         decided_at: null,
                     }}
                 />
+                <FreshnessBadge freshness={work.freshness} />
                 <span>{existingWorkSummary(work)}</span>
             </p>
+            {work.freshness && work.freshness.tone === 'warn' && (
+                <FreshnessNote freshness={work.freshness} />
+            )}
             <div className="mt-2 -ml-2.5 flex flex-wrap items-center gap-x-1 gap-y-1">
                 {work.disposition === 'dismissed' ? (
                     <Button
@@ -223,7 +231,8 @@ function ReviewRow({
                     <Button
                         size="sm"
                         className="ml-2.5"
-                        disabled={busy}
+                        disabled={busy || newWorkBlock(work.freshness) !== null}
+                        title={newWorkBlock(work.freshness) ?? undefined}
                         aria-label={`Pursue ${work.title} at ${work.company}`}
                         onClick={() => onDecide('pursued')}
                     >

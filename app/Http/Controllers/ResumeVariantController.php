@@ -18,6 +18,7 @@ use App\Models\ResumeVariantExperienceRole;
 use App\Models\ResumeVariantTargetTermUsage;
 use App\Models\Skill;
 use App\Support\GenerationAttempt\QueueGenerationAttempt;
+use App\Support\JobFreshness\JobFreshness;
 use App\Support\JobMatch\CareerFactAttribution;
 use App\Support\Navigation\JobHome;
 use App\Support\ReadinessReview\PresentReadiness;
@@ -51,6 +52,7 @@ class ResumeVariantController extends Controller
     ): RedirectResponse {
         abort_unless($jobAnalysis->job_posting_id === $jobPosting->id, 404);
         abort_unless($jobMatch->job_analysis_id === $jobAnalysis->id, 404);
+        JobFreshness::abortUnlessNewWorkAllowed($jobPosting);
 
         // Atomic duplicate-safe claim, shared with Job Analysis / Job Match.
         $claims->claim(GenerationType::ResumeVariant, $jobMatch);

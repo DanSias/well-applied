@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { JobFreshnessView } from '@/types/job-posting';
 import {
+    newWorkBlock,
     FreshnessBadge,
     FreshnessNote,
     freshnessBadgeLabel,
@@ -16,6 +17,7 @@ const view = (over: Partial<JobFreshnessView>): JobFreshnessView => ({
     reason: 'no_observation',
     tone: 'neutral',
     detail: 'No live check with the provider has been made, so this job is open only as far as our records go.',
+    new_work_block: null,
     confirmed_at: null,
     checked: false,
     ...over,
@@ -54,6 +56,8 @@ const expired = view({
     reason: 'expired_known',
     tone: 'warn',
     detail: 'The provider gave this job an expiry date, and it has passed.',
+    new_work_block:
+        'This job has expired, so new pursuit work cannot be started on it.',
     checked: true,
 });
 const closed = view({
@@ -63,6 +67,8 @@ const closed = view({
     reason: 'closure_confirmed',
     tone: 'warn',
     detail: 'The provider reported this job closed on repeated checks.',
+    new_work_block:
+        'This job is closed, so new pursuit work cannot be started on it.',
     checked: true,
 });
 
@@ -125,7 +131,7 @@ describe('freshness note (drawers and workspaces)', () => {
     it('says a confirmed job was confirmed BY THE PROVIDER, with the day, and is never worded like an unchecked one', () => {
         const text = freshnessNote(confirmed);
         expect(text).toBe(
-            'Confirmed open (2026-11-22): The provider confirmed this job open.',
+            'The provider confirmed this job open on 2026-11-22.',
         );
         expect(freshnessNote(unchecked)).not.toContain('confirmed');
     });
@@ -172,5 +178,57 @@ describe('the freshness UI is display only', () => {
         expect(toggle).not.toMatch(
             /router\.(post|put|patch|delete)|fetch\(|generate|dispatch|startInspection/,
         );
+    });
+});
+
+describe('restrained list labels and no repeated wording', () => {
+    it('badges only the warning states on list rows (warnOnly): never a confirmed-open or neutral one', () => {
+        expect(freshnessBadgeLabel(expired, true)).toBe('Expired');
+        expect(freshnessBadgeLabel(closed, true)).toBe('Closed');
+        expect(freshnessBadgeLabel(possiblyClosed, true)).toBe('May be closed');
+        expect(freshnessBadgeLabel(confirmed, true)).toBeNull();
+        expect(freshnessBadgeLabel(unchecked, true)).toBeNull();
+        expect(freshnessBadgeLabel(inconclusive, true)).toBeNull();
+        expect(
+            renderToStaticMarkup(
+                <FreshnessBadge freshness={unchecked} warnOnly />,
+            ),
+        ).toBe('');
+        expect(
+            renderToStaticMarkup(
+                <FreshnessBadge freshness={confirmed} warnOnly />,
+            ),
+        ).toBe('');
+        expect(
+            renderToStaticMarkup(
+                <FreshnessBadge freshness={expired} warnOnly />,
+            ),
+        ).toContain('Expired');
+    });
+
+    it('does not repeat the badge label in the note; only the unbadged neutral states lead with it', () => {
+        for (const badged of [expired, closed, possiblyClosed, confirmed]) {
+            expect(freshnessNote(badged)).not.toContain(badged.label);
+        }
+        expect(freshnessNote(expired)).toBe(
+            'The provider gave this job an expiry date, and it has passed.',
+        );
+        expect(freshnessNote(unchecked)).toMatch(/^Not live-checked: /);
+        expect(freshnessNote(inconclusive)).toMatch(/^Check inconclusive: /);
+    });
+
+    it('takes the reason new work is blocked from the server decision: only expired and closed block', () => {
+        expect(newWorkBlock(expired)).toContain('expired');
+        expect(newWorkBlock(closed)).toContain('closed');
+        for (const open of [
+            unchecked,
+            confirmed,
+            possiblyClosed,
+            inconclusive,
+            null,
+            undefined,
+        ]) {
+            expect(newWorkBlock(open)).toBeNull();
+        }
     });
 });

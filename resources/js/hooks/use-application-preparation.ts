@@ -23,7 +23,11 @@ import type {
  * refusal (for example the worker claimed the attempt in the meantime) is shown and the real state is fetched. Nothing
  * here retries on its own: a failed or stopped attempt stays as it is until a person starts a new one.
  */
-export function useApplicationPreparation(initial: PreparationPanel) {
+export function useApplicationPreparation(
+    initial: PreparationPanel,
+    /** Why a NEW preparation cannot be started (an expired or closed job); null when it can. Existing attempts, history and cancelling stay. */
+    blocked: string | null = null,
+) {
     const [panel, setPanel] = useState<PreparationPanel>(initial);
     const [busy, setBusy] = useState<'start' | 'cancel' | null>(null);
     const [error, setError] = useState<PreparationActionError | null>(null);
@@ -85,6 +89,10 @@ export function useApplicationPreparation(initial: PreparationPanel) {
 
     const start = useCallback(
         async (resumeVariantId: number | null) => {
+            if (blocked !== null) {
+                return false;
+            }
+
             setBusy('start');
             setError(null);
 
@@ -106,7 +114,7 @@ export function useApplicationPreparation(initial: PreparationPanel) {
 
             return false;
         },
-        [apply],
+        [apply, blocked],
     );
 
     const cancel = useCallback(
@@ -137,6 +145,7 @@ export function useApplicationPreparation(initial: PreparationPanel) {
         active,
         busy,
         error,
+        blocked,
         clearError: () => setError(null),
         start,
         cancel,

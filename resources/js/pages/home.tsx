@@ -286,14 +286,17 @@ export default function Home({
                             label="Jobs"
                             value={overview.jobs}
                             hint={
-                                overview.not_analyzed > 0
-                                    ? `${overview.not_analyzed} not analyzed`
-                                    : 'All analyzed'
+                                (overview.left_out ?? 0) > 0
+                                    ? `${overview.actionable} actionable · ${overview.left_out} expired or closed`
+                                    : overview.not_analyzed > 0
+                                      ? `${overview.not_analyzed} not analyzed`
+                                      : 'All analyzed'
                             }
                             href={jobsIndex.url({
                                 query: { disposition: 'all' },
                             })}
                             hintHref={
+                                (overview.left_out ?? 0) === 0 &&
                                 overview.not_analyzed > 0
                                     ? jobsIndex.url({
                                           query: {

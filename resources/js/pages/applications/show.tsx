@@ -1,5 +1,10 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
+import {
+    FreshnessBadge,
+    FreshnessNote,
+    newWorkBlock,
+} from '@/components/job-freshness';
 import { GenerationStatus } from '@/components/generation-status';
 import {
     ApplicationUrlForm,
@@ -126,10 +131,13 @@ function InspectApplicationAction({
     jobPostingId,
     sourceUrl,
     inspection,
+    blocked = null,
 }: {
     jobPostingId: number;
     sourceUrl: string | null;
     inspection: ApplicationShowProps['inspection'];
+    /** Why a NEW inspection cannot be started (an expired or closed job); null when it can. The results below stay. */
+    blocked?: string | null;
 }) {
     const form = useForm({});
     const state = useApplicationInspectionPolling(
@@ -145,7 +153,8 @@ function InspectApplicationAction({
     const diagnostics = (result ?? attempt)?.diagnostics ?? null;
     const [sendingUrl, setSendingUrl] = useState(false);
     const isActive = view.active;
-    const disabled = form.processing || sendingUrl || isActive;
+    const disabled =
+        form.processing || sendingUrl || isActive || blocked !== null;
     const failure =
         run?.status === 'failed'
             ? describeFailure(
@@ -285,6 +294,16 @@ export default function ApplicationShow({
                 <p className="text-sm text-neutral-600 dark:text-neutral-400">
                     {application.job_posting.company}
                 </p>
+                {application.job_posting.freshness && (
+                    <div className="mt-2 space-y-1">
+                        <FreshnessBadge
+                            freshness={application.job_posting.freshness}
+                        />
+                        <FreshnessNote
+                            freshness={application.job_posting.freshness}
+                        />
+                    </div>
+                )}
             </div>
 
             <div className="mt-6">
@@ -295,11 +314,19 @@ export default function ApplicationShow({
                     Read-only — extracts the application's fields and questions
                     without filling or submitting anything.
                 </p>
+                {newWorkBlock(application.job_posting.freshness) !== null && (
+                    <p className="text-warn mt-2 text-xs" role="note">
+                        {newWorkBlock(application.job_posting.freshness)}
+                    </p>
+                )}
                 <div className="mt-3">
                     <InspectApplicationAction
                         jobPostingId={application.job_posting.id}
                         sourceUrl={application.job_posting.source_url}
                         inspection={inspection}
+                        blocked={newWorkBlock(
+                            application.job_posting.freshness,
+                        )}
                     />
                 </div>
             </div>

@@ -10,35 +10,49 @@ import type { JobFreshnessView } from '@/types/job-posting';
  */
 export function freshnessBadgeLabel(
     freshness: JobFreshnessView | null | undefined,
+    warnOnly = false,
 ): string | null {
     if (!freshness) return null;
 
     // The neutral kinds are never a badge: they would be noise on a list of jobs that have simply not been checked.
-    return freshness.tone === 'neutral' ? null : freshness.label;
+    if (freshness.tone === 'neutral') return null;
+
+    // Lists show only the warning states: a confirmed-open badge on every row would be the noise this avoids.
+    if (warnOnly && freshness.tone !== 'warn') return null;
+
+    return freshness.label;
 }
 
 export function FreshnessBadge({
     freshness,
+    warnOnly = false,
 }: {
     freshness: JobFreshnessView | null | undefined;
+    /** For list rows: only the warning states (Expired, Closed, May be closed) get a badge. */
+    warnOnly?: boolean;
 }) {
-    const label = freshnessBadgeLabel(freshness);
+    const label = freshnessBadgeLabel(freshness, warnOnly);
     if (!freshness || label === null) return null;
 
     return <Badge tone={freshness.tone}>{label}</Badge>;
 }
 
-/** The sentence that goes with a state, for places with room for it (a drawer, a workspace). Stable text: the date is the ISO day, never a locale string. */
+/**
+ * The sentence that goes with a state, for places with room for it (a drawer, a workspace). The badge already says the label, so the note adds only the explanation;
+ * the neutral states have no badge, so their note leads with the label. The date is the ISO day, never a locale string.
+ */
 export function freshnessNote(
     freshness: JobFreshnessView | null | undefined,
 ): string | null {
     if (!freshness) return null;
-    const when =
-        freshness.state === 'active' && freshness.confirmed_at
-            ? ` (${freshness.confirmed_at.slice(0, 10)})`
-            : '';
+    if (freshness.tone === 'neutral') {
+        return `${freshness.label}: ${freshness.detail}`;
+    }
+    if (freshness.state === 'active' && freshness.confirmed_at) {
+        return `${freshness.detail.replace(/\.$/, '')} on ${freshness.confirmed_at.slice(0, 10)}.`;
+    }
 
-    return `${freshness.label}${when}: ${freshness.detail}`;
+    return freshness.detail;
 }
 
 export function FreshnessNote({
@@ -60,4 +74,14 @@ export function FreshnessNote({
             {text}
         </p>
     );
+}
+
+/**
+ * The reason new pursuit work (shortlist, pursue, inspect, tailor a resume, prepare) is unavailable, or null when it is available. It comes from the server's one
+ * decision, so the control and the backend refusal always agree.
+ */
+export function newWorkBlock(
+    freshness: JobFreshnessView | null | undefined,
+): string | null {
+    return freshness?.new_work_block ?? null;
 }

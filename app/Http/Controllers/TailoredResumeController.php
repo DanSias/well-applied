@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\JobPosting;
 use App\Models\ResumeProfileSynthesis;
 use App\Support\CurrentCareerProfile;
+use App\Support\JobFreshness\JobFreshness;
 use App\Support\Navigation\ReturnTo;
 use App\Support\TailoredResume\PresentTailoredResume;
 use App\Support\TailoredResume\TailoredResumePipeline;
@@ -24,6 +25,8 @@ class TailoredResumeController extends Controller
 {
     public function store(Request $request, JobPosting $jobPosting, TailoredResumePipeline $pipeline): RedirectResponse
     {
+        JobFreshness::abortUnlessNewWorkAllowed($jobPosting);
+
         $request->validate([
             'allow_incomplete_description' => ['sometimes', 'boolean'],
             'regenerate' => ['sometimes', 'boolean'],

@@ -13,6 +13,7 @@ use App\Support\ApplicationPreparation\DispatchApplicationPreparation;
 use App\Support\ApplicationPreparation\PreparationException;
 use App\Support\ApplicationPreparation\PresentApplicationPreparation;
 use App\Support\CurrentCareerProfile;
+use App\Support\JobFreshness\JobFreshness;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -30,6 +31,9 @@ class ApplicationPreparationController extends Controller
     {
         abort_unless($jobPosting->career_profile_id === CurrentCareerProfile::resolve()->id, 404);
         abort_unless($jobPosting->disposition === JobDisposition::Pursued, 422, 'Only a job you are pursuing can be prepared.');
+        if (($block = JobFreshness::newWorkBlock($jobPosting)) !== null) {
+            return response()->json(['error' => $block, 'reason' => 'job_inactive'], 422);
+        }
 
         $data = $request->validate(['resume_variant_id' => ['nullable', 'integer']]);
         $variant = isset($data['resume_variant_id']) ? ResumeVariant::query()->whereKey((int) $data['resume_variant_id'])->first() : null;

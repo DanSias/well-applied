@@ -140,6 +140,12 @@ final class PresentOpportunities
         usort($rows, fn (array $a, array $b) => [$b['final_resume_variant_id'] !== null, $b['resume_variants'], count($b['applications'])]
             <=> [$a['final_resume_variant_id'] !== null, $a['resume_variants'], count($a['applications'])]);
 
+        // Job freshness (OFF by default): each "existing work to review" card carries the job's freshness label. Absent with the feature off.
+        if (JobFreshness::enabled() && $rows !== []) {
+            $jobs = JobPosting::query()->whereIn('id', array_column($rows, 'job_id'))->get()->keyBy('id');
+            $rows = array_map(fn (array $r) => $r + ['freshness' => isset($jobs[$r['job_id']]) ? JobFreshness::view($jobs[$r['job_id']]) : null], $rows);
+        }
+
         return $rows;
     }
 

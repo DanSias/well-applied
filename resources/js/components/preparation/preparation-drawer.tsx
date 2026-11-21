@@ -286,9 +286,19 @@ function StartPanel({ prep, label }: { prep: Preparation; label: string }) {
                     {prep.error.message}
                 </p>
             )}
+            {prep.blocked !== null && (
+                <p className="text-warn text-xs" role="note">
+                    {prep.blocked}
+                </p>
+            )}
             <Button
                 variant="primary"
-                disabled={prep.busy !== null || selected === null}
+                disabled={
+                    prep.busy !== null ||
+                    selected === null ||
+                    prep.blocked !== null
+                }
+                title={prep.blocked ?? undefined}
                 onClick={() => void prep.start(selected)}
             >
                 {prep.busy === 'start' ? 'Starting…' : view.startLabel}

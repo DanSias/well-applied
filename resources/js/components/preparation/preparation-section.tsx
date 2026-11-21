@@ -19,12 +19,15 @@ export function PreparationSection({
     panel: initial,
     title,
     company,
+    blocked = null,
 }: {
     panel: PreparationPanel;
     title: string;
     company: string;
+    /** Why a new preparation cannot be started (an expired or closed job); null when it can. */
+    blocked?: string | null;
 }) {
-    const prep = useApplicationPreparation(initial);
+    const prep = useApplicationPreparation(initial, blocked);
     const [open, setOpen] = useState(false);
     const trigger = useRef<HTMLButtonElement>(null);
     const view = presentPreparation(prep.panel.state);

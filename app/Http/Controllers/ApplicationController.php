@@ -8,6 +8,7 @@ use App\Models\JobPosting;
 use App\Support\ApplicationInspection\DispatchApplicationInspection;
 use App\Support\ApplicationInspection\InspectionAlreadyRunning;
 use App\Support\ApplicationInspection\PresentApplicationInspection;
+use App\Support\JobFreshness\JobFreshness;
 use App\Support\Navigation\JobHome;
 use App\Support\Navigation\ReturnTo;
 use Illuminate\Http\RedirectResponse;
@@ -27,6 +28,8 @@ class ApplicationController extends Controller
 {
     public function store(StartInspectionRequest $request, JobPosting $jobPosting, DispatchApplicationInspection $dispatcher): RedirectResponse
     {
+        JobFreshness::abortUnlessNewWorkAllowed($jobPosting);
+
         try {
             $workflowRun = $dispatcher->dispatch($jobPosting, $request->applicationUrl(), $request->clearsApplicationUrl(), $request->onlyIfNone());
         } catch (InvalidArgumentException $e) {
@@ -63,6 +66,8 @@ class ApplicationController extends Controller
                     'title' => $application->jobPosting->title,
                     'source_url' => $application->jobPosting->source_url,
                     'home_url' => JobHome::url($application->jobPosting),
+                    // Job freshness (OFF by default): present only with the feature on.
+                    ...(JobFreshness::enabled() ? ['freshness' => JobFreshness::view($application->jobPosting)] : []),
                 ],
             ],
             'inspection' => $presenter->present($application),

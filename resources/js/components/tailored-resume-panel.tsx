@@ -120,6 +120,7 @@ export function TailoredResumePanel({
     primaryInHeader = false,
     controlRef,
     onBusy,
+    blocked = null,
 }: {
     jobId: number;
     initial: TailoredResumeStatus;
@@ -135,6 +136,8 @@ export function TailoredResumePanel({
     controlRef?: Ref<ResumeControl>;
     /** True from the moment a start is posted until the server answers, so a header button can hold still meanwhile. */
     onBusy?: (busy: boolean) => void;
+    /** Why generating a new resume is unavailable (an expired or closed job); null when it is available. The existing resume and its history stay. */
+    blocked?: string | null;
 }) {
     const { status, refresh } = useTailoredResumeStatus(jobId, initial);
 
@@ -162,6 +165,10 @@ export function TailoredResumePanel({
         allowIncomplete?: boolean;
         regenerate?: boolean;
     }) => {
+        if (blocked !== null) {
+            return;
+        }
+
         setProcessing(true);
         router.post(
             tailoredResumeStore.url({ jobPosting: jobId }),
@@ -219,6 +226,11 @@ export function TailoredResumePanel({
                     : 'rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900'
             }
         >
+            {blocked !== null && (
+                <p className="text-warn mb-2 text-xs" role="note">
+                    {blocked}
+                </p>
+            )}
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                     {!embedded && (
@@ -287,7 +299,8 @@ export function TailoredResumePanel({
                 {showAction && (
                     <button
                         type="button"
-                        disabled={action.disabled}
+                        disabled={action.disabled || blocked !== null}
+                        title={blocked ?? undefined}
                         onClick={() => click()}
                         className={buttonClass('primary', 'md')}
                     >
@@ -309,7 +322,7 @@ export function TailoredResumePanel({
                     <div className="mt-2 flex gap-2">
                         <button
                             type="button"
-                            disabled={processing}
+                            disabled={processing || blocked !== null}
                             onClick={() =>
                                 start({
                                     allowIncomplete: true,
@@ -469,7 +482,7 @@ export function TailoredResumePanel({
                             <summary className="cursor-pointer">More</summary>
                             <button
                                 type="button"
-                                disabled={processing}
+                                disabled={processing || blocked !== null}
                                 onClick={() => click(true)}
                                 className="mt-1 font-medium underline underline-offset-2 hover:text-neutral-900 disabled:opacity-50 dark:hover:text-neutral-200"
                             >
@@ -506,7 +519,7 @@ export function TailoredResumePanel({
                     {!status.profile_resume && (
                         <button
                             type="button"
-                            disabled={processing}
+                            disabled={processing || blocked !== null}
                             onClick={() => {
                                 setAskError(null);
                                 router.post(
@@ -531,7 +544,7 @@ export function TailoredResumePanel({
                     )}
                     <button
                         type="button"
-                        disabled={processing}
+                        disabled={processing || blocked !== null}
                         onClick={() => click(true)}
                         className="text-sm font-medium text-neutral-600 underline underline-offset-2 hover:text-neutral-900 disabled:opacity-50 dark:text-neutral-400"
                     >

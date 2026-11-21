@@ -8,7 +8,6 @@ use App\Enums\GenerationType;
 use App\Enums\JobAnalysisFindingCategory;
 use App\Enums\JobDiscoverySource;
 use App\Enums\JobDisposition;
-use App\Enums\JobPostingLifecycleStatus;
 use App\Http\Requests\StoreJobPostingRequest;
 use App\Models\GenerationAttempt;
 use App\Models\JobAnalysis;
@@ -81,21 +80,21 @@ class JobPostingController extends Controller
             });
         }
 
-        // Job freshness (OFF by default): in the Inbox and the Shortlist, a job whose provider-stated expiry has passed, or that is closed, is not offered for action. It is
-        // not deleted and not changed, a job with an Application is never hidden, and `?inactive=1` shows them again. Other views are untouched.
+        // Job freshness (OFF by default): in the Inbox and the Shortlist, a job that is not effectively actionable (known expired, or confirmed closed by status, expiry or recorded
+        // observations: JobFreshness::leftOut) is left out, unless it is protected. Nothing is deleted or changed, and `?inactive=1` shows them again. The ids come from the one
+        // shared decision; the count is taken over the SAME view the list is (disposition, source, search and the inspection, triage and resume filters), so it is exactly what
+        // turning "Show them" on would add.
         $showInactive = $request->query('inactive') === '1';
         $hiddenInactive = 0;
+        $leftOutCounts = $this->leftOutCounts($source);
         if (JobFreshness::enabled() && in_array($disposition, ['inbox', 'shortlist'], true)) {
-            $active = fn ($q) => $q->where('status', '!=', JobPostingLifecycleStatus::Closed->value)
-                ->where(fn ($e) => $e->whereNull('discovery_metadata->discovery->expiryDate')->orWhere('discovery_metadata->discovery->expiryDate', '>', now()->timestamp));
-            // Counted over the SAME view the list is: disposition, source, search AND the inspection, triage and resume filters, so the number is exactly what turning
-            // "Show them" on would add.
-            $hiddenQuery = (clone $query)->whereNot(fn ($q) => $active($q))->whereDoesntHave('applications');
+            $leftOut = JobFreshness::leftOutIds($query);
+            $hiddenQuery = (clone $query)->whereIn('id', $leftOut === [] ? [0] : $leftOut);
             $hiddenInactive = ($status === 'all' && $triageStages === null && $resume === 'all')
                 ? $hiddenQuery->count()
                 : $this->applyDerivedFilters($hiddenQuery->get(), $status, $triageStages, $resume, $summarizer, $triageSummarizer, $jobResumes)[0]->count();
-            if (! $showInactive) {
-                $query->where(fn ($q) => $q->where(fn ($a) => $active($a))->orWhereHas('applications'));
+            if (! $showInactive && $leftOut !== []) {
+                $query->whereNotIn('id', $leftOut);
             }
         }
 
@@ -123,7 +122,9 @@ class JobPostingController extends Controller
             // `all` in both behavior and props.
             'filters' => ['q' => $search, 'status' => $status, 'triage' => $triageStages === null ? 'all' : $triage, 'resume' => $resume, 'disposition' => $disposition, 'source' => $source?->value, 'job' => $selectedId, 'inactive' => $showInactive],
             'hidden_inactive' => $hiddenInactive,
-            'disposition_counts' => $this->dispositionCounts($source),
+            'disposition_counts' => $this->dispositionCounts($source, $leftOutCounts),
+            // Job freshness (OFF by default): how many Inbox / Shortlist jobs those counts leave out as not actionable. Absent when the feature is off.
+            ...($leftOutCounts === null ? [] : ['left_out_counts' => $leftOutCounts]),
             // The drawer's job, fetched on demand and never with the list: the full description would multiply the page
             // payload by the page size. Null when no job is open, or when the id is not one of this profile's jobs.
             'selected_job' => fn () => $selectedId === null ? null : $this->selectedJob($selectedId, $summarizer, $triageStates),
@@ -180,16 +181,32 @@ class JobPostingController extends Controller
      *
      * @return array{inbox: int, shortlist: int, dismissed: int, all: int}
      */
-    private function dispositionCounts(?JobDiscoverySource $source = null): array
+    private function dispositionCounts(?JobDiscoverySource $source = null, ?array $leftOut = null): array
     {
         $counts = CurrentCareerProfile::resolve()->jobPostings()->when($source !== null, fn ($q) => $q->where('discovery_source', $source?->value))->selectRaw('disposition, count(*) as total')->groupBy('disposition')->pluck('total', 'disposition');
 
+        // Job freshness (OFF by default): Inbox and Shortlist count what is currently ACTIONABLE (what those views list); Dismissed and All stay totals.
         return [
-            'inbox' => (int) $counts->get(JobDisposition::New->value, 0),
-            'shortlist' => (int) $counts->get(JobDisposition::Shortlisted->value, 0),
+            'inbox' => (int) $counts->get(JobDisposition::New->value, 0) - ($leftOut['inbox'] ?? 0),
+            'shortlist' => (int) $counts->get(JobDisposition::Shortlisted->value, 0) - ($leftOut['shortlist'] ?? 0),
             'dismissed' => (int) $counts->get(JobDisposition::Dismissed->value, 0),
             'all' => (int) $counts->sum(),
         ];
+    }
+
+    /**
+     * Inbox and Shortlist jobs a list leaves out as not effectively actionable, per view (null with the feature off).
+     *
+     * @return array{inbox: int, shortlist: int}|null
+     */
+    private function leftOutCounts(?JobDiscoverySource $source): ?array
+    {
+        if (! JobFreshness::enabled()) {
+            return null;
+        }
+        $in = fn (JobDisposition $d) => count(JobFreshness::leftOutIds(CurrentCareerProfile::resolve()->jobPostings()->when($source !== null, fn ($q) => $q->where('discovery_source', $source?->value))->where('disposition', $d->value)));
+
+        return ['inbox' => $in(JobDisposition::New), 'shortlist' => $in(JobDisposition::Shortlisted)];
     }
 
     /** Page sizes the list offers; anything else degrades to the default. */

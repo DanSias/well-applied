@@ -1,7 +1,11 @@
 import { Head, Link } from '@inertiajs/react';
 import { useRef, useState } from 'react';
 import { InspectionStateBadge } from '@/components/badges';
-import { FreshnessBadge, FreshnessNote } from '@/components/job-freshness';
+import {
+    FreshnessBadge,
+    FreshnessNote,
+    newWorkBlock,
+} from '@/components/job-freshness';
 import {
     ProviderCredit,
     sourceLinkLabel,
@@ -279,6 +283,8 @@ export default function OpportunityShow({
     );
     const pay = formatCompensation(op);
     const label = `${op.title} at ${op.company}`;
+    // Job freshness: no NEW resume generation or preparation on an expired or closed job (everything already there stays).
+    const blocked = newWorkBlock(op.freshness);
     const inspected = op.inspection.state !== 'not_inspected';
     // One starter for this button and the drawer: a single gate, so one click can never start two runs.
     const inspector = useStartInspection(workspaceDestination);
@@ -400,7 +406,8 @@ export default function OpportunityShow({
                             {action.kind === 'generate' && (
                                 <Button
                                     variant="primary"
-                                    disabled={starting}
+                                    disabled={starting || blocked !== null}
+                                    title={blocked ?? undefined}
                                     onClick={() =>
                                         resumeControl.current?.generate()
                                     }
@@ -569,6 +576,7 @@ export default function OpportunityShow({
                             returnTo="opportunity"
                             onStatus={setGeneration}
                             onBusy={setStarting}
+                            blocked={blocked}
                         />
                         {op.resume.current_variant_id !== null &&
                             action.kind !== 'link' && (
@@ -634,6 +642,7 @@ export default function OpportunityShow({
                         panel={preparation}
                         title={op.title}
                         company={op.company}
+                        blocked={blocked}
                     />
                 </Card>
 

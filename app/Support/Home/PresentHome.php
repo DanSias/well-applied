@@ -67,12 +67,15 @@ final class PresentHome
             return ['has_profile' => false] + $this->empty();
         }
 
-        $jobs = $profile->jobPostings()
+        $all = $profile->jobPostings()
             ->where('status', '!=', JobPostingLifecycleStatus::Closed->value)
-            // Job freshness (OFF by default): a job whose provider-stated expiry has passed is not offered for action here either. A pursued job or one with an Application is never dropped.
-            ->when(JobFreshness::enabled(), fn ($q) => $q->where(fn ($w) => $w->whereNull('discovery_metadata->discovery->expiryDate')->orWhere('discovery_metadata->discovery->expiryDate', '>', now()->timestamp)->orWhere('disposition', JobDisposition::Pursued->value)->orWhereHas('applications')))
-            ->get(['id', 'company', 'title', 'created_at', 'disposition'])
+            ->withCount('applications')
+            ->get(['id', 'company', 'title', 'created_at', 'disposition', 'status', 'discovery_source', 'discovery_metadata'])
             ->keyBy('id');
+        // Job freshness (OFF by default): jobs that are not effectively actionable (JobFreshness::leftOut: known expired or confirmed closed, and not protected) are not offered for
+        // action here; they are counted separately. Pursued jobs and jobs with an Application are never dropped.
+        $leftOut = $all->filter(fn (JobPosting $job) => JobFreshness::leftOut($job));
+        $jobs = $all->reject(fn (JobPosting $job) => $leftOut->has($job->id));
 
         if ($jobs->isEmpty()) {
             return ['has_profile' => true] + $this->empty($this->quickAccess($profile->id));
@@ -97,7 +100,7 @@ final class PresentHome
         $toReview = count($this->opportunities->review());
 
         $overview = [
-            'jobs' => $jobs->count(),
+            'jobs' => $all->count(),
             'awaiting' => (int) $dispositions->get(JobDisposition::New->value, 0),
             'shortlisted' => (int) $dispositions->get(JobDisposition::Shortlisted->value, 0),
             'pursued' => $pursuedIds->count(),
@@ -106,7 +109,7 @@ final class PresentHome
             'resumes_in_progress' => $resumeStates->filter(fn (string $s) => $s === 'in-progress')->count(),
             'resumes_final' => $resumeStates->filter(fn (string $s) => $s === 'final')->count(),
             'existing_work_to_review' => $toReview,
-        ];
+        ] + (JobFreshness::enabled() ? ['actionable' => $jobs->count(), 'left_out' => $leftOut->count()] : []);
 
         $rows = $this->rows($jobs->all(), $triage, $resumes->all(), $pending->all());
 

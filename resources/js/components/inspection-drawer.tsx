@@ -1,3 +1,4 @@
+import { newWorkBlock } from '@/components/job-freshness';
 import { router } from '@inertiajs/react';
 import {
     ProviderCredit,
@@ -156,6 +157,8 @@ function InspectionBody({
     );
     const state = initial === null ? null : polled;
     const view = presentInspection(state);
+    // Job freshness: no NEW inspection of an expired or closed job (the existing results and history stay readable).
+    const blocked = newWorkBlock(job.freshness);
     const worker = useWorkerStatusPolling();
     const result = state?.latest_result ?? null;
     const earlier = state?.earlier_result ?? null;
@@ -275,11 +278,17 @@ function InspectionBody({
             )}
 
             <div className="border-line space-y-3 border-t pt-4">
+                {blocked !== null && (
+                    <p className="text-warn text-xs" role="note">
+                        {blocked}
+                    </p>
+                )}
                 <div className="flex flex-wrap items-center gap-x-1 gap-y-2">
                     {job.source_url !== null || link?.url ? (
                         <Button
                             variant="primary"
-                            disabled={busy}
+                            disabled={busy || blocked !== null}
+                            title={blocked ?? undefined}
                             onClick={() => starter.start(job.id)}
                         >
                             {busy
@@ -297,7 +306,11 @@ function InspectionBody({
                     {link?.url && (
                         <Button
                             variant="ghost"
-                            disabled={busy || job.source_url === null}
+                            disabled={
+                                busy ||
+                                job.source_url === null ||
+                                blocked !== null
+                            }
                             onClick={() =>
                                 starter.start(job.id, {
                                     clearApplicationUrl: true,
@@ -333,7 +346,7 @@ function InspectionBody({
                 <ApplicationUrlForm
                     saved={link}
                     prominent={view.needsApplicationUrl}
-                    disabled={busy}
+                    disabled={busy || blocked !== null}
                     onSubmit={(url, reject) =>
                         starter.start(job.id, {
                             applicationUrl: url,
@@ -369,9 +382,15 @@ function InspectionSetup({
     starter: InspectionStarter;
 }) {
     const host = hostOf(job.source_url);
+    const blocked = newWorkBlock(job.freshness);
 
     return (
         <div className="space-y-5">
+            {blocked !== null && (
+                <p className="text-warn text-xs" role="note">
+                    {blocked}
+                </p>
+            )}
             <p className="text-fg-muted text-sm leading-relaxed">
                 Read-only: this opens the application page and reads its fields
                 and questions without filling in or submitting anything. Nothing
@@ -395,7 +414,11 @@ function InspectionSetup({
                 </p>
                 <Button
                     variant="secondary"
-                    disabled={job.source_url === null || starter.starting}
+                    disabled={
+                        job.source_url === null ||
+                        starter.starting ||
+                        blocked !== null
+                    }
                     onClick={() =>
                         starter.start(job.id, firstInspectionOptions('listing'))
                     }
@@ -409,7 +432,7 @@ function InspectionSetup({
                 prominent
                 heading="I have the application URL"
                 saved={null}
-                disabled={starter.starting}
+                disabled={starter.starting || blocked !== null}
                 onSubmit={(url, reject) =>
                     starter.start(
                         job.id,

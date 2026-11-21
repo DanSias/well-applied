@@ -10,6 +10,9 @@ export type HomeOverview = {
     resumes_in_progress: number;
     resumes_final: number;
     existing_work_to_review: number;
+    /** Present only with job freshness on: the jobs currently actionable, and those left out as expired or closed (`jobs` stays the total). */
+    actionable?: number;
+    left_out?: number;
 };
 
 export type HomeAttentionItem = {

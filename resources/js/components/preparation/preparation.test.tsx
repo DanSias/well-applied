@@ -18,6 +18,7 @@ const prepFor = (panel: PreparationPanel, over: Record<string, unknown> = {}) =>
         active: false,
         busy: null,
         error: null,
+        blocked: null,
         clearError: () => {},
         start: vi.fn(),
         cancel: vi.fn(),
@@ -432,5 +433,25 @@ describe('the workspace section', () => {
 
         expect(html).toContain('cannot be prepared yet');
         expect(html).toContain('Why not?');
+    });
+});
+
+describe('job freshness: no NEW preparation of an expired or closed job', () => {
+    const BLOCK =
+        'This job has expired, so new pursuit work cannot be started on it.';
+
+    it('disables the start button and says why', () => {
+        const html = drawer(panelOf(null), { blocked: BLOCK });
+
+        expect(html).toContain(BLOCK);
+        expect(html).toMatch(
+            /<button[^>]*disabled=""[^>]*>[^<]*(Prepare|Start)[^<]*<\/button>/,
+        );
+    });
+
+    it('is unchanged when nothing blocks it', () => {
+        const html = drawer(panelOf(null));
+
+        expect(html).not.toContain('new pursuit work');
     });
 });

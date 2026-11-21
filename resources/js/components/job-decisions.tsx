@@ -60,11 +60,14 @@ export function DecisionActions({
     jobLabel,
     disabled,
     onDecide,
+    blocked = null,
 }: {
     disposition: JobDisposition;
     jobLabel: string;
     disabled: boolean;
     onDecide: DecideFn;
+    /** Why shortlisting and pursuing are unavailable (an expired or closed job); null when they are available. Dismiss, restore and the rest stay. */
+    blocked?: string | null;
 }) {
     const dismiss = (
         <DismissPopover
@@ -92,7 +95,8 @@ export function DecisionActions({
                 <>
                     <Button
                         size="sm"
-                        disabled={disabled}
+                        disabled={disabled || !!blocked}
+                        title={blocked ?? undefined}
                         aria-label={`Shortlist ${jobLabel}`}
                         onClick={() => onDecide('shortlisted')}
                     >
@@ -100,7 +104,8 @@ export function DecisionActions({
                     </Button>
                     <Button
                         size="sm"
-                        disabled={disabled}
+                        disabled={disabled || !!blocked}
+                        title={blocked ?? undefined}
                         aria-label={`Pursue ${jobLabel}`}
                         onClick={() => onDecide('pursued')}
                     >
@@ -114,7 +119,8 @@ export function DecisionActions({
                 <>
                     <Button
                         size="sm"
-                        disabled={disabled}
+                        disabled={disabled || !!blocked}
+                        title={blocked ?? undefined}
                         aria-label={`Pursue ${jobLabel}`}
                         onClick={() => onDecide('pursued')}
                     >
@@ -201,19 +207,23 @@ export function CompactRowActions({
     disabled,
     onDecide,
     extraItems,
+    blocked = null,
 }: {
     disposition: JobDisposition;
     jobLabel: string;
     disabled: boolean;
     onDecide: DecideFn;
     extraItems: MenuItem[];
+    /** Why shortlisting and pursuing are unavailable (an expired or closed job); null when they are available. */
+    blocked?: string | null;
 }) {
     const pursue = (
         <Button
             variant="ghost"
             size="sm"
             className="bg-accent-soft text-accent ring-accent/25 hover:bg-accent-soft hover:text-accent hover:ring-accent/50 ring-1 ring-inset"
-            disabled={disabled}
+            disabled={disabled || !!blocked}
+            title={blocked ?? undefined}
             aria-label={`Pursue ${jobLabel}`}
             onClick={() => onDecide('pursued')}
         >
@@ -243,7 +253,8 @@ export function CompactRowActions({
                     <Button
                         variant="ghost"
                         size="sm"
-                        disabled={disabled}
+                        disabled={disabled || !!blocked}
+                        title={blocked ?? undefined}
                         aria-label={`Shortlist ${jobLabel}`}
                         onClick={() => onDecide('shortlisted')}
                     >
@@ -289,16 +300,16 @@ export function CompactRowActions({
                 <>
                     {dismiss}
                     {menu([
-                {
-                    label: 'Move back to Shortlist',
-                    onSelect: () => onDecide('shortlisted'),
-                },
-                {
-                    label: 'Restore to Inbox',
-                    onSelect: () => onDecide('new'),
-                },
-                ...extraItems,
-            ])}
+                        {
+                            label: 'Move back to Shortlist',
+                            onSelect: () => onDecide('shortlisted'),
+                        },
+                        {
+                            label: 'Restore to Inbox',
+                            onSelect: () => onDecide('new'),
+                        },
+                        ...extraItems,
+                    ])}
                 </>
             );
     }

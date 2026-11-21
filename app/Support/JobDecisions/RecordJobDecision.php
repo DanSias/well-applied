@@ -7,6 +7,7 @@ use App\Enums\DismissalReason;
 use App\Enums\JobDisposition;
 use App\Models\JobDecision;
 use App\Models\JobPosting;
+use App\Support\JobFreshness\JobFreshness;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -113,6 +114,12 @@ final class RecordJobDecision
 
             if ($undoOf === null && $reason?->endsPursuit() && $from !== JobDisposition::Pursued) {
                 throw new JobDecisionException('Only an opportunity you are pursuing can be stopped.');
+            }
+
+            // Job freshness (OFF by default): an expired or confirmed-closed job cannot be newly shortlisted or pursued, even by a direct request, however protected it is. Dismissing,
+            // stopping pursuit, restoring to the inbox and undoing a decision are all still allowed.
+            if ($undoOf === null && in_array($to, [JobDisposition::Shortlisted, JobDisposition::Pursued], true) && ($block = JobFreshness::newWorkBlock($current)) !== null) {
+                throw new JobDecisionException($block);
             }
 
             if ($undoOf !== null) {

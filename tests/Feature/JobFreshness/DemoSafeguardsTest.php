@@ -175,9 +175,9 @@ it('keeps the protected demo jobs reachable while the other expired demo job is 
     $inbox = collect($this->get('/jobs')->viewData('page')['props']['jobs'])->pluck('id');
     $opps = collect($this->get('/opportunities')->viewData('page')['props']['opportunities'])->pluck('id');
 
-    expect($inbox)->toContain($applied)->not->toContain($ids['Expired (known expiry date)'])->not->toContain($pursued)
+    expect($inbox)->toContain($applied)->not->toContain($ids['Expired (known expiry date)'])->not->toContain($ids['Closed (confirmed twice)'])->not->toContain($pursued)
         ->and($opps)->toContain($pursued)
-        ->and($this->get('/jobs')->viewData('page')['props']['hidden_inactive'])->toBe(1, 'only the expired demo job: a closure that rests on recorded observations is labelled, but is not applied to the Inbox until a status is written (stage 5)');
+        ->and($this->get('/jobs')->viewData('page')['props']['hidden_inactive'])->toBe(2, 'the expired demo job and the one confirmed closed by recorded observations (effective freshness, no status written)');
     $this->get(route('opportunities.show', $pursued))->assertOk();
     $this->get(route('jobs.show', $applied))->assertOk();
     expect(Application::count())->toBe(1)->and(JobPosting::find($pursued)->disposition)->toBe(JobDisposition::Pursued);

@@ -45,8 +45,17 @@ const props = (
     inspection,
 });
 
-const render = (inspection: ApplicationShowProps['inspection']) =>
-    renderToStaticMarkup(<ApplicationShow {...props(inspection)} />);
+const render = (
+    inspection: ApplicationShowProps['inspection'],
+    freshness?: ApplicationShowProps['application']['job_posting']['freshness'],
+) => {
+    const p = props(inspection);
+    if (freshness !== undefined) {
+        p.application.job_posting.freshness = freshness;
+    }
+
+    return renderToStaticMarkup(<ApplicationShow {...p} />);
+};
 
 describe('the full application page for a listing whose application form was not found (run 11)', () => {
     const html = render(jobicyNoApplyLinkState());
@@ -106,5 +115,66 @@ describe('the full page for other states', () => {
 
         expect(html).toContain('Inspecting…');
         expect(html).not.toContain('Needs application URL');
+    });
+});
+
+describe('job freshness on the application page', () => {
+    const base = {
+        reason: 'x',
+        confirmed_at: null,
+        checked: true,
+    };
+    const expired = {
+        ...base,
+        state: 'expired' as const,
+        label: 'Expired',
+        actionable: false,
+        tone: 'warn' as const,
+        detail: 'The provider gave this job an expiry date, and it has passed.',
+        new_work_block:
+            'This job has expired, so new pursuit work cannot be started on it.',
+    };
+    const unchecked = {
+        ...base,
+        state: 'unchecked' as const,
+        label: 'Not live-checked',
+        actionable: true,
+        tone: 'neutral' as const,
+        detail: 'No live check with the provider has been made, so this job is open only as far as our records go.',
+        new_work_block: null,
+        checked: false,
+    };
+    const DISABLED = / disabled=""/;
+    const startButton = (html: string) =>
+        html.match(
+            /<button[^>]*>[^<]*Inspect application form[^<]*<\/button>/,
+        )?.[0] ?? '';
+
+    it('shows the freshness of an expired job once, keeps the page readable, and blocks a new inspection', () => {
+        const html = render(stateOf(null), expired);
+
+        expect(html).toContain('Expired');
+        expect(html.split('it has passed').length - 1).toBe(1);
+        expect(html).toContain(
+            'This job has expired, so new pursuit work cannot be started',
+        );
+        expect(startButton(html)).toMatch(DISABLED);
+        expect(html).toContain('Back to job');
+    });
+
+    it('keeps an unchecked job quiet (a muted line, no badge) and its inspection startable', () => {
+        const html = render(stateOf(null), unchecked);
+
+        expect(html).toContain('Not live-checked: No live check');
+        expect(html).not.toContain('new pursuit work');
+        expect(startButton(html)).not.toMatch(DISABLED);
+    });
+
+    it('shows nothing about freshness with the feature off, and the page is unchanged', () => {
+        const html = render(stateOf(null));
+
+        expect(html).not.toContain('Not live-checked');
+        expect(html).not.toContain('Expired');
+        expect(startButton(html)).not.toMatch(DISABLED);
     });
 });

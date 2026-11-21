@@ -63,6 +63,8 @@ export type ExistingWork = {
     final_resume_variant_id: number | null;
     applications: { id: number; status: string }[];
     clarification_sessions: number;
+    /** Present only with job freshness on. */
+    freshness?: JobFreshnessView | null;
 };
 
 export const RESUME_FILTERS: {

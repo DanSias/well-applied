@@ -540,3 +540,65 @@ describe('a schema-only result says where its fields came from', () => {
         expect(starter.start).not.toHaveBeenCalled();
     });
 });
+
+describe('job freshness: no NEW inspection of an expired or closed job', () => {
+    const expiredView = {
+        state: 'expired' as const,
+        label: 'Expired',
+        actionable: false,
+        reason: 'expired_known',
+        tone: 'warn' as const,
+        detail: 'The provider gave this job an expiry date, and it has passed.',
+        new_work_block:
+            'This job has expired, so new pursuit work cannot be started on it.',
+        confirmed_at: null,
+        checked: true,
+    };
+    const openView = {
+        ...expiredView,
+        state: 'unchecked' as const,
+        label: 'Not live-checked',
+        actionable: true,
+        tone: 'neutral' as const,
+        new_work_block: null,
+        checked: false,
+    };
+    const DISABLED = / disabled=""/;
+    const tagOf = (html: string, text: string) =>
+        html.match(
+            new RegExp(`<button[^>]*>[^<]*${text}[^<]*</button>`),
+        )?.[0] ?? '';
+
+    it('disables the first-inspection choices and says why, when there is no inspection yet', () => {
+        const html = render(null, starterOf(), { freshness: expiredView });
+
+        expect(html).toContain(
+            'This job has expired, so new pursuit work cannot be started',
+        );
+        expect(tagOf(html, 'Inspect listing')).toMatch(DISABLED);
+    });
+
+    it('disables starting again but keeps the saved results readable, once an inspection has run', () => {
+        const state = stateOf(
+            runOf('succeeded'),
+            resultOf('complete', {
+                field_count: 1,
+                questions: [question(0, 'First name')],
+            }),
+        );
+        const html = render(state, starterOf(), { freshness: expiredView });
+
+        expect(html).toContain('First name');
+        expect(html).toContain('This job has expired');
+        expect(tagOf(html, 'Inspect again')).toMatch(DISABLED);
+    });
+
+    it('is unchanged for an unchecked job and for a job with no freshness (the feature off)', () => {
+        for (const over of [{ freshness: openView }, { freshness: null }]) {
+            const html = render(null, starterOf(), over);
+
+            expect(html).not.toContain('new pursuit work');
+            expect(tagOf(html, 'Inspect listing')).not.toMatch(DISABLED);
+        }
+    });
+});

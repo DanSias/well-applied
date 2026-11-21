@@ -198,7 +198,8 @@ it('drops an expired job from Home\'s open work, but never one with an Applicati
 
     frOn();
     $on = $this->get('/')->viewData('page')['props']['overview'];
-    expect([$on['jobs'], $on['awaiting']])->toBe([2, 2]);
+    expect([$on['jobs'], $on['actionable'], $on['left_out'], $on['awaiting']])->toBe([3, 2, 1, 2], 'jobs is the total; the expired inbox job is left out of what is actionable');
+    expect(array_key_exists('actionable', $off))->toBeFalse()->and(array_key_exists('left_out', $off))->toBeFalse();
 });
 
 // ---- the checks a later runner would make (specifications only) ------------------------------------------------------------------------------

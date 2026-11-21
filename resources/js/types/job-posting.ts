@@ -27,6 +27,8 @@ export type JobFreshnessView = {
      */
     tone: 'ok' | 'neutral' | 'warn';
     detail: string;
+    /** Why new pursuit work cannot be started (an expired or closed job); null when it can. The server's own refusal uses the same decision. */
+    new_work_block: string | null;
     /** When the provider last confirmed the job open (ISO), or null. */
     confirmed_at: string | null;
     /** Whether any live check with the provider has been recorded. */
@@ -336,6 +338,8 @@ export type JobsIndexProps = {
     disposition_counts: Record<JobDispositionFilter, number>;
     /** Expired or closed jobs left out of the Inbox or Shortlist (0 when job freshness is off). */
     hidden_inactive: number;
+    /** Present only with job freshness on: Inbox and Shortlist jobs the tab counts leave out as expired or closed (the counts are of ACTIONABLE jobs; All is the total). */
+    left_out_counts?: { inbox: number; shortlist: number };
     /** Loaded on demand for the drawer; null when none is open or the id is not one of this profile's jobs. */
     selected_job: SelectedJob | null;
 };

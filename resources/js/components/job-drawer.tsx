@@ -10,7 +10,11 @@ import {
     type DecideFn,
 } from '@/components/job-decisions';
 import { JobDescription } from '@/components/job-description';
-import { FreshnessBadge, FreshnessNote } from '@/components/job-freshness';
+import {
+    FreshnessBadge,
+    FreshnessNote,
+    newWorkBlock,
+} from '@/components/job-freshness';
 import {
     ProviderCredit,
     sourceLinkLabel,
@@ -241,6 +245,7 @@ export function JobDrawer({
                             jobLabel={label}
                             disabled={decisionsDisabled}
                             onDecide={onDecide}
+                            blocked={newWorkBlock(job.freshness)}
                         />
                     )}
                     {id !== null && (

@@ -159,7 +159,7 @@ it('keeps pursued jobs in Home\'s continue list and counts even when they are ex
     frJob(['disposition' => JobDisposition::New], $past);
 
     $on = $this->get('/')->viewData('page')['props'];
-    expect($on['overview']['pursued'])->toBe(1)->and($on['overview']['jobs'])->toBe(1, 'the pursued job stays; the expired inbox job is dropped');
+    expect($on['overview']['pursued'])->toBe(1)->and([$on['overview']['jobs'], $on['overview']['actionable'], $on['overview']['left_out']])->toBe([2, 1, 1], 'the pursued job stays; the expired inbox job is left out of what is actionable');
 
     config(['job_freshness.enabled' => false]);
     $off = $this->get('/')->viewData('page')['props']['overview'];
