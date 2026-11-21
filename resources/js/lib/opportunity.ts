@@ -143,7 +143,8 @@ export type NextAction = {
 };
 
 export function nextAction(
-    op: Pick<Opportunity, 'next' | 'resume'>,
+    op: Pick<Opportunity, 'next' | 'resume'> &
+        Partial<Pick<Opportunity, 'freshness'>>,
 ): NextAction {
     const job = (label: string): NextAction => ({
         label,
@@ -176,7 +177,12 @@ export function nextAction(
         // step as one that needs a resume: generate it. Analyzing on its own stays available, as a secondary action.
         case 'analyze':
         default:
-            return job('Generate tailored resume');
+            // An expired or confirmed-closed job cannot start a new resume; the link only opens it, so it says so.
+            return job(
+                op.freshness?.new_work_block
+                    ? 'View opportunity'
+                    : 'Generate tailored resume',
+            );
     }
 }
 

@@ -47,6 +47,46 @@ describe('the next step for an opportunity', () => {
         ).toBe('job');
     });
 
+    it('says "View opportunity" instead of Generate for a job that cannot start new work, and leaves other wording alone', () => {
+        const none = resume(null, null);
+        const blocked = { new_work_block: 'This job has expired.' };
+        const f = (x: object) => x as never;
+
+        for (const next of ['analyze', 'prepare_resume'] as const) {
+            const step = nextAction({
+                next,
+                resume: none,
+                freshness: f(blocked),
+            });
+
+            expect(step.label).toBe('View opportunity');
+            expect(step.to).toBe('job');
+            expect(step.variantId).toBeNull();
+        }
+
+        expect(
+            nextAction({
+                next: 'analyze',
+                resume: none,
+                freshness: f({ new_work_block: null }),
+            }).label,
+        ).toBe('Generate tailored resume');
+        expect(
+            nextAction({ next: 'analyze', resume: none, freshness: null })
+                .label,
+        ).toBe('Generate tailored resume');
+        expect(nextAction({ next: 'analyze', resume: none }).label).toBe(
+            'Generate tailored resume',
+        );
+        expect(
+            nextAction({
+                next: 'processing',
+                resume: none,
+                freshness: f(blocked),
+            }).label,
+        ).toBe('View progress');
+    });
+
     it('sends every other step to the job, where analysis and resume generation already live', () => {
         const none = resume(null, null);
 
