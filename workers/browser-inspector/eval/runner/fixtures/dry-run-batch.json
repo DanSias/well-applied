@@ -1,0 +1,183 @@
+{
+  "cases": [
+    {
+      "duplicate_group": null,
+      "fixture": {
+        "logical_url": "http://jobicy.com/jobs/101",
+        "note": "Jobicy listing, employer page, then a Greenhouse form"
+      },
+      "hand_review_slot": false,
+      "host": "jobicy.com",
+      "id": "d-01-jobicy-success",
+      "needs_tracker_permission": false,
+      "source": "jobicy",
+      "url_sha256": "40a5e8f10eec7bd848d2ffb87126eb227730696264fa27edeeb8cbc0c04e1a06",
+      "url_shape": "jobicy.com/jobs/N"
+    },
+    {
+      "duplicate_group": null,
+      "fixture": {
+        "logical_url": "http://jobicy.com/jobs/103",
+        "note": "two different Apply destinations"
+      },
+      "hand_review_slot": false,
+      "host": "jobicy.com",
+      "id": "d-02-ambiguous-links",
+      "needs_tracker_permission": false,
+      "source": "jobicy",
+      "url_sha256": "731414218eaf8136a38b4d226c0811de02714c4facc4235ed9d75d3252222735",
+      "url_shape": "jobicy.com/jobs/N"
+    },
+    {
+      "duplicate_group": null,
+      "fixture": {
+        "logical_url": "http://himalayas.app/companies/acme/jobs/to-login",
+        "note": "Apply leads to a sign-in wall"
+      },
+      "hand_review_slot": false,
+      "host": "himalayas.app",
+      "id": "d-03-himalayas-login",
+      "needs_tracker_permission": false,
+      "source": "himalayas",
+      "url_sha256": "be588146a8478fe707e8201e13d6293fef272d0b1d43f08a13105b8bef9760f4",
+      "url_shape": "himalayas.app/companies/acme/jobs/to-login"
+    },
+    {
+      "duplicate_group": null,
+      "fixture": {
+        "logical_url": "http://job-boards.greenhouse.io/acme/jobs/1",
+        "note": "a direct ATS link"
+      },
+      "hand_review_slot": false,
+      "host": "job-boards.greenhouse.io",
+      "id": "d-04-direct-greenhouse",
+      "needs_tracker_permission": false,
+      "source": "manual",
+      "url_sha256": "b76f57f7324936fcb29edc96fa84c3ad8f90a29a6972f7fc9c9fadbe383adab9",
+      "url_shape": "job-boards.greenhouse.io/acme/jobs/N"
+    },
+    {
+      "duplicate_group": null,
+      "fixture": {
+        "logical_url": "http://jobicy.com/jobs/202",
+        "note": "an Apply link through an unknown redirector"
+      },
+      "hand_review_slot": false,
+      "host": "jobicy.com",
+      "id": "d-05-unknown-redirector",
+      "needs_tracker_permission": false,
+      "source": "jobicy",
+      "url_sha256": "527d3cd5ed33bdb09454a4a0e6a59606b97942ee8dd7bf25a49e71b6ef27628e",
+      "url_shape": "jobicy.com/jobs/N"
+    },
+    {
+      "duplicate_group": null,
+      "fixture": {
+        "logical_url": "http://www.adzuna.com/land/ad/1001?se=x",
+        "note": "an Adzuna click-through (needs tracker permission)"
+      },
+      "hand_review_slot": false,
+      "host": "www.adzuna.com",
+      "id": "d-06-adzuna-tracker",
+      "needs_tracker_permission": true,
+      "source": "adzuna",
+      "url_sha256": "34389f4b37d6ebd776caed12e9161c9be33da90d65e02b663bf11236b13144be",
+      "url_shape": "www.adzuna.com/land/ad/N?…"
+    },
+    {
+      "duplicate_group": null,
+      "fixture": {
+        "logical_url": "http://jobicy.com/jobs/102",
+        "note": "no Apply link"
+      },
+      "hand_review_slot": false,
+      "host": "jobicy.com",
+      "id": "d-07-no-apply-link",
+      "needs_tracker_permission": false,
+      "source": "jobicy",
+      "url_sha256": "58655721743fb34d57b9beb73ca03bcb0dd4315f6328a36a2419d38690d34765",
+      "url_shape": "jobicy.com/jobs/N"
+    },
+    {
+      "duplicate_group": null,
+      "fixture": {
+        "logical_url": "http://himalayas.app/companies/acme/jobs/to-dead",
+        "note": "Apply leads to a 404"
+      },
+      "hand_review_slot": false,
+      "host": "himalayas.app",
+      "id": "d-08-dead-destination",
+      "needs_tracker_permission": false,
+      "source": "himalayas",
+      "url_sha256": "834c9d33d62187f63dafa4495e74580e6e216cabc94622770d44a225707b82c4",
+      "url_shape": "himalayas.app/companies/acme/jobs/to-dead"
+    },
+    {
+      "duplicate_group": null,
+      "fixture": {
+        "logical_url": "http://jobicy.com/jobs/104",
+        "note": "an Apply link to a private address (a security refusal: stops the batch)"
+      },
+      "hand_review_slot": false,
+      "host": "jobicy.com",
+      "id": "d-09-private-apply",
+      "needs_tracker_permission": false,
+      "source": "jobicy",
+      "url_sha256": "60068d0bad125208fdc1448628ac00b0a429b49ea93900a68b3f6ef6008fd11a",
+      "url_shape": "jobicy.com/jobs/N"
+    },
+    {
+      "duplicate_group": null,
+      "fixture": {
+        "logical_url": "http://jobicy.com/jobs/101",
+        "note": "would be fine, but the batch has stopped"
+      },
+      "hand_review_slot": false,
+      "host": "jobicy.com",
+      "id": "d-10-after-the-stop",
+      "needs_tracker_permission": false,
+      "source": "jobicy",
+      "url_sha256": "40a5e8f10eec7bd848d2ffb87126eb227730696264fa27edeeb8cbc0c04e1a06",
+      "url_shape": "jobicy.com/jobs/N"
+    }
+  ],
+  "execution": {
+    "concurrency": 1,
+    "order": "ascending by id, tracker cases last",
+    "pacing": {
+      "min_ms_between_cases": 0,
+      "min_ms_between_requests_to_the_same_host": 30
+    },
+    "per_case": {
+      "budget_ms": 60000,
+      "max_follows": 2,
+      "max_pages": 3,
+      "max_redirects": 8
+    },
+    "retries": 0,
+    "total_page_navigation_cap": 30,
+    "wall_clock_cap_minutes": 5
+  },
+  "human_review": [
+    "every unknown redirector",
+    "every ambiguous result"
+  ],
+  "purpose": "A DRY-RUN batch over local fixtures only. Same format as the proposed batch; authorises nothing.",
+  "resolver": {
+    "allow_tracker_redirects": false,
+    "module": "src/resolution/resolve.js",
+    "version": "0.1.0"
+  },
+  "schema": "eval-resolution-batch/1",
+  "source_cohort": {
+    "cohort_version": "dry-run",
+    "file": "none (fixtures)",
+    "sha256": "c57ff561b65ffe172b6df5e8620455ec75fec2cde61c0cfc121f811d41498fb3"
+  },
+  "status": "proposed",
+  "stop_conditions": [
+    "any security refusal",
+    "two consecutive infrastructure failures",
+    "a changed source URL hash"
+  ]
+}

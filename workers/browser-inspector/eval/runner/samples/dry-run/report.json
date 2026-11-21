@@ -1,0 +1,1048 @@
+{
+  "authorisation": "none: a manifest is a proposal and a dry run or plan authorises nothing",
+  "by_resolution_status": {
+    "blocked": 1,
+    "login_required": 1,
+    "proposed_by_resolution": 1,
+    "unreachable": 1,
+    "unresolved": 3,
+    "verified_direct": 1
+  },
+  "cases": [
+    {
+      "id": "d-01-jobicy-success",
+      "navigations": 3,
+      "needs_human_review": false,
+      "reason": "form_observed_after_following_apply_link",
+      "resolution": {
+        "apply_candidates": [
+          {
+            "host": "job-boards.greenhouse.io",
+            "host_type": "known_ats",
+            "kind": "link",
+            "platform": "greenhouse",
+            "text": "Apply for this job",
+            "url": "job-boards.greenhouse.io/<slug>/jobs/N"
+          }
+        ],
+        "destination": {
+          "ats_signal": "greenhouse",
+          "basis": "application_form_observed",
+          "form_observed": true,
+          "form_signals": [
+            "resume_upload",
+            "greenhouse_form",
+            "greenhouse_job_page"
+          ],
+          "host": "job-boards.greenhouse.io",
+          "host_type": "known_ats",
+          "platform": "greenhouse",
+          "url": "job-boards.greenhouse.io/<slug>/jobs/N"
+        },
+        "hops": [
+          {
+            "apply_candidates": [
+              {
+                "host": "careers.acmecorp.com",
+                "host_type": "other_site",
+                "kind": "link",
+                "platform": null,
+                "text": "Apply Now",
+                "url": "careers.acmecorp.com/jobs/N"
+              }
+            ],
+            "error": null,
+            "final": {
+              "host": "jobicy.com",
+              "host_type": "aggregator",
+              "platform": null,
+              "url": "jobicy.com/jobs/N"
+            },
+            "http_status": 200,
+            "index": 0,
+            "page_kind": "listing",
+            "page_reasons": [
+              "no_form_controls"
+            ],
+            "redirect_chain": [
+              {
+                "host": "jobicy.com",
+                "host_type": "aggregator",
+                "http_status": 200,
+                "kind": "start",
+                "platform": null,
+                "url": "jobicy.com/jobs/N"
+              }
+            ],
+            "refused": null,
+            "requested": {
+              "host": "jobicy.com",
+              "host_type": "aggregator",
+              "platform": null,
+              "url": "jobicy.com/jobs/N"
+            }
+          },
+          {
+            "apply_candidates": [
+              {
+                "host": "job-boards.greenhouse.io",
+                "host_type": "known_ats",
+                "kind": "link",
+                "platform": "greenhouse",
+                "text": "Apply for this job",
+                "url": "job-boards.greenhouse.io/<slug>/jobs/N"
+              }
+            ],
+            "error": null,
+            "final": {
+              "host": "careers.acmecorp.com",
+              "host_type": "other_site",
+              "platform": null,
+              "url": "careers.acmecorp.com/jobs/N"
+            },
+            "http_status": 200,
+            "index": 1,
+            "page_kind": "listing",
+            "page_reasons": [
+              "no_form_controls"
+            ],
+            "redirect_chain": [
+              {
+                "host": "careers.acmecorp.com",
+                "host_type": "other_site",
+                "http_status": 200,
+                "kind": "link",
+                "platform": null,
+                "url": "careers.acmecorp.com/jobs/N"
+              }
+            ],
+            "refused": null,
+            "requested": {
+              "host": "careers.acmecorp.com",
+              "host_type": "other_site",
+              "platform": null,
+              "url": "careers.acmecorp.com/jobs/N"
+            }
+          },
+          {
+            "error": null,
+            "final": {
+              "host": "job-boards.greenhouse.io",
+              "host_type": "known_ats",
+              "platform": "greenhouse",
+              "url": "job-boards.greenhouse.io/<slug>/jobs/N"
+            },
+            "http_status": 200,
+            "index": 2,
+            "page_kind": "form",
+            "page_reasons": [
+              "resume_upload",
+              "greenhouse_form",
+              "greenhouse_job_page"
+            ],
+            "redirect_chain": [
+              {
+                "host": "job-boards.greenhouse.io",
+                "host_type": "known_ats",
+                "http_status": 200,
+                "kind": "link",
+                "platform": "greenhouse",
+                "url": "job-boards.greenhouse.io/<slug>/jobs/N"
+              }
+            ],
+            "refused": null,
+            "requested": {
+              "host": "job-boards.greenhouse.io",
+              "host_type": "known_ats",
+              "platform": "greenhouse",
+              "url": "job-boards.greenhouse.io/<slug>/jobs/N"
+            }
+          }
+        ],
+        "last_page": {
+          "index": 2
+        },
+        "needs_human_review": false,
+        "provenance": {
+          "clicks": 0,
+          "form_fields_read": 0,
+          "limits": {
+            "max_follows": 2,
+            "max_pages": 3,
+            "max_redirects": 8
+          },
+          "method": "guarded_read_only_walk",
+          "reviewed_redirect_hosts": [],
+          "tracker_redirects_allowed": false,
+          "walk": "src/inspect.js"
+        },
+        "reason": "form_observed_after_following_apply_link",
+        "resolver_version": "0.1.0",
+        "review_reason": null,
+        "schema": "destination-resolution/1",
+        "source": {
+          "host": "jobicy.com",
+          "host_type": "aggregator",
+          "platform": null,
+          "url": "jobicy.com/jobs/N"
+        },
+        "status": "proposed_by_resolution",
+        "warnings": []
+      },
+      "review_reasons": [],
+      "source": "jobicy",
+      "source_shape": "jobicy.com/jobs/<slug>",
+      "state": "attempted",
+      "warnings": []
+    },
+    {
+      "id": "d-02-ambiguous-links",
+      "navigations": 1,
+      "needs_human_review": true,
+      "reason": "multiple_apply_links",
+      "resolution": {
+        "apply_candidates": [
+          {
+            "host": "careers.acmecorp.com",
+            "host_type": "other_site",
+            "kind": "link",
+            "platform": null,
+            "text": "Apply Now",
+            "url": "careers.acmecorp.com/<slug>"
+          },
+          {
+            "host": "careers.acmecorp.com",
+            "host_type": "other_site",
+            "kind": "link",
+            "platform": null,
+            "text": "Apply on company site",
+            "url": "careers.acmecorp.com/<slug>"
+          }
+        ],
+        "destination": null,
+        "hops": [
+          {
+            "apply_candidates": [
+              {
+                "host": "careers.acmecorp.com",
+                "host_type": "other_site",
+                "kind": "link",
+                "platform": null,
+                "text": "Apply Now",
+                "url": "careers.acmecorp.com/<slug>"
+              },
+              {
+                "host": "careers.acmecorp.com",
+                "host_type": "other_site",
+                "kind": "link",
+                "platform": null,
+                "text": "Apply on company site",
+                "url": "careers.acmecorp.com/<slug>"
+              }
+            ],
+            "error": null,
+            "final": {
+              "host": "jobicy.com",
+              "host_type": "aggregator",
+              "platform": null,
+              "url": "jobicy.com/jobs/N"
+            },
+            "http_status": 200,
+            "index": 0,
+            "page_kind": "listing",
+            "page_reasons": [
+              "no_form_controls"
+            ],
+            "redirect_chain": [
+              {
+                "host": "jobicy.com",
+                "host_type": "aggregator",
+                "http_status": 200,
+                "kind": "start",
+                "platform": null,
+                "url": "jobicy.com/jobs/N"
+              }
+            ],
+            "refused": null,
+            "requested": {
+              "host": "jobicy.com",
+              "host_type": "aggregator",
+              "platform": null,
+              "url": "jobicy.com/jobs/N"
+            }
+          }
+        ],
+        "last_page": {
+          "host": "jobicy.com",
+          "host_type": "aggregator",
+          "index": 0,
+          "page_kind": "listing",
+          "platform": null,
+          "url": "jobicy.com/jobs/N"
+        },
+        "needs_human_review": true,
+        "provenance": {
+          "clicks": 0,
+          "form_fields_read": 0,
+          "limits": {
+            "max_follows": 2,
+            "max_pages": 3,
+            "max_redirects": 8
+          },
+          "method": "guarded_read_only_walk",
+          "reviewed_redirect_hosts": [],
+          "tracker_redirects_allowed": false,
+          "walk": "src/inspect.js"
+        },
+        "reason": "multiple_apply_links",
+        "resolver_version": "0.1.0",
+        "review_reason": "2 distinct Apply destinations: a person chooses",
+        "schema": "destination-resolution/1",
+        "source": {
+          "host": "jobicy.com",
+          "host_type": "aggregator",
+          "platform": null,
+          "url": "jobicy.com/jobs/N"
+        },
+        "status": "unresolved",
+        "warnings": []
+      },
+      "review_reasons": [
+        "2 distinct Apply destinations: a person chooses"
+      ],
+      "source": "jobicy",
+      "source_shape": "jobicy.com/jobs/<slug>",
+      "state": "attempted",
+      "warnings": []
+    },
+    {
+      "id": "d-03-himalayas-login",
+      "navigations": 2,
+      "needs_human_review": false,
+      "reason": "login_wall_at_destination",
+      "resolution": {
+        "apply_candidates": [
+          {
+            "host": "careers.acmecorp.com",
+            "host_type": "other_site",
+            "kind": "link",
+            "platform": null,
+            "text": "Apply now",
+            "url": "careers.acmecorp.com/<slug>"
+          }
+        ],
+        "destination": null,
+        "hops": [
+          {
+            "apply_candidates": [
+              {
+                "host": "careers.acmecorp.com",
+                "host_type": "other_site",
+                "kind": "link",
+                "platform": null,
+                "text": "Apply now",
+                "url": "careers.acmecorp.com/<slug>"
+              }
+            ],
+            "error": null,
+            "final": {
+              "host": "himalayas.app",
+              "host_type": "aggregator",
+              "platform": null,
+              "url": "himalayas.app/companies/<slug>/jobs/<slug>"
+            },
+            "http_status": 200,
+            "index": 0,
+            "page_kind": "listing",
+            "page_reasons": [
+              "no_form_controls"
+            ],
+            "redirect_chain": [
+              {
+                "host": "himalayas.app",
+                "host_type": "aggregator",
+                "http_status": 200,
+                "kind": "start",
+                "platform": null,
+                "url": "himalayas.app/companies/<slug>/jobs/<slug>"
+              }
+            ],
+            "refused": null,
+            "requested": {
+              "host": "himalayas.app",
+              "host_type": "aggregator",
+              "platform": null,
+              "url": "himalayas.app/companies/<slug>/jobs/<slug>"
+            }
+          },
+          {
+            "error": null,
+            "final": {
+              "host": "careers.acmecorp.com",
+              "host_type": "other_site",
+              "platform": null,
+              "url": "careers.acmecorp.com/<slug>"
+            },
+            "http_status": 200,
+            "index": 1,
+            "page_kind": "login",
+            "page_reasons": [
+              "password_field"
+            ],
+            "redirect_chain": [
+              {
+                "host": "careers.acmecorp.com",
+                "host_type": "other_site",
+                "http_status": 200,
+                "kind": "link",
+                "platform": null,
+                "url": "careers.acmecorp.com/<slug>"
+              }
+            ],
+            "refused": null,
+            "requested": {
+              "host": "careers.acmecorp.com",
+              "host_type": "other_site",
+              "platform": null,
+              "url": "careers.acmecorp.com/<slug>"
+            }
+          }
+        ],
+        "last_page": {
+          "host": "careers.acmecorp.com",
+          "host_type": "other_site",
+          "index": 1,
+          "page_kind": "login",
+          "platform": null,
+          "url": "careers.acmecorp.com/<slug>"
+        },
+        "needs_human_review": false,
+        "provenance": {
+          "clicks": 0,
+          "form_fields_read": 0,
+          "limits": {
+            "max_follows": 2,
+            "max_pages": 3,
+            "max_redirects": 8
+          },
+          "method": "guarded_read_only_walk",
+          "reviewed_redirect_hosts": [],
+          "tracker_redirects_allowed": false,
+          "walk": "src/inspect.js"
+        },
+        "reason": "login_wall_at_destination",
+        "resolver_version": "0.1.0",
+        "review_reason": null,
+        "schema": "destination-resolution/1",
+        "source": {
+          "host": "himalayas.app",
+          "host_type": "aggregator",
+          "platform": null,
+          "url": "himalayas.app/companies/<slug>/jobs/<slug>"
+        },
+        "status": "login_required",
+        "warnings": []
+      },
+      "review_reasons": [],
+      "source": "himalayas",
+      "source_shape": "himalayas.app/companies/<slug>/jobs/<slug>",
+      "state": "attempted",
+      "warnings": []
+    },
+    {
+      "id": "d-04-direct-greenhouse",
+      "navigations": 1,
+      "needs_human_review": false,
+      "reason": "form_observed_at_source_url",
+      "resolution": {
+        "apply_candidates": [],
+        "destination": {
+          "ats_signal": "greenhouse",
+          "basis": "application_form_observed",
+          "form_observed": true,
+          "form_signals": [
+            "resume_upload",
+            "greenhouse_form",
+            "greenhouse_job_page"
+          ],
+          "host": "job-boards.greenhouse.io",
+          "host_type": "known_ats",
+          "platform": "greenhouse",
+          "url": "job-boards.greenhouse.io/<slug>/jobs/N"
+        },
+        "hops": [
+          {
+            "error": null,
+            "final": {
+              "host": "job-boards.greenhouse.io",
+              "host_type": "known_ats",
+              "platform": "greenhouse",
+              "url": "job-boards.greenhouse.io/<slug>/jobs/N"
+            },
+            "http_status": 200,
+            "index": 0,
+            "page_kind": "form",
+            "page_reasons": [
+              "resume_upload",
+              "greenhouse_form",
+              "greenhouse_job_page"
+            ],
+            "redirect_chain": [
+              {
+                "host": "job-boards.greenhouse.io",
+                "host_type": "known_ats",
+                "http_status": 200,
+                "kind": "start",
+                "platform": "greenhouse",
+                "url": "job-boards.greenhouse.io/<slug>/jobs/N"
+              }
+            ],
+            "refused": null,
+            "requested": {
+              "host": "job-boards.greenhouse.io",
+              "host_type": "known_ats",
+              "platform": "greenhouse",
+              "url": "job-boards.greenhouse.io/<slug>/jobs/N"
+            }
+          }
+        ],
+        "needs_human_review": false,
+        "provenance": {
+          "clicks": 0,
+          "form_fields_read": 0,
+          "limits": {
+            "max_follows": 2,
+            "max_pages": 3,
+            "max_redirects": 8
+          },
+          "method": "guarded_read_only_walk",
+          "reviewed_redirect_hosts": [],
+          "tracker_redirects_allowed": false,
+          "walk": "src/inspect.js"
+        },
+        "reason": "form_observed_at_source_url",
+        "resolver_version": "0.1.0",
+        "review_reason": null,
+        "schema": "destination-resolution/1",
+        "source": {
+          "host": "job-boards.greenhouse.io",
+          "host_type": "known_ats",
+          "platform": "greenhouse",
+          "url": "job-boards.greenhouse.io/<slug>/jobs/N"
+        },
+        "status": "verified_direct",
+        "warnings": []
+      },
+      "review_reasons": [],
+      "source": "manual",
+      "source_shape": "job-boards.greenhouse.io/<slug>/jobs/<slug>",
+      "state": "attempted",
+      "warnings": []
+    },
+    {
+      "id": "d-05-unknown-redirector",
+      "navigations": 1,
+      "needs_human_review": true,
+      "reason": "unknown_redirector_requires_review",
+      "resolution": {
+        "apply_candidates": [
+          {
+            "host": "go.linkforward-example.io",
+            "host_type": "other_site",
+            "kind": "link",
+            "platform": null,
+            "text": "Apply Now",
+            "url": "go.linkforward-example.io/redirect"
+          }
+        ],
+        "destination": null,
+        "hops": [
+          {
+            "apply_candidates": [
+              {
+                "host": "go.linkforward-example.io",
+                "host_type": "other_site",
+                "kind": "link",
+                "platform": null,
+                "text": "Apply Now",
+                "url": "go.linkforward-example.io/redirect"
+              }
+            ],
+            "error": null,
+            "final": {
+              "host": "jobicy.com",
+              "host_type": "aggregator",
+              "platform": null,
+              "url": "jobicy.com/jobs/N"
+            },
+            "http_status": 200,
+            "index": 0,
+            "page_kind": "listing",
+            "page_reasons": [
+              "no_form_controls"
+            ],
+            "redirect_chain": [
+              {
+                "host": "jobicy.com",
+                "host_type": "aggregator",
+                "http_status": 200,
+                "kind": "start",
+                "platform": null,
+                "url": "jobicy.com/jobs/N"
+              }
+            ],
+            "refused": null,
+            "requested": {
+              "host": "jobicy.com",
+              "host_type": "aggregator",
+              "platform": null,
+              "url": "jobicy.com/jobs/N"
+            }
+          }
+        ],
+        "needs_human_review": true,
+        "provenance": {
+          "clicks": 0,
+          "form_fields_read": 0,
+          "limits": {
+            "max_follows": 2,
+            "max_pages": 3,
+            "max_redirects": 8
+          },
+          "method": "guarded_read_only_walk",
+          "reviewed_redirect_hosts": [],
+          "tracker_redirects_allowed": false,
+          "walk": "src/inspect.js"
+        },
+        "reason": "unknown_redirector_requires_review",
+        "redirector": {
+          "host": "go.linkforward-example.io",
+          "signals": [
+            "destination_in_query",
+            "tracking_path"
+          ],
+          "where": "apply_link"
+        },
+        "resolver_version": "0.1.0",
+        "review_reason": "an unknown redirector or click-through (destination_in_query, tracking_path) was not followed: a person reviews it first",
+        "schema": "destination-resolution/1",
+        "source": {
+          "host": "jobicy.com",
+          "host_type": "aggregator",
+          "platform": null,
+          "url": "jobicy.com/jobs/N"
+        },
+        "status": "unresolved",
+        "warnings": []
+      },
+      "review_reasons": [
+        "an unknown redirector or click-through (destination_in_query, tracking_path) was not followed: a person reviews it first",
+        "unknown_redirector_requires_review"
+      ],
+      "source": "jobicy",
+      "source_shape": "jobicy.com/jobs/<slug>",
+      "state": "attempted",
+      "warnings": []
+    },
+    {
+      "id": "d-07-no-apply-link",
+      "navigations": 1,
+      "needs_human_review": false,
+      "reason": "no_apply_link",
+      "resolution": {
+        "apply_candidates": [],
+        "destination": null,
+        "hops": [
+          {
+            "apply_candidates": [],
+            "error": null,
+            "final": {
+              "host": "jobicy.com",
+              "host_type": "aggregator",
+              "platform": null,
+              "url": "jobicy.com/jobs/N"
+            },
+            "http_status": 200,
+            "index": 0,
+            "page_kind": "listing",
+            "page_reasons": [
+              "no_form_controls"
+            ],
+            "redirect_chain": [
+              {
+                "host": "jobicy.com",
+                "host_type": "aggregator",
+                "http_status": 200,
+                "kind": "start",
+                "platform": null,
+                "url": "jobicy.com/jobs/N"
+              }
+            ],
+            "refused": null,
+            "requested": {
+              "host": "jobicy.com",
+              "host_type": "aggregator",
+              "platform": null,
+              "url": "jobicy.com/jobs/N"
+            }
+          }
+        ],
+        "last_page": {
+          "host": "jobicy.com",
+          "host_type": "aggregator",
+          "index": 0,
+          "page_kind": "listing",
+          "platform": null,
+          "url": "jobicy.com/jobs/N"
+        },
+        "needs_human_review": false,
+        "provenance": {
+          "clicks": 0,
+          "form_fields_read": 0,
+          "limits": {
+            "max_follows": 2,
+            "max_pages": 3,
+            "max_redirects": 8
+          },
+          "method": "guarded_read_only_walk",
+          "reviewed_redirect_hosts": [],
+          "tracker_redirects_allowed": false,
+          "walk": "src/inspect.js"
+        },
+        "reason": "no_apply_link",
+        "resolver_version": "0.1.0",
+        "review_reason": null,
+        "schema": "destination-resolution/1",
+        "source": {
+          "host": "jobicy.com",
+          "host_type": "aggregator",
+          "platform": null,
+          "url": "jobicy.com/jobs/N"
+        },
+        "status": "unresolved",
+        "warnings": []
+      },
+      "review_reasons": [],
+      "source": "jobicy",
+      "source_shape": "jobicy.com/jobs/<slug>",
+      "state": "attempted",
+      "warnings": []
+    },
+    {
+      "id": "d-08-dead-destination",
+      "navigations": 2,
+      "needs_human_review": false,
+      "reason": "http_404",
+      "resolution": {
+        "apply_candidates": [
+          {
+            "host": "careers.acmecorp.com",
+            "host_type": "other_site",
+            "kind": "link",
+            "platform": null,
+            "text": "Apply now",
+            "url": "careers.acmecorp.com/<slug>"
+          }
+        ],
+        "destination": null,
+        "hops": [
+          {
+            "apply_candidates": [
+              {
+                "host": "careers.acmecorp.com",
+                "host_type": "other_site",
+                "kind": "link",
+                "platform": null,
+                "text": "Apply now",
+                "url": "careers.acmecorp.com/<slug>"
+              }
+            ],
+            "error": null,
+            "final": {
+              "host": "himalayas.app",
+              "host_type": "aggregator",
+              "platform": null,
+              "url": "himalayas.app/companies/<slug>/jobs/<slug>"
+            },
+            "http_status": 200,
+            "index": 0,
+            "page_kind": "listing",
+            "page_reasons": [
+              "no_form_controls"
+            ],
+            "redirect_chain": [
+              {
+                "host": "himalayas.app",
+                "host_type": "aggregator",
+                "http_status": 200,
+                "kind": "start",
+                "platform": null,
+                "url": "himalayas.app/companies/<slug>/jobs/<slug>"
+              }
+            ],
+            "refused": null,
+            "requested": {
+              "host": "himalayas.app",
+              "host_type": "aggregator",
+              "platform": null,
+              "url": "himalayas.app/companies/<slug>/jobs/<slug>"
+            }
+          },
+          {
+            "error": null,
+            "final": {
+              "host": "careers.acmecorp.com",
+              "host_type": "other_site",
+              "platform": null,
+              "url": "careers.acmecorp.com/<slug>"
+            },
+            "http_status": 404,
+            "index": 1,
+            "page_kind": "unreachable",
+            "page_reasons": [
+              "http_404"
+            ],
+            "redirect_chain": [
+              {
+                "host": "careers.acmecorp.com",
+                "host_type": "other_site",
+                "http_status": 404,
+                "kind": "link",
+                "platform": null,
+                "url": "careers.acmecorp.com/<slug>"
+              }
+            ],
+            "refused": null,
+            "requested": {
+              "host": "careers.acmecorp.com",
+              "host_type": "other_site",
+              "platform": null,
+              "url": "careers.acmecorp.com/<slug>"
+            }
+          }
+        ],
+        "last_page": {
+          "host": "careers.acmecorp.com",
+          "host_type": "other_site",
+          "index": 1,
+          "page_kind": "unreachable",
+          "platform": null,
+          "url": "careers.acmecorp.com/<slug>"
+        },
+        "needs_human_review": false,
+        "provenance": {
+          "clicks": 0,
+          "form_fields_read": 0,
+          "limits": {
+            "max_follows": 2,
+            "max_pages": 3,
+            "max_redirects": 8
+          },
+          "method": "guarded_read_only_walk",
+          "reviewed_redirect_hosts": [],
+          "tracker_redirects_allowed": false,
+          "walk": "src/inspect.js"
+        },
+        "reason": "http_404",
+        "resolver_version": "0.1.0",
+        "review_reason": null,
+        "schema": "destination-resolution/1",
+        "source": {
+          "host": "himalayas.app",
+          "host_type": "aggregator",
+          "platform": null,
+          "url": "himalayas.app/companies/<slug>/jobs/<slug>"
+        },
+        "status": "unreachable",
+        "warnings": []
+      },
+      "review_reasons": [],
+      "source": "himalayas",
+      "source_shape": "himalayas.app/companies/<slug>/jobs/<slug>",
+      "state": "attempted",
+      "warnings": []
+    },
+    {
+      "id": "d-09-private-apply",
+      "navigations": 1,
+      "needs_human_review": false,
+      "reason": "destination_prohibited",
+      "resolution": {
+        "apply_candidates": [
+          {
+            "host": "10.0.0.5",
+            "host_type": "other_site",
+            "kind": "link",
+            "platform": null,
+            "text": "Apply Now",
+            "url": "10.0.0.5/apply"
+          }
+        ],
+        "blocked_by": "policy",
+        "destination": null,
+        "hops": [
+          {
+            "apply_candidates": [
+              {
+                "host": "10.0.0.5",
+                "host_type": "other_site",
+                "kind": "link",
+                "platform": null,
+                "text": "Apply Now",
+                "url": "10.0.0.5/apply"
+              }
+            ],
+            "error": null,
+            "final": {
+              "host": "jobicy.com",
+              "host_type": "aggregator",
+              "platform": null,
+              "url": "jobicy.com/jobs/N"
+            },
+            "http_status": 200,
+            "index": 0,
+            "page_kind": "listing",
+            "page_reasons": [
+              "no_form_controls"
+            ],
+            "redirect_chain": [
+              {
+                "host": "jobicy.com",
+                "host_type": "aggregator",
+                "http_status": 200,
+                "kind": "start",
+                "platform": null,
+                "url": "jobicy.com/jobs/N"
+              }
+            ],
+            "refused": null,
+            "requested": {
+              "host": "jobicy.com",
+              "host_type": "aggregator",
+              "platform": null,
+              "url": "jobicy.com/jobs/N"
+            }
+          }
+        ],
+        "last_page": {
+          "host": "jobicy.com",
+          "host_type": "aggregator",
+          "index": 0,
+          "page_kind": "listing",
+          "platform": null,
+          "url": "jobicy.com/jobs/N"
+        },
+        "needs_human_review": false,
+        "provenance": {
+          "clicks": 0,
+          "form_fields_read": 0,
+          "limits": {
+            "max_follows": 2,
+            "max_pages": 3,
+            "max_redirects": 8
+          },
+          "method": "guarded_read_only_walk",
+          "reviewed_redirect_hosts": [],
+          "tracker_redirects_allowed": false,
+          "walk": "src/inspect.js"
+        },
+        "reason": "destination_prohibited",
+        "refused": "private_ip_literal",
+        "resolver_version": "0.1.0",
+        "review_reason": null,
+        "schema": "destination-resolution/1",
+        "source": {
+          "host": "jobicy.com",
+          "host_type": "aggregator",
+          "platform": null,
+          "url": "jobicy.com/jobs/N"
+        },
+        "status": "blocked",
+        "warnings": []
+      },
+      "review_reasons": [],
+      "source": "jobicy",
+      "source_shape": "jobicy.com/jobs/<slug>",
+      "state": "attempted",
+      "warnings": []
+    },
+    {
+      "id": "d-10-after-the-stop",
+      "navigations": 0,
+      "needs_human_review": false,
+      "reason": "batch_stopped:security_refusal",
+      "resolution": null,
+      "review_reasons": [],
+      "source": "jobicy",
+      "source_shape": "jobicy.com/jobs/<slug>",
+      "state": "unattempted",
+      "warnings": []
+    },
+    {
+      "id": "d-06-adzuna-tracker",
+      "navigations": 0,
+      "needs_human_review": false,
+      "reason": "batch_stopped:security_refusal",
+      "resolution": null,
+      "review_reasons": [],
+      "source": "adzuna",
+      "source_shape": "www.adzuna.com/land/ad/<slug>",
+      "state": "unattempted",
+      "warnings": []
+    }
+  ],
+  "config": {
+    "allow_tracker_redirects": false,
+    "concurrency": 1,
+    "infrastructure_failure_threshold": 2,
+    "min_ms_between_requests_to_the_same_host": 30,
+    "per_case_max_pages": 3,
+    "retries": 0,
+    "reviewed_redirect_hosts": [],
+    "site_block_overall": 3,
+    "site_block_per_host": 2,
+    "total_page_navigation_cap": 30,
+    "tracker_approved_case_ids": [],
+    "wall_clock_cap_minutes": 5
+  },
+  "manifest": {
+    "schema": "eval-resolution-batch/1",
+    "sha256": "048ed22ba0d2dba852c964221947cb510870dd6d326c99ab1dbc66f2ba18c8c2",
+    "source_cohort_sha256": "c57ff561b65ffe172b6df5e8620455ec75fec2cde61c0cfc121f811d41498fb3"
+  },
+  "mode": "dry-run",
+  "outcome": {
+    "completed": false,
+    "stop": {
+      "at_case": "d-09-private-apply",
+      "cause": "security_refusal",
+      "detail": "destination_prohibited"
+    }
+  },
+  "review_queue": [
+    {
+      "case": "d-02-ambiguous-links",
+      "reasons": [
+        "2 distinct Apply destinations: a person chooses"
+      ]
+    },
+    {
+      "case": "d-05-unknown-redirector",
+      "reasons": [
+        "an unknown redirector or click-through (destination_in_query, tracking_path) was not followed: a person reviews it first",
+        "unknown_redirector_requires_review"
+      ]
+    }
+  ],
+  "schema": "eval-resolution-run/1",
+  "totals": {
+    "attempted": 8,
+    "cases": 10,
+    "navigations": 12,
+    "needs_human_review": 2,
+    "planned": 0,
+    "refused": 0,
+    "skipped": 0,
+    "unattempted": 2
+  }
+}

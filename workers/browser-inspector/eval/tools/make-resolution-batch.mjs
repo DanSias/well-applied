@@ -55,3 +55,18 @@ const batch = {
 const out = stableJson(batch);
 writeFileSync(path.join(dir, 'resolution-batch.proposed.json'), out);
 console.log(`wrote resolution-batch.proposed.json: ${cases.length} cases (${cases.filter((c) => c.needs_tracker_permission).length} need tracker permission), sha256 ${sha256(out)}`);
+
+// The smallest supervised pilot: three cases from the batch, none needing tracker permission. Same format, so the same runner validates it. A proposal.
+const PILOT_IDS = ['prod-180', 'prod-393', 'prod-83'];
+const pilotCases = cases.filter((c) => PILOT_IDS.includes(c.id));
+if (pilotCases.length !== 3 || pilotCases.some((c) => c.needs_tracker_permission)) throw new Error('the pilot cases must exist and not need tracker permission');
+const pilot = {
+    ...batch,
+    purpose: 'A PROPOSED supervised live PILOT: three of the batch cases, read-only, with tighter limits. It authorises nothing and has not run.',
+    pilot_of: { file: 'eval/cohort/resolution-batch.proposed.json', sha256: sha256(out), case_ids: PILOT_IDS },
+    execution: { ...batch.execution, order: 'ascending by id, one case at a time', pacing: { min_ms_between_requests_to_the_same_host: 10000, min_ms_between_cases: 2000 }, total_page_navigation_cap: 9, wall_clock_cap_minutes: 8 },
+    cases: pilotCases,
+};
+const pilotOut = stableJson(pilot);
+writeFileSync(path.join(dir, 'resolution-pilot.proposed.json'), pilotOut);
+console.log(`wrote resolution-pilot.proposed.json: ${pilotCases.length} cases, sha256 ${sha256(pilotOut)}`);

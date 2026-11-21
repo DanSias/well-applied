@@ -1,0 +1,198 @@
+{
+  "authorisation": "none: a manifest is a proposal and a dry run or plan authorises nothing",
+  "by_resolution_status": {},
+  "cases": [
+    {
+      "id": "prod-109",
+      "navigations": 0,
+      "needs_human_review": false,
+      "reason": "would_be_attempted",
+      "resolution": null,
+      "review_reasons": [],
+      "source": "jobicy",
+      "source_shape": "jobicy.com/jobs/<slug>",
+      "state": "planned",
+      "warnings": []
+    },
+    {
+      "id": "prod-110",
+      "navigations": 0,
+      "needs_human_review": false,
+      "reason": "would_be_attempted",
+      "resolution": null,
+      "review_reasons": [],
+      "source": "jobicy",
+      "source_shape": "jobicy.com/jobs/<slug>",
+      "state": "planned",
+      "warnings": []
+    },
+    {
+      "id": "prod-180",
+      "navigations": 0,
+      "needs_human_review": false,
+      "reason": "would_be_attempted",
+      "resolution": null,
+      "review_reasons": [],
+      "source": "jobicy",
+      "source_shape": "jobicy.com/jobs/<slug>",
+      "state": "planned",
+      "warnings": []
+    },
+    {
+      "id": "prod-393",
+      "navigations": 0,
+      "needs_human_review": false,
+      "reason": "would_be_attempted",
+      "resolution": null,
+      "review_reasons": [],
+      "source": "jobicy",
+      "source_shape": "jobicy.com/jobs/<slug>",
+      "state": "planned",
+      "warnings": []
+    },
+    {
+      "id": "prod-40",
+      "navigations": 0,
+      "needs_human_review": false,
+      "reason": "would_be_attempted",
+      "resolution": null,
+      "review_reasons": [],
+      "source": "jobicy",
+      "source_shape": "jobicy.com/jobs/<slug>",
+      "state": "planned",
+      "warnings": []
+    },
+    {
+      "id": "prod-41",
+      "navigations": 0,
+      "needs_human_review": false,
+      "reason": "would_be_attempted",
+      "resolution": null,
+      "review_reasons": [],
+      "source": "jobicy",
+      "source_shape": "jobicy.com/jobs/<slug>",
+      "state": "planned",
+      "warnings": []
+    },
+    {
+      "id": "prod-83",
+      "navigations": 0,
+      "needs_human_review": false,
+      "reason": "would_be_attempted",
+      "resolution": null,
+      "review_reasons": [],
+      "source": "himalayas",
+      "source_shape": "himalayas.app/companies/<slug>/jobs/<slug>",
+      "state": "planned",
+      "warnings": []
+    },
+    {
+      "id": "prod-84",
+      "navigations": 0,
+      "needs_human_review": false,
+      "reason": "would_be_attempted",
+      "resolution": null,
+      "review_reasons": [],
+      "source": "himalayas",
+      "source_shape": "himalayas.app/companies/<slug>/jobs/<slug>",
+      "state": "planned",
+      "warnings": []
+    },
+    {
+      "id": "prod-246",
+      "navigations": 0,
+      "needs_human_review": false,
+      "reason": "tracker_redirect_permission_not_granted",
+      "resolution": null,
+      "review_reasons": [],
+      "source": "adzuna",
+      "source_shape": "www.adzuna.com/land/ad/<slug>",
+      "state": "skipped",
+      "warnings": []
+    },
+    {
+      "id": "prod-310",
+      "navigations": 0,
+      "needs_human_review": false,
+      "reason": "tracker_redirect_permission_not_granted",
+      "resolution": null,
+      "review_reasons": [],
+      "source": "adzuna",
+      "source_shape": "www.adzuna.com/land/ad/<slug>",
+      "state": "skipped",
+      "warnings": []
+    },
+    {
+      "id": "prod-324",
+      "navigations": 0,
+      "needs_human_review": false,
+      "reason": "tracker_redirect_permission_not_granted",
+      "resolution": null,
+      "review_reasons": [],
+      "source": "adzuna",
+      "source_shape": "www.adzuna.com/land/ad/<slug>",
+      "state": "skipped",
+      "warnings": []
+    },
+    {
+      "id": "prod-355",
+      "navigations": 0,
+      "needs_human_review": false,
+      "reason": "tracker_redirect_permission_not_granted",
+      "resolution": null,
+      "review_reasons": [],
+      "source": "adzuna",
+      "source_shape": "www.adzuna.com/land/ad/<slug>",
+      "state": "skipped",
+      "warnings": []
+    },
+    {
+      "id": "prod-356",
+      "navigations": 0,
+      "needs_human_review": false,
+      "reason": "tracker_redirect_permission_not_granted",
+      "resolution": null,
+      "review_reasons": [],
+      "source": "adzuna",
+      "source_shape": "www.adzuna.com/land/ad/<slug>",
+      "state": "skipped",
+      "warnings": []
+    }
+  ],
+  "config": {
+    "allow_tracker_redirects": false,
+    "concurrency": 1,
+    "infrastructure_failure_threshold": 2,
+    "min_ms_between_requests_to_the_same_host": 5000,
+    "per_case_max_pages": 3,
+    "retries": 0,
+    "reviewed_redirect_hosts": [],
+    "site_block_overall": 3,
+    "site_block_per_host": 2,
+    "total_page_navigation_cap": 39,
+    "tracker_approved_case_ids": [],
+    "wall_clock_cap_minutes": 20
+  },
+  "manifest": {
+    "schema": "eval-resolution-batch/1",
+    "sha256": "6e169a26b07c24380e7ce99b2e7ae18f772b7b41bce1de4370f06a1fb201f2ad",
+    "source_cohort_sha256": "c44bb6bbcfc72ac780cf175f165900b8c664c6bbf94a010c31e1be423b20b71f"
+  },
+  "mode": "plan",
+  "outcome": {
+    "completed": true,
+    "stop": null
+  },
+  "review_queue": [],
+  "schema": "eval-resolution-run/1",
+  "totals": {
+    "attempted": 0,
+    "cases": 13,
+    "navigations": 0,
+    "needs_human_review": 0,
+    "planned": 8,
+    "refused": 0,
+    "skipped": 5,
+    "unattempted": 0
+  }
+}
