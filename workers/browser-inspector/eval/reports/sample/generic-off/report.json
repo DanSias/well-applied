@@ -3059,8 +3059,8 @@
     "unresolved_label_rate": false
   },
   "inspector": {
-    "commit": "74918d602f16358426c49a7c29aceb70c39e6405",
-    "source_sha256": "2bb7c6759b43d336111a01a7216471dc1a46e353dd7a38ac7dd26ed8447331ad",
+    "commit": "23125d540786dfbf9a3d14b9d7a098c898ca52c8",
+    "source_sha256": "e13f34769e007a70e7695aa9e5e0b9aff48576b58d8359c62224f7edeb4f7bc2",
     "source_tree_modified": false
   },
   "integrity": {
