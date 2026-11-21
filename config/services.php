@@ -191,6 +191,16 @@ return [
         'base_url' => env('JOBICY_BASE_URL', 'https://jobicy.com/api/v2/remote-jobs'),
     ],
 
+    // The Jobicy COMMERCIAL Jobs API proof of concept (App\Support\JobDiscovery\JobicyCommercial). NOT used by discovery, ingestion or any
+    // scheduled job: only by the `jobicy:commercial-sample` command, which also needs --confirm-spend. The key is read from here only; it is never
+    // logged, written to a report or persisted. Disabled unless JOBICY_COMMERCIAL_ENABLED is true. base_url is the documented current endpoint and has
+    // NOT been exercised against the live service.
+    'jobicy_commercial' => [
+        'enabled' => (bool) env('JOBICY_COMMERCIAL_ENABLED', false),
+        'base_url' => env('JOBICY_COMMERCIAL_BASE_URL', 'https://jobicy.com/api/jobs'),
+        'api_key' => env('JOBICY_COMMERCIAL_API_KEY'),
+    ],
+
     // USAJOBS (developer.usajobs.gov): a free API key, plus the email address the key was registered with sent as the
     // User-Agent. Both are required; neither is ever logged. See App\Support\JobDiscovery\Providers\UsajobsDiscoveryProvider.
     'usajobs' => [
