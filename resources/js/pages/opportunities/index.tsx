@@ -1,6 +1,7 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { TriageStageBadge, InspectionStateBadge } from '@/components/badges';
+import { FreshnessBadge } from '@/components/job-freshness';
 import { sourceLinkLabel } from '@/components/provider-attribution';
 import { DispositionBadge } from '@/components/job-decisions';
 import { Badge } from '@/components/ui/badge';
@@ -132,6 +133,7 @@ function OpportunityRow({
                     {op.posting_status === 'closed' && (
                         <Badge tone="warn">Posting closed</Badge>
                     )}
+                    <FreshnessBadge freshness={op.freshness} />
                 </div>
             </div>
             <div className="flex flex-wrap items-center gap-1 sm:justify-end">

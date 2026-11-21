@@ -1,6 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
 import { useRef, useState } from 'react';
 import { InspectionStateBadge } from '@/components/badges';
+import { FreshnessBadge } from '@/components/job-freshness';
 import {
     ProviderCredit,
     sourceLinkLabel,
@@ -450,6 +451,7 @@ export default function OpportunityShow({
                         {op.posting_status === 'closed' && (
                             <Badge tone="warn">Posting closed</Badge>
                         )}
+                        <FreshnessBadge freshness={op.freshness} />
                         {op.source_url !== null && (
                             <ButtonAnchor
                                 variant="ghost"

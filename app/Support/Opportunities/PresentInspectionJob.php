@@ -6,6 +6,7 @@ use App\Models\JobPosting;
 use App\Support\ApplicationInspection\PresentApplicationInspection;
 use App\Support\JobDiscovery\DestinationMetadata;
 use App\Support\JobDiscovery\ProviderAttribution;
+use App\Support\JobFreshness\JobFreshness;
 
 /**
  * What the inspection drawer is handed for one job: the job, and its Application's inspection state when one exists.
@@ -28,6 +29,7 @@ final class PresentInspectionJob
             'company' => $job->company,
             'source_url' => $job->source_url,
             'attribution' => ProviderAttribution::for($job),
+            'freshness' => JobFreshness::view($job),
             // Candidate destinations a provider supplied: unverified suggestions, shown redacted. Never the Application URL.
             'destinations' => DestinationMetadata::view($job),
             'application_id' => $application?->id,

@@ -1,5 +1,6 @@
 import type {
     CandidateDestinationView,
+    JobFreshnessView,
     ProviderAttribution,
 } from './job-posting';
 
@@ -170,6 +171,7 @@ export type InspectionJob = {
     company: string;
     source_url: string | null;
     attribution: ProviderAttribution | null;
+    freshness: JobFreshnessView | null;
     /** Provider-supplied candidate destinations: unverified suggestions, never the Application URL. */
     destinations: CandidateDestinationView[];
     application_id: number | null;

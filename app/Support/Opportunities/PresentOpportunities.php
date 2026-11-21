@@ -10,6 +10,7 @@ use App\Support\ApplicationInspection\SummarizeInspectionStates;
 use App\Support\CurrentCareerProfile;
 use App\Support\JobDecisions\ReportJobsWithWork;
 use App\Support\JobDiscovery\ProviderAttribution;
+use App\Support\JobFreshness\JobFreshness;
 use App\Support\OpportunityTriage\SummarizeTriageStates;
 use App\Support\ResumeRevision\JobResumes;
 use App\Support\Submissions\PresentSubmissions;
@@ -108,6 +109,7 @@ final class PresentOpportunities
             'source_url' => $job->source_url,
             'attribution' => ProviderAttribution::for($job),
             'posting_status' => $job->status->value,
+            'freshness' => JobFreshness::view($job),
             'pursued_at' => $job->pursued_at?->toIso8601String(),
             'stage' => $stage,
             'resume' => [

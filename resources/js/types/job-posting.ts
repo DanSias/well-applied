@@ -13,6 +13,17 @@ export type ProviderAttribution = {
 };
 
 /**
+ * Whether a job is still open, from what the provider itself says (App\Support\JobFreshness). null when the feature is off (the default), in which case
+ * nothing about the job's presentation changes. Only `expired` and `closed` are non-actionable.
+ */
+export type JobFreshnessView = {
+    state: 'active' | 'expired' | 'closed' | 'uncertain' | 'unchecked';
+    label: string;
+    actionable: boolean;
+    reason: string;
+};
+
+/**
  * A CANDIDATE destination a discovery provider's API supplied (discovery_metadata.discovery.destinations[]). Unverified by construction and
  * never the Application URL; the URL is origin + path only.
  */
@@ -104,6 +115,7 @@ export type JobPostingSummary = {
     has_source_url: boolean;
     source_url: string | null;
     attribution: ProviderAttribution | null;
+    freshness: JobFreshnessView | null;
     captured_at: string | null;
     inspection: InspectionSummary;
     triage: OpportunityTriage;
@@ -255,6 +267,7 @@ export type JobPostingDetail = {
     location: string | null;
     source_url: string | null;
     attribution: ProviderAttribution | null;
+    freshness: JobFreshnessView | null;
     captured_at: string | null;
     description: string;
     analyses: JobAnalysisSummary[];
@@ -289,6 +302,8 @@ export type JobsIndexFilters = {
     source: string | null;
     /** The job requested for the drawer (`?job=`), even if it could not be loaded. */
     job: number | null;
+    /** Expired and closed jobs are shown again (`?inactive=1`). Only meaningful when job freshness is on. */
+    inactive: boolean;
 };
 
 /** Resume work per opportunity: a resume exists but none is final, or one is marked final. */
@@ -309,6 +324,8 @@ export type JobsIndexProps = {
     filters: JobsIndexFilters;
     pagination: JobsIndexPagination;
     disposition_counts: Record<JobDispositionFilter, number>;
+    /** Expired or closed jobs left out of the Inbox or Shortlist (0 when job freshness is off). */
+    hidden_inactive: number;
     /** Loaded on demand for the drawer; null when none is open or the id is not one of this profile's jobs. */
     selected_job: SelectedJob | null;
 };

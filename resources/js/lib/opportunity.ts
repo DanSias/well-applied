@@ -1,5 +1,6 @@
 import type { Tone } from '@/components/ui/badge';
 import type {
+    JobFreshnessView,
     OpportunityTriageStage,
     ProviderAttribution,
 } from '@/types/job-posting';
@@ -34,6 +35,7 @@ export type Opportunity = {
     compensation_currency: string | null;
     source_url: string | null;
     attribution: ProviderAttribution | null;
+    freshness: JobFreshnessView | null;
     posting_status: 'open' | 'closed';
     pursued_at: string | null;
     stage: OpportunityTriageStage;

@@ -315,7 +315,6 @@ function JobRow({
                     extraItems={inspectItem}
                 />
             </div>
-
         </li>
     );
 }
@@ -340,6 +339,7 @@ export default function JobsIndex({
     filters,
     pagination,
     disposition_counts,
+    hidden_inactive,
     selected_job,
 }: JobsIndexProps) {
     const [q, setQ] = useState(filters.q);
@@ -406,6 +406,31 @@ export default function JobsIndex({
             replace: options.replace ?? true,
             preserveScroll: options.preserveScroll ?? true,
         });
+    };
+
+    // Job freshness (off by default): expired and closed jobs are left out of the Inbox and Shortlist, and this brings them back (or hides them again).
+    const toggleInactive = () => {
+        const state = nextListState(
+            {
+                q,
+                status: filters.status,
+                triage: filters.triage,
+                resume: filters.resume,
+                disposition: filters.disposition,
+                source: filters.source,
+                per_page: pagination.per_page,
+                page: 1,
+            },
+            {},
+        );
+        router.get(
+            jobsIndex.url(),
+            {
+                ...buildListParams(state),
+                ...(filters.inactive ? {} : { inactive: 1 }),
+            },
+            { preserveState: true, replace: true, preserveScroll: true },
+        );
     };
 
     const applyFilters = (next: {
@@ -867,6 +892,24 @@ export default function JobsIndex({
                     Add Job
                 </ButtonLink>
             </div>
+
+            {(hidden_inactive > 0 || filters.inactive) && (
+                <p
+                    className="text-fg-muted mt-3 text-sm"
+                    data-testid="inactive-note"
+                >
+                    {filters.inactive
+                        ? 'Showing expired and closed jobs. '
+                        : `${hidden_inactive} expired or closed job${hidden_inactive === 1 ? '' : 's'} left out. `}
+                    <button
+                        type="button"
+                        onClick={toggleInactive}
+                        className="text-accent-text focus-visible:ring-focus rounded-sm underline underline-offset-2 focus-visible:ring-2 focus-visible:outline-none"
+                    >
+                        {filters.inactive ? 'Hide them' : 'Show them'}
+                    </button>
+                </p>
+            )}
 
             {filters.source !== null && (
                 <p className="mt-4 flex flex-wrap items-center gap-2 text-sm">

@@ -8,6 +8,7 @@ use App\Enums\GenerationType;
 use App\Enums\JobAnalysisFindingCategory;
 use App\Enums\JobDiscoverySource;
 use App\Enums\JobDisposition;
+use App\Enums\JobPostingLifecycleStatus;
 use App\Http\Requests\StoreJobPostingRequest;
 use App\Models\GenerationAttempt;
 use App\Models\JobAnalysis;
@@ -17,6 +18,7 @@ use App\Support\Clarification\PresentApprovedEvidence;
 use App\Support\CurrentCareerProfile;
 use App\Support\GenerationAttempt\PresentGenerationAttempt;
 use App\Support\JobDiscovery\ProviderAttribution;
+use App\Support\JobFreshness\JobFreshness;
 use App\Support\JobQualification\PresentJobQualification;
 use App\Support\Navigation\JobHome;
 use App\Support\OpportunityTriage\SummarizeTriageStates;
@@ -78,6 +80,19 @@ class JobPostingController extends Controller
             });
         }
 
+        // Job freshness (OFF by default): in the Inbox and the Shortlist, a job whose provider-stated expiry has passed, or that is closed, is not offered for action. It is
+        // not deleted and not changed, a job with an Application is never hidden, and `?inactive=1` shows them again. Other views are untouched.
+        $showInactive = $request->query('inactive') === '1';
+        $hiddenInactive = 0;
+        if (JobFreshness::enabled() && in_array($disposition, ['inbox', 'shortlist'], true)) {
+            $active = fn ($q) => $q->where('status', '!=', JobPostingLifecycleStatus::Closed->value)
+                ->where(fn ($e) => $e->whereNull('discovery_metadata->discovery->expiryDate')->orWhere('discovery_metadata->discovery->expiryDate', '>', now()->timestamp));
+            $hiddenInactive = (clone $query)->whereNot(fn ($q) => $active($q))->whereDoesntHave('applications')->count();
+            if (! $showInactive) {
+                $query->where(fn ($q) => $q->where(fn ($a) => $active($a))->orWhereHas('applications'));
+            }
+        }
+
         // Inspection and triage state are derived from other tables, so
         // filtering on them needs every matching posting's state. Without
         // those filters the page can be cut in SQL and only its rows summarized.
@@ -119,7 +134,8 @@ class JobPostingController extends Controller
             // `triage` is normalized so the echoed filter always reflects
             // what was actually applied — an invalid value degrades to
             // `all` in both behavior and props.
-            'filters' => ['q' => $search, 'status' => $status, 'triage' => $triageStages === null ? 'all' : $triage, 'resume' => $resume, 'disposition' => $disposition, 'source' => $source?->value, 'job' => $selectedId],
+            'filters' => ['q' => $search, 'status' => $status, 'triage' => $triageStages === null ? 'all' : $triage, 'resume' => $resume, 'disposition' => $disposition, 'source' => $source?->value, 'job' => $selectedId, 'inactive' => $showInactive],
+            'hidden_inactive' => $hiddenInactive,
             'disposition_counts' => $this->dispositionCounts($source),
             // The drawer's job, fetched on demand and never with the list: the full description would multiply the page
             // payload by the page size. Null when no job is open, or when the id is not one of this profile's jobs.
@@ -269,6 +285,7 @@ class JobPostingController extends Controller
             'has_source_url' => $job->source_url !== null,
             'source_url' => $job->source_url,
             'attribution' => ProviderAttribution::for($job),
+            'freshness' => JobFreshness::view($job),
             'captured_at' => $job->created_at?->toDateString(),
             'inspection' => $inspection,
             'triage' => $triage,
@@ -325,6 +342,7 @@ class JobPostingController extends Controller
             'location' => $job->location,
             'source_url' => $job->source_url,
             'attribution' => ProviderAttribution::for($job),
+            'freshness' => JobFreshness::view($job),
             'captured_at' => $job->created_at?->toDateString(),
             'description' => $job->description,
             'analyses' => $job->jobAnalyses()
