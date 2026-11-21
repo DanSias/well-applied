@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { resolveDestination, ResolutionStatus } from '../src/resolution/resolve.js';
 import { startSites, fixture } from './support/fixture-server.js';
 
-const NAMES = { adzuna: 'www.adzuna.com', jobicy: 'jobicy.com', himalayas: 'himalayas.app', employer: 'careers.acmecorp.com', gh: 'job-boards.greenhouse.io', lever: 'jobs.lever.co' };
+const NAMES = { adzuna: 'www.adzuna.com', jobicy: 'jobicy.com', himalayas: 'himalayas.app', employer: 'careers.acmecorp.com', mailtrack: 'click.mailtrack-example.com', linkfwd: 'go.linkforward-example.io', gh: 'job-boards.greenhouse.io', lever: 'jobs.lever.co' };
 const UUID = '11111111-1111-4111-8111-111111111111';
 const FAST = { settleMs: 100, networkIdleMs: 800 };
 const seen = []; // every request that reaches a fixture server: [site, method, path]
@@ -38,6 +38,18 @@ before(async () => {
             '/jobs/103': page('phase1/multiple-apply.html'),
             '/jobs/104': page('phase1/apply-private.html'),
             '/jobs/105': page('phase1/duplicate-apply.html'),
+            // A tracking-style Apply link that is NOT Adzuna's: a click host whose query carries the employer URL.
+            '/jobs/201': ({ origins }) => ({ body: `<title>Eng | Jobicy</title><a href="${origins.mailtrack}/c?url=${encodeURIComponent(`${origins.employer}/jobs/42`)}">Apply Now</a>` }),
+            // An unknown third-party redirector: /redirect on a host nobody has reviewed.
+            '/jobs/202': ({ origins }) => ({ body: `<title>Eng | Jobicy</title><a href="${origins.linkfwd}/redirect?u=${encodeURIComponent(`${origins.gh}/acme/jobs/1`)}">Apply Now</a>` }),
+            // Legitimate direct links that must stay allowed: a known ATS carrying URL-valued and tracking parameters.
+            '/jobs/203': ({ origins }) => ({ body: `<title>Eng | Jobicy</title><a href="${origins.gh}/acme/jobs/1?gh_jid=1&gh_src=jobicy&utm_source=jobicy&ref=${encodeURIComponent('https://jobicy.com/jobs/203')}&redirect_url=${encodeURIComponent('https://jobicy.com/')}">Apply Now</a>` }),
+            // ...and an employer link with a relative "next" parameter and utm parameters.
+            '/jobs/204': ({ origins }) => ({ body: `<title>Eng | Jobicy</title><a href="${origins.employer}/jobs/42?next=%2Fapply&utm_source=jobicy&utm_medium=listing">Apply Now</a>` }),
+            // An unknown-host redirector with NO structural signal that chains through a second host: not caught before navigation, but the host it
+            // passes THROUGH is flagged afterwards. A single bounce (/plain) is indistinguishable from a normal employer-to-ATS redirect and is not flagged.
+            '/jobs/205': ({ origins }) => ({ body: `<title>Eng | Jobicy</title><a href="${origins.linkfwd}/chain?x=1">Apply Now</a>` }),
+            '/jobs/206': ({ origins }) => ({ body: `<title>Eng | Jobicy</title><a href="${origins.linkfwd}/plain?x=1">Apply Now</a>` }),
             '/loop/a': ({ origins }) => ({ body: `<title>A</title><a href="${origins.jobicy}/loop/b">Apply Now</a>` }),
             '/loop/b': ({ origins }) => ({ body: `<title>B</title><a href="${origins.jobicy}/loop/c">Apply Now</a>` }),
             '/loop/c': ({ origins }) => ({ body: `<title>C</title><a href="${origins.jobicy}/loop/d">Apply Now</a>` }),
@@ -66,6 +78,8 @@ before(async () => {
             '/apply-a': () => ({ body: fixture('greenhouse-form.html') }),
             '/apply-b': () => ({ body: fixture('greenhouse-form.html') }),
         }),
+        mailtrack: R('mailtrack', { '/c': redirect((o) => `${o.employer}/jobs/42`), '/hop': redirect((o) => `${o.gh}/acme/jobs/1`) }),
+        linkfwd: R('linkfwd', { '/redirect': redirect((o) => `${o.gh}/acme/jobs/1`), '/plain': redirect((o) => `${o.gh}/acme/jobs/1`), '/chain': redirect((o) => `${o.mailtrack}/hop`) }),
         gh: R('gh', { '/acme/jobs/1': () => ({ body: fixture('greenhouse-form.html') }) }),
         lever: R('lever', {
             [`/acme/${UUID}`]: page('resolution/lever-job.html'),
@@ -255,6 +269,107 @@ describe('tracker redirects (Adzuna click-through) need their own permission', (
         const r = await resolve(url('adzuna', '/land/ad/3003?se=x'), { allowTrackerRedirects: true });
         assert.deepEqual([r.status, r.blocked_by], [ResolutionStatus.Blocked, 'policy']);
     });
+});
+
+describe('unknown redirectors and click-throughs are flagged for review BEFORE navigation', () => {
+    test('a non-Adzuna tracking-style Apply link (a click host whose query carries the destination) is refused before it is requested', async () => {
+        const hits = hitsOn('mailtrack');
+        const r = await resolve(url('jobicy', '/jobs/201'));
+        assert.deepEqual([r.status, r.reason, r.needs_human_review], [ResolutionStatus.Unresolved, 'unknown_redirector_requires_review', true]);
+        assert.deepEqual([r.redirector.where, r.redirector.host], ['apply_link', NAMES.mailtrack]);
+        assert.deepEqual(r.redirector.signals.sort(), ['destination_in_query', 'tracking_host_label']);
+        assert.equal(hitsOn('mailtrack'), hits, 'the tracker was never requested');
+        assert.equal(r.destination, null, 'the destination inside the query is not trusted or followed');
+        assert.equal(r.hops[0].apply_candidates.length, 1, 'the candidate is kept as evidence');
+        assert.equal(JSON.stringify(r).includes('mailtrack-example.com/c?'), false, 'no query string is recorded');
+    });
+
+    test('an unknown third-party redirector endpoint is refused before it is requested, and a source URL of that shape is refused with no browser at all', async () => {
+        const hits = hitsOn('linkfwd');
+        const r = await resolve(url('jobicy', '/jobs/202'));
+        assert.deepEqual([r.reason, r.redirector.signals.sort()], ['unknown_redirector_requires_review', ['destination_in_query', 'tracking_path']]);
+        assert.equal(hitsOn('linkfwd'), hits);
+        const launches = launched;
+        const src = await resolve(`${url('linkfwd', '/redirect')}?u=${encodeURIComponent(url('gh', '/acme/jobs/1'))}`);
+        assert.deepEqual([src.reason, src.redirector.where], ['unknown_redirector_requires_review', 'source_url']);
+        assert.equal(launched, launches);
+    });
+
+    test('once a PERSON has reviewed and cleared that host, the redirector is followed through the guard, and the hop is still recorded and flagged', async () => {
+        const r = await resolve(url('jobicy', '/jobs/202'), { reviewedRedirectHosts: [NAMES.linkfwd] });
+        assert.deepEqual([r.status, r.destination.platform], [ResolutionStatus.Proposed, 'greenhouse']);
+        assert.deepEqual(r.provenance.reviewed_redirect_hosts, [NAMES.linkfwd]);
+        assert.equal(r.hops.some((h) => h.redirect_chain.some((c) => c.host === NAMES.linkfwd)), true);
+    });
+
+    test('a legitimate direct ATS link stays allowed, even with tracking and URL-valued parameters', async () => {
+        const r = await resolve(url('jobicy', '/jobs/203'));
+        assert.deepEqual([r.status, r.destination.platform, r.needs_human_review], [ResolutionStatus.Proposed, 'greenhouse', false]);
+        assert.equal(r.reason, 'form_observed_after_following_apply_link');
+        assert.equal(r.redirector, undefined);
+    });
+
+    test('a normal employer application URL stays allowed, with relative "next" and utm parameters', async () => {
+        const r = await resolve(url('jobicy', '/jobs/204'));
+        assert.notEqual(r.reason, 'unknown_redirector_requires_review');
+        assert.equal(r.status, ResolutionStatus.Proposed);
+        assert.equal(r.hops[1].final.host, NAMES.employer);
+    });
+
+    test('an unknown redirector with no structural signal is followed, but its intermediate host is flagged for review after the fact', async () => {
+        const r = await resolve(url('jobicy', '/jobs/205'));
+        assert.equal(r.status, ResolutionStatus.Proposed);
+        assert.equal(r.needs_human_review, true);
+        assert.deepEqual(r.intermediate_redirect_hosts, [NAMES.mailtrack]);
+        assert.ok(r.warnings.includes('unknown_intermediate_redirect_host'));
+    });
+
+    test('KNOWN LIMITATION: a single bounce through an unknown host with no structural signal is followed and not flagged (it looks like any employer-to-ATS redirect)', async () => {
+        const r = await resolve(url('jobicy', '/jobs/206'));
+        assert.deepEqual([r.status, r.needs_human_review, r.intermediate_redirect_hosts], [ResolutionStatus.Proposed, false, undefined]);
+        assert.ok(r.hops.some((h) => h.redirect_chain.some((c) => c.host === NAMES.linkfwd)), 'still recorded in the hop evidence');
+    });
+
+    test('the Adzuna redirect (the source host itself) is NOT an unknown intermediate host', async () => {
+        const r = await resolve(url('adzuna', '/land/ad/1001?se=x'), { allowTrackerRedirects: true });
+        assert.equal(r.intermediate_redirect_hosts, undefined);
+        assert.equal(r.needs_human_review, false);
+    });
+});
+
+describe('redirector signals are narrow: normal application URLs are never caught', async () => {
+    const { redirectorSignalsFor } = await import('../src/resolution/hosts.js');
+    const page = 'https://jobicy.com/jobs/1';
+    const legit = [
+        'https://job-boards.greenhouse.io/acme/jobs/123?gh_jid=123&gh_src=x&utm_source=jobicy',
+        'https://boards.greenhouse.io/embed/job_app?for=acme&token=9&redirect=https%3A%2F%2Facme.com%2F',
+        'https://jobs.lever.co/acme/11111111-1111-4111-8111-111111111111/apply?lever-source=jobicy',
+        'https://jobs.ashbyhq.com/acme/22222222-2222-4222-8222-222222222222/application?utm_source=x',
+        'https://acme.wd5.myworkdayjobs.com/en-US/Careers/job/Remote/Engineer_R123?source=jobicy',
+        'https://apply.workable.com/acme/j/ABC123/apply/',
+        'https://jobs.smartrecruiters.com/Acme/743999873519601-engineer',
+        'https://careers.acme.com/jobs/42?utm_source=jobicy&utm_medium=listing&ref=jobicy',
+        'https://careers.acme.com/apply?next=%2Fjobs%2F42',
+        'https://www.acme.com/careers/go/engineer/1234/',
+        'https://acme.com/out/engineer-123',
+        'https://go.acme.com/apply/engineer',
+        'https://jobs.acme.co.uk/redirect-policy?jid=1',
+    ];
+    const suspect = [
+        ['https://click.mailer.example/c?url=https%3A%2F%2Facme.com%2Fjobs%2F1', ['destination_in_query', 'tracking_host_label']],
+        ['https://links.example.net/redirect?to=https://acme.com/jobs/1', ['destination_in_query', 'tracking_path']],
+        ['https://trk.example.org/x', ['tracking_host_label']],
+        ['https://example.net/track/click/abc123', ['tracking_path']],
+        ['https://example.net/a?redirect_url=http://acme.com/jobs/1', ['destination_in_query']],
+    ];
+    for (const u of legit) test(`allowed: ${u.replace(/\?.*/, '')}`, () => assert.deepEqual(redirectorSignalsFor(u, page), []));
+    for (const [u, signals] of suspect) test(`flagged: ${u.replace(/\?.*/, '')}`, () => assert.deepEqual(redirectorSignalsFor(u, page).sort(), signals.sort()));
+    test('the same site as the linking page is never a redirector, whatever the path (and a registrable-domain trap is not exempt)', () => {
+        assert.deepEqual(redirectorSignalsFor('https://careers.acme.com/redirect?url=https://acme.com/x', 'https://www.acme.com/jobs/1'), []);
+        assert.deepEqual(redirectorSignalsFor('https://click.evil.co.uk/c?url=https://x.com', 'https://jobs.good.co.uk/1'), ['destination_in_query', 'tracking_host_label']);
+    });
+    test('an aggregator\'s own pages are listings, not redirectors', () => assert.deepEqual(redirectorSignalsFor('https://himalayas.app/companies/x/jobs/y?ref=https://a.com', page), []));
+    test('a source URL (no linking page) is judged on the same signals', () => assert.deepEqual(redirectorSignalsFor('https://click.mailer.example/c?u=https://acme.com/'), ['destination_in_query', 'tracking_host_label']));
 });
 
 describe('safety and shape', () => {

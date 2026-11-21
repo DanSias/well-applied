@@ -14,7 +14,7 @@ import { inspect, MAX_FOLLOWS, MAX_PAGES } from '../inspect.js';
 import { MAX_REDIRECTS, createGuard } from '../guard.js';
 import { safeRedact } from '../browser.js';
 import { InspectionOutcome, StopReason } from '../result.js';
-import { hostType, platformOf, trackerRuleFor } from './hosts.js';
+import { hostType, platformOf, redirectorSignalsFor, trackerRuleFor } from './hosts.js';
 
 export const RESOLUTION_SCHEMA = 'destination-resolution/1';
 export const RESOLVER_VERSION = '0.1.0';
@@ -44,10 +44,13 @@ const typed = (url) => {
  * @param {string} sourceUrl a discovered job's source URL (its listing, or a direct ATS URL)
  * @param {object} [options]
  * @param {boolean} [options.allowTrackerRedirects] follow a KNOWN click-tracking redirect (default false: it needs its own approval)
+ * @param {string[]} [options.reviewedRedirectHosts] hosts a PERSON has reviewed and cleared as redirectors (default none). An unknown redirector or
+ *   click-through is otherwise refused BEFORE it is requested, and flagged for human review.
  * @param {number} [options.budgetMs] @param {object} [options.guard] @param {Function} [options.launch] @param {object} [options.timeouts] as for inspect()
  */
 export async function resolveDestination(sourceUrl, options = {}) {
-    const { allowTrackerRedirects = false, guard = createGuard(), ...passthrough } = options;
+    const { allowTrackerRedirects = false, reviewedRedirectHosts = [], guard = createGuard(), ...passthrough } = options;
+    const cleared = new Set(reviewedRedirectHosts.map((h) => String(h).toLowerCase()));
     const source = typed(safeRedact(sourceUrl) ?? String(sourceUrl));
     const hops = [];
     const evidence = { candidates: [], warnings: [] };
@@ -55,7 +58,7 @@ export async function resolveDestination(sourceUrl, options = {}) {
         schema: RESOLUTION_SCHEMA,
         resolver_version: RESOLVER_VERSION,
         source,
-        provenance: { method: 'guarded_read_only_walk', walk: 'src/inspect.js', limits: { max_pages: MAX_PAGES, max_follows: MAX_FOLLOWS, max_redirects: MAX_REDIRECTS }, tracker_redirects_allowed: allowTrackerRedirects, clicks: 0, form_fields_read: 0 },
+        provenance: { method: 'guarded_read_only_walk', walk: 'src/inspect.js', limits: { max_pages: MAX_PAGES, max_follows: MAX_FOLLOWS, max_redirects: MAX_REDIRECTS }, tracker_redirects_allowed: allowTrackerRedirects, reviewed_redirect_hosts: [...cleared].sort(), clicks: 0, form_fields_read: 0 },
     });
     const finish = (status, reason, extra = {}) => ({
         ...base(),
@@ -75,8 +78,17 @@ export async function resolveDestination(sourceUrl, options = {}) {
         return finish(ResolutionStatus.Unresolved, 'tracker_redirect_requires_permission', { tracker: { rule: rule.id, where, note: rule.note }, needs_human_review: false });
     };
 
-    // Policy gate on the SOURCE itself: nothing is requested.
+    const unknownRedirector = (url, pageUrl, where) => {
+        const signals = cleared.has(hostOf(url) ?? '') ? [] : redirectorSignalsFor(url, pageUrl);
+        if (signals.length === 0) return null;
+
+        return finish(ResolutionStatus.Unresolved, 'unknown_redirector_requires_review', { redirector: { where, host: hostOf(url), signals }, needs_human_review: true, review_reason: `an unknown redirector or click-through (${signals.join(', ')}) was not followed: a person reviews it first` });
+    };
+
+    // Policy gates on the SOURCE itself: nothing is requested.
     if (!allowTrackerRedirects && trackerRuleFor(sourceUrl)) return refusedTracker(sourceUrl, 'source_url');
+    const sourceRedirector = unknownRedirector(sourceUrl, null, 'source_url');
+    if (sourceRedirector) return sourceRedirector;
 
     let lastClassified = null;
     const observe = (e) => {
@@ -94,14 +106,37 @@ export async function resolveDestination(sourceUrl, options = {}) {
         }
     };
     // A policy gate on the Apply destination, before anything is requested from it.
-    const onCandidate = async (candidate) => (!allowTrackerRedirects && trackerRuleFor(candidate.url) ? { __resolution: refusedTracker(candidate.url, 'apply_link') } : null);
+    const onCandidate = async (candidate) => {
+        if (!allowTrackerRedirects && trackerRuleFor(candidate.url)) return { __resolution: refusedTracker(candidate.url, 'apply_link') };
+        const flagged = unknownRedirector(candidate.url, hops.at(-1)?.final.url ?? sourceUrl, 'apply_link');
+
+        return flagged ? { __resolution: flagged } : null;
+    };
     // A page classified as an application form is RECORDED, not read.
     const onForm = async (page, kind, { hop }) => ({ __form: { hop, url: safeRedact(page.url()), reasons: kind.reasons, ats: kind.ats ?? null } });
 
     const raw = await inspect(sourceUrl, { ...passthrough, guard, genericDiscovery: true, ashbySchema: false, onForm, observe, onCandidate });
     if (raw.__resolution) return raw.__resolution;
 
-    return interpret(raw, { finish, hops, evidence, source, lastClassified });
+    return flagIntermediateRedirects(interpret(raw, { finish, hops, evidence, source, lastClassified }), cleared);
+}
+
+/**
+ * An HTTP redirect chain cannot be vetted hop by hop before it is followed (the guard checks each hop's SAFETY, not its purpose), so a redirect that
+ * passes through a host that is neither where the page was requested nor where it ended, and is not a known ATS or a reviewed host, is recorded and
+ * flagged for a person AFTER the fact. It never upgrades or downgrades the status.
+ */
+function flagIntermediateRedirects(result, cleared) {
+    const via = [];
+    for (const h of result.hops ?? []) {
+        for (const c of h.redirect_chain ?? []) {
+            if (c.kind === 'redirect' && c.host && c.host !== h.requested.host && c.host !== h.final.host && c.host_type !== 'known_ats' && !cleared.has(c.host)) via.push(c.host);
+        }
+    }
+    if (via.length === 0) return result;
+    const hosts = [...new Set(via)].sort();
+
+    return { ...result, needs_human_review: true, review_reason: result.review_reason ?? `the redirect chain passed through ${hosts.join(', ')}: an unrecognised intermediate host`, warnings: [...result.warnings, 'unknown_intermediate_redirect_host'], intermediate_redirect_hosts: hosts };
 }
 
 /** Maps what the walk ended with onto a resolution. Pure over its inputs. */

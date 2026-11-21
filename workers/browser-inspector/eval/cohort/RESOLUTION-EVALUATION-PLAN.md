@@ -4,7 +4,7 @@
 would use (`src/resolution/`) has only ever run against local fixtures.
 
 - Batch manifest: `eval/cohort/resolution-batch.proposed.json`
-- **Batch manifest SHA-256:** `74a4354e830bd9d9fb0234649104438c381691cfcb623e2906093ab256fba863`
+- **Batch manifest SHA-256:** `6e169a26b07c24380e7ce99b2e7ae18f772b7b41bce1de4370f06a1fb201f2ad`
 - Derived from the Stage 1 cohort `eval/cohort/stage1.proposed.json` (its hash is recorded inside the batch). Regenerate with `node eval/tools/make-resolution-batch.mjs`; a test fails if this hash and the file disagree.
 - An approval should name **the batch hash above**, the host list below, and the tracker decision. Anything that changes the file changes the hash and needs a new approval.
 
@@ -30,7 +30,7 @@ upload, submit, extract a form, or create an Opportunity, Application or agent r
 
 Any one stops that host or the run, and the stop is reported, not worked around:
 
-1. a security refusal other than the expected policy refusal of a prohibited destination;
+1. **any** security refusal: a destination, redirect or Apply link refused by the guard's policy (a private address, a disallowed host, the redirect limit) stops the whole run (this supersedes the earlier allowance for an "expected" policy refusal);
 2. HTTP 403/429 or a CAPTCHA/anti-bot page on **two** cases from one host (stop that host), or on **three** cases overall (stop the run);
 3. two consecutive infrastructure failures;
 4. the navigation cap or the wall-clock cap;

@@ -42,14 +42,14 @@ const batch = {
         wall_clock_cap_minutes: 20,
     },
     stop_conditions: [
-        'any security refusal that is not an expected policy refusal of a prohibited destination',
+        'any security refusal: a destination, redirect or Apply link refused by the guard policy (private address, disallowed host, redirect limit)',
         'HTTP 403 or 429, or a CAPTCHA/anti-bot page, on two cases from the same host (stop that host); on any three cases overall (stop the run)',
         'two consecutive infrastructure failures (timeouts, connection errors)',
         'the total page-navigation cap or the wall-clock cap',
         'any request that is not a GET, or any attempt to interact with a page',
         'a changed url_sha256 when the URL is re-read from the database by id',
     ],
-    human_review: ['every unresolved:multiple_apply_links', 'every proposed_by_resolution with needs_human_review', 'every unresolved:too_many_steps and unclassified stop', 'a seeded 20% spot-check of the automatic proposals', 'every case in a hand_review_slot'],
+    human_review: ['every unresolved:multiple_apply_links', 'every unresolved:unknown_redirector_requires_review (an unknown redirector or click-through is flagged before navigation, never silently followed)', 'every proposed_by_resolution with needs_human_review', 'every unresolved:too_many_steps and unclassified stop', 'a seeded 20% spot-check of the automatic proposals', 'every case in a hand_review_slot'],
     cases,
 };
 const out = stableJson(batch);

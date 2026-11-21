@@ -31,6 +31,18 @@ is anything else. Nothing in production imports it.
 
 A known click-tracking redirect (today: Adzuna `/land/ad/`) is **not followed** unless `allowTrackerRedirects: true` is passed. See the Resolution Evaluation Plan beside the proposed Stage 1 cohort.
 
+## Unknown redirectors and click-throughs
+
+A cross-site Apply link (or a source URL) that is **structurally** a redirector is **refused before it is requested** and returned as `unresolved: unknown_redirector_requires_review`
+(`needs_human_review: true`, with the signals): a parameter such as `url=`/`u=`/`redirect=`/`to=` whose value is itself an absolute URL, a first host label of `click`/`track`/`trk`/`redirect`…,
+or a first path segment of `/redirect`, `/click`, `/track`… Never flagged: any known ATS host (they carry `gh_jid`, `utm_*` and similar all the time), the same site as the linking page, an aggregator's own pages,
+and ordinary `utm_*`/`ref`/relative `next=` parameters. `/go/`, `/out/` and `/r/` are deliberately **not** signals (too common on genuine employer sites).
+A person who has reviewed a host can clear it with `reviewedRedirectHosts`; it is then followed through the guard and still recorded.
+
+An HTTP redirect chain cannot be vetted hop by hop before it is followed. A host the chain passes **through** (neither where the page was requested nor where it ended, not a known ATS, not
+cleared) is recorded and flagged for review **after** the fact (`intermediate_redirect_hosts`). Known limitation: a single bounce through an unknown host with no structural signal looks like any
+employer-to-ATS redirect and is followed without a flag (it is still in the hop evidence).
+
 ## Result
 
 `destination-resolution/1`: `status`, `reason`, `source`, `destination` (`url` without its query, `host_type`, `platform`, `form_observed`, `basis`), `hops` (every page with its redirect chain, HTTP status, page kind and

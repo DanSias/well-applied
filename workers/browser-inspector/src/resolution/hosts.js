@@ -46,3 +46,58 @@ export function trackerRuleFor(url) {
 
     return TRACKER_RULES.find((r) => hostMatches(u.hostname, r.host) && r.path.test(u.pathname)) ?? null;
 }
+
+// ---- unknown redirectors / click-throughs -----------------------------------------------------------------------------------------
+// Narrow, structural signals only, so a normal employer or ATS application URL is never caught. A URL is NEVER suspect when it is
+//   - on a known ATS host (those carry tracking-ish parameters all the time: gh_jid, gh_src, utm_*), or
+//   - on the same site as the page that links to it, or
+//   - merely carrying utm_* / ref parameters whose values are not themselves URLs.
+// A cross-site URL is flagged only when it shows one of these:
+//   destination_in_query   a parameter such as url=, u=, redirect=, target=, dest=, to=, next=, link= whose value is itself an absolute http(s) URL
+//   tracking_host_label    the first host label is click, clk, track, trk, tracking, redirect or redir
+//   tracking_path          the first path segment is redirect, redir, click, clk, track, trk, clickthrough, jump or away
+// Deliberately NOT signals: /go/, /out/, /r/ and a bare "go." host label (too common on genuine employer sites). An unknown redirector using
+// one of those is not caught before navigation; it is still recorded in the hop's redirect chain and flagged for review afterwards.
+const DEST_PARAMS = /^(url|u|uri|redirect|redirect_url|redirect_uri|redir|target|dest|destination|to|next|link|goto|return|returnurl|continue)$/i;
+const TRACK_LABEL = /^(click|clk|track|trk|tracking|redirect|redir)$/i;
+const TRACK_PATH = /^(redirect|redir|click|clk|track|trk|clickthrough|jump|away)$/i;
+
+const TWO_LEVEL = new Set(['co.uk', 'org.uk', 'ac.uk', 'com.au', 'net.au', 'co.nz', 'co.jp', 'co.in', 'com.br', 'com.mx', 'co.za', 'com.sg', 'com.cn', 'co.il']);
+const registrable = (host) => {
+    const labels = host.split('.');
+
+    return labels.slice(TWO_LEVEL.has(labels.slice(-2).join('.')) ? -3 : -2).join('.');
+};
+
+/** @returns {string[]} the signals found (empty for a normal URL). `pageUrl` is the page that links to it; omit it for a source URL. */
+export function redirectorSignalsFor(url, pageUrl = null) {
+    let u;
+    try {
+        u = new URL(url);
+    } catch {
+        return [];
+    }
+    const host = u.hostname.toLowerCase();
+    if (platformOf(host)) return [];
+    if (pageUrl) {
+        try {
+            const page = new URL(pageUrl).hostname.toLowerCase();
+            if (page === host || registrable(page) === registrable(host)) return [];
+        } catch {
+            /* an unparseable page URL gives no same-site exemption */
+        }
+    }
+    // An aggregator's own pages are listings, not redirectors; the known tracker rules cover the aggregator click-throughs.
+    if (hostType(host) === 'aggregator') return [];
+    const signals = [];
+    for (const [key, value] of u.searchParams.entries()) {
+        if (DEST_PARAMS.test(key) && /^https?:\/\//i.test(value)) {
+            signals.push('destination_in_query');
+            break;
+        }
+    }
+    if (TRACK_LABEL.test(host.split('.')[0])) signals.push('tracking_host_label');
+    if (TRACK_PATH.test(u.pathname.split('/').filter(Boolean)[0] ?? '')) signals.push('tracking_path');
+
+    return signals;
+}
