@@ -9,7 +9,19 @@ export type ProviderAttribution = {
     link_label: string;
     notice: string;
     /** 'canonical_listing' (Jobicy: the provider's own page) or 'apply_link' (Himalayas: its applicationLink, to be used unchanged). */
-    kind: 'canonical_listing' | 'apply_link';
+    kind: 'canonical_listing' | 'apply_link' | 'credit_only';
+};
+
+/**
+ * A CANDIDATE destination a discovery provider's API supplied (discovery_metadata.discovery.destinations[]). Unverified by construction and
+ * never the Application URL; the URL is origin + path only.
+ */
+export type CandidateDestinationView = {
+    url: string;
+    source: string;
+    tier: 'public' | 'commercial';
+    field: string;
+    verification: 'unverified';
 };
 
 import type { InspectionSummary } from '@/types/application-inspection';

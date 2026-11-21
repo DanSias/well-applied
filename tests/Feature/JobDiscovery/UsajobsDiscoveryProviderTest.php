@@ -869,3 +869,16 @@ it('dedupes by announcement number first across branches, even when control numb
     expect($ids)->toBe(['ANN-A', '777', '888'])
         ->and($provider->retrievalDiagnostics()['duplicate_announcements'])->toBe(2);
 });
+
+it('supplies each ApplyURI as an unverified candidate destination, and still keeps the legacy applyUris list', function () {
+    usjFake(usjPage([usjItem('901', 'IT Specialist', ['ApplyURI' => ['https://apply.usajobs.gov/applicant/901', 'not a url', 'http://example.gov/apply?x=1']])]));
+
+    $meta = (new UsajobsDiscoveryProvider)->retrieve()[0]->sourceMetadata;
+
+    expect($meta['applyUris'])->toBe(['https://apply.usajobs.gov/applicant/901', 'http://example.gov/apply?x=1'])
+        ->and(array_column($meta['destinations'], 'url'))->toBe(['https://apply.usajobs.gov/applicant/901', 'http://example.gov/apply?x=1']);
+    foreach ($meta['destinations'] as $i => $d) {
+        expect($d)->toMatchArray(['role' => 'candidate_destination', 'source' => 'usajobs', 'verification' => ['status' => 'unverified']])
+            ->and($d['provenance'])->toBe(['origin' => 'provider_api', 'field' => 'ApplyURI', 'tier' => 'public']);
+    }
+});

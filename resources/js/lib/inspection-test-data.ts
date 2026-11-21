@@ -99,6 +99,7 @@ export const jobOf = (
     company: 'Acme',
     source_url: 'https://jobicy.com/jobs/1',
     attribution: null,
+    destinations: [],
     application_id: inspection === null ? null : 1,
     inspection,
     ...over,

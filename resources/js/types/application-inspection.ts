@@ -1,4 +1,7 @@
-import type { ProviderAttribution } from './job-posting';
+import type {
+    CandidateDestinationView,
+    ProviderAttribution,
+} from './job-posting';
 
 /**
  * Matches App\Support\ApplicationInspection\PresentApplicationInspection's
@@ -167,6 +170,8 @@ export type InspectionJob = {
     company: string;
     source_url: string | null;
     attribution: ProviderAttribution | null;
+    /** Provider-supplied candidate destinations: unverified suggestions, never the Application URL. */
+    destinations: CandidateDestinationView[];
     application_id: number | null;
     inspection: ApplicationInspectionState | null;
 };

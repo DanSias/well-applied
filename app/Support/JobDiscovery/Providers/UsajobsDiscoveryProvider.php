@@ -5,6 +5,7 @@ namespace App\Support\JobDiscovery\Providers;
 use App\Enums\DescriptionCompleteness;
 use App\Enums\JobDiscoverySource;
 use App\Enums\JobRemoteStatus;
+use App\Support\JobDiscovery\DestinationMetadata;
 use App\Support\JobDiscovery\DiscoveredJobCandidate;
 use App\Support\JobDiscovery\SearchProfile;
 use Carbon\CarbonImmutable;
@@ -319,7 +320,9 @@ final class UsajobsDiscoveryProvider implements DiscoveryProviderContract, Repor
                 // Computed over EVERY listed location (multi-location announcements can list dozens), unlike the capped list.
                 'hybridRegionsListed' => $this->regionsListed($locations),
                 'locations' => array_slice($locations, 0, self::MAX_LOCATIONS_KEPT),
+                // Kept for rows already stored; `destinations` is the contract (see DestinationMetadata).
                 'applyUris' => $this->applyUris($descriptor['ApplyURI'] ?? null),
+                'destinations' => $this->destinations($descriptor['ApplyURI'] ?? null),
             ], fn ($value) => $value !== null && $value !== []),
         );
     }
@@ -589,6 +592,24 @@ final class UsajobsDiscoveryProvider implements DiscoveryProviderContract, Repor
         }
 
         return $urls;
+    }
+
+    /**
+     * Candidate destinations from the announcement's own ApplyURI list. Each is unverified and is validated again on ingestion.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function destinations(mixed $entries): array
+    {
+        $out = [];
+        foreach (is_array($entries) ? array_slice(array_values($entries), 0, 5) : [] as $i => $entry) {
+            $url = $this->url($entry);
+            if ($url !== null) {
+                $out[] = DestinationMetadata::destination(JobDiscoverySource::Usajobs, $url, 'ApplyURI', 'public', ['kind' => 'api_field', 'index' => $i]);
+            }
+        }
+
+        return $out;
     }
 
     private function url(mixed $value): ?string

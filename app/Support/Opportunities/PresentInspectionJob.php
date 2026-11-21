@@ -4,6 +4,7 @@ namespace App\Support\Opportunities;
 
 use App\Models\JobPosting;
 use App\Support\ApplicationInspection\PresentApplicationInspection;
+use App\Support\JobDiscovery\DestinationMetadata;
 use App\Support\JobDiscovery\ProviderAttribution;
 
 /**
@@ -27,6 +28,8 @@ final class PresentInspectionJob
             'company' => $job->company,
             'source_url' => $job->source_url,
             'attribution' => ProviderAttribution::for($job),
+            // Candidate destinations a provider supplied: unverified suggestions, shown redacted. Never the Application URL.
+            'destinations' => DestinationMetadata::view($job),
             'application_id' => $application?->id,
             'inspection' => $application !== null ? $this->inspection->present($application) : null,
         ];

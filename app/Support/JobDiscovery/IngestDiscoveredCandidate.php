@@ -280,7 +280,8 @@ final class IngestDiscoveredCandidate
         $metadata = $existing->discovery_metadata ?? [];
         if ($existing === null || ($existing->discovery_source === $candidate->source
             && $existing->discovery_source_id === $candidate->sourceJobId)) {
-            $metadata['discovery'] = $candidate->sourceMetadata;
+            // The provider's own metadata, with its candidate destinations validated and its attribution built from the registry (never from the response).
+            $metadata['discovery'] = DestinationMetadata::sanitize($candidate);
         }
         if ($canonicalMatch !== null && $canonicalMatch->sourceMetadata !== []) {
             $metadata['canonical'] = $canonicalMatch->sourceMetadata;

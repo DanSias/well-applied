@@ -294,7 +294,8 @@ it('keeps original provider metadata when another aggregator rediscovers the can
         'source' => JobDiscoverySource::Adzuna, 'sourceJobId' => 'adzuna-2', 'sourceMetadata' => ['category' => 'other-provider'],
     ]), canonicalMatch(), $profile)->jobPosting;
     expect($second->id)->toBe($first->id)->and($second->discovery_source)->toBe(JobDiscoverySource::Himalayas)
-        ->and($second->discovery_metadata['discovery'])->toBe(['companySlug' => 'original'])
+        ->and(Arr::except($second->discovery_metadata['discovery'], 'attribution'))->toBe(['companySlug' => 'original'])
+        ->and($second->discovery_metadata['discovery']['attribution']['provider'])->toBe('himalayas')
         ->and($second->discovered_at->equalTo($first->discovered_at))->toBeTrue();
 });
 
@@ -437,7 +438,7 @@ it('still accepts improvements to other fields while protecting a Complete descr
         ->and($job->compensation_max)->toBe(180000)
         // Existing metadata merge behavior is unchanged: only the original
         // discovery source's metadata is kept.
-        ->and($job->discovery_metadata['discovery'])->toBe(['seniority' => 'senior'])
+        ->and(Arr::except($job->discovery_metadata['discovery'], 'attribution'))->toBe(['seniority' => 'senior'])
         ->and($job->discovery_source)->toBe(JobDiscoverySource::Himalayas);
 });
 

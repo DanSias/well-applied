@@ -429,3 +429,32 @@ Overview → **Filtered candidates**, or `/discovery/rejections`: current (unres
 title, company, provider, reason, matched term and evidence, location, last seen, times seen and a link to the source
 posting. Search by title or company; filter by reason; 25 per page, server-side. The list is read-only: there is no promote
 or override action, rejections are never Jobs, and they are not part of any Jobs count.
+
+## Destination and attribution metadata (contract v1)
+
+Stored in `job_postings.discovery_metadata.discovery`: no column, no migration. `job_postings.source_url` is **never** altered by it: it stays exactly what the provider supplied (for Himalayas its `applicationLink`, byte for byte). The code is `App\Support\JobDiscovery\DestinationMetadata` (writer, validator, reader) and `ProviderAttribution` (the registry of each provider's rules).
+
+**`destinations[]`: candidate destinations.** An employer or ATS URL a provider's API supplied *separately* from its listing URL (today: USAJOBS `ApplyURI`; a Jobicy commercial `url`, later). Each entry:
+
+```
+role: "candidate_destination"         url                       (passes InspectionUrl; query kept, tracking stripped)
+source: <the job's discovery source>  retrieved_at              ISO 8601
+provenance: {origin: "provider_api", field: <API field>, tier: "public"|"commercial"}
+evidence:   {kind: "api_field", index?: n, legacy?: true}
+verification: {status: "unverified"}  usage: {restrictions: [<registry codes>], may_replace_apply_link: false}
+```
+
+A candidate is an **input**: it may seed an inspection's start URL (`ResolveInspectionStartUrl`, origin `provider`), it is **never** the Application URL (`applications.application_url`, origin `user` or `resolved`), and it is never "verified": an entry claiming any other verification status, another role, another provider, a non-API origin, an unusable URL, or the listing URL itself is **dropped**, not downgraded. At most 5 are kept, distinct. Only sources listed in `DestinationMetadata::MAY_SUPPLY_DESTINATIONS` may supply them (never Himalayas, Adzuna or manual). Stored JSON is re-validated on every read; legacy USAJOBS `applyUris` are read as candidates too.
+
+**`attribution`.** Built from the registry on ingestion, **never from a provider response**: `{provider, name, home_url, canonical_url (the provider's own link as supplied), required: true, restrictions[], apply_link: {url, mandated, policy}}`. Himalayas: the apply link is **mandated** (use `applicationLink` unchanged); a mandated Apply link is never replaced by a candidate, so `ResolveInspectionStartUrl` returns no provider destination for it. Jobicy (public tier): credit, preserve the canonical listing. Adzuna: none (terms unverified).
+When canonical enrichment replaces `source_url` with the authoritative ATS URL, the credit is still owed but the link is labelled generically (`credit_only`).
+
+Existing rows have no `attribution` or `destinations` until they are next rediscovered; readers never depend on them being present (the UI computes attribution from the source).
+
+### Remaining ambiguities (to settle before B2/B3)
+- Jobicy commercial tier: whether its `url` may be used as an Apply destination, or only the listing; the contract currently marks every candidate `may_replace_apply_link: false`.
+- Whether Jobicy's public-tier rule ("keep apply links pointing at the listing") should also stop a Jobicy candidate seeding the *inspection* start URL (today it would, as a provider origin).
+- `usage.restrictions` and `apply_link.policy` are codes from our reading of the providers' documentation (summarised, unverified word for word).
+- `canonical_url` is the provider's link as supplied, which may differ from `source_url` after canonical enrichment.
+- The candidate list is replaced wholesale on rediscovery (the existing `discovery` metadata behaviour): nothing recorded by a person or an inspection may live there.
+- The UI shows the redacted candidate list in the drawer payload but does not yet render it.

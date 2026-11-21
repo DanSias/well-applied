@@ -77,6 +77,20 @@ describe('provider attribution', () => {
         expect(html).toContain('Listing provided by');
     });
 
+    it('keeps the credit but the generic link label when canonical enrichment replaced the provider link', () => {
+        const html = drawer(
+            {
+                ...jobicy,
+                link_label: 'Original posting ↗',
+                kind: 'credit_only',
+            },
+            'https://boards.greenhouse.io/acme/jobs/1',
+        );
+        expect(html).toContain('Original posting ↗');
+        expect(html).toContain('Listing provided by');
+        expect(html).not.toContain('View on Jobicy');
+    });
+
     it('keeps the generic wording, and no credit, for a source without an attribution rule', () => {
         const html = drawer(null, 'https://example.com/apply');
         expect(html).toContain('Original posting ↗');
