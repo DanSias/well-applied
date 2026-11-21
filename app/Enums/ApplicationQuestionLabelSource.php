@@ -18,5 +18,7 @@ enum ApplicationQuestionLabelSource: string
     case DomAriaLabelledby = 'dom_aria_labelledby';
     case DomPlaceholder = 'dom_placeholder';
     case InferredProximity = 'inferred_proximity';
+    /** The title declared by the provider's own form schema; no rendered page was read (see workers/browser-inspector/src/providers/ashby). */
+    case ProviderSchema = 'provider_schema';
     case Unresolved = 'unresolved';
 }

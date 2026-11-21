@@ -1,0 +1,389 @@
+{
+  "_note": "Schema-only: provider-reported fields, no rendered page, so partial and no visibility claim.",
+  "status": "succeeded",
+  "inspection_outcome": "partial",
+  "stop_reason": null,
+  "ats": "ashby",
+  "requested_url": null,
+  "final_url": null,
+  "resolved_url": null,
+  "fields": [
+    {
+      "position": 0,
+      "external_field_id": "_systemfield_name",
+      "raw_label": "Name",
+      "label_source": "provider_schema",
+      "control_type": "text",
+      "required": true,
+      "options": null,
+      "section": "Personal Information",
+      "extraction_source": "provider_schema"
+    },
+    {
+      "position": 1,
+      "external_field_id": "7d1eed13-02ff-464f-ae66-f91aea35f4e6",
+      "raw_label": "Preferred First Name",
+      "label_source": "provider_schema",
+      "control_type": "text",
+      "required": true,
+      "options": null,
+      "section": "Personal Information",
+      "extraction_source": "provider_schema"
+    },
+    {
+      "position": 2,
+      "external_field_id": "_systemfield_email",
+      "raw_label": "Email",
+      "label_source": "provider_schema",
+      "control_type": "email",
+      "required": true,
+      "options": null,
+      "section": "Personal Information",
+      "extraction_source": "provider_schema"
+    },
+    {
+      "position": 3,
+      "external_field_id": "ff503dd0-493e-4384-a236-41c1cc2b9bcc",
+      "raw_label": "Phone Number",
+      "label_source": "provider_schema",
+      "control_type": "tel",
+      "required": true,
+      "options": null,
+      "section": "Personal Information",
+      "extraction_source": "provider_schema"
+    },
+    {
+      "position": 4,
+      "external_field_id": "_systemfield_resume",
+      "raw_label": "Resume",
+      "label_source": "provider_schema",
+      "control_type": "file",
+      "required": true,
+      "options": null,
+      "section": "Personal Information",
+      "extraction_source": "provider_schema"
+    },
+    {
+      "position": 5,
+      "external_field_id": "9bf4f309-c431-46fd-b05c-4d4525889f33",
+      "raw_label": "Cover Letter",
+      "label_source": "provider_schema",
+      "control_type": "file",
+      "required": false,
+      "options": null,
+      "section": "Personal Information",
+      "extraction_source": "provider_schema"
+    },
+    {
+      "position": 6,
+      "external_field_id": "ce0d70fc-58d4-422f-bb8f-9b5ba77e7c0f",
+      "raw_label": "What is your current or most recent company?",
+      "label_source": "provider_schema",
+      "control_type": "text",
+      "required": true,
+      "options": null,
+      "section": "Personal Information",
+      "extraction_source": "provider_schema"
+    },
+    {
+      "position": 7,
+      "external_field_id": "2e2cb473-8702-464c-9d04-d2d7071a7c44",
+      "raw_label": "LinkedIn URL",
+      "label_source": "provider_schema",
+      "control_type": "text",
+      "required": true,
+      "options": null,
+      "section": "Links",
+      "extraction_source": "provider_schema"
+    },
+    {
+      "position": 8,
+      "external_field_id": "753010f3-edf6-46ff-b25b-3d9859ddd56c",
+      "raw_label": "Other website",
+      "label_source": "provider_schema",
+      "control_type": "text",
+      "required": false,
+      "options": null,
+      "section": "Links",
+      "extraction_source": "provider_schema"
+    },
+    {
+      "position": 9,
+      "external_field_id": "29e70557-8e36-4bc5-9660-f57f536a442a",
+      "raw_label": "Do you have professional experience personally designing and building production APIs using Python?",
+      "label_source": "provider_schema",
+      "control_type": "yes_no",
+      "required": true,
+      "options": null,
+      "section": "Role-Specific Questions",
+      "extraction_source": "provider_schema"
+    },
+    {
+      "position": 10,
+      "external_field_id": "2c0a4380-b63a-4723-ab4d-f032294035bb",
+      "raw_label": "Describe one automation you personally built that used an LLM or generative AI. What problem did it solve?",
+      "label_source": "provider_schema",
+      "control_type": "text",
+      "required": true,
+      "options": null,
+      "section": "Role-Specific Questions",
+      "extraction_source": "provider_schema"
+    },
+    {
+      "position": 11,
+      "external_field_id": "b90cdc0e-3703-453c-b8ba-940e80fec653",
+      "raw_label": "Have you worked on a security-focused project, tool, or initiative?",
+      "label_source": "provider_schema",
+      "control_type": "yes_no",
+      "required": true,
+      "options": null,
+      "section": "Role-Specific Questions",
+      "extraction_source": "provider_schema"
+    },
+    {
+      "position": 12,
+      "external_field_id": "f58a98cd-e152-48b2-a3be-151595f371bd",
+      "raw_label": "Briefly describe one production software system you personally built or significantly contributed to. What did you build and what technologies did you use?",
+      "label_source": "provider_schema",
+      "control_type": "text",
+      "required": true,
+      "options": null,
+      "section": "Role-Specific Questions",
+      "extraction_source": "provider_schema"
+    },
+    {
+      "position": 13,
+      "external_field_id": "d65f1faa-7153-48f7-aed8-3d2f4300f73b",
+      "raw_label": "Why do you want to work at NerdWallet?",
+      "label_source": "provider_schema",
+      "control_type": "textarea",
+      "required": true,
+      "options": null,
+      "section": "Questions",
+      "extraction_source": "provider_schema"
+    },
+    {
+      "position": 14,
+      "external_field_id": "5ad65bf0-3288-473e-9453-265bf296e54b",
+      "raw_label": "Have you ever worked at NerdWallet?",
+      "label_source": "provider_schema",
+      "control_type": "yes_no",
+      "required": true,
+      "options": null,
+      "section": "Questions",
+      "extraction_source": "provider_schema"
+    },
+    {
+      "position": 15,
+      "external_field_id": "201ce8d7-006d-4e85-8f20-49550ba6c0e2",
+      "raw_label": "How did you hear about this job?",
+      "label_source": "provider_schema",
+      "control_type": "select",
+      "required": true,
+      "options": [
+        "LinkedIn",
+        "Job Boards (Indeed, Glassdoor, ZipRecruiter, etc.)",
+        "Social Media (Facebook, Instagram, Twitter, etc.)",
+        "Smart Money Podcast",
+        "News & Media (TV, Radio, Online Articles)",
+        "Friend or Colleague",
+        "Diversity Recruiting Partner (Techqueria, HireBlack, Blacks in Tech, Black Tech Pipeline, etc.)",
+        "NerdWallet Careers Page",
+        "Contacted by NerdWallet Directly",
+        "Contacted by Agency",
+        "Referral from a NerdWallet Employee",
+        "Reddit or Online Communities (Slack, Discord, r/forhire, etc.)",
+        "Career Fair or Conference",
+        "NerdWallet Newsletter or Blog",
+        "Other – Let us know if we are missing anything!"
+      ],
+      "section": "Questions",
+      "extraction_source": "provider_schema"
+    },
+    {
+      "position": 16,
+      "external_field_id": "d309fd9c-9a7b-44a4-84f8-0bfcb2028f6e",
+      "raw_label": "If other, please specify:",
+      "label_source": "provider_schema",
+      "control_type": "text",
+      "required": false,
+      "options": null,
+      "section": "Questions",
+      "extraction_source": "provider_schema"
+    },
+    {
+      "position": 17,
+      "external_field_id": "bcc3e11d-0971-4a07-b7c0-ffac3fab2a9a",
+      "raw_label": "Do you currently reside in the country this role is listed in?",
+      "label_source": "provider_schema",
+      "control_type": "yes_no",
+      "required": true,
+      "options": null,
+      "section": "Questions",
+      "extraction_source": "provider_schema"
+    },
+    {
+      "position": 18,
+      "external_field_id": "2d339f5f-cf65-4bca-b909-2dcfcb48ae86",
+      "raw_label": "Are you subject to a non-competition agreement or any other agreement which would preclude or restrict your employment at NerdWallet or any other NerdWallet subsidiary?",
+      "label_source": "provider_schema",
+      "control_type": "yes_no",
+      "required": true,
+      "options": null,
+      "section": "Questions",
+      "extraction_source": "provider_schema"
+    },
+    {
+      "position": 19,
+      "external_field_id": "c93f9e84-1fa0-41d7-a3cd-eaf976a5353b",
+      "raw_label": "If yes, please specify the jurisdiction (state, province, or country) and provide details about your agreements:",
+      "label_source": "provider_schema",
+      "control_type": "textarea",
+      "required": false,
+      "options": null,
+      "section": "Questions",
+      "extraction_source": "provider_schema"
+    },
+    {
+      "position": 20,
+      "external_field_id": "cc01350d-c397-465a-981f-b7b4e38e1fed",
+      "raw_label": "Are you currently legally authorized to work in the United States?",
+      "label_source": "provider_schema",
+      "control_type": "yes_no",
+      "required": true,
+      "options": null,
+      "section": "Questions",
+      "extraction_source": "provider_schema"
+    },
+    {
+      "position": 21,
+      "external_field_id": "0f8dfb66-ee41-4d06-b101-756910ed22b5",
+      "raw_label": "Will you now or in the future require NerdWallet to sponsor or provide immigration-related support for you to begin or continue employment?",
+      "label_source": "provider_schema",
+      "control_type": "yes_no",
+      "required": true,
+      "options": null,
+      "section": "Questions",
+      "extraction_source": "provider_schema"
+    },
+    {
+      "position": 22,
+      "external_field_id": "3a343d7d-5334-4437-b573-4b3b2c60d4fd",
+      "raw_label": "I identify my gender as: (Select one)",
+      "label_source": "provider_schema",
+      "control_type": "select",
+      "required": false,
+      "options": [
+        "Woman",
+        "Man",
+        "Non-binary / third gender (Inclusive of bigender, agender, androgynous, gender fluid, gender non-conforming)",
+        "I prefer not to say"
+      ],
+      "section": "NerdWallet Demographic Survey",
+      "extraction_source": "provider_schema"
+    },
+    {
+      "position": 23,
+      "external_field_id": "ca2f78d2-9b38-4582-9c8f-fd5e14b29b99",
+      "raw_label": "I identify as transgender: (Select one)",
+      "label_source": "provider_schema",
+      "control_type": "select",
+      "required": false,
+      "options": [
+        "Yes",
+        "No",
+        "I prefer not to say"
+      ],
+      "section": "NerdWallet Demographic Survey",
+      "extraction_source": "provider_schema"
+    },
+    {
+      "position": 24,
+      "external_field_id": "223eb238-5614-43c8-9388-567e07aed3e0",
+      "raw_label": "I identify my sexual orientation as: (Select one)",
+      "label_source": "provider_schema",
+      "control_type": "select",
+      "required": false,
+      "options": [
+        "Asexual",
+        "Bisexual, pansexual and/or queer",
+        "Gay and/or lesbian",
+        "Heterosexual",
+        "I prefer not to say"
+      ],
+      "section": "NerdWallet Demographic Survey",
+      "extraction_source": "provider_schema"
+    },
+    {
+      "position": 25,
+      "external_field_id": "abc0664c-891b-41cc-8e98-1f44bc43cbbb",
+      "raw_label": "I identify my ethnicity as (mark all that apply):",
+      "label_source": "provider_schema",
+      "control_type": "select",
+      "required": false,
+      "options": [
+        "Asian",
+        "Black or African American",
+        "Hispanic or Latino",
+        "Native Hawaiian or Other Pacific Islander",
+        "Two or More Races",
+        "White",
+        "American Indian or Alaska Native",
+        "Not specified",
+        "I prefer not to say"
+      ],
+      "section": "NerdWallet Demographic Survey",
+      "extraction_source": "provider_schema"
+    },
+    {
+      "position": 26,
+      "external_field_id": "52e4e842-1529-4e5d-b705-cff04c66ea44",
+      "raw_label": "Veteran Status: (Select one)",
+      "label_source": "provider_schema",
+      "control_type": "select",
+      "required": false,
+      "options": [
+        "Yes, I am a veteran",
+        "No, I am not a veteran",
+        "I prefer not to say"
+      ],
+      "section": "NerdWallet Demographic Survey",
+      "extraction_source": "provider_schema"
+    },
+    {
+      "position": 27,
+      "external_field_id": "fb71a1e1-2f85-445b-a92b-de09c7ba76fd",
+      "raw_label": "I have a physical disability: (Select one)",
+      "label_source": "provider_schema",
+      "control_type": "select",
+      "required": false,
+      "options": [
+        "Yes",
+        "No",
+        "I prefer not to say"
+      ],
+      "section": "NerdWallet Demographic Survey",
+      "extraction_source": "provider_schema"
+    },
+    {
+      "position": 28,
+      "external_field_id": "_systemfield_data_consent_ack",
+      "raw_label": null,
+      "label_source": "unresolved",
+      "control_type": "select",
+      "required": false,
+      "options": [
+        "I agree"
+      ],
+      "section": null,
+      "extraction_source": "provider_schema"
+    }
+  ],
+  "warnings": [
+    "provider_schema_only",
+    "visibility_not_established",
+    "conditional_logic_not_in_schema",
+    "unlabelled_control",
+    "application_limit_notice"
+  ]
+}

@@ -10,11 +10,14 @@ const files = readdirSync(src).filter((f) => f.endsWith('.js'));
 
 test('there are adapter sources to check', () => assert.ok(files.length >= 6, files.join(',')));
 
-test('every import is a sibling, the pure lexicon, or node:crypto', () => {
+// result.js is the contract's enum mirror and has no imports of its own (asserted below).
+test('result.js itself imports nothing', () => assert.equal(/^\s*import\b/m.test(readFileSync(path.join(src, '..', '..', 'result.js'), 'utf8')), false));
+
+test('every import is a sibling, the pure lexicon or result constants, or node:crypto', () => {
     for (const f of files) {
         const text = readFileSync(path.join(src, f), 'utf8');
         for (const m of text.matchAll(/^\s*(?:import|export)\b[^'"\n]*?from\s+['"]([^'"]+)['"]/gm)) {
-            assert.ok(/^\.\/[a-z-]+\.js$/.test(m[1]) || m[1] === '../../discovery/lexicon.js' || m[1] === 'node:crypto', `${f} imports ${m[1]}`);
+            assert.ok(/^\.\/[a-z-]+\.js$/.test(m[1]) || m[1] === '../../discovery/lexicon.js' || m[1] === '../../result.js' || m[1] === 'node:crypto', `${f} imports ${m[1]}`);
         }
         assert.equal(/\bimport\s*\(/.test(text), false, `${f} uses dynamic import`);
         assert.equal(/\brequire\s*\(/.test(text), false, `${f} uses require`);

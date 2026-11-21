@@ -11,15 +11,34 @@ export type WorkflowRunStatus =
     | 'failed'
     | 'cancelled';
 
+/** Mirrors App\Enums\ApplicationQuestionLabelSource (kept in step by WorkerContractSyncTest's worker diff). */
+export type QuestionLabelSource =
+    | 'dom_label_for'
+    | 'dom_wrapping_label'
+    | 'dom_aria_label'
+    | 'dom_aria_labelledby'
+    | 'dom_placeholder'
+    | 'inferred_proximity'
+    /** The title the provider form schema declares. No rendered page was read. */
+    | 'provider_schema'
+    | 'unresolved';
+
+/** Mirrors App\Enums\ApplicationQuestionExtractionSource. 'provider_schema' = reported by the provider, not observed on a page: it says nothing about visibility. */
+export type QuestionExtractionSource =
+    | 'dom'
+    | 'aria'
+    | 'both'
+    | 'provider_schema';
+
 export type ApplicationQuestionView = {
     position: number;
     raw_label: string | null;
-    label_source: string;
+    label_source: QuestionLabelSource;
     control_type: string;
     required: boolean | null;
     options: string[] | null;
     section: string | null;
-    extraction_source: string;
+    extraction_source: QuestionExtractionSource;
 };
 
 export type InspectionWorkflowRun = {

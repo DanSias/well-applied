@@ -9,6 +9,7 @@ export { parseAshbyJobUrl } from './target.js';
 export { buildRequest, validateRequestBody, AshbyRequestError } from './request.js';
 export { validateOrganizationResponse, validateJobPostingResponse, MAX_RESPONSE_CHARS } from './response.js';
 export { mapAshbyForm } from './map.js';
+export { toContractResult, AshbyContractError } from './contract.js';
 export { APPROVED_OPERATIONS, hashDocument } from './documents.js';
 
 /**

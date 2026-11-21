@@ -32,7 +32,17 @@ validation; reCAPTCHA behaviour (only that an action is declared); that the auto
 it). Yes/No options for Boolean fields are `implied_by_type`. An untitled field stays unlabelled. An unseen field type is kept as
 `unknown` and flagged, so a result with unknown types must not be reported as complete.
 
-It does **not** map to the worker->Laravel contract: that `label_source` enum has no provider-schema value.
+## Contract mapping (`contract.js`)
+`toContractResult()` reduces the controls to the EXISTING worker->Laravel result contract (no new keys). Fields carry
+`label_source: provider_schema` (or `unresolved` with no label for an untitled field) and `extraction_source: provider_schema`,
+so a provider-reported field is never recorded as DOM-observed. The result is `partial`, with no URLs, and its warnings say
+`provider_schema_only` and `visibility_not_established`. Sensitivity, widget, visibility, conditional wording, the application/survey
+form and coverage are returned beside the result as `internal`; they are NOT sent or persisted. Laravel validates and persists the
+committed snapshot in `tests/Feature/ApplicationInspection/AshbyContractTest.php`.
+
+Limits of the current data model: no column for the application/survey form (only the section title survives, and the untitled
+survey section is null), for sensitivity, for widget, or for per-field visibility; `options` stores labels only (no values); `yes_no`
+options are implied, not stored.
 
 ## Evidence
 `test/fixtures/ashby/` holds sanitized, deterministic fixtures from one real capture (`test/support/ashby-sanitize-capture.mjs`),
@@ -45,7 +55,7 @@ The minimal headers a live call needs; other Ashby organizations and custom job-
 whether the AI-box container egress allows a non-browser POST; stability of the documents over time.
 
 ## Proposed next integration gate (needs separate approval)
-1. Add a provider-schema label source to the Laravel enums and `WorkerContractSyncTest`, with a mapper-to-contract adapter and tests.
+1. ~~Provider-schema label source and contract adapter~~ (done, offline).
 2. Add a separate transport module behind a new default-off flag: host-pinned, `buildRequest()` only, no cookies or redirects,
    size/time caps, one attempt, and a network-policy review for the AI-box container.
 3. Only then one supervised inspection of job 258, compared against the golden.

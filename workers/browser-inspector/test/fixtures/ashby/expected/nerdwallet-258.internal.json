@@ -1,0 +1,809 @@
+{
+  "internal": [
+    {
+      "position": 0,
+      "schema_id": "999b4c45-fa0a-4162-b5f2-5fb3ac37655e",
+      "form": "application_form",
+      "form_index": 0,
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "widget": "not_established_from_schema",
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[0].fieldEntries[0]",
+        "schema_type": "String"
+      }
+    },
+    {
+      "position": 1,
+      "schema_id": "7d1eed13-02ff-464f-ae66-f91aea35f4e6",
+      "form": "application_form",
+      "form_index": 0,
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "widget": "not_established_from_schema",
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[0].fieldEntries[1]",
+        "schema_type": "String"
+      }
+    },
+    {
+      "position": 2,
+      "schema_id": "ba655461-f807-49dc-a6af-e1e01c6035a4",
+      "form": "application_form",
+      "form_index": 0,
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "widget": "not_established_from_schema",
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[0].fieldEntries[2]",
+        "schema_type": "Email"
+      }
+    },
+    {
+      "position": 3,
+      "schema_id": "ff503dd0-493e-4384-a236-41c1cc2b9bcc",
+      "form": "application_form",
+      "form_index": 0,
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "widget": "not_established_from_schema",
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[0].fieldEntries[3]",
+        "schema_type": "Phone"
+      }
+    },
+    {
+      "position": 4,
+      "schema_id": "e7e628ce-0f46-48c9-81bd-cf35016f96ef",
+      "form": "application_form",
+      "form_index": 0,
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "widget": "not_established_from_schema",
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[0].fieldEntries[4]",
+        "schema_type": "File"
+      }
+    },
+    {
+      "position": 5,
+      "schema_id": "9bf4f309-c431-46fd-b05c-4d4525889f33",
+      "form": "application_form",
+      "form_index": 0,
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "widget": "not_established_from_schema",
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[0].fieldEntries[5]",
+        "schema_type": "File"
+      }
+    },
+    {
+      "position": 6,
+      "schema_id": "ce0d70fc-58d4-422f-bb8f-9b5ba77e7c0f",
+      "form": "application_form",
+      "form_index": 0,
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "widget": "not_established_from_schema",
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[0].fieldEntries[6]",
+        "schema_type": "String"
+      }
+    },
+    {
+      "position": 7,
+      "schema_id": "2e2cb473-8702-464c-9d04-d2d7071a7c44",
+      "form": "application_form",
+      "form_index": 0,
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "widget": "not_established_from_schema",
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[1].fieldEntries[0]",
+        "schema_type": "String"
+      }
+    },
+    {
+      "position": 8,
+      "schema_id": "753010f3-edf6-46ff-b25b-3d9859ddd56c",
+      "form": "application_form",
+      "form_index": 0,
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "widget": "not_established_from_schema",
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[1].fieldEntries[1]",
+        "schema_type": "String"
+      }
+    },
+    {
+      "position": 9,
+      "schema_id": "c61a248b-3148-44f0-bef0-d3514a15b56f",
+      "form": "application_form",
+      "form_index": 0,
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "widget": "not_established_from_schema",
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[2].fieldEntries[0]",
+        "schema_type": "Boolean"
+      }
+    },
+    {
+      "position": 10,
+      "schema_id": "33732088-7b86-40e4-b985-65eab5b4d78d",
+      "form": "application_form",
+      "form_index": 0,
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "widget": "not_established_from_schema",
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[2].fieldEntries[1]",
+        "schema_type": "String"
+      }
+    },
+    {
+      "position": 11,
+      "schema_id": "d87c43ba-098e-4899-8682-03610ec03937",
+      "form": "application_form",
+      "form_index": 0,
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "widget": "not_established_from_schema",
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[2].fieldEntries[2]",
+        "schema_type": "Boolean"
+      }
+    },
+    {
+      "position": 12,
+      "schema_id": "9a5c209d-a136-4f34-96fd-6fe79c872e3f",
+      "form": "application_form",
+      "form_index": 0,
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "widget": "not_established_from_schema",
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[2].fieldEntries[3]",
+        "schema_type": "String"
+      }
+    },
+    {
+      "position": 13,
+      "schema_id": "d65f1faa-7153-48f7-aed8-3d2f4300f73b",
+      "form": "application_form",
+      "form_index": 0,
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "widget": "not_established_from_schema",
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[3].fieldEntries[0]",
+        "schema_type": "LongText"
+      }
+    },
+    {
+      "position": 14,
+      "schema_id": "5ad65bf0-3288-473e-9453-265bf296e54b",
+      "form": "application_form",
+      "form_index": 0,
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "widget": "not_established_from_schema",
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[3].fieldEntries[1]",
+        "schema_type": "Boolean"
+      }
+    },
+    {
+      "position": 15,
+      "schema_id": "201ce8d7-006d-4e85-8f20-49550ba6c0e2",
+      "form": "application_form",
+      "form_index": 0,
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "widget": "not_established_from_schema",
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[3].fieldEntries[2]",
+        "schema_type": "ValueSelect"
+      }
+    },
+    {
+      "position": 16,
+      "schema_id": "d309fd9c-9a7b-44a4-84f8-0bfcb2028f6e",
+      "form": "application_form",
+      "form_index": 0,
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "widget": "not_established_from_schema",
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": {
+        "state": "label_wording_only",
+        "matched": "if"
+      },
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[3].fieldEntries[3]",
+        "schema_type": "String"
+      }
+    },
+    {
+      "position": 17,
+      "schema_id": "bcc3e11d-0971-4a07-b7c0-ffac3fab2a9a",
+      "form": "application_form",
+      "form_index": 0,
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "widget": "not_established_from_schema",
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[3].fieldEntries[4]",
+        "schema_type": "Boolean"
+      }
+    },
+    {
+      "position": 18,
+      "schema_id": "2d339f5f-cf65-4bca-b909-2dcfcb48ae86",
+      "form": "application_form",
+      "form_index": 0,
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "widget": "not_established_from_schema",
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[3].fieldEntries[5]",
+        "schema_type": "Boolean"
+      }
+    },
+    {
+      "position": 19,
+      "schema_id": "c93f9e84-1fa0-41d7-a3cd-eaf976a5353b",
+      "form": "application_form",
+      "form_index": 0,
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "widget": "not_established_from_schema",
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": {
+        "state": "label_wording_only",
+        "matched": "if"
+      },
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[3].fieldEntries[6]",
+        "schema_type": "LongText"
+      }
+    },
+    {
+      "position": 20,
+      "schema_id": "cc01350d-c397-465a-981f-b7b4e38e1fed",
+      "form": "application_form",
+      "form_index": 0,
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "widget": "not_established_from_schema",
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[3].fieldEntries[7]",
+        "schema_type": "Boolean"
+      }
+    },
+    {
+      "position": 21,
+      "schema_id": "0f8dfb66-ee41-4d06-b101-756910ed22b5",
+      "form": "application_form",
+      "form_index": 0,
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "widget": "not_established_from_schema",
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "applicationForm.sections[3].fieldEntries[8]",
+        "schema_type": "Boolean"
+      }
+    },
+    {
+      "position": 22,
+      "schema_id": "fd284fc1-b189-44ba-90f0-a43d880939c8",
+      "form": "survey_form",
+      "form_index": 0,
+      "sensitive": {
+        "value": true,
+        "basis": "section",
+        "confidence": "structural",
+        "matched": "NerdWallet Demographic Survey"
+      },
+      "widget": "not_established_from_schema",
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "surveyForms[0].sections[0].fieldEntries[0]",
+        "schema_type": "ValueSelect"
+      }
+    },
+    {
+      "position": 23,
+      "schema_id": "8fa77887-80a7-4c93-bbb9-dafde5d7ff08",
+      "form": "survey_form",
+      "form_index": 0,
+      "sensitive": {
+        "value": true,
+        "basis": "section",
+        "confidence": "structural",
+        "matched": "NerdWallet Demographic Survey"
+      },
+      "widget": "not_established_from_schema",
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "surveyForms[0].sections[0].fieldEntries[1]",
+        "schema_type": "ValueSelect"
+      }
+    },
+    {
+      "position": 24,
+      "schema_id": "49cbdb15-f208-4a22-9454-612029de473b",
+      "form": "survey_form",
+      "form_index": 0,
+      "sensitive": {
+        "value": true,
+        "basis": "section",
+        "confidence": "structural",
+        "matched": "NerdWallet Demographic Survey"
+      },
+      "widget": "not_established_from_schema",
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "surveyForms[0].sections[0].fieldEntries[2]",
+        "schema_type": "ValueSelect"
+      }
+    },
+    {
+      "position": 25,
+      "schema_id": "e1ffb9f2-bf77-47eb-ae62-03e1b6d11fa6",
+      "form": "survey_form",
+      "form_index": 0,
+      "sensitive": {
+        "value": true,
+        "basis": "section",
+        "confidence": "structural",
+        "matched": "NerdWallet Demographic Survey"
+      },
+      "widget": "not_established_from_schema",
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "surveyForms[0].sections[0].fieldEntries[3]",
+        "schema_type": "MultiValueSelect"
+      }
+    },
+    {
+      "position": 26,
+      "schema_id": "15069405-9747-4d4d-be8b-be7b1f508f22",
+      "form": "survey_form",
+      "form_index": 0,
+      "sensitive": {
+        "value": true,
+        "basis": "section",
+        "confidence": "structural",
+        "matched": "NerdWallet Demographic Survey"
+      },
+      "widget": "not_established_from_schema",
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "surveyForms[0].sections[0].fieldEntries[4]",
+        "schema_type": "ValueSelect"
+      }
+    },
+    {
+      "position": 27,
+      "schema_id": "e195313d-9629-4482-8d27-ffb7f9b417f6",
+      "form": "survey_form",
+      "form_index": 0,
+      "sensitive": {
+        "value": true,
+        "basis": "section",
+        "confidence": "structural",
+        "matched": "NerdWallet Demographic Survey"
+      },
+      "widget": "not_established_from_schema",
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "surveyForms[0].sections[0].fieldEntries[5]",
+        "schema_type": "ValueSelect"
+      }
+    },
+    {
+      "position": 28,
+      "schema_id": "624754ba-e93a-45ad-a967-26d16ba3b238",
+      "form": "survey_form",
+      "form_index": 1,
+      "sensitive": {
+        "value": false,
+        "basis": null,
+        "confidence": null,
+        "matched": null
+      },
+      "widget": "not_established_from_schema",
+      "visibility": {
+        "state": "not_established_from_schema",
+        "basis": "schema_has_no_render_state"
+      },
+      "conditional_hint": null,
+      "provenance": {
+        "source": "provider_schema",
+        "provider": "ashby",
+        "operation": "ApiJobPosting",
+        "path": "surveyForms[1].sections[0].fieldEntries[0]",
+        "schema_type": "MultiValueSelect"
+      }
+    }
+  ],
+  "coverage": {
+    "application_form_fields": 22,
+    "survey_fields": 7,
+    "total": 29,
+    "required_declared": 18,
+    "required_application_form": 18,
+    "required_survey_form": 0,
+    "sensitive_flagged": 6,
+    "hidden_by_schema": 0,
+    "unknown_types": 0,
+    "unlabelled": 1,
+    "by_type": {
+      "Boolean": 7,
+      "Email": 1,
+      "File": 2,
+      "LongText": 2,
+      "MultiValueSelect": 2,
+      "Phone": 1,
+      "String": 8,
+      "ValueSelect": 6
+    },
+    "sections": [
+      {
+        "form": "application_form",
+        "form_index": 0,
+        "title": "Personal Information",
+        "fields": 7,
+        "hidden": false
+      },
+      {
+        "form": "application_form",
+        "form_index": 0,
+        "title": "Links",
+        "fields": 2,
+        "hidden": false
+      },
+      {
+        "form": "application_form",
+        "form_index": 0,
+        "title": "Role-Specific Questions",
+        "fields": 4,
+        "hidden": false
+      },
+      {
+        "form": "application_form",
+        "form_index": 0,
+        "title": "Questions",
+        "fields": 9,
+        "hidden": false
+      },
+      {
+        "form": "survey_form",
+        "form_index": 0,
+        "title": "NerdWallet Demographic Survey",
+        "fields": 6,
+        "hidden": false
+      },
+      {
+        "form": "survey_form",
+        "form_index": 1,
+        "title": null,
+        "fields": 1,
+        "hidden": false
+      }
+    ],
+    "not_established": [
+      "visibility_on_page",
+      "collapsed_or_expanded",
+      "conditional_rules",
+      "widget_used",
+      "render_order_on_page",
+      "submit_time_validation"
+    ]
+  }
+}

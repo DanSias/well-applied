@@ -10,7 +10,10 @@ import {
     runOf,
     stateOf,
 } from '@/lib/inspection-test-data';
-import type { ApplicationInspectionState } from '@/types/application-inspection';
+import type {
+    ApplicationInspectionState,
+    ApplicationQuestionView,
+} from '@/types/application-inspection';
 import { InspectionDrawer, workspaceDestination } from './inspection-drawer';
 
 const starterOf = (
@@ -37,7 +40,10 @@ const render = (
         />,
     );
 
-const question = (position: number, label: string) => ({
+const question = (
+    position: number,
+    label: string,
+): ApplicationQuestionView => ({
     position,
     raw_label: label,
     label_source: 'dom_label_for',

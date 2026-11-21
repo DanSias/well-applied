@@ -14,4 +14,6 @@ enum ApplicationQuestionExtractionSource: string
     case Dom = 'dom';
     case Aria = 'aria';
     case Both = 'both';
+    /** Reported by the provider's form schema rather than observed in a rendered page: it establishes no visibility. */
+    case ProviderSchema = 'provider_schema';
 }

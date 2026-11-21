@@ -21,6 +21,8 @@ export const LabelSource = Object.freeze({
     DomAriaLabelledby: 'dom_aria_labelledby',
     DomPlaceholder: 'dom_placeholder',
     InferredProximity: 'inferred_proximity',
+    // The label is the title the provider's own form schema declares; no page was read. See src/providers/ashby/.
+    ProviderSchema: 'provider_schema',
     Unresolved: 'unresolved',
 });
 
@@ -28,6 +30,8 @@ export const ExtractionSource = Object.freeze({
     Dom: 'dom',
     Aria: 'aria',
     Both: 'both',
+    // The field was reported by the provider's schema, not observed in a rendered page: it says nothing about visibility.
+    ProviderSchema: 'provider_schema',
 });
 
 export const InspectionOutcome = Object.freeze({
