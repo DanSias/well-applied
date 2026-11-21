@@ -2,9 +2,9 @@
   "after": {
     "configuration": "generic-on",
     "inspector": {
-      "commit": "ac897f9d39ab23a4fc3c11fdaa08f147b8b85924",
+      "commit": "74918d602f16358426c49a7c29aceb70c39e6405",
       "source_sha256": "2bb7c6759b43d336111a01a7216471dc1a46e353dd7a38ac7dd26ed8447331ad",
-      "source_tree_modified": true
+      "source_tree_modified": false
     },
     "manifest": {
       "schema": "eval-manifest/1",
@@ -15,9 +15,9 @@
   "before": {
     "configuration": "generic-off",
     "inspector": {
-      "commit": "ac897f9d39ab23a4fc3c11fdaa08f147b8b85924",
+      "commit": "74918d602f16358426c49a7c29aceb70c39e6405",
       "source_sha256": "2bb7c6759b43d336111a01a7216471dc1a46e353dd7a38ac7dd26ed8447331ad",
-      "source_tree_modified": true
+      "source_tree_modified": false
     },
     "manifest": {
       "schema": "eval-manifest/1",
