@@ -65,19 +65,64 @@ final class HimalayasLivenessInterpreter
         return $out;
     }
 
-    /** Unix seconds (as the feed gives them) or an ISO date; anything else is no expiry at all. */
-    public static function parseExpiry(mixed $value): ?CarbonImmutable
-    {
-        try {
-            if (is_int($value) || (is_string($value) && ctype_digit($value))) {
-                $n = (int) $value;
+    private const SECONDS_MIN = 946684800;      // 2000-01-01
 
-                return $n > 946684800 && $n < 4102444800 ? CarbonImmutable::createFromTimestampUTC($n) : null;
+    private const SECONDS_MAX = 4102444800;     // 2100-01-01
+
+    /**
+     * The ONE reading of a provider `expiryDate`, as integer epoch SECONDS, or null (= unknown, never expired). Himalayas documents Unix seconds. Accepted, and nothing else:
+     *   - an integer, or a string of digits, in the seconds range 2000-01-01 .. 2100-01-01 (taken as seconds);
+     *   - an integer or digit string in the same range expressed in MILLISECONDS (13 digits; it cannot be read as seconds: that would be the year 33000+), divided by 1000;
+     *   - an integral float in either range (JSON `1.795e9`);
+     *   - an ISO-8601 date-time WITH an explicit offset (`Z` or `+hh:mm`), within the seconds range.
+     * Everything else is unknown: zero, negatives, a number between the two ranges (ambiguous: neither seconds nor milliseconds), a date without a time or an offset (its
+     * moment depends on a time zone nobody stated), words, arrays, booleans. "Unknown" never expires a job.
+     */
+    public static function normalizeExpiry(mixed $value): ?int
+    {
+        if (is_float($value)) {
+            if (! is_finite($value) || floor($value) !== $value || abs($value) > 9.0e15) {
+                return null;
+            }
+            $value = (int) $value;
+        }
+        if (is_string($value) && preg_match('/^\d{1,15}$/', $value) === 1) {
+            $value = (int) $value;
+        }
+        if (is_int($value)) {
+            return match (true) {
+                $value >= self::SECONDS_MIN && $value <= self::SECONDS_MAX => $value,
+                $value >= self::SECONDS_MIN * 1000 && $value <= self::SECONDS_MAX * 1000 => intdiv($value, 1000),
+                default => null,
+            };
+        }
+        if (is_string($value) && preg_match('/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d{1,9})?)?(Z|[+-]\d{2}:?\d{2})$/', trim($value)) === 1) {
+            try {
+                $t = CarbonImmutable::parse(trim($value))->getTimestamp();
+            } catch (Throwable) {
+                return null;
             }
 
-            return is_string($value) && trim($value) !== '' ? CarbonImmutable::parse($value) : null;
-        } catch (Throwable) {
-            return null;
+            return $t >= self::SECONDS_MIN && $t <= self::SECONDS_MAX ? $t : null;
         }
+
+        return null;
+    }
+
+    /** @see normalizeExpiry */
+    public static function parseExpiry(mixed $value): ?CarbonImmutable
+    {
+        $seconds = self::normalizeExpiry($value);
+
+        return $seconds === null ? null : CarbonImmutable::createFromTimestampUTC($seconds);
+    }
+
+    /**
+     * What a STORED `discovery.expiryDate` may mean to the freshness surfaces: only an integer in the seconds range, because that is what ingestion now stores and what the
+     * Inbox and Home SQL filters can compare. Any other stored form (a legacy string, milliseconds) is unknown to BOTH the filters and the badge, so they never disagree.
+     */
+    public static function storedSeconds(mixed $stored): ?int
+    {
+        return is_int($stored) && $stored >= self::SECONDS_MIN && $stored <= self::SECONDS_MAX ? $stored : null;
     }
 }

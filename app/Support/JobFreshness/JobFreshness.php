@@ -31,7 +31,7 @@ final class JobFreshness
 
         // Himalayas states its own expiry on every job; a passed date is known expiry without any request.
         if ($job->discovery_source === JobDiscoverySource::Himalayas) {
-            $stored = $metadata['discovery']['expiryDate'] ?? null;
+            $stored = HimalayasLivenessInterpreter::storedSeconds($metadata['discovery']['expiryDate'] ?? null);
             foreach ((new HimalayasLivenessInterpreter)->interpret($stored, null, $now) as $o) {
                 $observations[] = $o;
             }

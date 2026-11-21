@@ -6,6 +6,7 @@ use App\Enums\DescriptionCompleteness;
 use App\Enums\JobDiscoverySource;
 use App\Enums\JobRemoteStatus;
 use App\Support\JobDiscovery\DiscoveredJobCandidate;
+use App\Support\JobFreshness\HimalayasLivenessInterpreter;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
@@ -153,7 +154,8 @@ final class HimalayasDiscoveryProvider implements DiscoveryProviderContract, Rep
             sourceUpdatedAt: null,
             discoveredAt: now(),
             sourceMetadata: array_filter([
-                'expiryDate' => $job['expiryDate'] ?? null,
+                // Stored as integer epoch SECONDS (the one form the Inbox/Home filters and the freshness badge both read); an ambiguous or malformed value is dropped (unknown, never expired).
+                'expiryDate' => HimalayasLivenessInterpreter::normalizeExpiry($job['expiryDate'] ?? null),
                 'locationRestrictions' => $job['locationRestrictions'] ?? null,
                 'seniority' => $job['seniority'] ?? null,
                 'categories' => $job['categories'] ?? null,

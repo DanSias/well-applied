@@ -37,7 +37,7 @@ it('reads the expiry as unix seconds, an ISO date or a digit string, and ignores
     expect(count(frHimalayas($value, null)) === 1)->toBe($expired);
 })->with([
     'unix seconds' => [1795000000, true], 'digit string' => ['1795000000', true], 'ISO date' => ['2026-11-01T00:00:00Z', true], 'future ISO' => ['2027-01-01T00:00:00Z', false],
-    'zero' => [0, false], 'negative' => [-5, false], 'milliseconds-sized number' => [1795000000000, false], 'garbage' => ['soon', false], 'array' => [['x'], false], 'null' => [null, false], 'empty' => ['', false],
+    'zero' => [0, false], 'negative' => [-5, false], 'milliseconds (13 digits, normalised to seconds)' => [1795000000000, true], 'ambiguous between seconds and milliseconds' => [17950000000, false], 'garbage' => ['soon', false], 'array' => [['x'], false], 'null' => [null, false], 'empty' => ['', false],
 ]);
 
 it('interprets each documented endpoint answer', function (array $check, string $result, string $basis) {
