@@ -100,7 +100,9 @@ record the change was intended. Bump `manifest_version` when cases or evidence c
 - Sensitivity, widget and options accuracy are not scored (the data model does not persist them).
 - Job normalisation, duplicate handling and source quality are not evaluated (no committed ground truth; Stage 1).
 
-## Stage 1: selecting about 30 representative jobs (not started; separate approval)
+## Stage 1: selecting about 30 representative jobs
+
+A **proposed** cohort now exists in `cohort/` (see `cohort/README.md`); it authorises nothing and nothing has run against it. The original plan follows.
 
 1. A **read-only export** of candidate jobs from Well Applied's discovery data to a local file, run by the owner, with
    no write path back. Only source, ATS host, normalised URL and a hashed company slug are kept; no descriptions, no personal data.

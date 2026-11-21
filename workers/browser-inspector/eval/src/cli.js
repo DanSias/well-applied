@@ -9,6 +9,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stableJson } from './canon.js';
 import { compareReports, renderComparison } from './compare.js';
+import { composition, renderComposition, validateCohort } from './cohort.js';
 import { renderMarkdown } from './render.js';
 import { runEvaluation } from './run.js';
 
@@ -23,7 +24,7 @@ for (let i = 0; i < rest.length; i++) {
     } else positional.push(rest[i]);
 }
 const usage = (m) => {
-    console.error(`${m}\nUsage: cli.js run --config <name> --out <dir> [--inspector-commit <sha>] | cli.js compare <a/report.json> <b/report.json> [--out <dir>] [--fail-on-regression]`);
+    console.error(`${m}\nUsage: cli.js run --config <name> --out <dir> [--inspector-commit <sha>] | cli.js cohort <manifest.json> [--out <dir>] | cli.js compare <a/report.json> <b/report.json> [--out <dir>] [--fail-on-regression]`);
     process.exit(2);
 };
 const write = (dir, name, text) => {
@@ -47,4 +48,14 @@ if (command === 'run') {
         write(path.resolve(flags.out), 'compare.md', renderComparison(c));
     } else process.stdout.write(renderComparison(c));
     process.exit(flags['fail-on-regression'] && c.summary.regressed > 0 ? 1 : 0);
+} else if (command === 'cohort') {
+    if (positional.length !== 1) usage('cohort needs one cohort manifest path');
+    const m = JSON.parse(readFileSync(path.resolve(positional[0]), 'utf8'));
+    const errors = validateCohort(m);
+    const c = composition(m);
+    if (flags.out) {
+        write(path.resolve(flags.out), 'composition.json', stableJson({ ...c, validation_errors: errors }));
+        write(path.resolve(flags.out), 'composition.md', renderComposition(c, errors));
+    } else process.stdout.write(renderComposition(c, errors));
+    process.exit(errors.length ? 3 : 0);
 } else usage('unknown command');

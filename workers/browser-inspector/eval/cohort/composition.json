@@ -1,0 +1,138 @@
+{
+  "by_application_url_status": {
+    "known_direct": 15,
+    "not_applicable": 2,
+    "unresolved": 13
+  },
+  "by_expected_platform": {
+    "ashby": 2,
+    "eightfold": 4,
+    "greenhouse": 4,
+    "lever": 3,
+    "smartrecruiters": 2,
+    "unknown": 15,
+    "workable": 1,
+    "workday": 1
+  },
+  "by_ground_truth_plan": {
+    "existing": 2,
+    "hand_review": 10,
+    "none": 18,
+    "provider_schema": 2
+  },
+  "by_listing_url_kind": {
+    "aggregator_listing": 13,
+    "employer_ats": 15,
+    "none": 1,
+    "third_party_or_unknown": 1
+  },
+  "by_provenance": {
+    "curated_external": 10,
+    "production_discovery": 20,
+    "stage0_existing": 2
+  },
+  "by_source": {
+    "adzuna": 5,
+    "curated_external": 10,
+    "eightfold": 4,
+    "himalayas": 2,
+    "jobicy": 6,
+    "manual": 3,
+    "stage0": 2
+  },
+  "by_stratum": {
+    "aggregator_adzuna": 3,
+    "aggregator_himalayas": 2,
+    "aggregator_jobicy": 2,
+    "carried_from_stage0": 2,
+    "direct_ats_ashby": 1,
+    "direct_ats_eightfold": 4,
+    "duplicate_pair_adzuna": 2,
+    "duplicate_pair_jobicy": 4,
+    "external_greenhouse": 3,
+    "external_lever": 3,
+    "external_smartrecruiters": 2,
+    "external_workable": 1,
+    "external_workday": 1,
+    "negative_no_url": 1,
+    "negative_third_party_manual": 1
+  },
+  "cohort_version": "0.1.0-proposed",
+  "curated_external_cases": 10,
+  "duplicate_pairs": {
+    "dup-adzuna-1": [
+      "prod-355",
+      "prod-356"
+    ],
+    "dup-jobicy-1": [
+      "prod-40",
+      "prod-109"
+    ],
+    "dup-jobicy-2": [
+      "prod-41",
+      "prod-110"
+    ]
+  },
+  "hand_review_cases": [
+    "prod-2",
+    "prod-83",
+    "prod-148",
+    "prod-150",
+    "prod-180",
+    "prod-246",
+    "ext-lever-palantir-7d75bed5",
+    "ext-smartrecruiters-smartrecruiters-743999873519601",
+    "ext-workday-workday-JR-0107781",
+    "ext-lever-leverdemo-835f5c45"
+  ],
+  "negative_controls": [
+    "prod-1",
+    "prod-104",
+    "ext-greenhouse-greenplaces-4461030008",
+    "ext-workable-careers-5656BF6FBE"
+  ],
+  "new_cases": 30,
+  "platform_by_provenance": {
+    "ashby": {
+      "production_discovery": 1,
+      "stage0_existing": 1
+    },
+    "eightfold": {
+      "production_discovery": 4
+    },
+    "greenhouse": {
+      "curated_external": 3,
+      "stage0_existing": 1
+    },
+    "lever": {
+      "curated_external": 3
+    },
+    "smartrecruiters": {
+      "curated_external": 2
+    },
+    "workable": {
+      "curated_external": 1
+    },
+    "workday": {
+      "curated_external": 1
+    }
+  },
+  "platforms_with_no_case": [],
+  "platforms_with_only_unverified_or_demo_cases": [
+    "lever",
+    "workday",
+    "workable",
+    "smartrecruiters"
+  ],
+  "production_cases": 20,
+  "schema": "eval-cohort-composition/1",
+  "stale_candidates": [
+    "prod-310",
+    "prod-324",
+    "prod-355",
+    "ext-greenhouse-greenplaces-4461030008",
+    "ext-workable-careers-5656BF6FBE"
+  ],
+  "total_cases": 32,
+  "validation_errors": []
+}

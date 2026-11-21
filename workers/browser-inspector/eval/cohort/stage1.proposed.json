@@ -1,0 +1,967 @@
+{
+  "schema": "eval-cohort/1",
+  "status": "proposed",
+  "cohort_version": "0.1.0-proposed",
+  "purpose": "A PROPOSED Stage 1 cohort. It authorises nothing: no discovery, resolution, inspection or application preparation.",
+  "selection": {
+    "seed": 20261121,
+    "procedure": "eval/cohort/select-from-database.py (read-only) plus eval/cohort/external-candidates.json (hand-curated)",
+    "database_snapshot": {
+      "job_postings": 412,
+      "excluded_because_an_application_exists": 10,
+      "max_job_posting_id": 412
+    },
+    "note": "Jobs that have an Application are excluded: pursued jobs are personal history, not a representative sample."
+  },
+  "cases": [
+    {
+      "id": "prod-1",
+      "provenance": "production_discovery",
+      "record_ref": {
+        "job_posting_id": 1,
+        "url_sha256": null,
+        "host": null,
+        "url_shape": null
+      },
+      "source": "manual",
+      "stratum": "negative_no_url",
+      "listing_url_kind": "none",
+      "application_url": {
+        "status": "not_applicable",
+        "value": null,
+        "basis": "no usable URL"
+      },
+      "expected_platform": {
+        "v": null,
+        "status": "unknown_until_destination_resolved"
+      },
+      "flags": {
+        "negative_control": true,
+        "age_days": 51
+      },
+      "liveness": "unverified",
+      "ground_truth": {
+        "plan": "none",
+        "rationale": "scored on URL resolution, platform and outcome classification only"
+      }
+    },
+    {
+      "id": "prod-2",
+      "provenance": "production_discovery",
+      "record_ref": {
+        "job_posting_id": 2,
+        "url_sha256": "4fd07921015ff5778f8033e10f65d65f87c6719a8d2dfdc2ce56707239cae390",
+        "host": "jobs.ashbyhq.com",
+        "url_shape": "jobs.ashbyhq.com/trm-labs/N-aNeN-NdaN-bN-N"
+      },
+      "source": "manual",
+      "stratum": "direct_ats_ashby",
+      "listing_url_kind": "employer_ats",
+      "application_url": {
+        "status": "known_direct",
+        "value_from": "record_ref",
+        "basis": "the stored URL is itself on an ATS host: a direct link, but not yet verified to be the application page"
+      },
+      "expected_platform": {
+        "v": "ashby",
+        "status": "host_derived"
+      },
+      "flags": {
+        "age_days": 51
+      },
+      "liveness": "unverified",
+      "ground_truth": {
+        "plan": "hand_review",
+        "rationale": "selected for a person-reviewed form (see README, \"Hand-reviewed ground truth\")"
+      }
+    },
+    {
+      "id": "prod-40",
+      "provenance": "production_discovery",
+      "record_ref": {
+        "job_posting_id": 40,
+        "url_sha256": "21711d65a3f41dc535889125b22479b7c7f71429900186e48f71bbb3cb7978b0",
+        "host": "jobicy.com",
+        "url_shape": "jobicy.com/jobs/N-senior-software-engineer-business-technology"
+      },
+      "source": "jobicy",
+      "stratum": "duplicate_pair_jobicy",
+      "listing_url_kind": "aggregator_listing",
+      "application_url": {
+        "status": "unresolved",
+        "value": null,
+        "basis": "an aggregator listing URL is NOT an employer application URL; the destination has never been resolved"
+      },
+      "expected_platform": {
+        "v": null,
+        "status": "unknown_until_destination_resolved"
+      },
+      "flags": {
+        "duplicate_group": "dup-jobicy-1",
+        "age_days": 52
+      },
+      "liveness": "unverified",
+      "ground_truth": {
+        "plan": "none",
+        "rationale": "scored on URL resolution, platform and outcome classification only"
+      }
+    },
+    {
+      "id": "prod-41",
+      "provenance": "production_discovery",
+      "record_ref": {
+        "job_posting_id": 41,
+        "url_sha256": "c48953f0a19f251c7725231275722c25763c5904e6666a74361cf9f52650c889",
+        "host": "jobicy.com",
+        "url_shape": "jobicy.com/jobs/N-senior-software-engineer-N"
+      },
+      "source": "jobicy",
+      "stratum": "duplicate_pair_jobicy",
+      "listing_url_kind": "aggregator_listing",
+      "application_url": {
+        "status": "unresolved",
+        "value": null,
+        "basis": "an aggregator listing URL is NOT an employer application URL; the destination has never been resolved"
+      },
+      "expected_platform": {
+        "v": null,
+        "status": "unknown_until_destination_resolved"
+      },
+      "flags": {
+        "duplicate_group": "dup-jobicy-2",
+        "age_days": 52
+      },
+      "liveness": "unverified",
+      "ground_truth": {
+        "plan": "none",
+        "rationale": "scored on URL resolution, platform and outcome classification only"
+      }
+    },
+    {
+      "id": "prod-83",
+      "provenance": "production_discovery",
+      "record_ref": {
+        "job_posting_id": 83,
+        "url_sha256": "1f113fb5bbabd64673522b9fe3dda13b69d950db54a0682d10fcf2d57a180bca",
+        "host": "himalayas.app",
+        "url_shape": "himalayas.app/companies/hercules/jobs/staff-software-engineer-data-platfo"
+      },
+      "source": "himalayas",
+      "stratum": "aggregator_himalayas",
+      "listing_url_kind": "aggregator_listing",
+      "application_url": {
+        "status": "unresolved",
+        "value": null,
+        "basis": "an aggregator listing URL is NOT an employer application URL; the destination has never been resolved"
+      },
+      "expected_platform": {
+        "v": null,
+        "status": "unknown_until_destination_resolved"
+      },
+      "flags": {
+        "age_days": 46
+      },
+      "liveness": "unverified",
+      "ground_truth": {
+        "plan": "hand_review",
+        "rationale": "selected for a person-reviewed form (see README, \"Hand-reviewed ground truth\")"
+      }
+    },
+    {
+      "id": "prod-84",
+      "provenance": "production_discovery",
+      "record_ref": {
+        "job_posting_id": 84,
+        "url_sha256": "28fb7ede2854118534ed6e1cd1c9f8587d0e23094da025b980f1569b6eb2b4b2",
+        "host": "himalayas.app",
+        "url_shape": "himalayas.app/companies/airbnb/jobs/staff-software-engineer-passport-comm"
+      },
+      "source": "himalayas",
+      "stratum": "aggregator_himalayas",
+      "listing_url_kind": "aggregator_listing",
+      "application_url": {
+        "status": "unresolved",
+        "value": null,
+        "basis": "an aggregator listing URL is NOT an employer application URL; the destination has never been resolved"
+      },
+      "expected_platform": {
+        "v": null,
+        "status": "unknown_until_destination_resolved"
+      },
+      "flags": {
+        "age_days": 46
+      },
+      "liveness": "unverified",
+      "ground_truth": {
+        "plan": "none",
+        "rationale": "scored on URL resolution, platform and outcome classification only"
+      }
+    },
+    {
+      "id": "prod-104",
+      "provenance": "production_discovery",
+      "record_ref": {
+        "job_posting_id": 104,
+        "url_sha256": "c4720d8f848c165bba02ca4fd9afc52a10a532bc3f7f24e8e3597828977598f5",
+        "host": "www.indeed.com",
+        "url_shape": "www.indeed.com/viewjob?…"
+      },
+      "source": "manual",
+      "stratum": "negative_third_party_manual",
+      "listing_url_kind": "third_party_or_unknown",
+      "application_url": {
+        "status": "not_applicable",
+        "value": null,
+        "basis": "a third-party job board, not an employer"
+      },
+      "expected_platform": {
+        "v": null,
+        "status": "unknown_until_destination_resolved"
+      },
+      "flags": {
+        "negative_control": true,
+        "age_days": 18
+      },
+      "liveness": "unverified",
+      "ground_truth": {
+        "plan": "none",
+        "rationale": "scored on URL resolution, platform and outcome classification only"
+      }
+    },
+    {
+      "id": "prod-109",
+      "provenance": "production_discovery",
+      "record_ref": {
+        "job_posting_id": 109,
+        "url_sha256": "fa0c97ecee15e0155af6b282e5b466cd34a8d095bd7943f691d553e46717aa21",
+        "host": "jobicy.com",
+        "url_shape": "jobicy.com/jobs/N-senior-software-engineer-business-technology-N"
+      },
+      "source": "jobicy",
+      "stratum": "duplicate_pair_jobicy",
+      "listing_url_kind": "aggregator_listing",
+      "application_url": {
+        "status": "unresolved",
+        "value": null,
+        "basis": "an aggregator listing URL is NOT an employer application URL; the destination has never been resolved"
+      },
+      "expected_platform": {
+        "v": null,
+        "status": "unknown_until_destination_resolved"
+      },
+      "flags": {
+        "duplicate_group": "dup-jobicy-1",
+        "age_days": 18
+      },
+      "liveness": "unverified",
+      "ground_truth": {
+        "plan": "none",
+        "rationale": "scored on URL resolution, platform and outcome classification only"
+      }
+    },
+    {
+      "id": "prod-110",
+      "provenance": "production_discovery",
+      "record_ref": {
+        "job_posting_id": 110,
+        "url_sha256": "f80a11e521643517a9e1860fa866a4c4ebfa34a4f6c4681d29667d7f93642ee8",
+        "host": "jobicy.com",
+        "url_shape": "jobicy.com/jobs/N-senior-software-engineer-N"
+      },
+      "source": "jobicy",
+      "stratum": "duplicate_pair_jobicy",
+      "listing_url_kind": "aggregator_listing",
+      "application_url": {
+        "status": "unresolved",
+        "value": null,
+        "basis": "an aggregator listing URL is NOT an employer application URL; the destination has never been resolved"
+      },
+      "expected_platform": {
+        "v": null,
+        "status": "unknown_until_destination_resolved"
+      },
+      "flags": {
+        "duplicate_group": "dup-jobicy-2",
+        "age_days": 18
+      },
+      "liveness": "unverified",
+      "ground_truth": {
+        "plan": "none",
+        "rationale": "scored on URL resolution, platform and outcome classification only"
+      }
+    },
+    {
+      "id": "prod-148",
+      "provenance": "production_discovery",
+      "record_ref": {
+        "job_posting_id": 148,
+        "url_sha256": "52c549a0006ecba5b4caf8951b783e3db9120f07beb399e7ac7dd9241347d81a",
+        "host": "lockheedmartin.eightfold.ai",
+        "url_shape": "lockheedmartin.eightfold.ai/careers/job/N"
+      },
+      "source": "eightfold",
+      "stratum": "direct_ats_eightfold",
+      "listing_url_kind": "employer_ats",
+      "application_url": {
+        "status": "known_direct",
+        "value_from": "record_ref",
+        "basis": "the stored URL is itself on an ATS host: a direct link, but not yet verified to be the application page"
+      },
+      "expected_platform": {
+        "v": "eightfold",
+        "status": "host_derived"
+      },
+      "flags": {
+        "age_days": 17
+      },
+      "liveness": "unverified",
+      "ground_truth": {
+        "plan": "hand_review",
+        "rationale": "selected for a person-reviewed form (see README, \"Hand-reviewed ground truth\")"
+      }
+    },
+    {
+      "id": "prod-150",
+      "provenance": "production_discovery",
+      "record_ref": {
+        "job_posting_id": 150,
+        "url_sha256": "1d443bdb00dba42bc778788f2f2b2ddd9e4cf41f4cb6a7c9083b62045901baa0",
+        "host": "jobs.nvidia.com",
+        "url_shape": "jobs.nvidia.com/careers/job/N"
+      },
+      "source": "eightfold",
+      "stratum": "direct_ats_eightfold",
+      "listing_url_kind": "employer_ats",
+      "application_url": {
+        "status": "known_direct",
+        "value_from": "record_ref",
+        "basis": "the stored URL is itself on an ATS host: a direct link, but not yet verified to be the application page"
+      },
+      "expected_platform": {
+        "v": "eightfold",
+        "status": "host_derived"
+      },
+      "flags": {
+        "age_days": 22
+      },
+      "liveness": "unverified",
+      "ground_truth": {
+        "plan": "hand_review",
+        "rationale": "selected for a person-reviewed form (see README, \"Hand-reviewed ground truth\")"
+      }
+    },
+    {
+      "id": "prod-152",
+      "provenance": "production_discovery",
+      "record_ref": {
+        "job_posting_id": 152,
+        "url_sha256": "08a0ac62162608a3519435f5dde61e2b511f96dadf75d62e0d1e58dac6260f85",
+        "host": "jobs.nvidia.com",
+        "url_shape": "jobs.nvidia.com/careers/job/N"
+      },
+      "source": "eightfold",
+      "stratum": "direct_ats_eightfold",
+      "listing_url_kind": "employer_ats",
+      "application_url": {
+        "status": "known_direct",
+        "value_from": "record_ref",
+        "basis": "the stored URL is itself on an ATS host: a direct link, but not yet verified to be the application page"
+      },
+      "expected_platform": {
+        "v": "eightfold",
+        "status": "host_derived"
+      },
+      "flags": {
+        "age_days": 22
+      },
+      "liveness": "unverified",
+      "ground_truth": {
+        "plan": "none",
+        "rationale": "scored on URL resolution, platform and outcome classification only"
+      }
+    },
+    {
+      "id": "prod-153",
+      "provenance": "production_discovery",
+      "record_ref": {
+        "job_posting_id": 153,
+        "url_sha256": "7808b477cfed304e954ffea9eafdf3398a098e0bf493729949cac05930c8fef6",
+        "host": "jobs.nvidia.com",
+        "url_shape": "jobs.nvidia.com/careers/job/N"
+      },
+      "source": "eightfold",
+      "stratum": "direct_ats_eightfold",
+      "listing_url_kind": "employer_ats",
+      "application_url": {
+        "status": "known_direct",
+        "value_from": "record_ref",
+        "basis": "the stored URL is itself on an ATS host: a direct link, but not yet verified to be the application page"
+      },
+      "expected_platform": {
+        "v": "eightfold",
+        "status": "host_derived"
+      },
+      "flags": {
+        "age_days": 15
+      },
+      "liveness": "unverified",
+      "ground_truth": {
+        "plan": "none",
+        "rationale": "scored on URL resolution, platform and outcome classification only"
+      }
+    },
+    {
+      "id": "prod-180",
+      "provenance": "production_discovery",
+      "record_ref": {
+        "job_posting_id": 180,
+        "url_sha256": "f963957e5ba17970292044a38dc6685d6bdfe9d53c5b74181f47751ae9db75ab",
+        "host": "jobicy.com",
+        "url_shape": "jobicy.com/jobs/N-software-engineer-backend-platform"
+      },
+      "source": "jobicy",
+      "stratum": "aggregator_jobicy",
+      "listing_url_kind": "aggregator_listing",
+      "application_url": {
+        "status": "unresolved",
+        "value": null,
+        "basis": "an aggregator listing URL is NOT an employer application URL; the destination has never been resolved"
+      },
+      "expected_platform": {
+        "v": null,
+        "status": "unknown_until_destination_resolved"
+      },
+      "flags": {
+        "age_days": 7
+      },
+      "liveness": "unverified",
+      "ground_truth": {
+        "plan": "hand_review",
+        "rationale": "selected for a person-reviewed form (see README, \"Hand-reviewed ground truth\")"
+      }
+    },
+    {
+      "id": "prod-246",
+      "provenance": "production_discovery",
+      "record_ref": {
+        "job_posting_id": 246,
+        "url_sha256": "d5ebe54725f54d87bcd5c4848e03e6fa95175d9dc21269a2fb2f9743ef941c0a",
+        "host": "www.adzuna.com",
+        "url_shape": "www.adzuna.com/land/ad/N?…"
+      },
+      "source": "adzuna",
+      "stratum": "aggregator_adzuna",
+      "listing_url_kind": "aggregator_listing",
+      "application_url": {
+        "status": "unresolved",
+        "value": null,
+        "basis": "an aggregator listing URL is NOT an employer application URL; the destination has never been resolved"
+      },
+      "expected_platform": {
+        "v": null,
+        "status": "unknown_until_destination_resolved"
+      },
+      "flags": {
+        "description_preview_only": true,
+        "age_days": 6
+      },
+      "liveness": "unverified",
+      "ground_truth": {
+        "plan": "hand_review",
+        "rationale": "selected for a person-reviewed form (see README, \"Hand-reviewed ground truth\")"
+      }
+    },
+    {
+      "id": "prod-310",
+      "provenance": "production_discovery",
+      "record_ref": {
+        "job_posting_id": 310,
+        "url_sha256": "7f9db24f5b848dda7cb1fb9220dcd5b40361c6d1eaca469b151ae973c29c255e",
+        "host": "www.adzuna.com",
+        "url_shape": "www.adzuna.com/land/ad/N?…"
+      },
+      "source": "adzuna",
+      "stratum": "aggregator_adzuna",
+      "listing_url_kind": "aggregator_listing",
+      "application_url": {
+        "status": "unresolved",
+        "value": null,
+        "basis": "an aggregator listing URL is NOT an employer application URL; the destination has never been resolved"
+      },
+      "expected_platform": {
+        "v": null,
+        "status": "unknown_until_destination_resolved"
+      },
+      "flags": {
+        "stale_candidate": true,
+        "description_preview_only": true,
+        "age_days": 74
+      },
+      "liveness": "unverified",
+      "ground_truth": {
+        "plan": "none",
+        "rationale": "scored on URL resolution, platform and outcome classification only"
+      }
+    },
+    {
+      "id": "prod-324",
+      "provenance": "production_discovery",
+      "record_ref": {
+        "job_posting_id": 324,
+        "url_sha256": "8a6e9c6c1a4daad6a4fd5c5a76b37abd8ef1766211111b033a8e08bee692bf75",
+        "host": "www.adzuna.com",
+        "url_shape": "www.adzuna.com/land/ad/N?…"
+      },
+      "source": "adzuna",
+      "stratum": "aggregator_adzuna",
+      "listing_url_kind": "aggregator_listing",
+      "application_url": {
+        "status": "unresolved",
+        "value": null,
+        "basis": "an aggregator listing URL is NOT an employer application URL; the destination has never been resolved"
+      },
+      "expected_platform": {
+        "v": null,
+        "status": "unknown_until_destination_resolved"
+      },
+      "flags": {
+        "stale_candidate": true,
+        "description_preview_only": true,
+        "age_days": 81
+      },
+      "liveness": "unverified",
+      "ground_truth": {
+        "plan": "none",
+        "rationale": "scored on URL resolution, platform and outcome classification only"
+      }
+    },
+    {
+      "id": "prod-355",
+      "provenance": "production_discovery",
+      "record_ref": {
+        "job_posting_id": 355,
+        "url_sha256": "e6c7f639e9c8d224d29a4693f8e7c7fee292700bdea7078cbaea80324e5f251f",
+        "host": "www.adzuna.com",
+        "url_shape": "www.adzuna.com/land/ad/N?…"
+      },
+      "source": "adzuna",
+      "stratum": "duplicate_pair_adzuna",
+      "listing_url_kind": "aggregator_listing",
+      "application_url": {
+        "status": "unresolved",
+        "value": null,
+        "basis": "an aggregator listing URL is NOT an employer application URL; the destination has never been resolved"
+      },
+      "expected_platform": {
+        "v": null,
+        "status": "unknown_until_destination_resolved"
+      },
+      "flags": {
+        "duplicate_group": "dup-adzuna-1",
+        "stale_candidate": true,
+        "description_preview_only": true,
+        "age_days": 80
+      },
+      "liveness": "unverified",
+      "ground_truth": {
+        "plan": "none",
+        "rationale": "scored on URL resolution, platform and outcome classification only"
+      }
+    },
+    {
+      "id": "prod-356",
+      "provenance": "production_discovery",
+      "record_ref": {
+        "job_posting_id": 356,
+        "url_sha256": "367406dafa8f4476769115f81e49ebc57d5db4a751d5924e3d22048290fdaa7e",
+        "host": "www.adzuna.com",
+        "url_shape": "www.adzuna.com/land/ad/N?…"
+      },
+      "source": "adzuna",
+      "stratum": "duplicate_pair_adzuna",
+      "listing_url_kind": "aggregator_listing",
+      "application_url": {
+        "status": "unresolved",
+        "value": null,
+        "basis": "an aggregator listing URL is NOT an employer application URL; the destination has never been resolved"
+      },
+      "expected_platform": {
+        "v": null,
+        "status": "unknown_until_destination_resolved"
+      },
+      "flags": {
+        "duplicate_group": "dup-adzuna-1",
+        "description_preview_only": true,
+        "age_days": 5
+      },
+      "liveness": "unverified",
+      "ground_truth": {
+        "plan": "none",
+        "rationale": "scored on URL resolution, platform and outcome classification only"
+      }
+    },
+    {
+      "id": "prod-393",
+      "provenance": "production_discovery",
+      "record_ref": {
+        "job_posting_id": 393,
+        "url_sha256": "8b086c457edd2e84b43af4b2e5875bea2f39ecb29e17d2469882934f2bcc8d75",
+        "host": "jobicy.com",
+        "url_shape": "jobicy.com/jobs/N-security-systems-solutions-engineer"
+      },
+      "source": "jobicy",
+      "stratum": "aggregator_jobicy",
+      "listing_url_kind": "aggregator_listing",
+      "application_url": {
+        "status": "unresolved",
+        "value": null,
+        "basis": "an aggregator listing URL is NOT an employer application URL; the destination has never been resolved"
+      },
+      "expected_platform": {
+        "v": null,
+        "status": "unknown_until_destination_resolved"
+      },
+      "flags": {
+        "age_days": 0
+      },
+      "liveness": "unverified",
+      "ground_truth": {
+        "plan": "none",
+        "rationale": "scored on URL resolution, platform and outcome classification only"
+      }
+    },
+    {
+      "id": "ext-greenhouse-greenhouse-7958633",
+      "provenance": "curated_external",
+      "url": "https://job-boards.greenhouse.io/greenhouse/jobs/7958633",
+      "url_note": null,
+      "source": "curated_external",
+      "stratum": "external_greenhouse",
+      "role": "current_posting_candidate",
+      "listing_url_kind": "employer_ats",
+      "application_url": {
+        "status": "known_direct",
+        "value_from": "url",
+        "basis": "an ATS-hosted posting URL: a direct link, not yet verified to be the application page"
+      },
+      "expected_platform": {
+        "v": "greenhouse",
+        "status": "host_derived"
+      },
+      "board": "greenhouse (the vendor's own board)",
+      "title": null,
+      "title_note": "the search result was titled 'Back to jobs'; title not recorded",
+      "flags": {
+        "stale_candidate": false
+      },
+      "liveness": "unverified",
+      "ground_truth": {
+        "plan": "provider_schema",
+        "rationale": "Greenhouse's public board API describes the form; fetching it is a Stage 2 gate."
+      }
+    },
+    {
+      "id": "ext-greenhouse-greenhouse-7087691",
+      "provenance": "curated_external",
+      "url": "https://job-boards.greenhouse.io/greenhouse/jobs/7087691",
+      "url_note": null,
+      "source": "curated_external",
+      "stratum": "external_greenhouse",
+      "role": "current_posting_candidate",
+      "listing_url_kind": "employer_ats",
+      "application_url": {
+        "status": "known_direct",
+        "value_from": "url",
+        "basis": "an ATS-hosted posting URL: a direct link, not yet verified to be the application page"
+      },
+      "expected_platform": {
+        "v": "greenhouse",
+        "status": "host_derived"
+      },
+      "board": "greenhouse (the vendor's own board)",
+      "title": null,
+      "title_note": "as above",
+      "flags": {
+        "stale_candidate": false
+      },
+      "liveness": "unverified",
+      "ground_truth": {
+        "plan": "provider_schema",
+        "rationale": "as above"
+      }
+    },
+    {
+      "id": "ext-greenhouse-greenplaces-4461030008",
+      "provenance": "curated_external",
+      "url": "https://job-boards.greenhouse.io/greenplaces/jobs/4461030008",
+      "url_note": null,
+      "source": "curated_external",
+      "stratum": "external_greenhouse",
+      "role": "stale_or_unreachable_control",
+      "listing_url_kind": "employer_ats",
+      "application_url": {
+        "status": "known_direct",
+        "value_from": "url",
+        "basis": "an ATS-hosted posting URL: a direct link, not yet verified to be the application page"
+      },
+      "expected_platform": {
+        "v": "greenhouse",
+        "status": "host_derived"
+      },
+      "board": "greenplaces",
+      "title": null,
+      "title_note": "as above",
+      "flags": {
+        "stale_candidate": true
+      },
+      "liveness": "unverified",
+      "ground_truth": {
+        "plan": "none",
+        "rationale": "Chosen because the job id is much older than its neighbours; expected to be closed. A hypothesis, not a finding."
+      }
+    },
+    {
+      "id": "ext-lever-palantir-7d75bed5",
+      "provenance": "curated_external",
+      "url": "https://jobs.lever.co/palantir/7d75bed5-45d8-4876-840a-2d92ea79c98d",
+      "url_note": null,
+      "source": "curated_external",
+      "stratum": "external_lever",
+      "role": "current_posting_candidate",
+      "listing_url_kind": "employer_ats",
+      "application_url": {
+        "status": "known_direct",
+        "value_from": "url",
+        "basis": "an ATS-hosted posting URL: a direct link, not yet verified to be the application page"
+      },
+      "expected_platform": {
+        "v": "lever",
+        "status": "host_derived"
+      },
+      "board": "palantir",
+      "title": "Software Engineer, New Grad - Infrastructure",
+      "title_note": "from the search result",
+      "flags": {
+        "stale_candidate": false
+      },
+      "liveness": "unverified",
+      "ground_truth": {
+        "plan": "hand_review",
+        "rationale": "Lever has no public form-schema endpoint in our adapters; a person reviews the form."
+      }
+    },
+    {
+      "id": "ext-lever-palantir-a6011eee",
+      "provenance": "curated_external",
+      "url": "https://jobs.lever.co/palantir/a6011eee-a903-4611-a5ff-78e4f9d9b8a4",
+      "url_note": null,
+      "source": "curated_external",
+      "stratum": "external_lever",
+      "role": "current_posting_candidate",
+      "listing_url_kind": "employer_ats",
+      "application_url": {
+        "status": "known_direct",
+        "value_from": "url",
+        "basis": "an ATS-hosted posting URL: a direct link, not yet verified to be the application page"
+      },
+      "expected_platform": {
+        "v": "lever",
+        "status": "host_derived"
+      },
+      "board": "palantir",
+      "title": "Backend Software Engineer - Infrastructure, Foundations",
+      "title_note": "from the search result",
+      "flags": {
+        "stale_candidate": false
+      },
+      "liveness": "unverified",
+      "ground_truth": {
+        "plan": "none",
+        "rationale": "Same board as the previous case: a second Lever posting, scored from the first case's reviewed form layout only if Stage 2 shows the forms are identical."
+      }
+    },
+    {
+      "id": "ext-smartrecruiters-smartrecruiters-743999873519601",
+      "provenance": "curated_external",
+      "url": "https://jobs.smartrecruiters.com/smartrecruiters/743999873519601-senior-software-engineer-backend",
+      "url_note": null,
+      "source": "curated_external",
+      "stratum": "external_smartrecruiters",
+      "role": "current_posting_candidate",
+      "listing_url_kind": "employer_ats",
+      "application_url": {
+        "status": "known_direct",
+        "value_from": "url",
+        "basis": "an ATS-hosted posting URL: a direct link, not yet verified to be the application page"
+      },
+      "expected_platform": {
+        "v": "smartrecruiters",
+        "status": "host_derived"
+      },
+      "board": "smartrecruiters (the vendor's own board)",
+      "title": "Senior Software Engineer, Backend",
+      "title_note": "from the search result",
+      "flags": {
+        "stale_candidate": false
+      },
+      "liveness": "unverified",
+      "ground_truth": {
+        "plan": "hand_review",
+        "rationale": "A person reviews the form."
+      }
+    },
+    {
+      "id": "ext-smartrecruiters-smartrecruiters-743999752871456",
+      "provenance": "curated_external",
+      "url": "https://jobs.smartrecruiters.com/smartrecruiters/743999752871456-software-engineer---cloud-platform-(senior/lead)",
+      "url_note": null,
+      "source": "curated_external",
+      "stratum": "external_smartrecruiters",
+      "role": "current_posting_candidate",
+      "listing_url_kind": "employer_ats",
+      "application_url": {
+        "status": "known_direct",
+        "value_from": "url",
+        "basis": "an ATS-hosted posting URL: a direct link, not yet verified to be the application page"
+      },
+      "expected_platform": {
+        "v": "smartrecruiters",
+        "status": "host_derived"
+      },
+      "board": "smartrecruiters (the vendor's own board)",
+      "title": "Senior/Lead Software Engineer - Cloud Platform (Berlin or Krakow)",
+      "title_note": "from the search result",
+      "flags": {
+        "stale_candidate": false
+      },
+      "liveness": "unverified",
+      "ground_truth": {
+        "plan": "none",
+        "rationale": "Second posting on the same board; shares the first case's reviewed form layout if Stage 2 shows they are identical."
+      }
+    },
+    {
+      "id": "ext-workday-workday-JR-0107781",
+      "provenance": "curated_external",
+      "url": "https://workday.wd5.myworkdayjobs.com/en-US/Workday/job/USA-CA-Pleasanton/Principal-Software-Development-Engineer---Developer-Platform_JR-0107781-1",
+      "url_note": "DERIVED: the search returned the CXS API path (…/wday/cxs/workday/Workday/job/…); this page URL was inferred from it and has not been seen. Workday application flows usually need an account: expect an authentication barrier.",
+      "source": "curated_external",
+      "stratum": "external_workday",
+      "role": "current_posting_candidate",
+      "listing_url_kind": "employer_ats",
+      "application_url": {
+        "status": "known_direct",
+        "value_from": "url",
+        "basis": "an ATS-hosted posting URL: a direct link, not yet verified to be the application page"
+      },
+      "expected_platform": {
+        "v": "workday",
+        "status": "host_derived"
+      },
+      "board": "workday (the vendor's own site)",
+      "title": "Principal Software Development Engineer - Developer Platform",
+      "title_note": "from the search result",
+      "flags": {
+        "stale_candidate": false
+      },
+      "liveness": "unverified",
+      "ground_truth": {
+        "plan": "hand_review",
+        "rationale": "A person records what is visible without signing in; an authentication barrier is itself the expected result to score."
+      }
+    },
+    {
+      "id": "ext-workable-careers-5656BF6FBE",
+      "provenance": "curated_external",
+      "url": "https://apply.workable.com/careers/jobs/view/5656BF6FBE",
+      "url_note": null,
+      "source": "curated_external",
+      "stratum": "external_workable",
+      "role": "stale_or_unreachable_control",
+      "listing_url_kind": "employer_ats",
+      "application_url": {
+        "status": "known_direct",
+        "value_from": "url",
+        "basis": "an ATS-hosted posting URL: a direct link, not yet verified to be the application page"
+      },
+      "expected_platform": {
+        "v": "workable",
+        "status": "host_derived"
+      },
+      "board": "careers",
+      "title": "Senior Software Engineer",
+      "title_note": "from the search result, which dated it February 2023 (the result was a .md rendering; the .md suffix is dropped here)",
+      "flags": {
+        "stale_candidate": true
+      },
+      "liveness": "unverified",
+      "ground_truth": {
+        "plan": "none",
+        "rationale": "Likely closed or moved: a staleness control."
+      }
+    },
+    {
+      "id": "ext-lever-leverdemo-835f5c45",
+      "provenance": "curated_external",
+      "url": "https://jobs.lever.co/leverdemo/835f5c45-a14a-4d85-899b-054ed6ff2db1",
+      "url_note": "A vendor demo posting: not a real opening, so it is a stable Lever form layout to read, not an employer to evaluate.",
+      "source": "curated_external",
+      "stratum": "external_lever",
+      "role": "vendor_demo_posting",
+      "listing_url_kind": "employer_ats",
+      "application_url": {
+        "status": "known_direct",
+        "value_from": "url",
+        "basis": "an ATS-hosted posting URL: a direct link, not yet verified to be the application page"
+      },
+      "expected_platform": {
+        "v": "lever",
+        "status": "host_derived"
+      },
+      "board": "leverdemo (Lever's own demo account)",
+      "title": "Senior Software Engineer",
+      "title_note": "from the search result",
+      "flags": {
+        "stale_candidate": false,
+        "vendor_demo": true
+      },
+      "liveness": "unverified",
+      "ground_truth": {
+        "plan": "hand_review",
+        "rationale": "Stable and harmless; reviewed form can anchor Lever field-type scoring without touching a real employer."
+      }
+    },
+    {
+      "id": "carried-chainguard-4722145006",
+      "provenance": "stage0_existing",
+      "stage0_case": "real-chainguard-4722145006",
+      "stratum": "carried_from_stage0",
+      "expected_platform": {
+        "v": "greenhouse",
+        "status": "observed"
+      },
+      "ground_truth": {
+        "plan": "existing",
+        "rationale": "golden semantic file; its rows include known extraction errors"
+      },
+      "evidence_limitations": "One user-entered URL; a captured live inspection from before generic discovery; the form was not exhaustively enumerated (some fields are unobserved or API-only).",
+      "liveness": "not_applicable"
+    },
+    {
+      "id": "carried-nerdwallet-258",
+      "provenance": "stage0_existing",
+      "stage0_case": "real-nerdwallet-258",
+      "stratum": "carried_from_stage0",
+      "expected_platform": {
+        "v": "ashby",
+        "status": "observed"
+      },
+      "ground_truth": {
+        "plan": "existing",
+        "rationale": "a person's own browser observation"
+      },
+      "evidence_limitations": "The scored result is the offline Ashby schema adapter over captured schema evidence, NOT a successful live Ashby inspection; the browser observation is not an exhaustive enumeration.",
+      "liveness": "not_applicable"
+    }
+  ]
+}
