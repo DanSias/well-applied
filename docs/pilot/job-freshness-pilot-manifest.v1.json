@@ -1,0 +1,146 @@
+{
+    "schema": "job-freshness-pilot-manifest",
+    "version": 1,
+    "generated_at": "2026-11-21T16:28:51+00:00",
+    "limits": {
+        "planned_requests": 9,
+        "request_cap": 10,
+        "min_gap_seconds": 2,
+        "retries": 0,
+        "pagination": false,
+        "timeout_seconds": 10,
+        "max_body_bytes": 262144
+    },
+    "hosts": [
+        "himalayas.app",
+        "jobicy.com"
+    ],
+    "himalayas": [
+        {
+            "job_id": 3,
+            "identity": "3813d726c7be2a5f482f3dc0c5047932c59f1f4b7c953e3ccfaff59e9338f764"
+        },
+        {
+            "job_id": 4,
+            "identity": "dab3158c8946a3305037a4f2f5176fb596df528a65bca5aeedd6beaa60ff37f0"
+        },
+        {
+            "job_id": 5,
+            "identity": "63ef8d2e5927e89bceb466c5ddb7a3c8514ac861b711eaa4a346888922a06982"
+        },
+        {
+            "job_id": 27,
+            "identity": "57d51528d556445e4cdf11d47b85a7adfdf0017476d791cfd2f2ba1222ff09a2"
+        },
+        {
+            "job_id": 57,
+            "identity": "69104be9e1fd682aed21e970284b8f4158d21153a12521db31606e32a07d6998"
+        },
+        {
+            "job_id": 85,
+            "identity": "6724235f506b160f5dd42fb87da9e0e263ae3284e801fdbddcc0a382b2bd7296"
+        },
+        {
+            "job_id": 207,
+            "identity": "31a9b3261e584a20e27b91a1baf36ebf8436ba1722ae7dabbd040b4337ef5b6c"
+        },
+        {
+            "job_id": 391,
+            "identity": "266e8dd1c1b94700e695cd128814c006e1b516e9a35bb41b3bd22fa6c23ee2cb"
+        }
+    ],
+    "jobicy": [
+        {
+            "job_id": 254,
+            "identity": "4dd96f7af6fa3af273785eeefdff41be36955bc2ee31f31adfd455c83ed8e844"
+        },
+        {
+            "job_id": 255,
+            "identity": "9475e24d38b5cdff68307a8680ed3122b4910e54c9abd8d017fe5f5cc5e4015c"
+        },
+        {
+            "job_id": 256,
+            "identity": "274cf74694dcddb182e8785f9269711d435d01f8289ae90136f01b71395fa89f"
+        },
+        {
+            "job_id": 257,
+            "identity": "85398dee02ddc1529d0b66542e73a39869dcd99399e03d0a96eb33fb28c69cb1"
+        },
+        {
+            "job_id": 298,
+            "identity": "31c0e235aa371e693ad72829307baeaae59f0622e1ef219ac9288e8d2a745665"
+        },
+        {
+            "job_id": 299,
+            "identity": "18d636db635a15ac884cc5b58d33038ef53607a749e22c3ce942fcbedbdcafc9"
+        },
+        {
+            "job_id": 300,
+            "identity": "8ae754a2886229777276056acf4d9d4014db3c092e5e41957cf1d89327311b8f"
+        },
+        {
+            "job_id": 103,
+            "identity": "6f2e358f6ccb2ab60c6625c105ccc9467b4b0c3a076b53028c12be8cafb2bb48"
+        },
+        {
+            "job_id": 105,
+            "identity": "4cef101b45d107df4454f2436a16b4941aa5547a969edd7d1934a70896eb2704"
+        },
+        {
+            "job_id": 106,
+            "identity": "a28cf2f115f7e52ecbc05e804364186cf0d6ba8bcc79b2bbaccbeefe49b967f4"
+        },
+        {
+            "job_id": 107,
+            "identity": "bd2e49d599b4bb24f83d1926cf69a93d5c0e0728f07f8121d7c8213d0a212af3"
+        },
+        {
+            "job_id": 108,
+            "identity": "15bd193cde8f1d18c62de6ca5e7fa75fde0ea654e90ff3a4a108e1977f672571"
+        },
+        {
+            "job_id": 109,
+            "identity": "f96ff3b543993576466c2ba51a1798572cac13050c855368a451718d63855f4c"
+        },
+        {
+            "job_id": 110,
+            "identity": "c5e72adf04cfda6387c9d4754a4a222a66b38530cd86d06c43d02d1422158d9f"
+        },
+        {
+            "job_id": 29,
+            "identity": "b4902bef27858ab01a5efb93fb776a74e28906817b8bf7e63921482047b1831a"
+        },
+        {
+            "job_id": 30,
+            "identity": "b46a2df0d11467be2fb2247bf9b5b6e8202a191a878a3d47058fa6165c99e90d"
+        },
+        {
+            "job_id": 31,
+            "identity": "14179df67cc671015731e8022d8bf6971bb59c766148ea643e19197b18b4249f"
+        },
+        {
+            "job_id": 32,
+            "identity": "ab53582d9bf60c5fdf76612ce783bb885939ecaa6e12dafd633aa1732bdffec0"
+        },
+        {
+            "job_id": 33,
+            "identity": "99ced8c2bdef3a28fd4848eaa597e8b2d60b9ad0eeea897c2c72b4310dbb941c"
+        },
+        {
+            "job_id": 34,
+            "identity": "7df9c700643c0878244bad35250db503a3e099b986136f2357420e40793b5a52"
+        },
+        {
+            "job_id": 35,
+            "identity": "f8078ae512e8a521f45a299969c558a077088bc47209fed073c7f90e738de909"
+        },
+        {
+            "job_id": 82,
+            "identity": "deac3496a99a52bb1475c3149936452899ba47eb523674d0578031a23677c6a9"
+        },
+        {
+            "job_id": 97,
+            "identity": "7ace3153c168ed55a90bd5403238aa567c8711ae5ad35385f445cfead2d4fd96"
+        }
+    ]
+}

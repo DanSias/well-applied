@@ -25,4 +25,14 @@ return [
 
     // Documented provider endpoints the later (separately approved) checker would use. NEVER called by this milestone; not yet verified against the live services.
     'jobicy_status_url' => env('JOB_FRESHNESS_JOBICY_STATUS_URL', 'https://jobicy.com/api/jobs/status'),
+
+    // The provider freshness pilot (docs/job-freshness-pilot-plan.md). `live_enabled` is a LITERAL false on purpose: no environment variable turns it on; going live needs a separate
+    // authorization and a code change. `approved_manifest_sha256` names the one approved sample (the SHA-256 of the manifest file); any change to the sample needs a new authorization.
+    'pilot' => [
+        'live_enabled' => false,
+        'approved_manifest_sha256' => '00a9ecd46db41816e6acfc4f31e6c22e6cb6923d9dcbc1a1a04c442c4b6991c9',
+    ],
+
+    // Explicit marker for the isolated freshness UI demo (see app/Support/JobFreshness/Demo). Never set in a normal environment.
+    'demo' => (bool) env('FRESHNESS_DEMO', false),
 ];
