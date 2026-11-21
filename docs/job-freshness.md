@@ -53,7 +53,7 @@ Rollback at any stage: unset the flag (presentation); the stored liveness record
 - Nothing has been run against a live provider; the Himalayas single-job endpoint's 404 meaning and the Jobicy status body are unverified.
 - USAJOBS' `closingDate` is a known expiry too but is not wired in (the milestone covers Himalayas and Jobicy); Adzuna and Eightfold have no provider check.
 - Himalayas' cache (10 minutes) can lag a closure; a known expiry date is therefore preferred over an endpoint answer.
-- Filtering the Inbox by JSON path assumes `expiryDate` is numeric; a source that stored it as text would not be filtered (only Himalayas stores it today).
+- Filtering the Inbox by JSON path assumes `expiryDate` is an integer in seconds. Gate A (docs/job-freshness-pilot-plan.md section 10) normalises it at ingestion and makes the badge read it the same way; legacy non-integer values fail open (shown, never wrongly hidden).
 
 ## 4b. Presentation follow-up (flag on; still default off)
 - **Three kinds of "open" are never confused.** The view carries a `tone`: `ok` = **Confirmed open** (the provider's own endpoint said so; the note gives the day); `neutral` = **Not live-checked** (open only as far as our records go) or **Check inconclusive** (the last check gave no clear answer: explicitly not a sign of closure); `warn` = **Expired**, **Closed**, **May be closed** (a closure reported once, not yet confirmed). Neutral states are never a badge on a list; they appear only as a muted line in a drawer or workspace. Warning styling is used for nothing else.

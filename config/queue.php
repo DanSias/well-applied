@@ -35,6 +35,12 @@ return [
             'driver' => 'sync',
         ],
 
+        // Discards every dispatched job (used by the isolated freshness UI demo, which must not run or store any background work).
+        // (Named `discard`, not `null`: an environment value of "null" is read as PHP null.)
+        'discard' => [
+            'driver' => 'null',
+        ],
+
         'database' => [
             'driver' => 'database',
             'connection' => env('DB_QUEUE_CONNECTION'),

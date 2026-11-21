@@ -22,6 +22,7 @@ use App\Support\GenerationAttempt\GenerationMetrics;
 use App\Support\JobAnalysis\Providers\OllamaJobAnalysisClient;
 use App\Support\JobAnalysis\Providers\OpenAIJobAnalysisClient;
 use App\Support\JobDiscovery\ExecutionHeartbeat;
+use App\Support\JobFreshness\Demo\DemoGuard;
 use App\Support\JobMatch\Providers\OllamaJobMatchClient;
 use App\Support\JobMatch\Providers\OpenAIJobMatchClient;
 use App\Support\JobQualification\Providers\OllamaJobQualificationClient;
@@ -257,6 +258,15 @@ class AppServiceProvider extends ServiceProvider
         $this->configureMorphMap();
         $this->configureDevScheduler();
         $this->configureDevPreparer();
+        $this->configureFreshnessDemo();
+    }
+
+    /** Only when FRESHNESS_DEMO=1: the process may not use the production database or a real queue, and cannot reach the network. Nothing happens otherwise. */
+    private function configureFreshnessDemo(): void
+    {
+        if (config('job_freshness.demo') === true) {
+            DemoGuard::assertProcessIsolated();
+        }
     }
 
     /**
