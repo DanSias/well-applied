@@ -102,10 +102,12 @@ describe('before anything runs', () => {
         assert.deepEqual(r.config.tracker_approved_case_ids, ['a-track']);
     });
 
-    test('there is no live mode: any other mode is refused, and a runner without a resolver and URL source can only plan', async () => {
+    test('an unknown mode is refused; live mode needs an authorization (the live adapter has its own tests); a dry run needs a resolver and a URL source', async () => {
         const { bytes, sha } = manifest([mkCase('c1')]);
-        await assert.rejects(runBatch({ manifestBytes: bytes, expectSha256: sha, mode: 'live', clock: fakeClock(), getUrl: async () => 'x', resolve: async () => ({}) }), (e) => e.code === 'no_live_mode');
+        await assert.rejects(runBatch({ manifestBytes: bytes, expectSha256: sha, mode: 'bogus', clock: fakeClock(), getUrl: async () => 'x', resolve: async () => ({}) }), (e) => e.code === 'unknown_mode');
+        await assert.rejects(runBatch({ manifestBytes: bytes, expectSha256: sha, mode: 'live', clock: fakeClock(), getUrl: async () => 'x', resolve: async () => ({}) }), (e) => e.code === 'authorization_missing');
         await assert.rejects(runBatch({ manifestBytes: bytes, expectSha256: sha, mode: 'dry-run', clock: fakeClock() }), (e) => e.code === 'no_resolver');
+        await assert.rejects(runBatch({ manifestBytes: bytes, expectSha256: sha, mode: 'dry-run', authorization: {}, clock: fakeClock(), getUrl: async () => 'x', resolve: async () => ({}) }), (e) => e.code === 'authorization_unexpected');
         const plan = await runBatch({ manifestBytes: bytes, expectSha256: sha, mode: 'plan', clock: fakeClock() });
         assert.deepEqual([plan.totals.planned, plan.totals.attempted], [1, 0]);
     });
@@ -242,7 +244,8 @@ describe('interrupted runs, checkpoints and complete records', () => {
         const ac = new AbortController();
         const r = await run(['c1', 'c2', 'c3', 'c4'].map((id, i) => mkCase(id, `h${i}.example.com`)), { signal: ac.signal, resolve: (u, o, n) => { if (n === 2) ac.abort(); return proposed(); } });
         assert.equal(r.outcome.stop.cause, 'interrupted');
-        assert.deepEqual(r.cases.map((c) => c.state), ['attempted', 'attempted', 'unattempted', 'unattempted']);
+        assert.deepEqual(r.cases.map((c) => c.state), ['attempted', 'interrupted', 'unattempted', 'unattempted'], 'the case in flight when the interrupt arrived is recorded as interrupted');
+        assert.equal(state(r, 'c2').reason, 'interrupted_in_flight');
         assert.equal(state(r, 'c3').reason, 'batch_stopped:interrupted');
         assert.equal(r.outcome.completed, false);
     });
@@ -265,7 +268,7 @@ describe('interrupted runs, checkpoints and complete records', () => {
     test('every case is accounted for exactly once: attempted + skipped + unattempted + refused (+ planned) = total', async () => {
         const r = await run([mkCase('c1'), mkCase('c2', 'a.example.com'), mkCase('c3', 'www.adzuna.com', { needs_tracker_permission: true }), mkCase('c4', 'b.example.com')], { resolve: (u, o, n) => (n === 2 ? res('blocked', 'destination_prohibited', { blocked_by: 'policy', refused: 'x' }) : proposed()) });
         const t = r.totals;
-        assert.equal(t.attempted + t.skipped + t.unattempted + t.refused + t.planned, t.cases);
+        assert.equal(t.attempted + t.skipped + t.unattempted + t.refused + t.planned + t.interrupted, t.cases);
         assert.ok(r.cases.every((c) => c.reason), 'every case carries a reason');
         assert.deepEqual(new Set(r.cases.map((c) => c.id)).size, 4);
     });
@@ -400,7 +403,7 @@ describe('the CLI', () => {
         const rep = JSON.parse(readFileSync(path.join(dir, 'report.json'), 'utf8'));
         assert.deepEqual([rep.mode, rep.totals.planned, rep.totals.skipped, rep.totals.attempted, rep.totals.navigations], ['plan', 8, 5, 0, 0]);
         assert.equal(rep.config.allow_tracker_redirects, false);
-        assert.deepEqual(readdirSync(dir).sort(), ['checkpoint.json', 'report.json', 'report.md']);
+        assert.deepEqual(readdirSync(dir).sort(), ['checkpoint.json', 'report.json', 'report.md', 'review-queue.json']);
     });
 
     test('refuses a wrong hash with exit 3 and writes nothing; refuses a missing hash and any "live" command with exit 2', () => {
@@ -411,11 +414,45 @@ describe('the CLI', () => {
             assert.match(r.stderr, /manifest_hash_mismatch/);
             assert.deepEqual(readdirSync(d2), []);
             assert.equal(cli('plan', '--manifest', real).status, 2);
-            const live = cli('live', '--manifest', real, '--expect-sha256', realSha);
-            assert.equal(live.status, 2);
-            assert.match(live.stderr, /no live mode/);
+            assert.equal(cli('live', '--manifest', real, '--expect-sha256', realSha).status, 2, 'live needs its own flags');
         } finally {
             rmSync(d2, { recursive: true, force: true });
+        }
+    });
+
+    test('live from the CLI: refused without --supervised, refused with the template (granted: false), refused for a wrong hash, and none of them creates a run directory or touches a source', () => {
+        const tpl = path.join(ROOT, 'eval/live/authorization.template.json');
+        const pilot = path.join(ROOT, 'eval/cohort/resolution-pilot.proposed.json');
+        const sha = sha256(readFileSync(pilot));
+        const runs = () => (existsSync(path.join(ROOT, 'eval/runs')) ? readdirSync(path.join(ROOT, 'eval/runs')).filter((n) => n !== '.gitkeep' && n !== 'README.md') : []);
+        const before = runs();
+        const a = cli('live', '--manifest', pilot, '--expect-sha256', sha, '--authorization', tpl, '--source-db', '/nonexistent/db.sqlite');
+        assert.equal(a.status, 2);
+        assert.match(a.stderr, /--supervised/);
+        const b = cli('live', '--manifest', pilot, '--expect-sha256', sha, '--authorization', tpl, '--source-db', '/nonexistent/db.sqlite', '--supervised');
+        assert.equal(b.status, 3);
+        assert.match(b.stderr, /authorization_not_granted/);
+        const c = cli('live', '--manifest', pilot, '--expect-sha256', '2'.repeat(64), '--authorization', tpl, '--source-db', '/nonexistent/db.sqlite', '--supervised');
+        assert.equal(c.status, 3);
+        assert.match(c.stderr, /manifest_hash_mismatch/);
+        assert.deepEqual(runs(), before);
+        assert.equal(cli('plan', '--manifest', pilot, '--expect-sha256', sha, '--supervised').status, 2, 'plan and dry-run do not take live options');
+    });
+
+    test('the proposed Jobicy-only pilot validates and plans, excludes Himalayas, and the README quotes its hash', () => {
+        const pilot = path.join(ROOT, 'eval/cohort/resolution-pilot-jobicy-only.proposed.json');
+        const sha = sha256(readFileSync(pilot));
+        const p = JSON.parse(readFileSync(pilot, 'utf8'));
+        assert.deepEqual(p.cases.map((c) => c.source), ['jobicy', 'jobicy']);
+        assert.deepEqual([p.execution.total_page_navigation_cap, p.execution.wall_clock_cap_minutes, p.execution.pacing.min_ms_between_requests_to_the_same_host], [6, 6, 10_000]);
+        const d5 = mkdtempSync(path.join(tmpdir(), 'runner5-'));
+        try {
+            assert.equal(cli('plan', '--manifest', pilot, '--expect-sha256', sha, '--out', d5).status, 0);
+            assert.equal(JSON.parse(readFileSync(path.join(d5, 'report.json'), 'utf8')).totals.planned, 2);
+            assert.ok(readFileSync(path.join(ROOT, 'eval/runner/README.md'), 'utf8').includes(sha));
+            assert.match(readFileSync(path.join(ROOT, 'eval/live/AUTOMATION-RESTRICTIONS.md'), 'utf8'), /pilot-jobicy-only/);
+        } finally {
+            rmSync(d5, { recursive: true, force: true });
         }
     });
 

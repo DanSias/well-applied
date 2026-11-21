@@ -187,13 +187,17 @@
           "url": "jobicy.com/jobs/N"
         },
         "status": "proposed_by_resolution",
-        "warnings": []
+        "warnings": [
+          "blocked_prohibited"
+        ]
       },
       "review_reasons": [],
       "source": "jobicy",
       "source_shape": "jobicy.com/jobs/<slug>",
       "state": "attempted",
-      "warnings": []
+      "warnings": [
+        "blocked_prohibited"
+      ]
     },
     {
       "id": "d-02-ambiguous-links",
@@ -531,13 +535,17 @@
           "url": "job-boards.greenhouse.io/<slug>/jobs/N"
         },
         "status": "verified_direct",
-        "warnings": []
+        "warnings": [
+          "blocked_prohibited"
+        ]
       },
       "review_reasons": [],
       "source": "manual",
       "source_shape": "job-boards.greenhouse.io/<slug>/jobs/<slug>",
       "state": "attempted",
-      "warnings": []
+      "warnings": [
+        "blocked_prohibited"
+      ]
     },
     {
       "id": "d-05-unknown-redirector",
@@ -1038,6 +1046,7 @@
   "totals": {
     "attempted": 8,
     "cases": 10,
+    "interrupted": 0,
     "navigations": 12,
     "needs_human_review": 2,
     "planned": 0,

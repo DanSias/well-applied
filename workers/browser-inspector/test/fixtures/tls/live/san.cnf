@@ -1,0 +1,9 @@
+[req]
+distinguished_name=dn
+x509_extensions=v3
+prompt=no
+[dn]
+CN=live-fixtures.test
+[v3]
+subjectAltName=DNS:jobicy.com,DNS:himalayas.app,DNS:careers.acmecorp.com,DNS:job-boards.greenhouse.io,DNS:jobs.lever.co,DNS:go.linkforward-example.io,DNS:click.mailtrack-example.com,DNS:cdn.thirdparty-example.net
+basicConstraints=CA:FALSE

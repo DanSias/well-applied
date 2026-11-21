@@ -4,7 +4,7 @@ Manifest `6e169a26b07c` · none: a manifest is a proposal and a dry run or plan 
 
 **Plan only: nothing was run**
 
-13 cases: 0 attempted, 8 planned, 5 skipped, 0 unattempted, 0 refused · 0 navigations · 0 need human review
+13 cases: 0 attempted, 8 planned, 5 skipped, 0 unattempted, 0 refused, 0 interrupted · 0 navigations · 0 need human review
 
 Limits: concurrency 1, retries 0, 3 pages per case, 39 navigations, 20 min, 5000 ms between requests to a host. Tracker redirects: off.
 

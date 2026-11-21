@@ -4,7 +4,7 @@ Manifest `048ed22ba0d2` · none: a manifest is a proposal and a dry run or plan 
 
 **Stopped: security_refusal** at d-09-private-apply (destination_prohibited)
 
-10 cases: 8 attempted, 0 planned, 0 skipped, 2 unattempted, 0 refused · 12 navigations · 2 need human review
+10 cases: 8 attempted, 0 planned, 0 skipped, 2 unattempted, 0 refused, 0 interrupted · 12 navigations · 2 need human review
 
 Limits: concurrency 1, retries 0, 3 pages per case, 30 navigations, 5 min, 30 ms between requests to a host. Tracker redirects: off.
 

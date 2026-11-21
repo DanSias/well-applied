@@ -188,6 +188,7 @@
   "totals": {
     "attempted": 0,
     "cases": 13,
+    "interrupted": 0,
     "navigations": 0,
     "needs_human_review": 0,
     "planned": 8,

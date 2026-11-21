@@ -13,8 +13,8 @@ const code = (f) => readFileSync(path.join(dir, f), 'utf8').split('\n').filter((
 const imports = (f) => [...readFileSync(path.join(dir, f), 'utf8').matchAll(/^\s*import\b[^'"\n]*?from\s+['"]([^'"]+)['"]/gm)].map((m) => m[1]);
 
 test('the core (batch, sanitize, report) is pure: it imports only the canonical hasher and its siblings, and cannot touch a file, the network, a browser or a clock', () => {
-    for (const f of ['batch.js', 'sanitize.js', 'report.js']) {
-        for (const i of imports(f)) assert.ok(['../src/canon.js', './sanitize.js'].includes(i), `${f} imports ${i}`);
+    for (const f of ['batch.js', 'sanitize.js', 'report.js', 'authorization.js', 'pacer.js']) {
+        for (const i of imports(f)) assert.ok(['../src/canon.js', './sanitize.js', './authorization.js', './pacer.js'].includes(i), `${f} imports ${i}`);
         const text = code(f);
         for (const w of [/node:/, /\bfetch\s*\(/, /playwright/, /process\./, /Date\.now|new Date|Math\.random|setTimeout|setInterval/, /\bimport\s*\(|\brequire\s*\(/]) assert.equal(w.test(text), false, `${f} matches ${w}`);
     }
@@ -32,11 +32,15 @@ test('nothing in the runner can reach a database, a production table, the relay 
     }
 });
 
-test('there is no live mode: the CLI offers only plan and dry-run, and the core refuses any other mode', () => {
+test('live mode exists only behind an authorization: the core validates it, the CLI needs --supervised and never reuses a run directory', () => {
     const cli = readFileSync(path.join(dir, 'cli.js'), 'utf8');
-    assert.match(cli, /\['plan', 'dry-run'\]\.includes\(command\)/);
-    assert.match(cli, /there is no live mode/);
-    assert.match(readFileSync(path.join(dir, 'batch.js'), 'utf8'), /\['plan', 'dry-run'\]\.includes\(mode\)\) throw new BatchRefused\('no_live_mode'/);
+    assert.match(cli, /\['plan', 'dry-run', 'live'\]\.includes\(command\)/);
+    assert.match(cli, /live needs --supervised/);
+    assert.match(cli, /already exists: a run is never resumed or repeated/);
+    const batch = readFileSync(path.join(dir, 'batch.js'), 'utf8');
+    assert.match(batch, /validateAuthorization\(authorization, \{ manifest, manifestSha, now: clock\.now\(\) \}\)/);
+    assert.match(batch, /if \(mode === 'live'\) \{/);
+    assert.equal(/testing/.test(cli), false, 'the CLI never passes the tests-only options to the live adapter');
 });
 
 test('tracker redirects default to off in the runner\'s own defaults, and the resolver is only ever given a per-case decision', () => {

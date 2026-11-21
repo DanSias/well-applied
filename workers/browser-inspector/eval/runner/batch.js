@@ -6,9 +6,12 @@
 // NO retries; a whole-batch stop on any security refusal, prohibited method, changed source-URL hash or infrastructure-failure threshold; tracker redirects
 // OFF unless separately and explicitly approved for named cases; and a record of every case (attempted, skipped, unattempted, refused).
 import { sha256 } from '../src/canon.js';
+import { AuthorizationRefused, validateAuthorization } from './authorization.js';
+import { PacingPastDeadline, createPacer } from './pacer.js';
 import { sanitizeResolution, shapeOfShape } from './sanitize.js';
 
 export const RUN_SCHEMA = 'eval-resolution-run/1';
+export const MODES = Object.freeze(['plan', 'dry-run', 'live']);
 export class BatchRefused extends Error {
     constructor(code, message) {
         super(message);
@@ -81,17 +84,30 @@ const record = (c, state, reason, extra = {}) => ({ id: c.id, source: c.source ?
  * @param {{now: () => number, sleep: (ms: number) => Promise<void>}} p.clock
  * @param {AbortSignal} [p.signal] @param {(report: object) => void} [p.onCheckpoint]
  */
-export async function runBatch({ manifestBytes, expectSha256, config = {}, mode, resolve, getUrl, clock, signal, onCheckpoint }) {
-    if (!['plan', 'dry-run'].includes(mode)) throw new BatchRefused('no_live_mode', `mode ${mode} does not exist: there is no live mode in this milestone`);
+export async function runBatch({ manifestBytes, expectSha256, config = {}, mode, resolve, getUrl, clock, signal, onCheckpoint, authorization }) {
+    if (!MODES.includes(mode)) throw new BatchRefused('unknown_mode', `mode ${mode} does not exist`);
     const { manifest, sha256: manifestSha } = validateBatch(manifestBytes, expectSha256);
     const { config: cfg, trackerApproved } = resolveConfig(config, manifestSha, manifest);
+    let live = null;
+    if (mode === 'live') {
+        // Disabled unless a SEPARATE authorization matches this manifest hash, these case ids, these source hosts and these limits.
+        try {
+            live = validateAuthorization(authorization, { manifest, manifestSha, now: clock.now() });
+        } catch (e) {
+            if (e instanceof AuthorizationRefused) throw new BatchRefused(e.code, e.message);
+            throw e;
+        }
+        if (cfg.allow_tracker_redirects || cfg.tracker_approval) throw new BatchRefused('authorization_tracker', 'tracker redirects cannot be enabled in a live run');
+        if (cfg.reviewed_redirect_hosts.length) throw new BatchRefused('authorization_hosts_mismatch', 'reviewed redirect hosts come from the authorization only');
+        cfg.reviewed_redirect_hosts = live.reviewedRedirectHosts;
+    } else if (authorization) throw new BatchRefused('authorization_unexpected', `an authorization was given but the mode is ${mode}`);
     if (mode !== 'plan' && (typeof resolve !== 'function' || typeof getUrl !== 'function')) throw new BatchRefused('no_resolver', `mode ${mode} needs a resolver and a URL source`);
     const e = manifest.execution;
     const order = executionOrder(manifest);
     const startedAt = clock.now();
     const deadline = startedAt + e.wall_clock_cap_minutes * 60_000;
+    const pacer = createPacer({ clock, gapMs: e.pacing.min_ms_between_requests_to_the_same_host });
     const results = new Map();
-    const lastRequestAt = new Map();
     const hostBlocks = new Map();
     const stoppedHosts = new Set();
     let overallBlocks = 0;
@@ -100,7 +116,7 @@ export async function runBatch({ manifestBytes, expectSha256, config = {}, mode,
     let stop = null;
     let inFlight = 0;
 
-    const snapshot = () => buildReport({ manifest, manifestSha, mode, cfg, trackerApproved, order, results, stop, navigations });
+    const snapshot = () => buildReport({ manifest, manifestSha, mode, cfg, trackerApproved, order, results, stop, navigations, live });
     const checkpoint = () => onCheckpoint?.(snapshot());
 
     for (const c of order) {
@@ -145,15 +161,14 @@ export async function runBatch({ manifestBytes, expectSha256, config = {}, mode,
             continue;
         }
 
-        // Pacing: wait out the minimum gap since this host was last requested.
-        const wait = (lastRequestAt.get(c.host) ?? -Infinity) + e.pacing.min_ms_between_requests_to_the_same_host - clock.now();
-        if (wait > 0) {
-            if (clock.now() + wait >= deadline) {
-                stop = { cause: 'wall_clock_cap', detail: 'pacing would pass the deadline', at_case: c.id };
-                results.set(c.id, record(c, 'unattempted', 'batch_stopped:wall_clock_cap'));
-                continue;
-            }
-            await clock.sleep(wait);
+        // Pacing: wait out the minimum gap since this host was last requested (a wait that would reach the deadline stops the batch instead).
+        try {
+            await pacer.waitFor(c.host, { deadline });
+        } catch (x) {
+            if (!(x instanceof PacingPastDeadline)) throw x;
+            stop = { cause: 'wall_clock_cap', detail: 'pacing would pass the deadline', at_case: c.id };
+            results.set(c.id, record(c, 'unattempted', 'batch_stopped:wall_clock_cap'));
+            continue;
         }
 
         // One attempt. Never a retry.
@@ -162,7 +177,7 @@ export async function runBatch({ manifestBytes, expectSha256, config = {}, mode,
         inFlight += 1;
         if (inFlight > 1) throw new Error('concurrency violation: more than one case in flight');
         try {
-            resolution = await resolve(url, { allowTrackerRedirects: trackerApproved.has(c.id), reviewedRedirectHosts: cfg.reviewed_redirect_hosts, budgetMs: e.per_case.budget_ms });
+            resolution = await resolve(url, { allowTrackerRedirects: trackerApproved.has(c.id), reviewedRedirectHosts: cfg.reviewed_redirect_hosts, budgetMs: Math.max(1, Math.min(e.per_case.budget_ms, deadline - clock.now())), pacer, signal, deadline, clock, caseId: c.id });
         } catch {
             thrown = true;
         } finally {
@@ -172,10 +187,10 @@ export async function runBatch({ manifestBytes, expectSha256, config = {}, mode,
         if (thrown || !resolution || typeof resolution !== 'object') {
             consecutiveInfra += 1;
             results.set(c.id, record(c, 'attempted', 'resolver_exception', { resolution: null, needs_human_review: false }));
-            lastRequestAt.set(c.host, finished);
+            pacer.mark(c.host, finished);
         } else {
-            for (const h of hostsOf(resolution)) lastRequestAt.set(h, finished);
-            lastRequestAt.set(c.host, finished);
+            for (const h of hostsOf(resolution)) pacer.mark(h, finished);
+            pacer.mark(c.host, finished);
             const used = resolution.hops?.length ?? 0;
             navigations += used;
             const review = [];
@@ -185,7 +200,7 @@ export async function runBatch({ manifestBytes, expectSha256, config = {}, mode,
                 resolution: sanitizeResolution(resolution),
                 needs_human_review: Boolean(resolution.needs_human_review),
                 review_reasons: [...new Set(review)],
-                warnings: [...(resolution.warnings ?? [])].sort(),
+                warnings: [...new Set(resolution.warnings ?? [])].sort(),
                 navigations: used,
             }));
 
@@ -204,6 +219,12 @@ export async function runBatch({ manifestBytes, expectSha256, config = {}, mode,
                 if (!stop && overallBlocks >= cfg.site_block_overall) stop = { cause: 'site_blocking_overall', detail: `${overallBlocks} blocked or rate-limited cases`, at_case: c.id };
             }
         }
+        if (signal?.aborted && !stop) {
+            // Interrupted while this case was in flight: its browser was closed by the caller. What it recorded is kept, and nothing more is attempted.
+            const done = results.get(c.id);
+            results.set(c.id, { ...done, state: 'interrupted', reason: 'interrupted_in_flight' });
+            stop = { cause: 'interrupted', detail: 'the run was interrupted while a case was in flight', at_case: c.id };
+        }
         if (!stop && consecutiveInfra >= cfg.infrastructure_failure_threshold) stop = { cause: 'infrastructure_failures', detail: `${consecutiveInfra} consecutive`, at_case: c.id };
         checkpoint();
     }
@@ -213,7 +234,7 @@ export async function runBatch({ manifestBytes, expectSha256, config = {}, mode,
     return report;
 }
 
-function buildReport({ manifest, manifestSha, mode, cfg, trackerApproved, order, results, stop, navigations }) {
+function buildReport({ manifest, manifestSha, mode, cfg, trackerApproved, order, results, stop, navigations, live }) {
     const cases = order.map((c) => results.get(c.id) ?? record(c, 'unattempted', stop ? `batch_stopped:${stop.cause}` : 'not_reached'));
     const count = (f) => cases.filter(f).length;
     const statuses = {};
@@ -223,7 +244,7 @@ function buildReport({ manifest, manifestSha, mode, cfg, trackerApproved, order,
         schema: RUN_SCHEMA,
         mode,
         manifest: { schema: manifest.schema, sha256: manifestSha, source_cohort_sha256: manifest.source_cohort?.sha256 ?? null },
-        authorisation: 'none: a manifest is a proposal and a dry run or plan authorises nothing',
+        authorisation: live ? { sha256: live.sha256, granted_by: live.authorization.granted_by, granted_at: live.authorization.granted_at, valid_until: live.authorization.valid_until, source_hosts: [...live.authorization.source_hosts].sort() } : 'none: a manifest is a proposal and a dry run or plan authorises nothing',
         config: {
             concurrency: 1,
             retries: 0,
@@ -246,6 +267,7 @@ function buildReport({ manifest, manifestSha, mode, cfg, trackerApproved, order,
             skipped: count((c) => c.state === 'skipped'),
             unattempted: count((c) => c.state === 'unattempted'),
             refused: count((c) => c.state === 'refused'),
+            interrupted: count((c) => c.state === 'interrupted'),
             navigations,
             needs_human_review: count((c) => c.needs_human_review),
         },

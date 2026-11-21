@@ -1,0 +1,9 @@
+{
+  "schema": "eval-robots-snapshot/1",
+  "retrieved_on": "2026-11-21",
+  "how": "Read once by the assistant with a page-fetch tool that summarises what it fetches, so the lines below are what that tool reported under `User-agent: *`, NOT a byte-for-byte copy. They are a conservative, dated stand-in for a live robots.txt check, which the live adapter deliberately does not perform (it would be an extra request). Re-read the real files before relying on them.",
+  "rules": [
+    { "host": "jobicy.com", "source": "https://jobicy.com/robots.txt", "disallow": ["/go/", "/away.php", "/*?application_success=1", "/app*form_id="], "note": "/go/ and /away.php look like apply-link redirects; the file does not say what they serve." },
+    { "host": "himalayas.app", "source": "https://himalayas.app/robots.txt", "disallow": ["/apply", "/companies?page=", "/companies*&page=", "/companies/*?page="], "note": "Allow: / otherwise." }
+  ]
+}

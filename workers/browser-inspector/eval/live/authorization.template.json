@@ -1,0 +1,14 @@
+{
+  "schema": "eval-live-authorization/1",
+  "granted": false,
+  "_note": "A TEMPLATE. It is refused because `granted` is false. A real authorization is created only when the owner grants a run, quoting their statement, and it must match the manifest hash, case ids, source hosts and limits EXACTLY. It is valid for at most 24 hours and for one run directory.",
+  "granted_by": "",
+  "granted_at": "",
+  "valid_until": "",
+  "statement": "",
+  "manifest_sha256": "",
+  "case_ids": [],
+  "source_hosts": [],
+  "reviewed_redirect_hosts": [],
+  "limits": { "concurrency": 1, "retries": 0, "max_pages_per_case": 3, "total_page_navigations": 9, "pacing_ms": 10000, "wall_clock_minutes": 8, "tracker_redirects": false }
+}

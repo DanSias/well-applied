@@ -44,12 +44,14 @@ const typed = (url) => {
  * @param {string} sourceUrl a discovered job's source URL (its listing, or a direct ATS URL)
  * @param {object} [options]
  * @param {boolean} [options.allowTrackerRedirects] follow a KNOWN click-tracking redirect (default false: it needs its own approval)
+ * @param {(candidate: object) => Promise<string|void>} [options.beforeFollow] live runs only: called with the single Apply candidate AFTER the resolver's own gates and BEFORE
+ *   it is requested, so a caller can approve its host and pace the request. Default: nothing.
  * @param {string[]} [options.reviewedRedirectHosts] hosts a PERSON has reviewed and cleared as redirectors (default none). An unknown redirector or
  *   click-through is otherwise refused BEFORE it is requested, and flagged for human review.
  * @param {number} [options.budgetMs] @param {object} [options.guard] @param {Function} [options.launch] @param {object} [options.timeouts] as for inspect()
  */
 export async function resolveDestination(sourceUrl, options = {}) {
-    const { allowTrackerRedirects = false, reviewedRedirectHosts = [], guard = createGuard(), ...passthrough } = options;
+    const { allowTrackerRedirects = false, reviewedRedirectHosts = [], beforeFollow = null, guard = createGuard(), ...passthrough } = options;
     const cleared = new Set(reviewedRedirectHosts.map((h) => String(h).toLowerCase()));
     const source = typed(safeRedact(sourceUrl) ?? String(sourceUrl));
     const hops = [];
@@ -98,6 +100,7 @@ export async function resolveDestination(sourceUrl, options = {}) {
             const hop = hops.find((h) => h.index === e.hop);
             if (hop) Object.assign(hop, { page_kind: e.kind, page_reasons: e.reasons });
             lastClassified = e;
+            evidence.warnings.push(...e.warnings.filter((w) => !evidence.warnings.includes(w)));
         } else if (e.event === 'candidates') {
             evidence.candidates = e.candidates.map((c) => ({ ...c, ...typed(c.url) }));
             evidence.warnings.push(...e.warnings);
@@ -110,13 +113,19 @@ export async function resolveDestination(sourceUrl, options = {}) {
         if (!allowTrackerRedirects && trackerRuleFor(candidate.url)) return { __resolution: refusedTracker(candidate.url, 'apply_link') };
         const flagged = unknownRedirector(candidate.url, hops.at(-1)?.final.url ?? sourceUrl, 'apply_link');
 
-        return flagged ? { __resolution: flagged } : null;
+        if (flagged) return { __resolution: flagged };
+        // A caller may veto the follow with a reason (a live run's pacing would pass its deadline): nothing is requested.
+        const veto = await beforeFollow?.(candidate);
+
+        return veto ? { __resolution: finish(ResolutionStatus.Unresolved, String(veto), /_requires_review$/.test(String(veto)) ? { needs_human_review: true, review_reason: 'refused by the caller\'s policy before it was requested' } : { needs_human_review: false }) } : null;
     };
     // A page classified as an application form is RECORDED, not read.
     const onForm = async (page, kind, { hop }) => ({ __form: { hop, url: safeRedact(page.url()), reasons: kind.reasons, ats: kind.ats ?? null } });
 
     const raw = await inspect(sourceUrl, { ...passthrough, guard, genericDiscovery: true, ashbySchema: false, onForm, observe, onCandidate });
     if (raw.__resolution) return raw.__resolution;
+    // Whatever the walk itself noted (blocked subresources and methods, load timeouts, ...) is part of the evidence.
+    evidence.warnings.push(...(raw.warnings ?? []).filter((w) => !evidence.warnings.includes(w)));
 
     return flagIntermediateRedirects(interpret(raw, { finish, hops, evidence, source, lastClassified }), cleared);
 }
@@ -160,8 +169,20 @@ function interpret(raw, { finish, hops, evidence, source }) {
         case StopReason.Captcha:
         case StopReason.AntiBot:
             return finish(ResolutionStatus.Blocked, raw.stop_reason === StopReason.Captcha ? 'captcha' : 'anti_bot', withLast({ blocked_by: 'site' }));
-        case StopReason.DestinationProhibited:
+        case StopReason.DestinationProhibited: {
+            // A refusal by the CALLER's host policy (live runs: an unapproved redirect or destination host, a robots.txt-disallowed path, pacing past the
+            // deadline) is not a security refusal: nothing unsafe was attempted. It is unresolved, for a person to review, and the host was never requested.
+            const refused = String(diag.refused ?? '');
+            if (refused.startsWith('host_policy:')) {
+                const [, kind, host = null] = refused.split(':');
+                if (kind === 'pacing_would_pass_deadline') return finish(ResolutionStatus.Unresolved, 'pacing_would_pass_deadline', withLast({ needs_human_review: false }));
+                const reason = kind === 'robots_disallowed' ? 'robots_disallowed_requires_review' : 'redirect_host_requires_review';
+
+                return finish(ResolutionStatus.Unresolved, reason, withLast({ redirector: { where: 'redirect_or_navigation', host, signals: [kind] }, needs_human_review: true, review_reason: `${kind === 'robots_disallowed' ? 'a path the host\'s robots.txt disallows' : 'an unapproved host'} (${host ?? 'unknown'}) was refused before it was requested` }));
+            }
+
             return finish(ResolutionStatus.Blocked, 'destination_prohibited', withLast({ blocked_by: 'policy', refused: diag.refused ?? null }));
+        }
         case StopReason.TooManyRedirects:
             return finish(ResolutionStatus.Blocked, 'redirect_limit', withLast({ blocked_by: 'policy' }));
         case StopReason.DestinationUnreachable:

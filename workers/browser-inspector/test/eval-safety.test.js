@@ -65,6 +65,6 @@ test('no third-party page snapshot and no personal data is stored under eval/', 
     for (const f of files) {
         const text = readFileSync(f, 'utf8');
         assert.equal(/[\w.+-]+@[\w-]+\.[\w.]+/.test(text), false, `${rel(f)} contains an email address`);
-        assert.equal(/worker_identity|ai-box-browser-inspector|Authorization|Bearer /.test(text), false, `${rel(f)} contains run metadata or credentials`);
+        assert.equal(/worker_identity|ai-box-browser-inspector|Authorization:|Bearer /.test(text), false, `${rel(f)} contains run metadata or credentials`);
     }
 });

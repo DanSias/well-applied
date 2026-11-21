@@ -70,3 +70,10 @@ const pilot = {
 const pilotOut = stableJson(pilot);
 writeFileSync(path.join(dir, 'resolution-pilot.proposed.json'), pilotOut);
 console.log(`wrote resolution-pilot.proposed.json: ${pilotCases.length} cases, sha256 ${sha256(pilotOut)}`);
+
+// The same pilot WITHOUT the Himalayas case: Himalayas' terms prohibit automated access to its pages except through its API (see eval/live/AUTOMATION-RESTRICTIONS.md).
+const jobicyCases = pilotCases.filter((c) => c.source === 'jobicy');
+const jobicyPilot = { ...pilot, purpose: 'A PROPOSED supervised live PILOT limited to Jobicy (two cases): Himalayas is excluded because its terms prohibit automated page access. It authorises nothing and has not run.', pilot_of: { ...pilot.pilot_of, case_ids: jobicyCases.map((c) => c.id) }, execution: { ...pilot.execution, total_page_navigation_cap: 6, wall_clock_cap_minutes: 6 }, cases: jobicyCases };
+const jobicyOut = stableJson(jobicyPilot);
+writeFileSync(path.join(dir, 'resolution-pilot-jobicy-only.proposed.json'), jobicyOut);
+console.log(`wrote resolution-pilot-jobicy-only.proposed.json: ${jobicyCases.length} cases, sha256 ${sha256(jobicyOut)}`);

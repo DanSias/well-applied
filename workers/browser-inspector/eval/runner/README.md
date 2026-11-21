@@ -32,34 +32,41 @@ An interrupt (Ctrl-C) stops between cases: finished cases are kept, the rest are
 `batch.js` (pure core: injected resolver, URL source, clock) · `sanitize.js` · `report.js` · `dry-run.js` (the only module that imports the inspector, through the resolver and the local fixture sites) ·
 `cli.js` · `fixtures/dry-run-batch.json` (local fixture URLs, same format as the proposed batch) · `samples/` (a committed plan of the real 13-case batch and a dry run).
 
-## What does NOT exist yet
+## Live mode (this milestone; NOT used)
 
-A **live adapter**: the two functions that would make a live run possible: re-reading a case's URL from the database **by id, read-only**, and calling the resolver with the real guard against the public internet.
-Until that is built, reviewed and separately approved, nothing in this directory can make an external request. The runner's core already takes them as injected functions, so the live adapter is a small, separate module.
+`live` exists, and it is **disabled unless a separate authorization matches EXACTLY** (`eval/live/`; see `eval/live/README.md`). The core validates it before reading or requesting anything:
+the manifest hash; the allowed case ids (exactly the manifest's cases); the allowed source hosts; the execution limits (each equal to the manifest's, and within hard ceilings in code: 3 cases, 3 pages per case,
+9 navigations, 10 s pacing, 8 minutes); tracker redirects explicitly `false`; a granted flag, a granter and the owner's verbatim statement; and a validity window of at most 24 hours. The CLI also needs
+`--supervised`, and **refuses to reuse a run directory** (`eval/runs/live-<manifest12>-<authorization12>`), so a run is never resumed or repeated.
 
-## Proposed authorization for a small supervised live pilot (NOT GRANTED)
+It reads source URLs from the production database **by id, read-only** (one column, one fixed SELECT, read-only connection plus `query_only`), re-hashes each before navigation, and calls `resolveDestination()` through
+a guard built from the inspector's own `createGuard` with an added, refusing, per-hop host policy. **No live run has been made.** It is tested only against local HTTPS fixtures.
 
-For the owner to grant, in chat, in these words or others naming the same items. It does not exist until it is given, and it cannot be given for the runner as it stands (no live mode).
+## Pilot authorization (NOT GRANTED)
 
-> I approve building and then running ONE supervised live pilot of destination resolution.
-> 1. **Manifest:** `eval/cohort/resolution-pilot.proposed.json`, SHA-256 `92f8e929759152c8f0a10c5efe6561512847fa9f9b86930159677759d28deea9` (3 cases: prod-180 and prod-393 on jobicy.com, prod-83 on himalayas.app). The run must refuse any other hash.
-> 2. **Source URLs** are re-read read-only from `database/database.sqlite` by job id and must match each case's `url_sha256`.
-> 3. **Hosts:** requests to jobicy.com and himalayas.app (one navigation per case), and to the destination hosts those pages' single Apply links lead to (at most two navigations per destination host per case), through the existing guard only (public addresses, GET/HEAD only, hop limits 3 pages / 2 follows / 8 redirects).
-> 4. **Limits:** concurrency 1, no retries, 10 s between requests to the same host, 9 page navigations in total, 8 minutes wall clock.
-> 5. **Tracker redirects off.** Unknown redirectors are flagged for my review and not followed. Adzuna is excluded.
-> 6. **Stops** the whole run on any security refusal, prohibited method, changed source URL hash, 2 consecutive infrastructure failures, or 3 blocked/CAPTCHA/429 cases; stops a host after 2 such cases.
-> 7. **Output** only under `eval/runs/`, sanitised as above. Nothing is written to Jobs, Opportunities, Applications, agent runs or profile tables; no application data is entered, nothing is clicked, uploaded or submitted.
-> 8. **I am present** and will start the run; every ambiguous or flagged result is reviewed by me before anything is called verified.
-> The pilot's result authorises nothing further: the other 5 Jobicy/Himalayas cases and the 5 Adzuna cases each need their own approval.
+The three-case pilot (`resolution-pilot.proposed.json`, SHA-256 `92f8e929759152c8f0a10c5efe6561512847fa9f9b86930159677759d28deea9`) includes a Himalayas case, and **Himalayas' terms prohibit automated access to its pages** (see
+`eval/live/AUTOMATION-RESTRICTIONS.md`). **Do not approve it as written.** The proposed alternative is the two-case Jobicy-only pilot
+(`resolution-pilot-jobicy-only.proposed.json`, SHA-256 `9edde06a2d21f9d40fd03389d8aa6d10206c86cfb9a7bc5884f89717724a1a5a`): prod-180 and prod-393 on jobicy.com, 6 navigations, 6 minutes, 10 s per-host pacing, concurrency 1, no retries.
 
-Pilot manifest hash: `92f8e929759152c8f0a10c5efe6561512847fa9f9b86930159677759d28deea9` · full 13-case batch hash: `6e169a26b07c24380e7ce99b2e7ae18f772b7b41bce1de4370f06a1fb201f2ad`.
+Proposed authorization, for the owner to grant in chat in these words or others naming the same items (it exists only once given; nothing runs until then):
 
-**Before that approval can mean anything**, a small **live-adapter milestone** is needed (the read-only URL source, the live wiring, an authorisation check that the manifest hash and case ids match the approval, and tests that it refuses everything else). Run nothing until it is reviewed and merged.
+> I approve ONE supervised live pilot of destination resolution, on these terms.
+> 1. **Manifest:** `eval/cohort/resolution-pilot-jobicy-only.proposed.json`, SHA-256 `9edde06a2d21f9d40fd03389d8aa6d10206c86cfb9a7bc5884f89717724a1a5a` (prod-180 and prod-393, jobicy.com).
+> 2. **I have read Jobicy's terms and robots.txt** and accept the residual risk described in `eval/live/AUTOMATION-RESTRICTIONS.md` (or I have asked Jobicy and attach its answer).
+> 3. **Hosts:** jobicy.com (one navigation per case) and the destination hosts its single Apply link leads to (known ATS hosts, or the one Apply destination the resolver chooses), through the existing guard only. Unknown redirect hosts are refused before they are requested; paths robots.txt disallows are refused.
+> 4. **Limits:** concurrency 1, no retries, 10 s between requests to the same host, 6 page navigations, 6 minutes.
+> 5. **Tracker redirects off; Adzuna and Himalayas excluded.**
+> 6. **Stops** on any security refusal, prohibited method, changed source URL hash, 2 consecutive infrastructure failures, or 3 blocked/CAPTCHA/429 cases.
+> 7. **Output** under `eval/runs/` only, sanitised. Nothing is written to Jobs, Opportunities, Applications, agent runs or profile tables; nothing is entered, clicked, uploaded or submitted.
+> 8. **I am present** and will start it with `--supervised`; I review every flagged result before anything is called verified. This authorises nothing further.
+
+On receiving that, the next steps are: create the authorization file with that statement, `granted_at`, a `valid_until` within 24 hours, the hash, the case ids, the host and the limits; then the owner runs the CLI.
 
 ## Remaining risks
 
-- The resolver has only met synthetic fixtures; a live page may behave differently (JavaScript-only Apply buttons are reported, never clicked; a single bounce through an unknown host with no structural signal is followed and not flagged).
-- Pacing is per source host plus hosts an earlier case reached; a destination host first met within a case is not paced before that case.
-- Stop thresholds are conservative defaults chosen without live data.
-- Jobicy and Himalayas terms of use for automated requests are **unverified**.
-- `url_shape` in the cohort and batch still contains slugs; the runner's reports do not.
+- The resolver and adapter have only met **synthetic local fixtures**; live pages may behave differently. JavaScript-only Apply buttons are reported, never clicked. Third-party scripts never load (an unapproved host is refused), so a page that builds its Apply link from a third-party script shows none: that fails safe, as `no_apply_link`.
+- **Robots rules are enforced for the source URL and the Apply candidate only.** The guard caches its per-host decision, so a later redirect hop on a host already visited is not re-judged by path. The snapshot is dated and secondhand.
+- A redirect revisiting a host already used earlier **in the same case** is not paced again (same cache).
+- The **pacing sleeps happen inside the guard's pre-request check**; a long wait could exceed Chromium's own navigation timeout and be recorded as a timeout (counted as an infrastructure failure, which stops the batch: a safe failure).
+- Stop thresholds are conservative defaults chosen without live data. DNS rebinding between the address check and the connection is the inspector's existing, documented gap.
+- The Jobicy terms ambiguity and the Himalayas prohibition above; the destination sites' terms were not reviewed.

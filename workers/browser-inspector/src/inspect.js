@@ -252,7 +252,7 @@ async function walk(page, startUrl, { state, guard, deadline, rawUrl, timeouts, 
         // how this page was reached. The first page is where the claim says its URL came from; any later page was reached by
         // following an identified Apply link.
         const kind = classifyPage(signals, { status: nav.status, context: contextFor({ hop, startOrigin }), extended: genericDiscovery });
-        observe?.({ event: 'classified', hop, kind: kind.kind, ats: kind.ats ?? null, reasons: kind.reasons, title: signals.title });
+        observe?.({ event: 'classified', hop, kind: kind.kind, ats: kind.ats ?? null, reasons: kind.reasons, title: signals.title, warnings: [...state.warnings] });
 
         switch (kind.kind) {
             case 'blocked':
