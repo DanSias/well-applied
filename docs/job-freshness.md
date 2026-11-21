@@ -59,11 +59,13 @@ Rollback at any stage: unset the flag (presentation); the stored liveness record
 ## 5. Offline-testable, and what is not
 Everything above is covered by deterministic fixtures: expiry boundaries, conflicting observations, repeat checks, reopen rules, every error class, provider restrictions, protected jobs, status presentation, the dry run (read-only, no request), and default-off behaviour. Not testable offline: how the live providers actually answer.
 
-## 6. The smallest read-only, unauthenticated verification of the Jobicy `/api/jobs` assumptions (NOT executed)
-A single pair of public, key-less `GET` requests, one second apart, from a person's machine or with explicit approval, no cursor, no key, nothing stored:
+**Status-response structure (verified 2026-11-22):** `{apiVersion, checkedAt, count, jobs:[{id, status}], statusCode, success}`; only `active` was observed.
+
+## 6. The Jobicy `/api/jobs` verification (EXECUTED 2026-11-22: three key-less requests)
+The three public, key-less `GET` requests that were run, one second apart, from a person's machine or with explicit approval, no cursor, no key, nothing stored:
 
 1. `GET https://jobicy.com/api/jobs?count=3&geo=usa` and `GET https://jobicy.com/api/v2/remote-jobs?count=3&geo=usa` (the endpoint the discovery provider uses today).
-   **Establishes:** that both paths answer; the HTTP status; whether the response envelope has `success`, `statusCode`, `jobs`, `jobCount`, `nextCursor`, `hasMore`, `apiVersion`; whether each job has `id`, `url`, `jobSlug`, `jobTitle`, `companyName`; whether `url` is a Jobicy listing and equals `https://jobicy.com/jobs/{id}-{jobSlug}`; whether the old path is an alias with the same shape; whether `job_request_cost` or `total_request_cost` are absent (they must be, with no key).
+   **Result:** both paths answered 200 with the same envelope and apiVersion (the old path is an alias); `url` is a Jobicy listing equal to `https://jobicy.com/jobs/{jobSlug}`; no cost fields. **Established:** that both paths answer; the HTTP status; whether the response envelope has `success`, `statusCode`, `jobs`, `jobCount`, `nextCursor`, `hasMore`, `apiVersion`; whether each job has `id`, `url`, `jobSlug`, `jobTitle`, `companyName`; whether `url` is a Jobicy listing and equals `https://jobicy.com/jobs/{jobSlug}` (the slug already starts with the id); whether the old path is an alias with the same shape; whether `job_request_cost` or `total_request_cost` are absent (they must be, with no key).
 2. `GET https://jobicy.com/api/jobs/status?ids={the three ids from step 1}` (free, documented).
    **Establishes:** the status endpoint's actual response body (the shape B3 only assumes), and what it says for a live id.
 

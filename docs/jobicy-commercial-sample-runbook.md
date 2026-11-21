@@ -28,7 +28,7 @@ It is **not** wired into discovery, ingestion, any schedule or any migration, an
 | 400 (`success:false`), 429 and 503 with `Retry-After`; 1 request/second/IP | documentation | **No** |
 | **missing or invalid key: NOT documented.** Treated as 401/403 `auth_failed`; but the API might instead quietly answer as the free tier | **assumption** | **No** |
 | **insufficient wallet: NOT documented.** Treated as 402 `insufficient_balance` | **assumption** | **No** |
-| `jobSlug` is in the response (the existing provider stores it for Jobicy) and `jobicy.com/jobs/{id}-{jobSlug}` rebuilds the listing | repository data and URL shapes | **No**: this is exactly what the sample measures |
+| `jobSlug` is in the response and **already contains the job id** (`163636-some-title`); the listing is `https://jobicy.com/jobs/{jobSlug}` | **verified against the FREE tier on 2026-11-22** (3 of 3 jobs; the earlier `{id}-{jobSlug}` rule was wrong and has been corrected) | Free tier: yes. Whether the Commercial tier returns the same `jobSlug`: **No**: the sample measures it |
 | the free and Commercial first pages of the same query contain the same jobs | assumption | **No**: jobs published between the two requests will show as unmatched |
 
 If a Commercial answer carries **no cost field at all**, the evaluator warns `commercial_tier_not_observed`, because a bad key might simply return a free-tier answer.
@@ -38,12 +38,12 @@ The worst case of the paid request is `count` cents, and the run refuses unless 
 `JOBICY_COMMERCIAL_ENABLED=true`, the key is configured, `--confirm-spend`, a sufficient `--max-cost-cents`, and `--out` names a file that does not exist. It makes at most two requests (one free, one paid), never follows a cursor, and never retries. A 429/503 is recorded with its (clamped) `Retry-After` and the run stops: re-running later is the operator's decision.
 
 ## What the report answers
-Totals and matches by id; jobs reaching genuine employer or ATS URLs (with a 95% Wilson interval); jobs still pointing at Jobicy, aggregators or trackers; the ATS platform mix; listing-URL reconstruction accuracy; the API-reported charge, its reconciliation with per-job charges and the cost per usable destination; unmatched, ambiguous and malformed records; and each genuine candidate in the **B1 contract** (listing preserved as `canonical_url`, `tier: commercial`, `verification: unverified`, `may_replace_apply_link: false`) without persisting anything.
+Totals and matches by id; jobs reaching genuine employer or ATS URLs (with a 95% Wilson interval); jobs still pointing at Jobicy, aggregators or trackers; the ATS platform mix; listing-URL reconstruction accuracy (`jobicy.com/jobs/{jobSlug}`, requiring the slug to start with the job's own id and a hyphen; a missing or inconsistent slug is reported as not reconstructable, never guessed); the API-reported charge, its reconciliation with per-job charges and the cost per usable destination; unmatched, ambiguous and malformed records; and each genuine candidate in the **B1 contract** (listing preserved as `canonical_url`, `tier: commercial`, `verification: unverified`, `may_replace_apply_link: false`) without persisting anything.
 Every report states that it describes **one page of the last seven days of the public feed, not Jobicy's historical inventory or our stored jobs**, and that "genuine" is a judgement about URL text, not reachability.
 Reports contain host and path shape only: no query string, slug, title, company, description or credential (tests assert it).
 
 ## Decision rule (fixed before any sample)
-Adopt the Commercial tier for forward discovery only if, on a sample of about 100, the genuine-destination share is at least about half, the listing URL rebuilds for every job, the API's charges reconcile, and the projected cost is a few dollars per thousand jobs. Otherwise keep the free tier. This sample **cannot** justify backfilling stored jobs: they are outside the seven-day window.
+Adopt the Commercial tier for forward discovery only if, on a sample of about 100, the genuine-destination share is at least about half, the listing URL rebuilds for every job that has a consistent `jobSlug`, the API's charges reconcile, and the projected cost is a few dollars per thousand jobs. Otherwise keep the free tier. This sample **cannot** justify backfilling stored jobs: they are outside the seven-day window.
 
 ## The exact approval a small supervised live sample needs
 The owner, in chat, in these words or others naming the same items (it does not exist until given; nothing runs without it):

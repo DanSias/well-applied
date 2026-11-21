@@ -64,6 +64,7 @@ final class SampleEvaluator
         $reconstructed = 0;
         $reconstructable = 0;
         $reconstructionMisses = [];
+        $notReconstructable = ['missing_slug' => [], 'inconsistent_slug_prefix' => []];
         $jobCostUsd = 0.0;
         $costReported = 0;
         $candidates = [];
@@ -84,11 +85,18 @@ final class SampleEvaluator
                 default => 'neither',
             }]++;
 
+            // Verified against the live free tier (2026-11-22): `jobSlug` already CONTAINS the job id ("163636-some-title"), and the listing is
+            // https://jobicy.com/jobs/{jobSlug}. A slug that is missing, or does not start with this job's own id, is not reconstructable: it is
+            // reported as such, never guessed or repaired.
             $slug = $c['jobSlug'] ?? $p['jobSlug'] ?? null;
             $reconstructionOk = null;
-            if (is_string($slug) && $slug !== '') {
+            if (! is_string($slug) || $slug === '') {
+                $notReconstructable['missing_slug'][] = (string) $id;
+            } elseif (! str_starts_with($slug, $id.'-') || strlen($slug) <= strlen((string) $id) + 1 || preg_match('~^[A-Za-z0-9._%-]+$~', $slug) !== 1) {
+                $notReconstructable['inconsistent_slug_prefix'][] = (string) $id;
+            } else {
                 $reconstructable++;
-                $reconstructionOk = InspectionUrl::comparable('https://jobicy.com/jobs/'.$id.'-'.$slug) === InspectionUrl::comparable($listing);
+                $reconstructionOk = InspectionUrl::comparable('https://jobicy.com/jobs/'.$slug) === InspectionUrl::comparable($listing);
                 $reconstructionOk ? $reconstructed++ : ($reconstructionMisses[] = (string) $id);
             }
 
@@ -179,11 +187,11 @@ final class SampleEvaluator
                 'ats_platforms' => $platforms,
             ],
             'listing_reconstruction' => [
-                'rule' => 'jobicy.com/jobs/{id}-{jobSlug} equals the free tier\'s url',
+                'rule' => 'jobicy.com/jobs/{jobSlug} equals the free tier\'s url, where jobSlug must start with the job\'s own id and a hyphen (verified live 2026-11-22)',
                 'checked' => $reconstructable,
                 'correct' => $reconstructed,
                 'accuracy' => $reconstructable > 0 ? round($reconstructed / $reconstructable, 4) : null,
-                'not_checkable_without_jobslug' => $nMatched - $reconstructable,
+                'not_reconstructable' => ['count' => $nMatched - $reconstructable, 'missing_slug' => $notReconstructable['missing_slug'], 'inconsistent_slug_prefix' => $notReconstructable['inconsistent_slug_prefix']],
                 'misses' => $reconstructionMisses,
             ],
             'charges' => [

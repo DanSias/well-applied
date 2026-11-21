@@ -93,11 +93,34 @@ it('reports the two direct-URL signals separately and flags where they disagree'
     expect($repeat)->toMatchArray(['direct_by_cost' => false, 'direct_by_url' => true, 'cost_cents' => 0, 'genuine' => true]);
 });
 
-it('measures how often the listing URL can be rebuilt from id and jobSlug', function () {
+it('measures how often the listing URL can be rebuilt from jobSlug (which already contains the id), and never guesses when it cannot', function () {
     $l = jbcEvaluate()['listing_reconstruction'];
 
-    expect($l)->toMatchArray(['checked' => 19, 'correct' => 18, 'accuracy' => 0.9474, 'misses' => ['1019'], 'not_checkable_without_jobslug' => 0]);
+    expect($l)->toMatchArray(['checked' => 17, 'correct' => 16, 'accuracy' => 0.9412, 'misses' => ['1019']])
+        ->and($l['not_reconstructable'])->toBe(['count' => 2, 'missing_slug' => ['1016'], 'inconsistent_slug_prefix' => ['1017']])
+        ->and($l['rule'])->toContain('jobicy.com/jobs/{jobSlug}')->not->toContain('{id}-{jobSlug}');
+    $rows = collect(jbcEvaluate()['jobs']);
+    expect($rows->firstWhere('id', '1016')['listing_reconstructed'])->toBeNull()->and($rows->firstWhere('id', '1017')['listing_reconstructed'])->toBeNull()->and($rows->firstWhere('id', '1019')['listing_reconstructed'])->toBeFalse()->and($rows->firstWhere('id', '1001')['listing_reconstructed'])->toBeTrue();
 });
+
+it('reconstructs the real live shape: jobSlug "163636-some-title" gives https://jobicy.com/jobs/163636-some-title', function () {
+    $pub = [['id' => 163636, 'url' => 'https://jobicy.com/jobs/163636-vp-example', 'jobSlug' => '163636-vp-example', 'jobTitle' => 'T', 'companyName' => 'C']];
+    $com = [['id' => 163636, 'url' => 'https://jobicy.com/jobs/163636-vp-example', 'jobSlug' => '163636-vp-example', 'jobTitle' => 'T', 'companyName' => 'C', 'job_request_cost' => 0]];
+
+    $l = (new SampleEvaluator)->evaluate($pub, $com, [])['listing_reconstruction'];
+    expect([$l['checked'], $l['correct'], $l['accuracy'], $l['not_reconstructable']['count']])->toBe([1, 1, 1.0, 0]);
+
+    // The id-prefixed form is not rebuilt as {id}-{jobSlug}: that doubled id would be wrong.
+    $wrong = [['id' => 5, 'url' => 'https://jobicy.com/jobs/5-5-x', 'jobSlug' => '5-x', 'jobTitle' => 'T', 'companyName' => 'C']];
+    expect((new SampleEvaluator)->evaluate($wrong, $wrong, [])['listing_reconstruction']['correct'])->toBe(0);
+});
+
+it('does not treat a slug that is only the id, or that has odd characters, as reconstructable', function (string $slug) {
+    $job = [['id' => 9, 'url' => 'https://jobicy.com/jobs/9-x', 'jobSlug' => $slug, 'jobTitle' => 'T', 'companyName' => 'C']];
+
+    $l = (new SampleEvaluator)->evaluate($job, $job, [])['listing_reconstruction'];
+    expect([$l['checked'], $l['not_reconstructable']['count']])->toBe([0, 1]);
+})->with(['9-', '9', '99-x', '9-x/../y', '9-x?z=1', '9-x y']);
 
 it('reconciles API-reported charges and prices a usable destination', function () {
     [$public, $commercial, $total] = jbcPair();
@@ -134,11 +157,11 @@ it('hands each genuine candidate to the B1 contract: Jobicy listing preserved, c
     $e = (new SampleEvaluator)->evaluate(...[...array_slice(jbcPair(), 0, 2), ['commercial_total_cost_usd' => 0.12]]);
     $candidate = $e['_candidates']['1001'];
 
-    expect($candidate['listing_url'])->toBe('https://jobicy.com/jobs/1001-platform-engineer-1001')
+    expect($candidate['listing_url'])->toBe('https://jobicy.com/jobs/1001-platform-engineer')
         ->and($candidate['destinations'][0])->toMatchArray(['role' => 'candidate_destination', 'source' => 'jobicy', 'verification' => ['status' => 'unverified']])
         ->and($candidate['destinations'][0]['provenance'])->toBe(['origin' => 'provider_api', 'field' => 'url', 'tier' => 'commercial'])
         ->and($candidate['destinations'][0]['usage']['may_replace_apply_link'])->toBeFalse()
-        ->and($candidate['attribution'])->toMatchArray(['provider' => 'jobicy', 'canonical_url' => 'https://jobicy.com/jobs/1001-platform-engineer-1001', 'required' => true])
+        ->and($candidate['attribution'])->toMatchArray(['provider' => 'jobicy', 'canonical_url' => 'https://jobicy.com/jobs/1001-platform-engineer', 'required' => true])
         ->and($e['b1_contract']['candidates_accepted'])->toBe(9);
     // The repeat (1018) and a job whose slug does not rebuild (1019) are still accepted: the contract judges the destination, not the slug.
     $ids = array_map('strval', array_keys($e['_candidates']));

@@ -6,16 +6,17 @@
  */
 const JBC_KEY = 'jbc-test-key-SECRET-9f8e7d';
 
+/** Jobicy's real jobSlug already contains the job id: "163636-some-title" (verified against the free tier 2026-11-22). */
 function jbcSlug(int $id): string
 {
-    return 'platform-engineer-'.$id;
+    return $id.'-platform-engineer';
 }
 
 /** @return array<string, mixed> a free-tier job: `url` is always the Jobicy listing */
 function jbcPublicJob(int $id, array $over = []): array
 {
     return array_merge([
-        'id' => $id, 'url' => 'https://jobicy.com/jobs/'.$id.'-'.jbcSlug($id), 'jobSlug' => jbcSlug($id), 'jobTitle' => 'Platform Engineer '.$id, 'companyName' => 'Acme '.$id,
+        'id' => $id, 'url' => 'https://jobicy.com/jobs/'.jbcSlug($id), 'jobSlug' => jbcSlug($id), 'jobTitle' => 'Platform Engineer '.$id, 'companyName' => 'Acme '.$id,
         'jobIndustry' => ['Engineering'], 'jobType' => ['Full-Time'], 'jobGeo' => 'USA', 'jobLevel' => 'Senior', 'jobExcerpt' => 'x', 'jobDescription' => '<p>SECRET DESCRIPTION</p>', 'pubDate' => '2026-11-20 10:00:00',
     ], $over);
 }
@@ -23,7 +24,7 @@ function jbcPublicJob(int $id, array $over = []): array
 /** @return array<string, mixed> the same job from the Commercial tier */
 function jbcCommercialJob(int $id, ?string $destination, float $cost, array $over = []): array
 {
-    return jbcPublicJob($id, ['url' => $destination ?? 'https://jobicy.com/jobs/'.$id.'-'.jbcSlug($id), 'job_request_cost' => $cost] + $over);
+    return jbcPublicJob($id, ['url' => $destination ?? 'https://jobicy.com/jobs/'.jbcSlug($id), 'job_request_cost' => $cost] + $over);
 }
 
 /**
@@ -31,6 +32,7 @@ function jbcCommercialJob(int $id, ?string $destination, float $cost, array $ove
  *  1001-1004 ATS (greenhouse, lever, ashby, workday)       1005-1007 employer-owned HTTPS        1008 aggregator          1009 tracker redirect
  *  1010 insecure http                                      1011 invalid                          1012-1017 no direct URL (still the listing, free)
  *  1018 repeat retrieval (different URL, no charge)        1019 slug that does not rebuild the listing (public url differs)
+ *  1016 no jobSlug, 1017 jobSlug with another job's id prefix (both: not reconstructable)
  *  1020 public-only    2001 commercial-only    1021 duplicate id in the public page    (one record in each page has no id)    1022 identity mismatch
  *
  * @return array{0: list<array<string, mixed>>, 1: list<array<string, mixed>>, 2: float}
@@ -50,13 +52,15 @@ function jbcPair(): array
         $public[] = jbcPublicJob($id);
         $commercial[] = jbcCommercialJob($id, $url, 0.01);
     }
+    // 1016 has no jobSlug at all and 1017's slug carries another id's prefix: neither can be reconstructed.
+    $slugOverrides = [1016 => ['jobSlug' => null], 1017 => ['jobSlug' => '7777-platform-engineer']];
     foreach (range(1012, 1017) as $id) {
-        $public[] = jbcPublicJob($id);
-        $commercial[] = jbcCommercialJob($id, null, 0.0);
+        $public[] = jbcPublicJob($id, $slugOverrides[$id] ?? []);
+        $commercial[] = jbcCommercialJob($id, null, 0.0, $slugOverrides[$id] ?? []);
     }
     $public[] = jbcPublicJob(1018);
     $commercial[] = jbcCommercialJob(1018, 'https://boards.greenhouse.io/acme/jobs/1018', 0.0); // already paid for under this key: free
-    $public[] = jbcPublicJob(1019, ['url' => 'https://jobicy.com/jobs/1019-an-older-slug']);
+    $public[] = jbcPublicJob(1019, ['url' => 'https://jobicy.com/jobs/1019-an-older-slug']);   // the slug in the response does not rebuild this url
     $commercial[] = jbcCommercialJob(1019, 'https://careers.acme-corp.com/jobs/1019', 0.01, ['url' => 'https://careers.acme-corp.com/jobs/1019']);
     $public[] = jbcPublicJob(1020);                                       // only in the free page
     $commercial[] = jbcCommercialJob(2001, 'https://jobs.lever.co/acme/cccccccc-3333-4333-8333-000000002001', 0.01); // only in the commercial page
