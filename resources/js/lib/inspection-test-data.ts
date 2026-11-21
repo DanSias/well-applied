@@ -1,4 +1,5 @@
 import type {
+    ApplicationQuestionView,
     ApplicationInspectionState,
     InspectionDiagnostics,
     InspectionJob,
@@ -175,6 +176,83 @@ export const ashbyBlockedFormState = (
                 origin: 'user',
                 set_at: '2026-11-20T14:36:43Z',
             },
+            ...over,
+        },
+    );
+};
+
+/**
+ * A schema-only Ashby result as the worker now reports it (flag BROWSER_WORKER_ASHBY_SCHEMA): fields from the provider's own
+ * form schema, `partial`, no URL claims. Three fields stand in for the 29 of the NerdWallet job: a required text field, an
+ * optional survey select, and an untitled consent control.
+ */
+export const ashbySchemaOnlyState = (
+    over: Partial<ApplicationInspectionState> = {},
+): ApplicationInspectionState => {
+    const url =
+        'https://jobs.ashbyhq.com/nerdwallet/32c62385-07d5-4d6d-960e-12c05ce0cbef/application';
+    const warnings = [
+        'provider_schema_only',
+        'visibility_not_established',
+        'conditional_logic_not_in_schema',
+        'unlabelled_control',
+        'provider_schema_application_fields:2',
+        'provider_schema_survey_fields:1',
+    ];
+    const q = (
+        position: number,
+        over: Partial<ApplicationQuestionView>,
+    ): ApplicationQuestionView => ({
+        position,
+        raw_label: 'Name',
+        label_source: 'provider_schema',
+        control_type: 'text',
+        required: true,
+        options: null,
+        section: 'Personal Information',
+        extraction_source: 'provider_schema',
+        ...over,
+    });
+
+    return stateOf(
+        runOf('succeeded', { id: 14 }),
+        resultOf('partial', {
+            agent_run_id: 14,
+            ats_detected: 'ashby',
+            finished_at: '2026-11-21T10:00:00Z',
+            warnings,
+            field_count: 3,
+            unresolved_count: 1,
+            diagnostics: diagnosticsOf({
+                requested_url: url,
+                final_url: null,
+                resolved_url: null,
+                http_status: null,
+                navigation: [],
+                warnings,
+                start_origin: 'user',
+            }),
+            questions: [
+                q(0, {}),
+                q(1, {
+                    raw_label: 'Gender',
+                    control_type: 'select',
+                    required: false,
+                    options: ['Female', 'Male'],
+                    section: 'Demographic Survey',
+                }),
+                q(2, {
+                    raw_label: null,
+                    label_source: 'unresolved',
+                    control_type: 'select',
+                    required: false,
+                    options: ['I agree'],
+                    section: null,
+                }),
+            ],
+        }),
+        {
+            application_url: { url, origin: 'user', set_at: null },
             ...over,
         },
     );

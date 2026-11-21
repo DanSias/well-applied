@@ -10,7 +10,11 @@ import { Badge } from '@/components/ui/badge';
 import { WaitingForWorkerNotice } from '@/components/worker-status-badge';
 import { useApplicationInspectionPolling } from '@/hooks/use-application-inspection-polling';
 import { useWorkerStatusPolling } from '@/hooks/use-worker-status-polling';
-import { describeFailure, presentInspection } from '@/lib/inspection-status';
+import {
+    describeFailure,
+    fromProviderSchema,
+    presentInspection,
+} from '@/lib/inspection-status';
 import AppShell from '@/layouts/app-shell';
 import { store as inspectStore } from '@/routes/jobs/applications';
 import type {
@@ -46,7 +50,13 @@ function OptionsList({ options }: { options: string[] }) {
     );
 }
 
-function RequiredBadge({ required }: { required: boolean | null }) {
+function RequiredBadge({
+    required,
+    schema = false,
+}: {
+    required: boolean | null;
+    schema?: boolean;
+}) {
     if (required === null) {
         return (
             <span className="text-xs text-neutral-400 dark:text-neutral-500">
@@ -64,12 +74,14 @@ function RequiredBadge({ required }: { required: boolean | null }) {
             }
         >
             {required ? 'required' : 'optional'}
+            {schema ? ' in schema' : ''}
         </span>
     );
 }
 
 function QuestionRow({ question }: { question: ApplicationQuestionView }) {
     const unresolved = question.label_source === 'unresolved';
+    const schema = fromProviderSchema(question);
 
     return (
         <li className="px-4 py-3">
@@ -80,7 +92,9 @@ function QuestionRow({ question }: { question: ApplicationQuestionView }) {
                     </span>
                     {unresolved ? (
                         <span className="text-sm text-neutral-400 italic dark:text-neutral-500">
-                            Unresolved field
+                            {schema
+                                ? 'Untitled in the provider schema'
+                                : 'Unresolved field'}
                         </span>
                     ) : (
                         <span className="text-sm text-neutral-800 dark:text-neutral-200">
@@ -97,7 +111,10 @@ function QuestionRow({ question }: { question: ApplicationQuestionView }) {
                     <span className="text-xs text-neutral-500 dark:text-neutral-400">
                         {question.control_type}
                     </span>
-                    <RequiredBadge required={question.required} />
+                    <RequiredBadge
+                        required={question.required}
+                        schema={schema}
+                    />
                 </div>
             </div>
             {question.options && <OptionsList options={question.options} />}

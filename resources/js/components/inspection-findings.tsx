@@ -6,6 +6,8 @@ import {
     describeStopReason,
     groupWarnings,
     highlightedWarnings,
+    isProviderSchemaResult,
+    providerSchemaCounts,
     START_ORIGIN,
 } from '@/lib/inspection-status';
 import type { InspectionPresentation } from '@/lib/inspection-status';
@@ -39,6 +41,37 @@ export function Fact({
 }
 
 /**
+ * Shown whenever the questions came from the provider's own form schema rather than from an observed page. It says what
+ * the evidence is and, just as plainly, what it does not establish.
+ */
+export function ProviderSchemaNotice({ result }: { result: InspectionResult }) {
+    const { application, survey } = providerSchemaCounts(result.warnings);
+    const total = result.questions.length;
+
+    return (
+        <div
+            role="note"
+            className="border-line bg-sunken space-y-1 rounded-lg border px-3 py-2.5"
+        >
+            <p className="text-fg text-sm font-medium">
+                From the provider’s form schema, not the rendered form
+            </p>
+            <p className="text-fg-muted text-xs leading-relaxed">
+                {total} {total === 1 ? 'field was' : 'fields were'} reported by
+                the provider’s own form definition
+                {application !== null && survey !== null
+                    ? `: ${application} application-form ${application === 1 ? 'field' : 'fields'} and ${survey} survey-form ${survey === 1 ? 'question' : 'questions'}, which the provider keeps separate`
+                    : ''}
+                . The application page was not opened, so this does not confirm
+                which fields are visible, which questions appear conditionally,
+                or what is required to submit. “Required” and “optional” below
+                are the schema’s own marks.
+            </p>
+        </div>
+    );
+}
+
+/**
  * What the inspection found and how it got there, in words: the explanation of the outcome, what an Apply button means,
  * where it started, what application URL (if any) is known and where that came from, and why it stopped. The raw codes
  * live in `TechnicalDetails`.
@@ -66,6 +99,10 @@ export function InspectionFindings({
 
     return (
         <>
+            {result !== null && isProviderSchemaResult(result) && (
+                <ProviderSchemaNotice result={result} />
+            )}
+
             {view.outcome && view.outcome.explanation && (
                 <p
                     className={

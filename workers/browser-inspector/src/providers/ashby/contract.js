@@ -63,7 +63,8 @@ export function toContractResult(mapped) {
         conditional_hint: c.conditional_hint,
         provenance: c.provenance,
     }));
-    const warnings = [...new Set(['provider_schema_only', ...mapped.warnings])];
+    // The two forms stay countable even though the contract has no column for them (the section title is all that survives).
+    const warnings = [...new Set(['provider_schema_only', ...mapped.warnings, `provider_schema_application_fields:${mapped.coverage.application_form_fields}`, `provider_schema_survey_fields:${mapped.coverage.survey_fields}`])];
 
     return {
         fields,

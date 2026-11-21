@@ -33,8 +33,9 @@ test('no network, process, file, timer or global-fetch use', () => {
     }
 });
 
-test('the existing request guard and the worker entry points are untouched by it', () => {
-    for (const f of ['guard.js', 'inspect.js', 'poll.js']) {
-        assert.equal(readFileSync(path.join(src, '..', '..', f), 'utf8').includes('providers/ashby'), false, f);
-    }
+test('the adapter itself stays offline; only the guard and poll loop know nothing of it, and inspect.js reaches it solely through the transport milestone', () => {
+    const read = (f) => readFileSync(path.join(src, '..', '..', f), 'utf8');
+    for (const f of ['guard.js', 'poll.js']) assert.equal(read(f).includes('providers/ashby'), false, f);
+    // inspect.js (since the transport milestone, behind BROWSER_WORKER_ASHBY_SCHEMA) imports exactly the link parser from the adapter.
+    assert.deepEqual([...read('inspect.js').matchAll(/from '(\.\/providers\/ashby\/[^']+)'/g)].map((m) => m[1]), ['./providers/ashby/target.js']);
 });

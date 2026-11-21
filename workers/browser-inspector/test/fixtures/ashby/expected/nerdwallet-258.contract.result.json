@@ -384,6 +384,8 @@
     "visibility_not_established",
     "conditional_logic_not_in_schema",
     "unlabelled_control",
-    "application_limit_notice"
+    "application_limit_notice",
+    "provider_schema_application_fields:22",
+    "provider_schema_survey_fields:7"
   ]
 }

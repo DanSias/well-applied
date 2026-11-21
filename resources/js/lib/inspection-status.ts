@@ -57,7 +57,41 @@ export type OutcomeContext = {
     blockedRequests?: number;
     /** The HTTP status of the page that was opened. */
     httpStatus?: number | null;
+    /** Every field came from the provider's own form schema; no rendered form was observed. */
+    providerSchema?: boolean;
 };
+
+/** A question the provider's form schema reported, as opposed to one observed in a rendered page. */
+export const fromProviderSchema = (question: {
+    extraction_source: string;
+}): boolean => question.extraction_source === 'provider_schema';
+
+/** True when the result has fields and every one of them came from a provider schema rather than an observed form. */
+export function isProviderSchemaResult(
+    result: Pick<InspectionResult, 'questions'> | null | undefined,
+): boolean {
+    const questions = result?.questions ?? [];
+
+    return questions.length > 0 && questions.every(fromProviderSchema);
+}
+
+/** The counts of application-form and survey-form fields the worker recorded in a schema-only result's warnings. */
+export function providerSchemaCounts(warnings: string[]): {
+    application: number | null;
+    survey: number | null;
+} {
+    const read = (prefix: string) => {
+        const hit = warnings.find((w) => w.startsWith(prefix));
+        const n = hit === undefined ? NaN : Number(hit.slice(prefix.length));
+
+        return Number.isInteger(n) && n >= 0 ? n : null;
+    };
+
+    return {
+        application: read('provider_schema_application_fields:'),
+        survey: read('provider_schema_survey_fields:'),
+    };
+}
 
 /** The person gave this link themselves, so the page it leads to is, by their account, the application. */
 const enteredByUser = (context: OutcomeContext) =>
@@ -152,6 +186,16 @@ export function describeLinkOrigin(origin: string | null): string {
  * (grouped) in the technical details.
  */
 const WARNING_TEXT: Record<string, string> = {
+    visibility_not_established:
+        'The provider schema does not say which fields the page shows, so none is confirmed visible.',
+    conditional_logic_not_in_schema:
+        'Some questions are worded as conditional ("If …"). The schema carries no rule for them, so whether they appear is not verified.',
+    unlabelled_control:
+        'At least one field has no title in the provider schema, and none was invented.',
+    unknown_field_type:
+        'The schema listed a field type this inspector does not recognise; it is kept as unknown.',
+    application_limit_notice:
+        'The provider declares a limit on how often a person can apply.',
     apply_is_button:
         'This listing uses an Apply button rather than a link. The inspector never presses buttons, so it could not safely follow it automatically.',
     apply_is_email:
@@ -209,6 +253,15 @@ export function describeOutcome(
                 explanation: 'Every field and question on the form was read.',
             };
         case 'partial':
+            if (context.providerSchema === true) {
+                return {
+                    label: 'Read from provider schema',
+                    tone: 'warn',
+                    explanation:
+                        'These fields come from the provider’s own form definition, not from the rendered form. The page was not opened, so which fields it shows, which questions appear conditionally, and what is required to submit are not verified.',
+                };
+            }
+
             return stopReason === 'no_fields_extracted'
                 ? {
                       label: 'Form found, no fields read',
@@ -373,6 +426,7 @@ export function contextOf(result: InspectionResult | null): OutcomeContext {
             (w) => w === 'blocked_non_get',
         ).length,
         httpStatus: d?.http_status ?? null,
+        providerSchema: isProviderSchemaResult(result),
     };
 }
 

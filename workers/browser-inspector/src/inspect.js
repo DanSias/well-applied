@@ -16,6 +16,10 @@ import * as greenhouse from './extractors/greenhouse.js';
 import { discoverForm } from './discovery/index.js';
 import { readOnlyPage } from './discovery/page-adapter.js';
 import { genericDiscoveryRequested } from './discovery/flag.js';
+import { ashbySchemaRequested } from './transport/flag.js';
+import { createAshbyTransport } from './transport/ashby.js';
+import { fetchAshbySchema } from './transport/ashby-schema.js';
+import { parseAshbyJobUrl } from './providers/ashby/target.js';
 import {
     succeeded,
     unsupported,
@@ -39,6 +43,9 @@ export const MAX_FOLLOWS = 2;
  * @param {string|null} [options.startOrigin] where Well Applied says the start URL came from ('user', 'resolved', 'provider', 'source'): context for
  *   recognising an application form (generic discovery only)
  * @param {boolean} [options.genericDiscovery] read forms with no dedicated extractor generically (default: BROWSER_WORKER_GENERIC_DISCOVERY=1)
+ * @param {boolean} [options.ashbySchema] read a verified jobs.ashbyhq.com job link from Ashby's public form schema before any browser
+ *   is launched (default: BROWSER_WORKER_ASHBY_SCHEMA=1). Anything else, and every other provider, is unchanged.
+ * @param {(deadline: object) => {send: Function}} [options.ashbyTransport] tests only: a transport factory. Production uses the real, fixed-destination one.
  * @returns {Promise<object>} one of the result.js shapes
  */
 export async function inspect(rawUrl, options = {}) {
@@ -49,6 +56,8 @@ export async function inspect(rawUrl, options = {}) {
         timeouts = {},
         genericDiscovery = genericDiscoveryRequested(),
         startOrigin = null,
+        ashbySchema = ashbySchemaRequested(),
+        ashbyTransport = (d) => createAshbyTransport({ deadline: d }),
     } = options;
 
     const startedAt = Date.now();
@@ -72,6 +81,26 @@ export async function inspect(rawUrl, options = {}) {
     const first = await guard.checkUrl(rawUrl);
     if (!first.ok) {
         return refusal(state, first.reason);
+    }
+
+    // Ashby, flag on, a verified jobs.ashbyhq.com job link: read the form from the provider's own schema first. The same deadline
+    // governs it, and one attempt per operation is all it gets: an ordinary failure falls through to the existing read-only
+    // browser path (with a warning saying why); a security refusal stops here, with its evidence.
+    if (ashbySchema && parseAshbyJobUrl(first.url.toString()).ok) {
+        let outcome;
+        try {
+            outcome = await fetchAshbySchema(first.url.toString(), ashbyTransport(deadline));
+        } catch (error) {
+            // Not a transport refusal or an ordinary failure: a bug. Never papered over by a fallback.
+            return failed({
+                failureCategory: FailureCategory.UnexpectedError,
+                failureMessage: redactText(`Ashby schema retrieval failed unexpectedly: ${String(error?.message ?? error)}`),
+                warnings: [...state.warnings, 'ashby_schema_unexpected_error'],
+                diagnostics: diagnostics(state),
+            });
+        }
+        const done = ashbyResult(outcome, state);
+        if (done) return done;
     }
 
     let browser;
@@ -106,6 +135,44 @@ export async function inspect(rawUrl, options = {}) {
         clearTimeout(timer);
         await browser?.close().catch(() => {});
     }
+}
+
+/** A finished result from an Ashby schema attempt, or null to continue with the browser (an ordinary failure, already noted in the warnings). */
+export function ashbyResult(outcome, state) {
+    if (outcome.ok) {
+        const { contract, coverage } = outcome;
+
+        return succeeded({
+            ats: 'ashby',
+            requestedUrl: state.requestedUrl,
+            finalUrl: null,
+            resolvedUrl: null,
+            fields: contract.fields,
+            warnings: [...state.warnings, ...contract.warnings],
+            inspectionOutcome: InspectionOutcome.Partial,
+            stopReason: null,
+            diagnostics: diagnostics(state, {
+                http_status: null,
+                extraction_ms: outcome.ms,
+                field_count: contract.fields.length,
+                provider_schema: { application_form_fields: coverage.application_form_fields, survey_fields: coverage.survey_fields },
+            }),
+        });
+    }
+
+    const evidence = `${outcome.stage}/${outcome.reason}`;
+    if (outcome.kind === 'availability') {
+        state.warnings.push(`ashby_schema_unavailable:${evidence}`);
+
+        return null;
+    }
+
+    return failed({
+        failureCategory: FailureCategory.UnexpectedError,
+        failureMessage: redactText(`Ashby schema retrieval was refused by security validation (${evidence}). No browser fallback was attempted.`),
+        warnings: [...state.warnings, 'ashby_schema_security_refusal', `ashby_schema_refused:${evidence}`],
+        diagnostics: diagnostics(state, { ashby_schema: { kind: 'security', stage: outcome.stage, reason: outcome.reason } }),
+    });
 }
 
 async function walk(page, startUrl, { state, guard, deadline, rawUrl, timeouts, genericDiscovery, startOrigin }) {

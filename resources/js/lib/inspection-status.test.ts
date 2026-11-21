@@ -9,7 +9,9 @@ import {
     highlightedWarnings,
     hostOf,
     firstInspectionOptions,
+    isProviderSchemaResult,
     presentInspection,
+    providerSchemaCounts,
     summaryBadge,
 } from './inspection-status';
 import {
@@ -551,5 +553,47 @@ describe('small helpers', () => {
         expect(describeLinkOrigin('user')).toBe('you entered this');
         expect(describeLinkOrigin('resolved')).toBe('found by an inspection');
         expect(describeLinkOrigin(null)).toBe('origin not recorded');
+    });
+});
+
+describe('provider-schema results', () => {
+    const q = (extraction_source: string) =>
+        ({ extraction_source }) as { extraction_source: string };
+
+    it('is schema-only only when every question came from the provider schema', () => {
+        expect(isProviderSchemaResult({ questions: [] })).toBe(false);
+        expect(isProviderSchemaResult(null)).toBe(false);
+        expect(
+            isProviderSchemaResult({
+                questions: [q('provider_schema'), q('provider_schema')],
+            } as never),
+        ).toBe(true);
+        expect(
+            isProviderSchemaResult({
+                questions: [q('provider_schema'), q('dom')],
+            } as never),
+        ).toBe(false);
+    });
+
+    it('reads the recorded form counts and ignores a malformed one', () => {
+        expect(
+            providerSchemaCounts([
+                'provider_schema_application_fields:22',
+                'provider_schema_survey_fields:7',
+            ]),
+        ).toEqual({ application: 22, survey: 7 });
+        expect(
+            providerSchemaCounts(['provider_schema_survey_fields:x', 'other']),
+        ).toEqual({ application: null, survey: null });
+    });
+
+    it('words a schema-only partial result without claiming the form was read', () => {
+        const explained = describeOutcome('partial', null, {
+            providerSchema: true,
+        });
+
+        expect(explained.label).toBe('Read from provider schema');
+        expect(explained.explanation).toContain('not verified');
+        expect(describeOutcome('partial', null).label).toBe('Partial');
     });
 });

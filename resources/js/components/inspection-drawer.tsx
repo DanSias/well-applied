@@ -22,6 +22,7 @@ import { useWorkerStatusPolling } from '@/hooks/use-worker-status-polling';
 import {
     describeFailure,
     firstInspectionOptions,
+    fromProviderSchema,
     hostOf,
     presentInspection,
 } from '@/lib/inspection-status';
@@ -54,6 +55,7 @@ const OPTIONS_COLLAPSE_THRESHOLD = 6;
 
 function Question({ question }: { question: ApplicationQuestionView }) {
     const unresolved = question.label_source === 'unresolved';
+    const schema = fromProviderSchema(question);
     const options = question.options ?? [];
 
     return (
@@ -65,7 +67,9 @@ function Question({ question }: { question: ApplicationQuestionView }) {
                     </span>
                     {unresolved ? (
                         <span className="text-fg-subtle italic">
-                            Unresolved field
+                            {schema
+                                ? 'Untitled in the provider schema'
+                                : 'Unresolved field'}
                         </span>
                     ) : (
                         <span className="text-fg">{question.raw_label}</span>
@@ -82,8 +86,12 @@ function Question({ question }: { question: ApplicationQuestionView }) {
                     {question.required === null
                         ? 'unknown'
                         : question.required
-                          ? 'required'
-                          : 'optional'}
+                          ? schema
+                              ? 'required in schema'
+                              : 'required'
+                          : schema
+                            ? 'optional in schema'
+                            : 'optional'}
                 </p>
             </div>
             {options.length > 0 &&

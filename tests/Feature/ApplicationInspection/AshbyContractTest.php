@@ -154,3 +154,29 @@ it('shows the presented questions with the provider source, so a person can tell
         ->and(collect($questions)->pluck('extraction_source')->unique()->all())->toBe(['provider_schema'])
         ->and($presented['latest_result']['unresolved_count'])->toBe(1);
 });
+
+it('keeps the application and survey field counts with the run, since the contract has no column for the form', function () {
+    $summary = ashbyPersist()->result_summary;
+
+    expect($summary['warnings'])->toContain('provider_schema_application_fields:22', 'provider_schema_survey_fields:7');
+});
+
+it('accepts and stores a security refusal as a failed run with its evidence, never as a result with fields', function () {
+    $payload = [
+        'status' => 'failed',
+        'failure_category' => 'unexpected_error',
+        'failure_message' => 'Ashby schema retrieval was refused by security validation (job_posting/redirect_refused). No browser fallback was attempted.',
+        'warnings' => ['ashby_schema_security_refusal', 'ashby_schema_refused:job_posting/redirect_refused'],
+        'diagnostics' => ['http_status' => null, 'navigation' => [], 'candidates' => []],
+    ];
+    expect(ashbyValidate($payload)->fails())->toBeFalse();
+
+    $agentRun = ashbyRunningAgentRun();
+    app(PersistInspectionResult::class)->persist($agentRun, ashbyValidate($payload)->validated());
+    $agentRun->refresh();
+
+    expect($agentRun->status)->toBe(AgentRunStatus::Failed)
+        ->and($agentRun->failure_message)->toContain('refused by security validation')
+        ->and($agentRun->result_summary['warnings'])->toContain('ashby_schema_refused:job_posting/redirect_refused')
+        ->and(ApplicationQuestion::where('agent_run_id', $agentRun->id)->count())->toBe(0);
+});

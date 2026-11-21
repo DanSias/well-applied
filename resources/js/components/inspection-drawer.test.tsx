@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { InspectionStarter } from '@/hooks/use-start-inspection';
 import {
     ashbyBlockedFormState,
+    ashbySchemaOnlyState,
     diagnosticsOf,
     jobicyNoApplyLinkState,
     jobOf,
@@ -463,5 +464,79 @@ describe('a listing whose application form was not found (Jobicy job 348, run 11
 
         expect(user).toContain('(you entered this)');
         expect(found).toContain('(found by an inspection)');
+    });
+});
+
+describe('a schema-only result says where its fields came from', () => {
+    const html = () => render(ashbySchemaOnlyState());
+
+    it('explains that the fields came from the provider schema, not the rendered form', () => {
+        const out = html();
+
+        expect(out).toContain(
+            'From the provider’s form schema, not the rendered form',
+        );
+        expect(out).toContain('The application page was not opened');
+        expect(out).toContain('2 application-form fields');
+        expect(out).toContain('1 survey-form question');
+        expect(out).toContain('Read from provider schema');
+    });
+
+    it('claims no visibility, conditional behaviour or submission requirement', () => {
+        const out = html();
+
+        expect(out).toContain('does not confirm which fields are visible');
+        expect(out).toContain('so none is confirmed visible');
+        expect(out).toContain('whether they appear is not verified');
+        expect(out).not.toMatch(/\bComplete\b/);
+        expect(out).not.toContain(
+            'Every field and question on the form was read',
+        );
+        expect(out).not.toMatch(/Inspected/);
+    });
+
+    it('marks each requirement as the schema’s own, and an untitled field as untitled rather than unresolved', () => {
+        const out = html();
+
+        expect(out).toContain('required in schema');
+        expect(out).toContain('optional in schema');
+        expect(out).toContain('Untitled in the provider schema');
+        expect(out).not.toContain('Unresolved field');
+    });
+
+    it('keeps the technical evidence, and shows no application URL as found by this run', () => {
+        const out = html();
+
+        expect(out).toContain('provider_schema_only');
+        expect(out).toContain('you entered this');
+    });
+
+    it('is not shown for an ordinary observed result', () => {
+        const observed = stateOf(
+            runOf('succeeded'),
+            resultOf('complete', {
+                field_count: 1,
+                questions: [question(0, 'Legal first name')],
+            }),
+        );
+        const out = render(observed);
+
+        expect(out).not.toContain('provider’s form schema');
+        expect(out).not.toContain('in schema');
+        expect(out).toContain('Legal first name');
+    });
+
+    it('is not shown when only some questions came from a schema (a mixed result is not schema-only)', () => {
+        const mixed = ashbySchemaOnlyState();
+        mixed.latest_result!.questions[0].extraction_source = 'dom';
+
+        expect(render(mixed)).not.toContain('From the provider’s form schema');
+    });
+
+    it('opening it starts nothing', () => {
+        const starter = starterOf();
+        render(ashbySchemaOnlyState(), starter);
+
+        expect(starter.start).not.toHaveBeenCalled();
     });
 });

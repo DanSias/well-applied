@@ -176,12 +176,14 @@ export function stopped({ inspectionOutcome, stopReason, requestedUrl, finalUrl,
  * @param {string} params.failureCategory one of FailureCategory's values
  * @param {string} params.failureMessage
  * @param {object} params.diagnostics
+ * @param {string[]} [params.warnings] machine-readable evidence kept with the failed run (omitted from the result when absent)
  */
-export function failed({ failureCategory, failureMessage, diagnostics }) {
+export function failed({ failureCategory, failureMessage, diagnostics, warnings }) {
     return {
         status: 'failed',
         failure_category: failureCategory,
         failure_message: failureMessage,
+        ...(warnings === undefined ? {} : { warnings }),
         diagnostics,
     };
 }
