@@ -1,0 +1,2314 @@
+{
+  "aggregates_by_origin": {
+    "real_world": {
+      "cases": 2,
+      "false_complete_claims": {
+        "case_ids": [],
+        "denominator": 1,
+        "numerator": 0,
+        "scorable_cases": 1
+      },
+      "metrics": {
+        "application_url_resolution": {
+          "denominator": 1,
+          "numerator": 1,
+          "scorable_cases": 1,
+          "unscored": [
+            {
+              "case": "real-nerdwallet-258",
+              "reason": "schema_only_result_carries_no_url"
+            }
+          ],
+          "value": 1
+        },
+        "barrier_classification": {
+          "denominator": 0,
+          "numerator": 0,
+          "scorable_cases": 0,
+          "unscored": [
+            {
+              "case": "real-chainguard-4722145006",
+              "reason": "no_ground_truth"
+            },
+            {
+              "case": "real-nerdwallet-258",
+              "reason": "truth_is_not_a_barrier"
+            }
+          ],
+          "value": null
+        },
+        "false_barrier_rate": {
+          "denominator": 1,
+          "numerator": 0,
+          "scorable_cases": 1,
+          "unscored": [
+            {
+              "case": "real-chainguard-4722145006",
+              "reason": "no_ground_truth"
+            }
+          ],
+          "value": 0
+        },
+        "field_f1": {
+          "denominator": 39,
+          "numerator": 38,
+          "scorable_cases": 1,
+          "unscored": [
+            {
+              "case": "real-nerdwallet-258",
+              "reason": "truth_not_exhaustive"
+            }
+          ],
+          "value": 0.9744
+        },
+        "field_precision": {
+          "denominator": 20,
+          "numerator": 19,
+          "scorable_cases": 1,
+          "unscored": [
+            {
+              "case": "real-nerdwallet-258",
+              "reason": "truth_not_exhaustive"
+            }
+          ],
+          "value": 0.95
+        },
+        "field_recall": {
+          "denominator": 33,
+          "numerator": 33,
+          "scorable_cases": 2,
+          "unscored": [],
+          "value": 1
+        },
+        "field_type_accuracy": {
+          "denominator": 31,
+          "numerator": 23,
+          "scorable_cases": 2,
+          "secondary_inferred_truth": {
+            "denominator": 2,
+            "numerator": 0,
+            "value": 0
+          },
+          "unscored": [],
+          "value": 0.7419
+        },
+        "outcome_classification": {
+          "denominator": 1,
+          "numerator": 1,
+          "scorable_cases": 1,
+          "unscored": [
+            {
+              "case": "real-chainguard-4722145006",
+              "reason": "no_ground_truth"
+            }
+          ],
+          "value": 1
+        },
+        "platform_classification": {
+          "denominator": 2,
+          "numerator": 2,
+          "scorable_cases": 2,
+          "unscored": [],
+          "value": 1
+        },
+        "provenance_expectation": {
+          "denominator": 49,
+          "numerator": 49,
+          "scorable_cases": 2,
+          "unscored": [],
+          "value": 1
+        },
+        "required_accuracy": {
+          "denominator": 33,
+          "numerator": 33,
+          "scorable_cases": 2,
+          "secondary_inferred_truth": {
+            "denominator": 0,
+            "numerator": 0,
+            "value": null
+          },
+          "unscored": [],
+          "value": 1
+        },
+        "unresolved_label_rate": {
+          "denominator": 49,
+          "numerator": 2,
+          "scorable_cases": 2,
+          "unscored": [],
+          "value": 0.0408
+        }
+      },
+      "outcome_confusion": {
+        "partial": {
+          "partial": 1
+        }
+      },
+      "provenance_distribution": {
+        "extraction_source": {
+          "both": 13,
+          "dom": 7,
+          "provider_schema": 29
+        },
+        "label_source": {
+          "dom_label_for": 19,
+          "provider_schema": 28,
+          "unresolved": 2
+        }
+      }
+    },
+    "synthetic": {
+      "cases": 9,
+      "false_complete_claims": {
+        "case_ids": [],
+        "denominator": 0,
+        "numerator": 0,
+        "scorable_cases": 0
+      },
+      "metrics": {
+        "application_url_resolution": {
+          "denominator": 9,
+          "numerator": 6,
+          "scorable_cases": 9,
+          "unscored": [],
+          "value": 0.6667
+        },
+        "barrier_classification": {
+          "denominator": 2,
+          "numerator": 2,
+          "scorable_cases": 2,
+          "unscored": [
+            {
+              "case": "syn-combobox-nested-search",
+              "reason": "truth_is_not_a_barrier"
+            },
+            {
+              "case": "syn-conditional-hidden-fields",
+              "reason": "truth_is_not_a_barrier"
+            },
+            {
+              "case": "syn-greenhouse-style-form",
+              "reason": "truth_is_not_a_barrier"
+            },
+            {
+              "case": "syn-labels-vs-headings",
+              "reason": "truth_is_not_a_barrier"
+            },
+            {
+              "case": "syn-multi-step",
+              "reason": "truth_is_not_a_barrier"
+            },
+            {
+              "case": "syn-sensitive-demographics",
+              "reason": "truth_is_not_a_barrier"
+            },
+            {
+              "case": "syn-unknown-ats-form",
+              "reason": "truth_is_not_a_barrier"
+            }
+          ],
+          "value": 1
+        },
+        "false_barrier_rate": {
+          "denominator": 7,
+          "numerator": 7,
+          "scorable_cases": 7,
+          "unscored": [
+            {
+              "case": "syn-apply-button-nonget",
+              "reason": "truth_is_a_barrier"
+            },
+            {
+              "case": "syn-auth-gate-aggregator",
+              "reason": "truth_is_a_barrier"
+            }
+          ],
+          "value": 1
+        },
+        "field_f1": {
+          "denominator": 0,
+          "numerator": 0,
+          "scorable_cases": 0,
+          "unscored": [
+            {
+              "case": "syn-apply-button-nonget",
+              "reason": "no_scorable_truth_fields"
+            },
+            {
+              "case": "syn-auth-gate-aggregator",
+              "reason": "no_scorable_truth_fields"
+            },
+            {
+              "case": "syn-combobox-nested-search",
+              "reason": "no_denominator"
+            },
+            {
+              "case": "syn-conditional-hidden-fields",
+              "reason": "no_denominator"
+            },
+            {
+              "case": "syn-greenhouse-style-form",
+              "reason": "no_denominator"
+            },
+            {
+              "case": "syn-labels-vs-headings",
+              "reason": "no_denominator"
+            },
+            {
+              "case": "syn-multi-step",
+              "reason": "no_denominator"
+            },
+            {
+              "case": "syn-sensitive-demographics",
+              "reason": "no_denominator"
+            },
+            {
+              "case": "syn-unknown-ats-form",
+              "reason": "no_denominator"
+            }
+          ],
+          "value": null
+        },
+        "field_precision": {
+          "denominator": 0,
+          "numerator": 0,
+          "scorable_cases": 0,
+          "unscored": [
+            {
+              "case": "syn-apply-button-nonget",
+              "reason": "no_denominator"
+            },
+            {
+              "case": "syn-auth-gate-aggregator",
+              "reason": "no_denominator"
+            },
+            {
+              "case": "syn-combobox-nested-search",
+              "reason": "no_denominator"
+            },
+            {
+              "case": "syn-conditional-hidden-fields",
+              "reason": "no_denominator"
+            },
+            {
+              "case": "syn-greenhouse-style-form",
+              "reason": "no_denominator"
+            },
+            {
+              "case": "syn-labels-vs-headings",
+              "reason": "no_denominator"
+            },
+            {
+              "case": "syn-multi-step",
+              "reason": "no_denominator"
+            },
+            {
+              "case": "syn-sensitive-demographics",
+              "reason": "no_denominator"
+            },
+            {
+              "case": "syn-unknown-ats-form",
+              "reason": "no_denominator"
+            }
+          ],
+          "value": null
+        },
+        "field_recall": {
+          "denominator": 53,
+          "numerator": 0,
+          "scorable_cases": 7,
+          "unscored": [
+            {
+              "case": "syn-apply-button-nonget",
+              "reason": "no_scorable_truth_fields"
+            },
+            {
+              "case": "syn-auth-gate-aggregator",
+              "reason": "no_scorable_truth_fields"
+            }
+          ],
+          "value": 0
+        },
+        "field_type_accuracy": {
+          "denominator": 0,
+          "numerator": 0,
+          "scorable_cases": 0,
+          "unscored": [
+            {
+              "case": "syn-apply-button-nonget",
+              "reason": "no_matched_fields"
+            },
+            {
+              "case": "syn-auth-gate-aggregator",
+              "reason": "no_matched_fields"
+            },
+            {
+              "case": "syn-combobox-nested-search",
+              "reason": "no_matched_fields"
+            },
+            {
+              "case": "syn-conditional-hidden-fields",
+              "reason": "no_matched_fields"
+            },
+            {
+              "case": "syn-greenhouse-style-form",
+              "reason": "no_matched_fields"
+            },
+            {
+              "case": "syn-labels-vs-headings",
+              "reason": "no_matched_fields"
+            },
+            {
+              "case": "syn-multi-step",
+              "reason": "no_matched_fields"
+            },
+            {
+              "case": "syn-sensitive-demographics",
+              "reason": "no_matched_fields"
+            },
+            {
+              "case": "syn-unknown-ats-form",
+              "reason": "no_matched_fields"
+            }
+          ],
+          "value": null
+        },
+        "outcome_classification": {
+          "denominator": 9,
+          "numerator": 2,
+          "scorable_cases": 9,
+          "unscored": [],
+          "value": 0.2222
+        },
+        "platform_classification": {
+          "denominator": 9,
+          "numerator": 9,
+          "scorable_cases": 9,
+          "unscored": [],
+          "value": 1
+        },
+        "provenance_expectation": {
+          "denominator": 0,
+          "numerator": 0,
+          "scorable_cases": 0,
+          "unscored": [
+            {
+              "case": "syn-apply-button-nonget",
+              "reason": "no_rows"
+            },
+            {
+              "case": "syn-auth-gate-aggregator",
+              "reason": "no_rows"
+            },
+            {
+              "case": "syn-combobox-nested-search",
+              "reason": "no_rows"
+            },
+            {
+              "case": "syn-conditional-hidden-fields",
+              "reason": "no_rows"
+            },
+            {
+              "case": "syn-greenhouse-style-form",
+              "reason": "no_rows"
+            },
+            {
+              "case": "syn-labels-vs-headings",
+              "reason": "no_rows"
+            },
+            {
+              "case": "syn-multi-step",
+              "reason": "no_rows"
+            },
+            {
+              "case": "syn-sensitive-demographics",
+              "reason": "no_rows"
+            },
+            {
+              "case": "syn-unknown-ats-form",
+              "reason": "no_rows"
+            }
+          ],
+          "value": null
+        },
+        "required_accuracy": {
+          "denominator": 0,
+          "numerator": 0,
+          "scorable_cases": 0,
+          "unscored": [
+            {
+              "case": "syn-apply-button-nonget",
+              "reason": "no_matched_fields"
+            },
+            {
+              "case": "syn-auth-gate-aggregator",
+              "reason": "no_matched_fields"
+            },
+            {
+              "case": "syn-combobox-nested-search",
+              "reason": "no_matched_fields"
+            },
+            {
+              "case": "syn-conditional-hidden-fields",
+              "reason": "no_matched_fields"
+            },
+            {
+              "case": "syn-greenhouse-style-form",
+              "reason": "no_matched_fields"
+            },
+            {
+              "case": "syn-labels-vs-headings",
+              "reason": "no_matched_fields"
+            },
+            {
+              "case": "syn-multi-step",
+              "reason": "no_matched_fields"
+            },
+            {
+              "case": "syn-sensitive-demographics",
+              "reason": "no_matched_fields"
+            },
+            {
+              "case": "syn-unknown-ats-form",
+              "reason": "no_matched_fields"
+            }
+          ],
+          "value": null
+        },
+        "unresolved_label_rate": {
+          "denominator": 0,
+          "numerator": 0,
+          "scorable_cases": 0,
+          "unscored": [
+            {
+              "case": "syn-apply-button-nonget",
+              "reason": "no_rows"
+            },
+            {
+              "case": "syn-auth-gate-aggregator",
+              "reason": "no_rows"
+            },
+            {
+              "case": "syn-combobox-nested-search",
+              "reason": "no_rows"
+            },
+            {
+              "case": "syn-conditional-hidden-fields",
+              "reason": "no_rows"
+            },
+            {
+              "case": "syn-greenhouse-style-form",
+              "reason": "no_rows"
+            },
+            {
+              "case": "syn-labels-vs-headings",
+              "reason": "no_rows"
+            },
+            {
+              "case": "syn-multi-step",
+              "reason": "no_rows"
+            },
+            {
+              "case": "syn-sensitive-demographics",
+              "reason": "no_rows"
+            },
+            {
+              "case": "syn-unknown-ats-form",
+              "reason": "no_rows"
+            }
+          ],
+          "value": null
+        }
+      },
+      "outcome_confusion": {
+        "application_not_found": {
+          "application_not_found": 2
+        },
+        "complete": {
+          "application_not_found": 2,
+          "unsupported": 2
+        },
+        "complete|partial": {
+          "application_not_found": 1,
+          "unsupported": 2
+        }
+      },
+      "provenance_distribution": {
+        "extraction_source": {},
+        "label_source": {}
+      }
+    }
+  },
+  "cases": [
+    {
+      "claimed_outcome": "complete",
+      "distribution": {
+        "extraction_source": {
+          "both": 13,
+          "dom": 7
+        },
+        "label_source": {
+          "dom_label_for": 19,
+          "unresolved": 1
+        }
+      },
+      "evidence": [
+        {
+          "class": "observed",
+          "path": "test/fixtures/universal/evidence/chainguard-4722145006/run12.agent_run.json",
+          "role": "run12_agent_run",
+          "sha256": "0a4f08ed421c1e573432c4a55aa66a47044991ac72b141354a8fb14316c84fe9",
+          "status": "verified"
+        },
+        {
+          "class": "observed",
+          "path": "test/fixtures/universal/evidence/chainguard-4722145006/run12.application_questions.json",
+          "role": "run12_questions",
+          "sha256": "1b963a40841e33f1c804db6c625298bca742e55195e3ce2e86023ab20c8dffb1",
+          "status": "verified"
+        },
+        {
+          "class": "curated",
+          "path": "test/fixtures/universal/golden/chainguard-4722145006.semantic.json",
+          "role": "golden",
+          "sha256": "587149f60870581576bd90d517f2174dd90115d49f8f2cc908a963fbc8a9a2ff",
+          "status": "verified"
+        },
+        {
+          "class": "api_derived",
+          "path": "test/fixtures/universal/evidence/chainguard-4722145006/greenhouse-api-schema.json",
+          "role": "api_schema",
+          "sha256": "3443a2b1a2a6ca7e261de5862ec59b78019f3fbfcb675476f7937f6b924dc7c7",
+          "status": "verified"
+        }
+      ],
+      "false_complete": false,
+      "false_complete_evaluable": true,
+      "findings": [
+        {
+          "code": "unverified_complete",
+          "message": "claimed complete; the ground truth does not establish whether the form is complete",
+          "severity": "medium"
+        }
+      ],
+      "id": "real-chainguard-4722145006",
+      "matching": {
+        "ambiguous": [],
+        "ambiguous_truth": [],
+        "duplicate_rows": [],
+        "excluded_truth_fields": [
+          {
+            "key": "resume_text",
+            "reason": "golden status unobserved: not established as a rendered control"
+          },
+          {
+            "key": "cover_letter_text",
+            "reason": "golden status unobserved: not established as a rendered control"
+          },
+          {
+            "key": "race",
+            "reason": "golden status api_only_not_rendered: not established as a rendered control"
+          }
+        ],
+        "extra_rows": [
+          4
+        ],
+        "matched": [
+          {
+            "by": "id",
+            "row": 0,
+            "truth": "first_name"
+          },
+          {
+            "by": "id",
+            "row": 1,
+            "truth": "last_name"
+          },
+          {
+            "by": "id",
+            "row": 2,
+            "truth": "email"
+          },
+          {
+            "by": "id",
+            "row": 3,
+            "truth": "country"
+          },
+          {
+            "by": "id",
+            "row": 5,
+            "truth": "phone"
+          },
+          {
+            "by": "id",
+            "row": 6,
+            "truth": "resume"
+          },
+          {
+            "by": "id",
+            "row": 7,
+            "truth": "cover_letter"
+          },
+          {
+            "by": "id",
+            "row": 8,
+            "truth": "question_8759088006"
+          },
+          {
+            "by": "id",
+            "row": 9,
+            "truth": "question_8759089006"
+          },
+          {
+            "by": "id",
+            "row": 10,
+            "truth": "question_8759090006"
+          },
+          {
+            "by": "id",
+            "row": 11,
+            "truth": "demographic_4004578006"
+          },
+          {
+            "by": "id",
+            "row": 12,
+            "truth": "demographic_4004579006"
+          },
+          {
+            "by": "id",
+            "row": 13,
+            "truth": "demographic_4004580006"
+          },
+          {
+            "by": "id",
+            "row": 14,
+            "truth": "demographic_4004581006"
+          },
+          {
+            "by": "id",
+            "row": 15,
+            "truth": "demographic_4004582006"
+          },
+          {
+            "by": "id",
+            "row": 16,
+            "truth": "demographic_4004583006"
+          },
+          {
+            "by": "id",
+            "row": 17,
+            "truth": "gender"
+          },
+          {
+            "by": "id",
+            "row": 18,
+            "truth": "hispanic_ethnicity"
+          },
+          {
+            "by": "id",
+            "row": 19,
+            "truth": "veteran_status"
+          }
+        ],
+        "missed": []
+      },
+      "metrics": {
+        "application_url_resolution": {
+          "denominator": 1,
+          "numerator": 1,
+          "status": "scored"
+        },
+        "barrier_classification": {
+          "reason": "no_ground_truth",
+          "status": "unscored"
+        },
+        "false_barrier_rate": {
+          "reason": "no_ground_truth",
+          "status": "unscored"
+        },
+        "field_f1": {
+          "denominator": 39,
+          "detail": {
+            "ambiguous_rows": 0,
+            "ambiguous_truth_fields": 0,
+            "false_negatives": 0,
+            "false_positives": 1,
+            "non_scorable_truth_fields": 3,
+            "true_positives": 19
+          },
+          "numerator": 38,
+          "status": "scored"
+        },
+        "field_precision": {
+          "denominator": 20,
+          "detail": {
+            "ambiguous_rows": 0,
+            "ambiguous_truth_fields": 0,
+            "false_negatives": 0,
+            "false_positives": 1,
+            "non_scorable_truth_fields": 3,
+            "true_positives": 19
+          },
+          "numerator": 19,
+          "status": "scored"
+        },
+        "field_recall": {
+          "denominator": 19,
+          "detail": {
+            "ambiguous_rows": 0,
+            "ambiguous_truth_fields": 0,
+            "false_negatives": 0,
+            "false_positives": 1,
+            "non_scorable_truth_fields": 3,
+            "true_positives": 19
+          },
+          "numerator": 19,
+          "status": "scored"
+        },
+        "field_type_accuracy": {
+          "denominator": 17,
+          "numerator": 9,
+          "secondary_inferred_truth": {
+            "denominator": 2,
+            "numerator": 0
+          },
+          "skipped": {
+            "abstained": 0,
+            "unknown_truth": 0,
+            "unmapped": 0
+          },
+          "status": "scored"
+        },
+        "outcome_classification": {
+          "reason": "no_ground_truth",
+          "status": "unscored"
+        },
+        "platform_classification": {
+          "denominator": 1,
+          "numerator": 1,
+          "status": "scored"
+        },
+        "provenance_expectation": {
+          "denominator": 20,
+          "numerator": 20,
+          "status": "scored"
+        },
+        "required_accuracy": {
+          "denominator": 19,
+          "numerator": 19,
+          "secondary_inferred_truth": {
+            "denominator": 0,
+            "numerator": 0
+          },
+          "skipped": {
+            "abstained": 0,
+            "unknown_truth": 0,
+            "unmapped": 0
+          },
+          "status": "scored"
+        },
+        "unresolved_label_rate": {
+          "denominator": 20,
+          "numerator": 1,
+          "status": "scored"
+        }
+      },
+      "origin": "real_world",
+      "result": {
+        "basis": "captured_live",
+        "status": "ok"
+      },
+      "title": "Chainguard, Principal Software Engineer (Greenhouse), live run #12",
+      "truth_allowed_outcomes": null,
+      "truth_classes": {
+        "exhaustive": "observed"
+      }
+    },
+    {
+      "claimed_outcome": "partial",
+      "distribution": {
+        "extraction_source": {
+          "provider_schema": 29
+        },
+        "label_source": {
+          "provider_schema": 28,
+          "unresolved": 1
+        }
+      },
+      "evidence": [
+        {
+          "class": "observed",
+          "path": "test/fixtures/ashby/dom-observation.json",
+          "role": "dom_observation",
+          "sha256": "5bafdfe8a69da37f95ca73ec8dc0caab0258f17be491243de4317b15c0ff7d7a",
+          "status": "verified"
+        },
+        {
+          "class": "result",
+          "path": "test/fixtures/ashby/expected/nerdwallet-258.contract.result.json",
+          "role": "contract_result",
+          "sha256": "e67887cac5a5a7c3451ebc69bb4fd6d5ddf592daecab44ae36764873d2652555",
+          "status": "verified"
+        },
+        {
+          "class": "api_derived",
+          "path": "test/fixtures/ashby/nerdwallet-job.response.json",
+          "role": "api_schema",
+          "sha256": "b7f2c5add31b7e785c69977bc31ad4867baa5ab4e0da9f08b2240dceecc8208a",
+          "status": "verified"
+        }
+      ],
+      "false_complete": false,
+      "false_complete_evaluable": false,
+      "findings": [],
+      "id": "real-nerdwallet-258",
+      "matching": {
+        "ambiguous": [],
+        "ambiguous_truth": [],
+        "duplicate_rows": [],
+        "excluded_truth_fields": [
+          {
+            "key": "dom-00",
+            "reason": "the observation could not resolve a question label for this control"
+          },
+          {
+            "key": "dom-13",
+            "reason": "the observation could not resolve a question label for this control"
+          }
+        ],
+        "extra_rows": [
+          9,
+          11,
+          14,
+          15,
+          17,
+          18,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28
+        ],
+        "matched": [
+          {
+            "by": "label",
+            "row": 0,
+            "truth": "dom-01"
+          },
+          {
+            "by": "label",
+            "row": 1,
+            "truth": "dom-02"
+          },
+          {
+            "by": "label",
+            "row": 2,
+            "truth": "dom-03"
+          },
+          {
+            "by": "label",
+            "row": 3,
+            "truth": "dom-04"
+          },
+          {
+            "by": "label",
+            "row": 4,
+            "truth": "dom-05"
+          },
+          {
+            "by": "label",
+            "row": 5,
+            "truth": "dom-06"
+          },
+          {
+            "by": "label",
+            "row": 6,
+            "truth": "dom-07"
+          },
+          {
+            "by": "label",
+            "row": 7,
+            "truth": "dom-08"
+          },
+          {
+            "by": "label",
+            "row": 8,
+            "truth": "dom-09"
+          },
+          {
+            "by": "label",
+            "row": 10,
+            "truth": "dom-10"
+          },
+          {
+            "by": "label",
+            "row": 12,
+            "truth": "dom-11"
+          },
+          {
+            "by": "label",
+            "row": 13,
+            "truth": "dom-12"
+          },
+          {
+            "by": "label",
+            "row": 16,
+            "truth": "dom-14"
+          },
+          {
+            "by": "label",
+            "row": 19,
+            "truth": "dom-15"
+          }
+        ],
+        "missed": []
+      },
+      "metrics": {
+        "application_url_resolution": {
+          "reason": "schema_only_result_carries_no_url",
+          "status": "unscored"
+        },
+        "barrier_classification": {
+          "reason": "truth_is_not_a_barrier",
+          "status": "unscored"
+        },
+        "false_barrier_rate": {
+          "denominator": 1,
+          "numerator": 0,
+          "status": "scored"
+        },
+        "field_f1": {
+          "reason": "truth_not_exhaustive",
+          "status": "unscored"
+        },
+        "field_precision": {
+          "reason": "truth_not_exhaustive",
+          "status": "unscored"
+        },
+        "field_recall": {
+          "denominator": 14,
+          "detail": {
+            "ambiguous_rows": 0,
+            "ambiguous_truth_fields": 0,
+            "false_negatives": 0,
+            "false_positives": 15,
+            "non_scorable_truth_fields": 2,
+            "true_positives": 14
+          },
+          "numerator": 14,
+          "status": "scored"
+        },
+        "field_type_accuracy": {
+          "denominator": 14,
+          "numerator": 14,
+          "secondary_inferred_truth": {
+            "denominator": 0,
+            "numerator": 0
+          },
+          "skipped": {
+            "abstained": 0,
+            "unknown_truth": 0,
+            "unmapped": 0
+          },
+          "status": "scored"
+        },
+        "outcome_classification": {
+          "denominator": 1,
+          "numerator": 1,
+          "status": "scored"
+        },
+        "platform_classification": {
+          "denominator": 1,
+          "numerator": 1,
+          "status": "scored"
+        },
+        "provenance_expectation": {
+          "denominator": 29,
+          "numerator": 29,
+          "status": "scored"
+        },
+        "required_accuracy": {
+          "denominator": 14,
+          "numerator": 14,
+          "secondary_inferred_truth": {
+            "denominator": 0,
+            "numerator": 0
+          },
+          "skipped": {
+            "abstained": 0,
+            "unknown_truth": 0,
+            "unmapped": 0
+          },
+          "status": "scored"
+        },
+        "unresolved_label_rate": {
+          "denominator": 29,
+          "numerator": 1,
+          "status": "scored"
+        }
+      },
+      "origin": "real_world",
+      "result": {
+        "basis": "snapshot",
+        "status": "ok"
+      },
+      "title": "NerdWallet application (Ashby), provider schema versus a person's own browser",
+      "truth_allowed_outcomes": [
+        "partial"
+      ],
+      "truth_classes": {
+        "exhaustive": "observed"
+      }
+    },
+    {
+      "claimed_outcome": "application_not_found",
+      "distribution": {
+        "extraction_source": {},
+        "label_source": {}
+      },
+      "evidence": [
+        {
+          "class": "authored",
+          "path": "test/fixtures/universal/forms/apply-button-nonget.html",
+          "role": "fixture_html",
+          "sha256": "6fb2afbedf57db326290cf7089405a960709f72e12f5b585350022a5b30295d0",
+          "status": "verified"
+        },
+        {
+          "class": "authored",
+          "path": "test/fixtures/universal/expected/apply-button-nonget.expected.json",
+          "role": "expected",
+          "sha256": "1b329c52c226c29a223e357de50aebd5c02445e06ff4140567bee36a1490e799",
+          "status": "verified"
+        },
+        {
+          "class": "observed",
+          "path": "eval/results/generic-off/syn-apply-button-nonget.result.json",
+          "role": "replayed_result",
+          "sha256": "98748d1364e39eb793f4278fd37161af27e2e252f03f8d1960968159820eb513",
+          "status": "verified"
+        }
+      ],
+      "false_complete": false,
+      "false_complete_evaluable": false,
+      "findings": [],
+      "id": "syn-apply-button-nonget",
+      "matching": {
+        "ambiguous": [],
+        "ambiguous_truth": [],
+        "duplicate_rows": [],
+        "excluded_truth_fields": [],
+        "extra_rows": [],
+        "matched": [],
+        "missed": []
+      },
+      "metrics": {
+        "application_url_resolution": {
+          "denominator": 1,
+          "numerator": 1,
+          "status": "scored"
+        },
+        "barrier_classification": {
+          "denominator": 1,
+          "numerator": 1,
+          "status": "scored"
+        },
+        "false_barrier_rate": {
+          "reason": "truth_is_a_barrier",
+          "status": "unscored"
+        },
+        "field_f1": {
+          "reason": "no_scorable_truth_fields",
+          "status": "unscored"
+        },
+        "field_precision": {
+          "reason": "no_denominator",
+          "status": "unscored"
+        },
+        "field_recall": {
+          "reason": "no_scorable_truth_fields",
+          "status": "unscored"
+        },
+        "field_type_accuracy": {
+          "reason": "no_matched_fields",
+          "status": "unscored"
+        },
+        "outcome_classification": {
+          "denominator": 1,
+          "numerator": 1,
+          "status": "scored"
+        },
+        "platform_classification": {
+          "denominator": 1,
+          "numerator": 1,
+          "status": "scored"
+        },
+        "provenance_expectation": {
+          "reason": "no_rows",
+          "status": "unscored"
+        },
+        "required_accuracy": {
+          "reason": "no_matched_fields",
+          "status": "unscored"
+        },
+        "unresolved_label_rate": {
+          "reason": "no_rows",
+          "status": "unscored"
+        }
+      },
+      "origin": "synthetic",
+      "result": {
+        "basis": "replay",
+        "evidence": [
+          {
+            "class": "observed",
+            "path": "eval/results/generic-off/syn-apply-button-nonget.result.json",
+            "role": "replayed_result",
+            "sha256": "98748d1364e39eb793f4278fd37161af27e2e252f03f8d1960968159820eb513",
+            "status": "verified"
+          }
+        ],
+        "status": "ok"
+      },
+      "title": "A listing whose Apply control is a POST button",
+      "truth_allowed_outcomes": [
+        "application_not_found"
+      ],
+      "truth_classes": {
+        "exhaustive": "authored"
+      }
+    },
+    {
+      "claimed_outcome": "application_not_found",
+      "distribution": {
+        "extraction_source": {},
+        "label_source": {}
+      },
+      "evidence": [
+        {
+          "class": "authored",
+          "path": "test/fixtures/universal/forms/auth-gate-aggregator.html",
+          "role": "fixture_html",
+          "sha256": "e98db850678e5c98147b446a53fe61b20e5474d7f0cfb1c1313f79ab26a89c5e",
+          "status": "verified"
+        },
+        {
+          "class": "authored",
+          "path": "test/fixtures/universal/expected/auth-gate-aggregator.expected.json",
+          "role": "expected",
+          "sha256": "d2a33eae2ef9ea9f383db8bc923648eb8bbb840716dac4ef05e7f30b7d01d8c1",
+          "status": "verified"
+        },
+        {
+          "class": "observed",
+          "path": "eval/results/generic-off/syn-auth-gate-aggregator.result.json",
+          "role": "replayed_result",
+          "sha256": "bbece5107565ab81ed27393cd31721cfcd1050d690d015502cd3411873bf5385",
+          "status": "verified"
+        }
+      ],
+      "false_complete": false,
+      "false_complete_evaluable": false,
+      "findings": [],
+      "id": "syn-auth-gate-aggregator",
+      "matching": {
+        "ambiguous": [],
+        "ambiguous_truth": [],
+        "duplicate_rows": [],
+        "excluded_truth_fields": [],
+        "extra_rows": [],
+        "matched": [],
+        "missed": []
+      },
+      "metrics": {
+        "application_url_resolution": {
+          "denominator": 1,
+          "numerator": 1,
+          "status": "scored"
+        },
+        "barrier_classification": {
+          "denominator": 1,
+          "numerator": 1,
+          "status": "scored"
+        },
+        "false_barrier_rate": {
+          "reason": "truth_is_a_barrier",
+          "status": "unscored"
+        },
+        "field_f1": {
+          "reason": "no_scorable_truth_fields",
+          "status": "unscored"
+        },
+        "field_precision": {
+          "reason": "no_denominator",
+          "status": "unscored"
+        },
+        "field_recall": {
+          "reason": "no_scorable_truth_fields",
+          "status": "unscored"
+        },
+        "field_type_accuracy": {
+          "reason": "no_matched_fields",
+          "status": "unscored"
+        },
+        "outcome_classification": {
+          "denominator": 1,
+          "numerator": 1,
+          "status": "scored"
+        },
+        "platform_classification": {
+          "denominator": 1,
+          "numerator": 1,
+          "status": "scored"
+        },
+        "provenance_expectation": {
+          "reason": "no_rows",
+          "status": "unscored"
+        },
+        "required_accuracy": {
+          "reason": "no_matched_fields",
+          "status": "unscored"
+        },
+        "unresolved_label_rate": {
+          "reason": "no_rows",
+          "status": "unscored"
+        }
+      },
+      "origin": "synthetic",
+      "result": {
+        "basis": "replay",
+        "evidence": [
+          {
+            "class": "observed",
+            "path": "eval/results/generic-off/syn-auth-gate-aggregator.result.json",
+            "role": "replayed_result",
+            "sha256": "bbece5107565ab81ed27393cd31721cfcd1050d690d015502cd3411873bf5385",
+            "status": "verified"
+          }
+        ],
+        "status": "ok"
+      },
+      "title": "An aggregator listing behind a sign-in dialog",
+      "truth_allowed_outcomes": [
+        "application_not_found"
+      ],
+      "truth_classes": {
+        "exhaustive": "authored"
+      }
+    },
+    {
+      "claimed_outcome": "application_not_found",
+      "distribution": {
+        "extraction_source": {},
+        "label_source": {}
+      },
+      "evidence": [
+        {
+          "class": "authored",
+          "path": "test/fixtures/universal/forms/combobox-nested-search.html",
+          "role": "fixture_html",
+          "sha256": "9ddf462108fb6c8231649e0eeaba89e5d2f7db5b0179075f7ba41fc09ea9e23b",
+          "status": "verified"
+        },
+        {
+          "class": "authored",
+          "path": "test/fixtures/universal/expected/combobox-nested-search.expected.json",
+          "role": "expected",
+          "sha256": "01c33a74fe5328796e4cc3edcb34fdf00d642aeec043d687902776a2505351c6",
+          "status": "verified"
+        },
+        {
+          "class": "observed",
+          "path": "eval/results/generic-off/syn-combobox-nested-search.result.json",
+          "role": "replayed_result",
+          "sha256": "2ddd57d3c1718f459433510dc076190347df84642f9184ffee4decf545dcf1f9",
+          "status": "verified"
+        }
+      ],
+      "false_complete": false,
+      "false_complete_evaluable": false,
+      "findings": [],
+      "id": "syn-combobox-nested-search",
+      "matching": {
+        "ambiguous": [],
+        "ambiguous_truth": [],
+        "duplicate_rows": [],
+        "excluded_truth_fields": [],
+        "extra_rows": [],
+        "matched": [],
+        "missed": [
+          "cb-residence",
+          "btn-language",
+          "cb-timezone",
+          "work-mode"
+        ]
+      },
+      "metrics": {
+        "application_url_resolution": {
+          "denominator": 1,
+          "numerator": 0,
+          "status": "scored"
+        },
+        "barrier_classification": {
+          "reason": "truth_is_not_a_barrier",
+          "status": "unscored"
+        },
+        "false_barrier_rate": {
+          "denominator": 1,
+          "numerator": 1,
+          "status": "scored"
+        },
+        "field_f1": {
+          "reason": "no_denominator",
+          "status": "unscored"
+        },
+        "field_precision": {
+          "reason": "no_denominator",
+          "status": "unscored"
+        },
+        "field_recall": {
+          "denominator": 4,
+          "detail": {
+            "ambiguous_rows": 0,
+            "ambiguous_truth_fields": 0,
+            "false_negatives": 4,
+            "false_positives": 0,
+            "non_scorable_truth_fields": 0,
+            "true_positives": 0
+          },
+          "numerator": 0,
+          "status": "scored"
+        },
+        "field_type_accuracy": {
+          "reason": "no_matched_fields",
+          "status": "unscored"
+        },
+        "outcome_classification": {
+          "denominator": 1,
+          "numerator": 0,
+          "status": "scored"
+        },
+        "platform_classification": {
+          "denominator": 1,
+          "numerator": 1,
+          "status": "scored"
+        },
+        "provenance_expectation": {
+          "reason": "no_rows",
+          "status": "unscored"
+        },
+        "required_accuracy": {
+          "reason": "no_matched_fields",
+          "status": "unscored"
+        },
+        "unresolved_label_rate": {
+          "reason": "no_rows",
+          "status": "unscored"
+        }
+      },
+      "origin": "synthetic",
+      "result": {
+        "basis": "replay",
+        "evidence": [
+          {
+            "class": "observed",
+            "path": "eval/results/generic-off/syn-combobox-nested-search.result.json",
+            "role": "replayed_result",
+            "sha256": "2ddd57d3c1718f459433510dc076190347df84642f9184ffee4decf545dcf1f9",
+            "status": "verified"
+          }
+        ],
+        "status": "ok"
+      },
+      "title": "Comboboxes with a search box nested in the popup",
+      "truth_allowed_outcomes": [
+        "complete"
+      ],
+      "truth_classes": {
+        "exhaustive": "authored"
+      }
+    },
+    {
+      "claimed_outcome": "application_not_found",
+      "distribution": {
+        "extraction_source": {},
+        "label_source": {}
+      },
+      "evidence": [
+        {
+          "class": "authored",
+          "path": "test/fixtures/universal/forms/conditional-hidden-fields.html",
+          "role": "fixture_html",
+          "sha256": "2062a31c9285b27e63e2daaedca2aaea46e563b68abdb4ff4934b16fa30b5dd8",
+          "status": "verified"
+        },
+        {
+          "class": "authored",
+          "path": "test/fixtures/universal/expected/conditional-hidden-fields.expected.json",
+          "role": "expected",
+          "sha256": "17cd0e34f5838998268f39acfb77b871edd1f63aff352202394251043e046059",
+          "status": "verified"
+        },
+        {
+          "class": "observed",
+          "path": "eval/results/generic-off/syn-conditional-hidden-fields.result.json",
+          "role": "replayed_result",
+          "sha256": "9f97a82917c43bfca9e7689a446e54220d2ed37bc0ea77e8b263dda0ca9941cb",
+          "status": "verified"
+        }
+      ],
+      "false_complete": false,
+      "false_complete_evaluable": false,
+      "findings": [],
+      "id": "syn-conditional-hidden-fields",
+      "matching": {
+        "ambiguous": [],
+        "ambiguous_truth": [],
+        "duplicate_rows": [],
+        "excluded_truth_fields": [],
+        "extra_rows": [],
+        "matched": [],
+        "missed": [
+          "full-name",
+          "visa",
+          "hear",
+          "region"
+        ]
+      },
+      "metrics": {
+        "application_url_resolution": {
+          "denominator": 1,
+          "numerator": 0,
+          "status": "scored"
+        },
+        "barrier_classification": {
+          "reason": "truth_is_not_a_barrier",
+          "status": "unscored"
+        },
+        "false_barrier_rate": {
+          "denominator": 1,
+          "numerator": 1,
+          "status": "scored"
+        },
+        "field_f1": {
+          "reason": "no_denominator",
+          "status": "unscored"
+        },
+        "field_precision": {
+          "reason": "no_denominator",
+          "status": "unscored"
+        },
+        "field_recall": {
+          "denominator": 4,
+          "detail": {
+            "ambiguous_rows": 0,
+            "ambiguous_truth_fields": 0,
+            "false_negatives": 4,
+            "false_positives": 0,
+            "non_scorable_truth_fields": 0,
+            "true_positives": 0
+          },
+          "numerator": 0,
+          "status": "scored"
+        },
+        "field_type_accuracy": {
+          "reason": "no_matched_fields",
+          "status": "unscored"
+        },
+        "outcome_classification": {
+          "denominator": 1,
+          "numerator": 0,
+          "status": "scored"
+        },
+        "platform_classification": {
+          "denominator": 1,
+          "numerator": 1,
+          "status": "scored"
+        },
+        "provenance_expectation": {
+          "reason": "no_rows",
+          "status": "unscored"
+        },
+        "required_accuracy": {
+          "reason": "no_matched_fields",
+          "status": "unscored"
+        },
+        "unresolved_label_rate": {
+          "reason": "no_rows",
+          "status": "unscored"
+        }
+      },
+      "origin": "synthetic",
+      "result": {
+        "basis": "replay",
+        "evidence": [
+          {
+            "class": "observed",
+            "path": "eval/results/generic-off/syn-conditional-hidden-fields.result.json",
+            "role": "replayed_result",
+            "sha256": "9f97a82917c43bfca9e7689a446e54220d2ed37bc0ea77e8b263dda0ca9941cb",
+            "status": "verified"
+          }
+        ],
+        "status": "ok"
+      },
+      "title": "A field that exists only after a script reacts to a change",
+      "truth_allowed_outcomes": [
+        "complete",
+        "partial"
+      ],
+      "truth_classes": {
+        "exhaustive": "authored"
+      }
+    },
+    {
+      "claimed_outcome": "unsupported",
+      "distribution": {
+        "extraction_source": {},
+        "label_source": {}
+      },
+      "evidence": [
+        {
+          "class": "authored",
+          "path": "test/fixtures/universal/forms/greenhouse-style-form.html",
+          "role": "fixture_html",
+          "sha256": "2a276dbee9bc398db01fe1aebab2d385fd761fdfe0ff5ac6504a0f235227ff69",
+          "status": "verified"
+        },
+        {
+          "class": "authored",
+          "path": "test/fixtures/universal/expected/greenhouse-style-form.expected.json",
+          "role": "expected",
+          "sha256": "306bdc73743b1c572f5f268a106dcc859f7657727d5aaf9ad32b5eabd4fe9085",
+          "status": "verified"
+        },
+        {
+          "class": "observed",
+          "path": "eval/results/generic-off/syn-greenhouse-style-form.result.json",
+          "role": "replayed_result",
+          "sha256": "da81abe40422f3c4b79fc93078dac2a71997a78975e8bf277ac6afbaa95be5d6",
+          "status": "verified"
+        }
+      ],
+      "false_complete": false,
+      "false_complete_evaluable": false,
+      "findings": [],
+      "id": "syn-greenhouse-style-form",
+      "matching": {
+        "ambiguous": [],
+        "ambiguous_truth": [],
+        "duplicate_rows": [],
+        "excluded_truth_fields": [],
+        "extra_rows": [],
+        "matched": [],
+        "missed": [
+          "first_name",
+          "last_name",
+          "email",
+          "country",
+          "phone",
+          "resume",
+          "cover_letter",
+          "q_linkedin",
+          "q_website",
+          "q_sponsorship",
+          "d_gender_identity",
+          "d_racial_ethnic",
+          "d_orientation",
+          "d_transgender",
+          "d_disability",
+          "d_veteran",
+          "gender",
+          "hispanic_ethnicity",
+          "veteran_status"
+        ]
+      },
+      "metrics": {
+        "application_url_resolution": {
+          "denominator": 1,
+          "numerator": 1,
+          "status": "scored"
+        },
+        "barrier_classification": {
+          "reason": "truth_is_not_a_barrier",
+          "status": "unscored"
+        },
+        "false_barrier_rate": {
+          "denominator": 1,
+          "numerator": 1,
+          "status": "scored"
+        },
+        "field_f1": {
+          "reason": "no_denominator",
+          "status": "unscored"
+        },
+        "field_precision": {
+          "reason": "no_denominator",
+          "status": "unscored"
+        },
+        "field_recall": {
+          "denominator": 19,
+          "detail": {
+            "ambiguous_rows": 0,
+            "ambiguous_truth_fields": 0,
+            "false_negatives": 19,
+            "false_positives": 0,
+            "non_scorable_truth_fields": 0,
+            "true_positives": 0
+          },
+          "numerator": 0,
+          "status": "scored"
+        },
+        "field_type_accuracy": {
+          "reason": "no_matched_fields",
+          "status": "unscored"
+        },
+        "outcome_classification": {
+          "denominator": 1,
+          "numerator": 0,
+          "status": "scored"
+        },
+        "platform_classification": {
+          "denominator": 1,
+          "numerator": 1,
+          "status": "scored"
+        },
+        "provenance_expectation": {
+          "reason": "no_rows",
+          "status": "unscored"
+        },
+        "required_accuracy": {
+          "reason": "no_matched_fields",
+          "status": "unscored"
+        },
+        "unresolved_label_rate": {
+          "reason": "no_rows",
+          "status": "unscored"
+        }
+      },
+      "origin": "synthetic",
+      "result": {
+        "basis": "replay",
+        "evidence": [
+          {
+            "class": "observed",
+            "path": "eval/results/generic-off/syn-greenhouse-style-form.result.json",
+            "role": "replayed_result",
+            "sha256": "da81abe40422f3c4b79fc93078dac2a71997a78975e8bf277ac6afbaa95be5d6",
+            "status": "verified"
+          }
+        ],
+        "status": "ok"
+      },
+      "title": "Greenhouse-style form: custom comboboxes, hidden validation input, an API-only question",
+      "truth_allowed_outcomes": [
+        "complete",
+        "partial"
+      ],
+      "truth_classes": {
+        "exhaustive": "authored"
+      }
+    },
+    {
+      "claimed_outcome": "unsupported",
+      "distribution": {
+        "extraction_source": {},
+        "label_source": {}
+      },
+      "evidence": [
+        {
+          "class": "authored",
+          "path": "test/fixtures/universal/forms/labels-vs-headings.html",
+          "role": "fixture_html",
+          "sha256": "5f0d76f90bacb2121c8813f504c0472a8fedd545691beaca1cd9501b6129eb5f",
+          "status": "verified"
+        },
+        {
+          "class": "authored",
+          "path": "test/fixtures/universal/expected/labels-vs-headings.expected.json",
+          "role": "expected",
+          "sha256": "59384f8500e858b7c92af60e583415363da04905a02cab1bc046fa803a2f2bcc",
+          "status": "verified"
+        },
+        {
+          "class": "observed",
+          "path": "eval/results/generic-off/syn-labels-vs-headings.result.json",
+          "role": "replayed_result",
+          "sha256": "3996fa5142d03f84668b253df5ef5cbdf3ab05251658ae0c76d42d092893abf0",
+          "status": "verified"
+        }
+      ],
+      "false_complete": false,
+      "false_complete_evaluable": false,
+      "findings": [],
+      "id": "syn-labels-vs-headings",
+      "matching": {
+        "ambiguous": [],
+        "ambiguous_truth": [],
+        "duplicate_rows": [],
+        "excluded_truth_fields": [],
+        "extra_rows": [],
+        "matched": [],
+        "missed": [
+          "up-resume",
+          "up-portfolio",
+          "why-us",
+          "auth",
+          "skill",
+          "start-date",
+          "salary"
+        ]
+      },
+      "metrics": {
+        "application_url_resolution": {
+          "denominator": 1,
+          "numerator": 1,
+          "status": "scored"
+        },
+        "barrier_classification": {
+          "reason": "truth_is_not_a_barrier",
+          "status": "unscored"
+        },
+        "false_barrier_rate": {
+          "denominator": 1,
+          "numerator": 1,
+          "status": "scored"
+        },
+        "field_f1": {
+          "reason": "no_denominator",
+          "status": "unscored"
+        },
+        "field_precision": {
+          "reason": "no_denominator",
+          "status": "unscored"
+        },
+        "field_recall": {
+          "denominator": 7,
+          "detail": {
+            "ambiguous_rows": 0,
+            "ambiguous_truth_fields": 0,
+            "false_negatives": 7,
+            "false_positives": 0,
+            "non_scorable_truth_fields": 0,
+            "true_positives": 0
+          },
+          "numerator": 0,
+          "status": "scored"
+        },
+        "field_type_accuracy": {
+          "reason": "no_matched_fields",
+          "status": "unscored"
+        },
+        "outcome_classification": {
+          "denominator": 1,
+          "numerator": 0,
+          "status": "scored"
+        },
+        "platform_classification": {
+          "denominator": 1,
+          "numerator": 1,
+          "status": "scored"
+        },
+        "provenance_expectation": {
+          "reason": "no_rows",
+          "status": "unscored"
+        },
+        "required_accuracy": {
+          "reason": "no_matched_fields",
+          "status": "unscored"
+        },
+        "unresolved_label_rate": {
+          "reason": "no_rows",
+          "status": "unscored"
+        }
+      },
+      "origin": "synthetic",
+      "result": {
+        "basis": "replay",
+        "evidence": [
+          {
+            "class": "observed",
+            "path": "eval/results/generic-off/syn-labels-vs-headings.result.json",
+            "role": "replayed_result",
+            "sha256": "3996fa5142d03f84668b253df5ef5cbdf3ab05251658ae0c76d42d092893abf0",
+            "status": "verified"
+          }
+        ],
+        "status": "ok"
+      },
+      "title": "Question labels versus section headings",
+      "truth_allowed_outcomes": [
+        "complete"
+      ],
+      "truth_classes": {
+        "exhaustive": "authored"
+      }
+    },
+    {
+      "claimed_outcome": "unsupported",
+      "distribution": {
+        "extraction_source": {},
+        "label_source": {}
+      },
+      "evidence": [
+        {
+          "class": "authored",
+          "path": "test/fixtures/universal/forms/multi-step.html",
+          "role": "fixture_html",
+          "sha256": "a6de8bae8bcf1ad226edefe07423795a9404e245c9eb74c5607335beb999e521",
+          "status": "verified"
+        },
+        {
+          "class": "authored",
+          "path": "test/fixtures/universal/expected/multi-step.expected.json",
+          "role": "expected",
+          "sha256": "684f92ee97da01cdf73e699e6375d3dab4b944734256b19b9b1496a3fcfdf1dd",
+          "status": "verified"
+        },
+        {
+          "class": "observed",
+          "path": "eval/results/generic-off/syn-multi-step.result.json",
+          "role": "replayed_result",
+          "sha256": "0e6f43a5f52b94ce19cb855cd9b4b4a7dfd6c4fa07709b1c2bb9713de8939f31",
+          "status": "verified"
+        }
+      ],
+      "false_complete": false,
+      "false_complete_evaluable": false,
+      "findings": [],
+      "id": "syn-multi-step",
+      "matching": {
+        "ambiguous": [],
+        "ambiguous_truth": [],
+        "duplicate_rows": [],
+        "excluded_truth_fields": [],
+        "extra_rows": [],
+        "matched": [],
+        "missed": [
+          "s1-first",
+          "s1-last",
+          "s1-email"
+        ]
+      },
+      "metrics": {
+        "application_url_resolution": {
+          "denominator": 1,
+          "numerator": 1,
+          "status": "scored"
+        },
+        "barrier_classification": {
+          "reason": "truth_is_not_a_barrier",
+          "status": "unscored"
+        },
+        "false_barrier_rate": {
+          "denominator": 1,
+          "numerator": 1,
+          "status": "scored"
+        },
+        "field_f1": {
+          "reason": "no_denominator",
+          "status": "unscored"
+        },
+        "field_precision": {
+          "reason": "no_denominator",
+          "status": "unscored"
+        },
+        "field_recall": {
+          "denominator": 3,
+          "detail": {
+            "ambiguous_rows": 0,
+            "ambiguous_truth_fields": 0,
+            "false_negatives": 3,
+            "false_positives": 0,
+            "non_scorable_truth_fields": 0,
+            "true_positives": 0
+          },
+          "numerator": 0,
+          "status": "scored"
+        },
+        "field_type_accuracy": {
+          "reason": "no_matched_fields",
+          "status": "unscored"
+        },
+        "outcome_classification": {
+          "denominator": 1,
+          "numerator": 0,
+          "status": "scored"
+        },
+        "platform_classification": {
+          "denominator": 1,
+          "numerator": 1,
+          "status": "scored"
+        },
+        "provenance_expectation": {
+          "reason": "no_rows",
+          "status": "unscored"
+        },
+        "required_accuracy": {
+          "reason": "no_matched_fields",
+          "status": "unscored"
+        },
+        "unresolved_label_rate": {
+          "reason": "no_rows",
+          "status": "unscored"
+        }
+      },
+      "origin": "synthetic",
+      "result": {
+        "basis": "replay",
+        "evidence": [
+          {
+            "class": "observed",
+            "path": "eval/results/generic-off/syn-multi-step.result.json",
+            "role": "replayed_result",
+            "sha256": "0e6f43a5f52b94ce19cb855cd9b4b4a7dfd6c4fa07709b1c2bb9713de8939f31",
+            "status": "verified"
+          }
+        ],
+        "status": "ok"
+      },
+      "title": "A multi-step form: only step one exists in the static page",
+      "truth_allowed_outcomes": [
+        "complete",
+        "partial"
+      ],
+      "truth_classes": {
+        "exhaustive": "authored"
+      }
+    },
+    {
+      "claimed_outcome": "application_not_found",
+      "distribution": {
+        "extraction_source": {},
+        "label_source": {}
+      },
+      "evidence": [
+        {
+          "class": "authored",
+          "path": "test/fixtures/universal/forms/sensitive-demographics.html",
+          "role": "fixture_html",
+          "sha256": "bb22f91dfeb3bd6e52f80ebdad76efa3f505147440dab8cf065b2ab4936d61b9",
+          "status": "verified"
+        },
+        {
+          "class": "authored",
+          "path": "test/fixtures/universal/expected/sensitive-demographics.expected.json",
+          "role": "expected",
+          "sha256": "ae36ce1e88718d0ccde251eea598c835e3a7a19f69c3311ee60df113dce9aead",
+          "status": "verified"
+        },
+        {
+          "class": "observed",
+          "path": "eval/results/generic-off/syn-sensitive-demographics.result.json",
+          "role": "replayed_result",
+          "sha256": "591d4a1afbcf66b09223a77ebafe09298a6e9b8803a4ff11c5651cc6c85b8115",
+          "status": "verified"
+        }
+      ],
+      "false_complete": false,
+      "false_complete_evaluable": false,
+      "findings": [],
+      "id": "syn-sensitive-demographics",
+      "matching": {
+        "ambiguous": [],
+        "ambiguous_truth": [],
+        "duplicate_rows": [],
+        "excluded_truth_fields": [],
+        "extra_rows": [],
+        "matched": [],
+        "missed": [
+          "name",
+          "work-auth",
+          "vets-program",
+          "a11y",
+          "salary",
+          "sid-gender",
+          "sid-race",
+          "sid-veteran",
+          "disability",
+          "sid-orientation"
+        ]
+      },
+      "metrics": {
+        "application_url_resolution": {
+          "denominator": 1,
+          "numerator": 0,
+          "status": "scored"
+        },
+        "barrier_classification": {
+          "reason": "truth_is_not_a_barrier",
+          "status": "unscored"
+        },
+        "false_barrier_rate": {
+          "denominator": 1,
+          "numerator": 1,
+          "status": "scored"
+        },
+        "field_f1": {
+          "reason": "no_denominator",
+          "status": "unscored"
+        },
+        "field_precision": {
+          "reason": "no_denominator",
+          "status": "unscored"
+        },
+        "field_recall": {
+          "denominator": 10,
+          "detail": {
+            "ambiguous_rows": 0,
+            "ambiguous_truth_fields": 0,
+            "false_negatives": 10,
+            "false_positives": 0,
+            "non_scorable_truth_fields": 0,
+            "true_positives": 0
+          },
+          "numerator": 0,
+          "status": "scored"
+        },
+        "field_type_accuracy": {
+          "reason": "no_matched_fields",
+          "status": "unscored"
+        },
+        "outcome_classification": {
+          "denominator": 1,
+          "numerator": 0,
+          "status": "scored"
+        },
+        "platform_classification": {
+          "denominator": 1,
+          "numerator": 1,
+          "status": "scored"
+        },
+        "provenance_expectation": {
+          "reason": "no_rows",
+          "status": "unscored"
+        },
+        "required_accuracy": {
+          "reason": "no_matched_fields",
+          "status": "unscored"
+        },
+        "unresolved_label_rate": {
+          "reason": "no_rows",
+          "status": "unscored"
+        }
+      },
+      "origin": "synthetic",
+      "result": {
+        "basis": "replay",
+        "evidence": [
+          {
+            "class": "observed",
+            "path": "eval/results/generic-off/syn-sensitive-demographics.result.json",
+            "role": "replayed_result",
+            "sha256": "591d4a1afbcf66b09223a77ebafe09298a6e9b8803a4ff11c5651cc6c85b8115",
+            "status": "verified"
+          }
+        ],
+        "status": "ok"
+      },
+      "title": "Self-identification questions beside decoys that only sound sensitive",
+      "truth_allowed_outcomes": [
+        "complete"
+      ],
+      "truth_classes": {
+        "exhaustive": "authored"
+      }
+    },
+    {
+      "claimed_outcome": "unsupported",
+      "distribution": {
+        "extraction_source": {},
+        "label_source": {}
+      },
+      "evidence": [
+        {
+          "class": "authored",
+          "path": "test/fixtures/phase1/unknown-ats-form.html",
+          "role": "fixture_html",
+          "sha256": "9ec17da9f49c910c4f3a0eb6f59214837544a2bd5fb18c28c6e7bfbcc785f391",
+          "status": "verified"
+        },
+        {
+          "class": "authored",
+          "path": "test/fixtures/universal/expected/unknown-ats-form.expected.json",
+          "role": "expected",
+          "sha256": "07df0978dbd7bbc37e05fad2cd378bba2f5bcc84c755a362431c54122e12a112",
+          "status": "verified"
+        },
+        {
+          "class": "observed",
+          "path": "eval/results/generic-off/syn-unknown-ats-form.result.json",
+          "role": "replayed_result",
+          "sha256": "39d055420faf9fae8709ff83f437295a0d084296b3ac4dbd8a0251f88b73445f",
+          "status": "verified"
+        }
+      ],
+      "false_complete": false,
+      "false_complete_evaluable": false,
+      "findings": [],
+      "id": "syn-unknown-ats-form",
+      "matching": {
+        "ambiguous": [],
+        "ambiguous_truth": [],
+        "duplicate_rows": [],
+        "excluded_truth_fields": [],
+        "extra_rows": [],
+        "matched": [],
+        "missed": [
+          "fn",
+          "ln",
+          "em",
+          "ph",
+          "cv",
+          "why"
+        ]
+      },
+      "metrics": {
+        "application_url_resolution": {
+          "denominator": 1,
+          "numerator": 1,
+          "status": "scored"
+        },
+        "barrier_classification": {
+          "reason": "truth_is_not_a_barrier",
+          "status": "unscored"
+        },
+        "false_barrier_rate": {
+          "denominator": 1,
+          "numerator": 1,
+          "status": "scored"
+        },
+        "field_f1": {
+          "reason": "no_denominator",
+          "status": "unscored"
+        },
+        "field_precision": {
+          "reason": "no_denominator",
+          "status": "unscored"
+        },
+        "field_recall": {
+          "denominator": 6,
+          "detail": {
+            "ambiguous_rows": 0,
+            "ambiguous_truth_fields": 0,
+            "false_negatives": 6,
+            "false_positives": 0,
+            "non_scorable_truth_fields": 0,
+            "true_positives": 0
+          },
+          "numerator": 0,
+          "status": "scored"
+        },
+        "field_type_accuracy": {
+          "reason": "no_matched_fields",
+          "status": "unscored"
+        },
+        "outcome_classification": {
+          "denominator": 1,
+          "numerator": 0,
+          "status": "scored"
+        },
+        "platform_classification": {
+          "denominator": 1,
+          "numerator": 1,
+          "status": "scored"
+        },
+        "provenance_expectation": {
+          "reason": "no_rows",
+          "status": "unscored"
+        },
+        "required_accuracy": {
+          "reason": "no_matched_fields",
+          "status": "unscored"
+        },
+        "unresolved_label_rate": {
+          "reason": "no_rows",
+          "status": "unscored"
+        }
+      },
+      "origin": "synthetic",
+      "result": {
+        "basis": "replay",
+        "evidence": [
+          {
+            "class": "observed",
+            "path": "eval/results/generic-off/syn-unknown-ats-form.result.json",
+            "role": "replayed_result",
+            "sha256": "39d055420faf9fae8709ff83f437295a0d084296b3ac4dbd8a0251f88b73445f",
+            "status": "verified"
+          }
+        ],
+        "status": "ok"
+      },
+      "title": "An accessible form on an unknown ATS",
+      "truth_allowed_outcomes": [
+        "complete"
+      ],
+      "truth_classes": {
+        "exhaustive": "authored"
+      }
+    }
+  ],
+  "configuration": {
+    "inspector_options": {
+      "BROWSER_WORKER_GENERIC_DISCOVERY": "0 (production today)"
+    },
+    "name": "generic-off"
+  },
+  "findings": [
+    {
+      "case": "real-chainguard-4722145006",
+      "code": "unverified_complete",
+      "message": "claimed complete; the ground truth does not establish whether the form is complete",
+      "origin": "real_world",
+      "severity": "medium"
+    }
+  ],
+  "higher_is_better": {
+    "application_url_resolution": true,
+    "barrier_classification": true,
+    "false_barrier_rate": false,
+    "field_f1": true,
+    "field_precision": true,
+    "field_recall": true,
+    "field_type_accuracy": true,
+    "outcome_classification": true,
+    "platform_classification": true,
+    "provenance_expectation": true,
+    "required_accuracy": true,
+    "unresolved_label_rate": false
+  },
+  "inspector": {
+    "commit": "e5761d1fd96bafea5b2f76713a00da13ea2e4665",
+    "source_sha256": "ada0fb9cebc0d107c1d37591343d4993d5599c1826ecfe47e79b246cb9658994",
+    "source_tree_modified": false
+  },
+  "integrity": {
+    "failures": [],
+    "verified": true
+  },
+  "manifest": {
+    "schema": "eval-manifest/1",
+    "sha256": "0026ac32f6c9545c881ebae21c222ae9dfa3bfe9748a33e280bf5c71e144f461",
+    "version": "0.1.0"
+  },
+  "metrics_requested": [
+    "application_url_resolution",
+    "platform_classification",
+    "field_precision",
+    "field_recall",
+    "field_f1",
+    "field_type_accuracy",
+    "required_accuracy",
+    "unresolved_label_rate",
+    "provenance_expectation",
+    "outcome_classification",
+    "barrier_classification",
+    "false_barrier_rate"
+  ],
+  "schema": "eval-report/1",
+  "unsupported_metrics": []
+}

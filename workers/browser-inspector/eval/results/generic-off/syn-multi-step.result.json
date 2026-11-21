@@ -1,0 +1,32 @@
+{
+  "status": "succeeded",
+  "inspection_outcome": "unsupported",
+  "stop_reason": "form_without_adapter",
+  "ats": null,
+  "requested_url": "http://fixture.test/u/multi-step",
+  "final_url": "http://fixture.test/u/multi-step",
+  "resolved_url": "http://fixture.test/u/multi-step",
+  "fields": [],
+  "warnings": [],
+  "diagnostics": {
+    "total_ms": 0,
+    "navigation_ms": 0,
+    "extraction_ms": 0,
+    "page_title": "Apply - Frontend Engineer, Example Co",
+    "http_status": 200,
+    "pages_visited": 1,
+    "follows": 0,
+    "navigation": [
+      {
+        "kind": "start",
+        "url": "http://fixture.test/u/multi-step",
+        "status": 200
+      }
+    ],
+    "candidates": [],
+    "timestamp": "1970-01-01T00:00:00.000Z",
+    "classified_as": [
+      "contact_fields_on_application_page"
+    ]
+  }
+}

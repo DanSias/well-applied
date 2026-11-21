@@ -1,0 +1,547 @@
+{
+  "after": {
+    "configuration": "generic-on",
+    "inspector": {
+      "commit": "e5761d1fd96bafea5b2f76713a00da13ea2e4665",
+      "source_sha256": "ada0fb9cebc0d107c1d37591343d4993d5599c1826ecfe47e79b246cb9658994",
+      "source_tree_modified": false
+    },
+    "manifest": {
+      "schema": "eval-manifest/1",
+      "sha256": "0026ac32f6c9545c881ebae21c222ae9dfa3bfe9748a33e280bf5c71e144f461",
+      "version": "0.1.0"
+    }
+  },
+  "before": {
+    "configuration": "generic-off",
+    "inspector": {
+      "commit": "e5761d1fd96bafea5b2f76713a00da13ea2e4665",
+      "source_sha256": "ada0fb9cebc0d107c1d37591343d4993d5599c1826ecfe47e79b246cb9658994",
+      "source_tree_modified": false
+    },
+    "manifest": {
+      "schema": "eval-manifest/1",
+      "sha256": "0026ac32f6c9545c881ebae21c222ae9dfa3bfe9748a33e280bf5c71e144f461",
+      "version": "0.1.0"
+    }
+  },
+  "cases": [
+    {
+      "after": "complete",
+      "before": "application_not_found",
+      "case": "syn-combobox-nested-search",
+      "change": "outcome"
+    },
+    {
+      "after": "partial",
+      "before": "application_not_found",
+      "case": "syn-conditional-hidden-fields",
+      "change": "outcome"
+    },
+    {
+      "after": "partial",
+      "before": "unsupported",
+      "case": "syn-greenhouse-style-form",
+      "change": "outcome"
+    },
+    {
+      "after": "complete",
+      "before": "unsupported",
+      "case": "syn-labels-vs-headings",
+      "change": "outcome"
+    },
+    {
+      "after": "partial",
+      "before": "unsupported",
+      "case": "syn-multi-step",
+      "change": "outcome"
+    },
+    {
+      "after": "complete",
+      "before": "application_not_found",
+      "case": "syn-sensitive-demographics",
+      "change": "outcome"
+    },
+    {
+      "after": "complete",
+      "before": "unsupported",
+      "case": "syn-unknown-ats-form",
+      "change": "outcome"
+    }
+  ],
+  "findings": {
+    "new": [],
+    "resolved": []
+  },
+  "metrics": [
+    {
+      "after": {
+        "denominator": 1,
+        "numerator": 1,
+        "scorable_cases": 1,
+        "value": 1
+      },
+      "before": {
+        "denominator": 1,
+        "numerator": 1,
+        "scorable_cases": 1,
+        "value": 1
+      },
+      "delta": 0,
+      "metric": "application_url_resolution",
+      "origin": "real_world",
+      "verdict": "unchanged"
+    },
+    {
+      "after": {
+        "denominator": 0,
+        "numerator": 0,
+        "scorable_cases": 0,
+        "value": null
+      },
+      "before": {
+        "denominator": 0,
+        "numerator": 0,
+        "scorable_cases": 0,
+        "value": null
+      },
+      "metric": "barrier_classification",
+      "note": "unscored in one or both reports",
+      "origin": "real_world",
+      "verdict": "not_comparable"
+    },
+    {
+      "after": {
+        "denominator": 1,
+        "numerator": 0,
+        "scorable_cases": 1,
+        "value": 0
+      },
+      "before": {
+        "denominator": 1,
+        "numerator": 0,
+        "scorable_cases": 1,
+        "value": 0
+      },
+      "delta": 0,
+      "metric": "false_barrier_rate",
+      "origin": "real_world",
+      "verdict": "unchanged"
+    },
+    {
+      "after": {
+        "denominator": 39,
+        "numerator": 38,
+        "scorable_cases": 1,
+        "value": 0.9744
+      },
+      "before": {
+        "denominator": 39,
+        "numerator": 38,
+        "scorable_cases": 1,
+        "value": 0.9744
+      },
+      "delta": 0,
+      "metric": "field_f1",
+      "origin": "real_world",
+      "verdict": "unchanged"
+    },
+    {
+      "after": {
+        "denominator": 20,
+        "numerator": 19,
+        "scorable_cases": 1,
+        "value": 0.95
+      },
+      "before": {
+        "denominator": 20,
+        "numerator": 19,
+        "scorable_cases": 1,
+        "value": 0.95
+      },
+      "delta": 0,
+      "metric": "field_precision",
+      "origin": "real_world",
+      "verdict": "unchanged"
+    },
+    {
+      "after": {
+        "denominator": 33,
+        "numerator": 33,
+        "scorable_cases": 2,
+        "value": 1
+      },
+      "before": {
+        "denominator": 33,
+        "numerator": 33,
+        "scorable_cases": 2,
+        "value": 1
+      },
+      "delta": 0,
+      "metric": "field_recall",
+      "origin": "real_world",
+      "verdict": "unchanged"
+    },
+    {
+      "after": {
+        "denominator": 31,
+        "numerator": 23,
+        "scorable_cases": 2,
+        "value": 0.7419
+      },
+      "before": {
+        "denominator": 31,
+        "numerator": 23,
+        "scorable_cases": 2,
+        "value": 0.7419
+      },
+      "delta": 0,
+      "metric": "field_type_accuracy",
+      "origin": "real_world",
+      "verdict": "unchanged"
+    },
+    {
+      "after": {
+        "denominator": 1,
+        "numerator": 1,
+        "scorable_cases": 1,
+        "value": 1
+      },
+      "before": {
+        "denominator": 1,
+        "numerator": 1,
+        "scorable_cases": 1,
+        "value": 1
+      },
+      "delta": 0,
+      "metric": "outcome_classification",
+      "origin": "real_world",
+      "verdict": "unchanged"
+    },
+    {
+      "after": {
+        "denominator": 2,
+        "numerator": 2,
+        "scorable_cases": 2,
+        "value": 1
+      },
+      "before": {
+        "denominator": 2,
+        "numerator": 2,
+        "scorable_cases": 2,
+        "value": 1
+      },
+      "delta": 0,
+      "metric": "platform_classification",
+      "origin": "real_world",
+      "verdict": "unchanged"
+    },
+    {
+      "after": {
+        "denominator": 49,
+        "numerator": 49,
+        "scorable_cases": 2,
+        "value": 1
+      },
+      "before": {
+        "denominator": 49,
+        "numerator": 49,
+        "scorable_cases": 2,
+        "value": 1
+      },
+      "delta": 0,
+      "metric": "provenance_expectation",
+      "origin": "real_world",
+      "verdict": "unchanged"
+    },
+    {
+      "after": {
+        "denominator": 33,
+        "numerator": 33,
+        "scorable_cases": 2,
+        "value": 1
+      },
+      "before": {
+        "denominator": 33,
+        "numerator": 33,
+        "scorable_cases": 2,
+        "value": 1
+      },
+      "delta": 0,
+      "metric": "required_accuracy",
+      "origin": "real_world",
+      "verdict": "unchanged"
+    },
+    {
+      "after": {
+        "denominator": 49,
+        "numerator": 2,
+        "scorable_cases": 2,
+        "value": 0.0408
+      },
+      "before": {
+        "denominator": 49,
+        "numerator": 2,
+        "scorable_cases": 2,
+        "value": 0.0408
+      },
+      "delta": 0,
+      "metric": "unresolved_label_rate",
+      "origin": "real_world",
+      "verdict": "unchanged"
+    },
+    {
+      "after": {
+        "denominator": 1,
+        "numerator": 0
+      },
+      "before": {
+        "denominator": 1,
+        "numerator": 0
+      },
+      "metric": "false_complete_claims",
+      "origin": "real_world",
+      "verdict": "unchanged"
+    },
+    {
+      "after": {
+        "denominator": 9,
+        "numerator": 9,
+        "scorable_cases": 9,
+        "value": 1
+      },
+      "before": {
+        "denominator": 9,
+        "numerator": 6,
+        "scorable_cases": 9,
+        "value": 0.6667
+      },
+      "delta": 0.3333,
+      "metric": "application_url_resolution",
+      "origin": "synthetic",
+      "verdict": "improved"
+    },
+    {
+      "after": {
+        "denominator": 2,
+        "numerator": 2,
+        "scorable_cases": 2,
+        "value": 1
+      },
+      "before": {
+        "denominator": 2,
+        "numerator": 2,
+        "scorable_cases": 2,
+        "value": 1
+      },
+      "delta": 0,
+      "metric": "barrier_classification",
+      "origin": "synthetic",
+      "verdict": "unchanged"
+    },
+    {
+      "after": {
+        "denominator": 7,
+        "numerator": 0,
+        "scorable_cases": 7,
+        "value": 0
+      },
+      "before": {
+        "denominator": 7,
+        "numerator": 7,
+        "scorable_cases": 7,
+        "value": 1
+      },
+      "delta": -1,
+      "metric": "false_barrier_rate",
+      "origin": "synthetic",
+      "verdict": "improved"
+    },
+    {
+      "after": {
+        "denominator": 106,
+        "numerator": 106,
+        "scorable_cases": 7,
+        "value": 1
+      },
+      "before": {
+        "denominator": 0,
+        "numerator": 0,
+        "scorable_cases": 0,
+        "value": null
+      },
+      "metric": "field_f1",
+      "note": "unscored in one or both reports",
+      "origin": "synthetic",
+      "verdict": "not_comparable"
+    },
+    {
+      "after": {
+        "denominator": 53,
+        "numerator": 53,
+        "scorable_cases": 7,
+        "value": 1
+      },
+      "before": {
+        "denominator": 0,
+        "numerator": 0,
+        "scorable_cases": 0,
+        "value": null
+      },
+      "metric": "field_precision",
+      "note": "unscored in one or both reports",
+      "origin": "synthetic",
+      "verdict": "not_comparable"
+    },
+    {
+      "after": {
+        "denominator": 53,
+        "numerator": 53,
+        "scorable_cases": 7,
+        "value": 1
+      },
+      "before": {
+        "denominator": 53,
+        "numerator": 0,
+        "scorable_cases": 7,
+        "value": 0
+      },
+      "delta": 1,
+      "metric": "field_recall",
+      "origin": "synthetic",
+      "verdict": "improved"
+    },
+    {
+      "after": {
+        "denominator": 53,
+        "numerator": 53,
+        "scorable_cases": 7,
+        "value": 1
+      },
+      "before": {
+        "denominator": 0,
+        "numerator": 0,
+        "scorable_cases": 0,
+        "value": null
+      },
+      "metric": "field_type_accuracy",
+      "note": "unscored in one or both reports",
+      "origin": "synthetic",
+      "verdict": "not_comparable"
+    },
+    {
+      "after": {
+        "denominator": 9,
+        "numerator": 9,
+        "scorable_cases": 9,
+        "value": 1
+      },
+      "before": {
+        "denominator": 9,
+        "numerator": 2,
+        "scorable_cases": 9,
+        "value": 0.2222
+      },
+      "delta": 0.7778,
+      "metric": "outcome_classification",
+      "origin": "synthetic",
+      "verdict": "improved"
+    },
+    {
+      "after": {
+        "denominator": 9,
+        "numerator": 9,
+        "scorable_cases": 9,
+        "value": 1
+      },
+      "before": {
+        "denominator": 9,
+        "numerator": 9,
+        "scorable_cases": 9,
+        "value": 1
+      },
+      "delta": 0,
+      "metric": "platform_classification",
+      "origin": "synthetic",
+      "verdict": "unchanged"
+    },
+    {
+      "after": {
+        "denominator": 53,
+        "numerator": 53,
+        "scorable_cases": 7,
+        "value": 1
+      },
+      "before": {
+        "denominator": 0,
+        "numerator": 0,
+        "scorable_cases": 0,
+        "value": null
+      },
+      "metric": "provenance_expectation",
+      "note": "unscored in one or both reports",
+      "origin": "synthetic",
+      "verdict": "not_comparable"
+    },
+    {
+      "after": {
+        "denominator": 52,
+        "numerator": 52,
+        "scorable_cases": 7,
+        "value": 1
+      },
+      "before": {
+        "denominator": 0,
+        "numerator": 0,
+        "scorable_cases": 0,
+        "value": null
+      },
+      "metric": "required_accuracy",
+      "note": "unscored in one or both reports",
+      "origin": "synthetic",
+      "verdict": "not_comparable"
+    },
+    {
+      "after": {
+        "denominator": 53,
+        "numerator": 0,
+        "scorable_cases": 7,
+        "value": 0
+      },
+      "before": {
+        "denominator": 0,
+        "numerator": 0,
+        "scorable_cases": 0,
+        "value": null
+      },
+      "metric": "unresolved_label_rate",
+      "note": "unscored in one or both reports",
+      "origin": "synthetic",
+      "verdict": "not_comparable"
+    },
+    {
+      "after": {
+        "denominator": 4,
+        "numerator": 0
+      },
+      "before": {
+        "denominator": 0,
+        "numerator": 0
+      },
+      "metric": "false_complete_claims",
+      "note": "the number of evaluable claims of complete differs",
+      "origin": "synthetic",
+      "verdict": "unchanged"
+    }
+  ],
+  "schema": "eval-compare/1",
+  "summary": {
+    "improved": 4,
+    "not_comparable": 7,
+    "regressed": 0,
+    "unchanged": 15
+  },
+  "warnings": [
+    "both runs used identical inspector source: any difference comes from the configuration, not the code"
+  ]
+}

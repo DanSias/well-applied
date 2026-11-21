@@ -1,0 +1,35 @@
+{
+  "status": "succeeded",
+  "inspection_outcome": "application_not_found",
+  "stop_reason": "no_apply_link",
+  "ats": null,
+  "requested_url": "http://fixture.test/auth-gate-aggregator.html",
+  "final_url": "http://fixture.test/auth-gate-aggregator.html",
+  "resolved_url": null,
+  "fields": [],
+  "warnings": [
+    "apply_is_button"
+  ],
+  "diagnostics": {
+    "total_ms": 0,
+    "navigation_ms": 0,
+    "extraction_ms": 0,
+    "page_title": "Remote Senior Backend Engineer at Example Co - Example Jobs",
+    "http_status": 200,
+    "pages_visited": 1,
+    "follows": 0,
+    "navigation": [
+      {
+        "kind": "start",
+        "url": "http://fixture.test/auth-gate-aggregator.html",
+        "status": 200
+      }
+    ],
+    "candidates": [],
+    "timestamp": "1970-01-01T00:00:00.000Z",
+    "classified_as": [
+      "not_an_application:sign_in",
+      "no_form_controls"
+    ]
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "status": "succeeded",
+  "inspection_outcome": "partial",
+  "stop_reason": null,
+  "ats": null,
+  "requested_url": "http://fixture.test/u/multi-step",
+  "final_url": "http://fixture.test/u/multi-step",
+  "resolved_url": "http://fixture.test/u/multi-step",
+  "fields": [
+    {
+      "position": 0,
+      "external_field_id": "s1-first",
+      "raw_label": "First name",
+      "label_source": "dom_label_for",
+      "control_type": "text",
+      "required": true,
+      "options": null,
+      "section": "Personal details",
+      "extraction_source": "both"
+    },
+    {
+      "position": 1,
+      "external_field_id": "s1-last",
+      "raw_label": "Last name",
+      "label_source": "dom_label_for",
+      "control_type": "text",
+      "required": true,
+      "options": null,
+      "section": "Personal details",
+      "extraction_source": "both"
+    },
+    {
+      "position": 2,
+      "external_field_id": "s1-email",
+      "raw_label": "Email",
+      "label_source": "dom_label_for",
+      "control_type": "email",
+      "required": true,
+      "options": null,
+      "section": "Personal details",
+      "extraction_source": "both"
+    }
+  ],
+  "warnings": [
+    "conditional_fields_not_inspected",
+    "more_steps_not_inspected",
+    "generic_discovery"
+  ],
+  "diagnostics": {
+    "total_ms": 0,
+    "navigation_ms": 0,
+    "extraction_ms": 0,
+    "page_title": "Apply - Frontend Engineer, Example Co",
+    "http_status": 200,
+    "pages_visited": 1,
+    "follows": 0,
+    "navigation": [
+      {
+        "kind": "start",
+        "url": "http://fixture.test/u/multi-step",
+        "status": 200
+      }
+    ],
+    "candidates": [],
+    "timestamp": "1970-01-01T00:00:00.000Z",
+    "field_count": 3,
+    "unresolved_label_count": 0,
+    "hidden_field_count": 0,
+    "button_count": 1,
+    "classified_as": [
+      "contact_fields_on_application_page"
+    ]
+  }
+}

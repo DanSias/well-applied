@@ -1,0 +1,24 @@
+{
+  "generic-off": {
+    "syn-apply-button-nonget": "98748d1364e39eb793f4278fd37161af27e2e252f03f8d1960968159820eb513",
+    "syn-auth-gate-aggregator": "bbece5107565ab81ed27393cd31721cfcd1050d690d015502cd3411873bf5385",
+    "syn-combobox-nested-search": "2ddd57d3c1718f459433510dc076190347df84642f9184ffee4decf545dcf1f9",
+    "syn-conditional-hidden-fields": "9f97a82917c43bfca9e7689a446e54220d2ed37bc0ea77e8b263dda0ca9941cb",
+    "syn-greenhouse-style-form": "da81abe40422f3c4b79fc93078dac2a71997a78975e8bf277ac6afbaa95be5d6",
+    "syn-labels-vs-headings": "3996fa5142d03f84668b253df5ef5cbdf3ab05251658ae0c76d42d092893abf0",
+    "syn-multi-step": "0e6f43a5f52b94ce19cb855cd9b4b4a7dfd6c4fa07709b1c2bb9713de8939f31",
+    "syn-sensitive-demographics": "591d4a1afbcf66b09223a77ebafe09298a6e9b8803a4ff11c5651cc6c85b8115",
+    "syn-unknown-ats-form": "39d055420faf9fae8709ff83f437295a0d084296b3ac4dbd8a0251f88b73445f"
+  },
+  "generic-on": {
+    "syn-apply-button-nonget": "98748d1364e39eb793f4278fd37161af27e2e252f03f8d1960968159820eb513",
+    "syn-auth-gate-aggregator": "0ab613d31082b6b88a70a69cafe4f56b5b0567626b6da2df59244bc274811eda",
+    "syn-combobox-nested-search": "7ba535d1ca090db27de1bead36ccd7ec60268fbdf7cc7bd3689a816ddc553eb8",
+    "syn-conditional-hidden-fields": "9faefd753b129aa882f3761881fce437b3440b67b1f7a56d6d3b49b551680945",
+    "syn-greenhouse-style-form": "551464b90de3b7a341f14b5f3cf410026de536354dff7ac7a4bb5436bf727772",
+    "syn-labels-vs-headings": "894f68e942fb25ea9d4e817aaf7e6e0c34786b1768b9a5ed6d4ba9005bdfe627",
+    "syn-multi-step": "ef8de6f8bffc699de48c5084631564184b855cf4fa0aa9f83e61f839dd89bca5",
+    "syn-sensitive-demographics": "dbe9110c82de4fc7d2a512e74a4489355aec945f5f65c762a581df029fcb0109",
+    "syn-unknown-ats-form": "c6ceb034859b22fc0d2e7145ea1e9b90b4ac2750c8834d050a91127d227784df"
+  }
+}

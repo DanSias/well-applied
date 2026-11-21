@@ -1,0 +1,33 @@
+{
+  "status": "succeeded",
+  "inspection_outcome": "unsupported",
+  "stop_reason": "form_without_adapter",
+  "ats": null,
+  "requested_url": "http://fixture.test/phase1/unknown-form",
+  "final_url": "http://fixture.test/phase1/unknown-form",
+  "resolved_url": "http://fixture.test/phase1/unknown-form",
+  "fields": [],
+  "warnings": [],
+  "diagnostics": {
+    "total_ms": 0,
+    "navigation_ms": 0,
+    "extraction_ms": 0,
+    "page_title": "Apply - Senior Engineer",
+    "http_status": 200,
+    "pages_visited": 1,
+    "follows": 0,
+    "navigation": [
+      {
+        "kind": "start",
+        "url": "http://fixture.test/phase1/unknown-form",
+        "status": 200
+      }
+    ],
+    "candidates": [],
+    "timestamp": "1970-01-01T00:00:00.000Z",
+    "classified_as": [
+      "resume_upload",
+      "contact_fields_on_application_page"
+    ]
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "status": "succeeded",
+  "inspection_outcome": "application_not_found",
+  "stop_reason": "no_apply_link",
+  "ats": null,
+  "requested_url": "http://fixture.test/u/apply-button-nonget",
+  "final_url": "http://fixture.test/u/apply-button-nonget",
+  "resolved_url": null,
+  "fields": [],
+  "warnings": [
+    "apply_is_button"
+  ],
+  "diagnostics": {
+    "total_ms": 0,
+    "navigation_ms": 0,
+    "extraction_ms": 0,
+    "page_title": "Platform Engineer at Example Co",
+    "http_status": 200,
+    "pages_visited": 1,
+    "follows": 0,
+    "navigation": [
+      {
+        "kind": "start",
+        "url": "http://fixture.test/u/apply-button-nonget",
+        "status": 200
+      }
+    ],
+    "candidates": [],
+    "timestamp": "1970-01-01T00:00:00.000Z",
+    "classified_as": [
+      "controls_without_strong_signal"
+    ]
+  }
+}

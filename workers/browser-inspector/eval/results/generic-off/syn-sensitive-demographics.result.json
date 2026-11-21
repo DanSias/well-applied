@@ -1,0 +1,32 @@
+{
+  "status": "succeeded",
+  "inspection_outcome": "application_not_found",
+  "stop_reason": "no_apply_link",
+  "ats": null,
+  "requested_url": "http://fixture.test/u/sensitive-demographics",
+  "final_url": "http://fixture.test/u/sensitive-demographics",
+  "resolved_url": null,
+  "fields": [],
+  "warnings": [],
+  "diagnostics": {
+    "total_ms": 0,
+    "navigation_ms": 0,
+    "extraction_ms": 0,
+    "page_title": "Apply - Site Reliability Engineer, Example Co",
+    "http_status": 200,
+    "pages_visited": 1,
+    "follows": 0,
+    "navigation": [
+      {
+        "kind": "start",
+        "url": "http://fixture.test/u/sensitive-demographics",
+        "status": 200
+      }
+    ],
+    "candidates": [],
+    "timestamp": "1970-01-01T00:00:00.000Z",
+    "classified_as": [
+      "controls_without_strong_signal"
+    ]
+  }
+}

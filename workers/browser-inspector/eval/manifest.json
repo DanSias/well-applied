@@ -1,0 +1,468 @@
+{
+  "schema": "eval-manifest/1",
+  "manifest_version": "0.1.0",
+  "purpose": "Stage 0 offline evaluation: existing committed fixtures and evidence only. No network, no AI box, no database.",
+  "configurations": {
+    "generic-off": {
+      "BROWSER_WORKER_GENERIC_DISCOVERY": "0 (production today)"
+    },
+    "generic-on": {
+      "BROWSER_WORKER_GENERIC_DISCOVERY": "1"
+    }
+  },
+  "metrics": [
+    "application_url_resolution",
+    "platform_classification",
+    "field_precision",
+    "field_recall",
+    "field_f1",
+    "field_type_accuracy",
+    "required_accuracy",
+    "unresolved_label_rate",
+    "provenance_expectation",
+    "outcome_classification",
+    "barrier_classification",
+    "false_barrier_rate"
+  ],
+  "cases": [
+    {
+      "id": "syn-greenhouse-style-form",
+      "origin": "synthetic",
+      "title": "Greenhouse-style form: custom comboboxes, hidden validation input, an API-only question",
+      "evidence": [
+        {
+          "role": "fixture_html",
+          "path": "test/fixtures/universal/forms/greenhouse-style-form.html",
+          "class": "authored",
+          "sha256": "2a276dbee9bc398db01fe1aebab2d385fd761fdfe0ff5ac6504a0f235227ff69"
+        },
+        {
+          "role": "expected",
+          "path": "test/fixtures/universal/expected/greenhouse-style-form.expected.json",
+          "class": "authored",
+          "sha256": "306bdc73743b1c572f5f268a106dcc859f7657727d5aaf9ad32b5eabd4fe9085"
+        }
+      ],
+      "result": {
+        "kind": "replay"
+      },
+      "truth": {
+        "adapter": "universal_expected"
+      },
+      "expect": {
+        "platform": {
+          "v": "unknown",
+          "c": "authored",
+          "basis": "served from a local fixture host, not an ATS host"
+        },
+        "application_url": {
+          "v": "http://fixture.test/u/greenhouse-style-form",
+          "c": "authored",
+          "basis": "the page itself is the application form"
+        }
+      }
+    },
+    {
+      "id": "syn-combobox-nested-search",
+      "origin": "synthetic",
+      "title": "Comboboxes with a search box nested in the popup",
+      "evidence": [
+        {
+          "role": "fixture_html",
+          "path": "test/fixtures/universal/forms/combobox-nested-search.html",
+          "class": "authored",
+          "sha256": "9ddf462108fb6c8231649e0eeaba89e5d2f7db5b0179075f7ba41fc09ea9e23b"
+        },
+        {
+          "role": "expected",
+          "path": "test/fixtures/universal/expected/combobox-nested-search.expected.json",
+          "class": "authored",
+          "sha256": "01c33a74fe5328796e4cc3edcb34fdf00d642aeec043d687902776a2505351c6"
+        }
+      ],
+      "result": {
+        "kind": "replay"
+      },
+      "truth": {
+        "adapter": "universal_expected"
+      },
+      "expect": {
+        "platform": {
+          "v": "unknown",
+          "c": "authored",
+          "basis": "served from a local fixture host, not an ATS host"
+        },
+        "application_url": {
+          "v": "http://fixture.test/u/combobox-nested-search",
+          "c": "authored",
+          "basis": "the page itself is the application form"
+        }
+      }
+    },
+    {
+      "id": "syn-labels-vs-headings",
+      "origin": "synthetic",
+      "title": "Question labels versus section headings",
+      "evidence": [
+        {
+          "role": "fixture_html",
+          "path": "test/fixtures/universal/forms/labels-vs-headings.html",
+          "class": "authored",
+          "sha256": "5f0d76f90bacb2121c8813f504c0472a8fedd545691beaca1cd9501b6129eb5f"
+        },
+        {
+          "role": "expected",
+          "path": "test/fixtures/universal/expected/labels-vs-headings.expected.json",
+          "class": "authored",
+          "sha256": "59384f8500e858b7c92af60e583415363da04905a02cab1bc046fa803a2f2bcc"
+        }
+      ],
+      "result": {
+        "kind": "replay"
+      },
+      "truth": {
+        "adapter": "universal_expected"
+      },
+      "expect": {
+        "platform": {
+          "v": "unknown",
+          "c": "authored",
+          "basis": "served from a local fixture host, not an ATS host"
+        },
+        "application_url": {
+          "v": "http://fixture.test/u/labels-vs-headings",
+          "c": "authored",
+          "basis": "the page itself is the application form"
+        }
+      }
+    },
+    {
+      "id": "syn-conditional-hidden-fields",
+      "origin": "synthetic",
+      "title": "A field that exists only after a script reacts to a change",
+      "evidence": [
+        {
+          "role": "fixture_html",
+          "path": "test/fixtures/universal/forms/conditional-hidden-fields.html",
+          "class": "authored",
+          "sha256": "2062a31c9285b27e63e2daaedca2aaea46e563b68abdb4ff4934b16fa30b5dd8"
+        },
+        {
+          "role": "expected",
+          "path": "test/fixtures/universal/expected/conditional-hidden-fields.expected.json",
+          "class": "authored",
+          "sha256": "17cd0e34f5838998268f39acfb77b871edd1f63aff352202394251043e046059"
+        }
+      ],
+      "result": {
+        "kind": "replay"
+      },
+      "truth": {
+        "adapter": "universal_expected"
+      },
+      "expect": {
+        "platform": {
+          "v": "unknown",
+          "c": "authored",
+          "basis": "served from a local fixture host, not an ATS host"
+        },
+        "application_url": {
+          "v": "http://fixture.test/u/conditional-hidden-fields",
+          "c": "authored",
+          "basis": "the page itself is the application form"
+        }
+      }
+    },
+    {
+      "id": "syn-sensitive-demographics",
+      "origin": "synthetic",
+      "title": "Self-identification questions beside decoys that only sound sensitive",
+      "evidence": [
+        {
+          "role": "fixture_html",
+          "path": "test/fixtures/universal/forms/sensitive-demographics.html",
+          "class": "authored",
+          "sha256": "bb22f91dfeb3bd6e52f80ebdad76efa3f505147440dab8cf065b2ab4936d61b9"
+        },
+        {
+          "role": "expected",
+          "path": "test/fixtures/universal/expected/sensitive-demographics.expected.json",
+          "class": "authored",
+          "sha256": "ae36ce1e88718d0ccde251eea598c835e3a7a19f69c3311ee60df113dce9aead"
+        }
+      ],
+      "result": {
+        "kind": "replay"
+      },
+      "truth": {
+        "adapter": "universal_expected"
+      },
+      "expect": {
+        "platform": {
+          "v": "unknown",
+          "c": "authored",
+          "basis": "served from a local fixture host, not an ATS host"
+        },
+        "application_url": {
+          "v": "http://fixture.test/u/sensitive-demographics",
+          "c": "authored",
+          "basis": "the page itself is the application form"
+        }
+      }
+    },
+    {
+      "id": "syn-multi-step",
+      "origin": "synthetic",
+      "title": "A multi-step form: only step one exists in the static page",
+      "evidence": [
+        {
+          "role": "fixture_html",
+          "path": "test/fixtures/universal/forms/multi-step.html",
+          "class": "authored",
+          "sha256": "a6de8bae8bcf1ad226edefe07423795a9404e245c9eb74c5607335beb999e521"
+        },
+        {
+          "role": "expected",
+          "path": "test/fixtures/universal/expected/multi-step.expected.json",
+          "class": "authored",
+          "sha256": "684f92ee97da01cdf73e699e6375d3dab4b944734256b19b9b1496a3fcfdf1dd"
+        }
+      ],
+      "result": {
+        "kind": "replay"
+      },
+      "truth": {
+        "adapter": "universal_expected"
+      },
+      "expect": {
+        "platform": {
+          "v": "unknown",
+          "c": "authored",
+          "basis": "served from a local fixture host, not an ATS host"
+        },
+        "application_url": {
+          "v": "http://fixture.test/u/multi-step",
+          "c": "authored",
+          "basis": "the page itself is the application form"
+        }
+      }
+    },
+    {
+      "id": "syn-unknown-ats-form",
+      "origin": "synthetic",
+      "title": "An accessible form on an unknown ATS",
+      "evidence": [
+        {
+          "role": "fixture_html",
+          "path": "test/fixtures/phase1/unknown-ats-form.html",
+          "class": "authored",
+          "sha256": "9ec17da9f49c910c4f3a0eb6f59214837544a2bd5fb18c28c6e7bfbcc785f391"
+        },
+        {
+          "role": "expected",
+          "path": "test/fixtures/universal/expected/unknown-ats-form.expected.json",
+          "class": "authored",
+          "sha256": "07df0978dbd7bbc37e05fad2cd378bba2f5bcc84c755a362431c54122e12a112"
+        }
+      ],
+      "result": {
+        "kind": "replay"
+      },
+      "truth": {
+        "adapter": "universal_expected"
+      },
+      "expect": {
+        "platform": {
+          "v": "unknown",
+          "c": "authored",
+          "basis": "served from a local fixture host, not an ATS host"
+        },
+        "application_url": {
+          "v": "http://fixture.test/phase1/unknown-form",
+          "c": "authored",
+          "basis": "the page itself is the application form"
+        }
+      }
+    },
+    {
+      "id": "syn-auth-gate-aggregator",
+      "origin": "synthetic",
+      "title": "An aggregator listing behind a sign-in dialog",
+      "evidence": [
+        {
+          "role": "fixture_html",
+          "path": "test/fixtures/universal/forms/auth-gate-aggregator.html",
+          "class": "authored",
+          "sha256": "e98db850678e5c98147b446a53fe61b20e5474d7f0cfb1c1313f79ab26a89c5e"
+        },
+        {
+          "role": "expected",
+          "path": "test/fixtures/universal/expected/auth-gate-aggregator.expected.json",
+          "class": "authored",
+          "sha256": "d2a33eae2ef9ea9f383db8bc923648eb8bbb840716dac4ef05e7f30b7d01d8c1"
+        }
+      ],
+      "result": {
+        "kind": "replay"
+      },
+      "truth": {
+        "adapter": "universal_expected"
+      },
+      "expect": {
+        "platform": {
+          "v": "unknown",
+          "c": "authored",
+          "basis": "served from a local fixture host, not an ATS host"
+        },
+        "application_url": {
+          "v": null,
+          "c": "authored",
+          "basis": "a listing: no application page should be resolved"
+        }
+      }
+    },
+    {
+      "id": "syn-apply-button-nonget",
+      "origin": "synthetic",
+      "title": "A listing whose Apply control is a POST button",
+      "evidence": [
+        {
+          "role": "fixture_html",
+          "path": "test/fixtures/universal/forms/apply-button-nonget.html",
+          "class": "authored",
+          "sha256": "6fb2afbedf57db326290cf7089405a960709f72e12f5b585350022a5b30295d0"
+        },
+        {
+          "role": "expected",
+          "path": "test/fixtures/universal/expected/apply-button-nonget.expected.json",
+          "class": "authored",
+          "sha256": "1b329c52c226c29a223e357de50aebd5c02445e06ff4140567bee36a1490e799"
+        }
+      ],
+      "result": {
+        "kind": "replay"
+      },
+      "truth": {
+        "adapter": "universal_expected"
+      },
+      "expect": {
+        "platform": {
+          "v": "unknown",
+          "c": "authored",
+          "basis": "served from a local fixture host, not an ATS host"
+        },
+        "application_url": {
+          "v": null,
+          "c": "authored",
+          "basis": "a listing: no application page should be resolved"
+        }
+      }
+    },
+    {
+      "id": "real-chainguard-4722145006",
+      "origin": "real_world",
+      "title": "Chainguard, Principal Software Engineer (Greenhouse), live run #12",
+      "evidence": [
+        {
+          "role": "run12_agent_run",
+          "path": "test/fixtures/universal/evidence/chainguard-4722145006/run12.agent_run.json",
+          "class": "observed",
+          "sha256": "0a4f08ed421c1e573432c4a55aa66a47044991ac72b141354a8fb14316c84fe9"
+        },
+        {
+          "role": "run12_questions",
+          "path": "test/fixtures/universal/evidence/chainguard-4722145006/run12.application_questions.json",
+          "class": "observed",
+          "sha256": "1b963a40841e33f1c804db6c625298bca742e55195e3ce2e86023ab20c8dffb1"
+        },
+        {
+          "role": "golden",
+          "path": "test/fixtures/universal/golden/chainguard-4722145006.semantic.json",
+          "class": "curated",
+          "sha256": "587149f60870581576bd90d517f2174dd90115d49f8f2cc908a963fbc8a9a2ff"
+        },
+        {
+          "role": "api_schema",
+          "path": "test/fixtures/universal/evidence/chainguard-4722145006/greenhouse-api-schema.json",
+          "class": "api_derived",
+          "sha256": "3443a2b1a2a6ca7e261de5862ec59b78019f3fbfcb675476f7937f6b924dc7c7"
+        }
+      ],
+      "result": {
+        "kind": "captured_live"
+      },
+      "truth": {
+        "adapter": "chainguard_golden"
+      },
+      "expect": {
+        "platform": {
+          "v": "greenhouse",
+          "c": "observed",
+          "basis": "job-boards.greenhouse.io host and the run recorded ats greenhouse"
+        },
+        "application_url": {
+          "v": "https://job-boards.greenhouse.io/chainguard/jobs/4722145006",
+          "c": "observed",
+          "basis": "the saved user URL is the application form (golden subject)"
+        }
+      }
+    },
+    {
+      "id": "real-nerdwallet-258",
+      "origin": "real_world",
+      "title": "NerdWallet application (Ashby), provider schema versus a person's own browser",
+      "evidence": [
+        {
+          "role": "dom_observation",
+          "path": "test/fixtures/ashby/dom-observation.json",
+          "class": "observed",
+          "sha256": "5bafdfe8a69da37f95ca73ec8dc0caab0258f17be491243de4317b15c0ff7d7a"
+        },
+        {
+          "role": "contract_result",
+          "path": "test/fixtures/ashby/expected/nerdwallet-258.contract.result.json",
+          "class": "result",
+          "sha256": "e67887cac5a5a7c3451ebc69bb4fd6d5ddf592daecab44ae36764873d2652555"
+        },
+        {
+          "role": "api_schema",
+          "path": "test/fixtures/ashby/nerdwallet-job.response.json",
+          "class": "api_derived",
+          "sha256": "b7f2c5add31b7e785c69977bc31ad4867baa5ab4e0da9f08b2240dceecc8208a"
+        }
+      ],
+      "result": {
+        "kind": "snapshot",
+        "evidence_role": "contract_result"
+      },
+      "truth": {
+        "adapter": "ashby_dom"
+      },
+      "expect": {
+        "platform": {
+          "v": "ashby",
+          "c": "observed",
+          "basis": "jobs.ashbyhq.com host"
+        },
+        "application_url": {
+          "v": "https://jobs.ashbyhq.com/nerdwallet/32c62385-07d5-4d6d-960e-12c05ce0cbef/application",
+          "c": "observed",
+          "basis": "the page the observation was taken from"
+        },
+        "allowed_outcomes": {
+          "v": [
+            "partial"
+          ],
+          "c": "authored",
+          "basis": "a provider schema cannot establish what the rendered form shows, so the contract allows only partial"
+        },
+        "provenance": {
+          "allowed": [
+            "provider_schema"
+          ],
+          "c": "authored"
+        }
+      }
+    }
+  ]
+}

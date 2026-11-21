@@ -1,0 +1,101 @@
+{
+  "status": "succeeded",
+  "inspection_outcome": "complete",
+  "stop_reason": null,
+  "ats": null,
+  "requested_url": "http://fixture.test/u/combobox-nested-search",
+  "final_url": "http://fixture.test/u/combobox-nested-search",
+  "resolved_url": "http://fixture.test/u/combobox-nested-search",
+  "fields": [
+    {
+      "position": 0,
+      "external_field_id": "cb-residence",
+      "raw_label": "Country of residence",
+      "label_source": "dom_label_for",
+      "control_type": "select",
+      "required": true,
+      "options": [
+        "Canada",
+        "Germany",
+        "United Kingdom",
+        "United States"
+      ],
+      "section": "Apply: Backend Engineer",
+      "extraction_source": "both"
+    },
+    {
+      "position": 1,
+      "external_field_id": "btn-language",
+      "raw_label": "Primary programming language",
+      "label_source": "dom_aria_labelledby",
+      "control_type": "select",
+      "required": null,
+      "options": [
+        "Go",
+        "Python",
+        "Rust"
+      ],
+      "section": "Apply: Backend Engineer",
+      "extraction_source": "both"
+    },
+    {
+      "position": 2,
+      "external_field_id": "cb-timezone",
+      "raw_label": "Time zone",
+      "label_source": "dom_label_for",
+      "control_type": "select",
+      "required": false,
+      "options": null,
+      "section": "Apply: Backend Engineer",
+      "extraction_source": "both"
+    },
+    {
+      "position": 3,
+      "external_field_id": "work-mode",
+      "raw_label": "Preferred work mode",
+      "label_source": "dom_label_for",
+      "control_type": "select",
+      "required": true,
+      "options": [
+        "Remote",
+        "Hybrid",
+        "On-site"
+      ],
+      "section": "Apply: Backend Engineer",
+      "extraction_source": "both"
+    }
+  ],
+  "warnings": [
+    "generic_discovery",
+    "application_form_inferred_from_content"
+  ],
+  "diagnostics": {
+    "total_ms": 0,
+    "navigation_ms": 0,
+    "extraction_ms": 0,
+    "page_title": "Apply - Backend Engineer, Example Co",
+    "http_status": 200,
+    "pages_visited": 1,
+    "follows": 0,
+    "navigation": [
+      {
+        "kind": "start",
+        "url": "http://fixture.test/u/combobox-nested-search",
+        "status": 200
+      }
+    ],
+    "candidates": [],
+    "timestamp": "1970-01-01T00:00:00.000Z",
+    "field_count": 4,
+    "unresolved_label_count": 0,
+    "hidden_field_count": 1,
+    "button_count": 2,
+    "classified_as": [
+      "context_aware_form",
+      "basis:content",
+      "three_or_more_labelled_fields",
+      "application_wording",
+      "application_submit_button"
+    ]
+  }
+}

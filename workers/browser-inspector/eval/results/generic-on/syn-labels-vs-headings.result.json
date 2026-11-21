@@ -1,0 +1,122 @@
+{
+  "status": "succeeded",
+  "inspection_outcome": "complete",
+  "stop_reason": null,
+  "ats": null,
+  "requested_url": "http://fixture.test/u/labels-vs-headings",
+  "final_url": "http://fixture.test/u/labels-vs-headings",
+  "resolved_url": "http://fixture.test/u/labels-vs-headings",
+  "fields": [
+    {
+      "position": 0,
+      "external_field_id": "up-resume",
+      "raw_label": "Resume",
+      "label_source": "inferred_proximity",
+      "control_type": "file",
+      "required": false,
+      "options": null,
+      "section": "Resume",
+      "extraction_source": "both"
+    },
+    {
+      "position": 1,
+      "external_field_id": "up-portfolio",
+      "raw_label": "Portfolio",
+      "label_source": "inferred_proximity",
+      "control_type": "file",
+      "required": false,
+      "options": null,
+      "section": "Portfolio",
+      "extraction_source": "both"
+    },
+    {
+      "position": 2,
+      "external_field_id": "why-us",
+      "raw_label": "Why do you want to work here?",
+      "label_source": "dom_placeholder",
+      "control_type": "text",
+      "required": false,
+      "options": null,
+      "section": "Portfolio",
+      "extraction_source": "both"
+    },
+    {
+      "position": 3,
+      "external_field_id": "auth",
+      "raw_label": "Are you legally authorized to work in the United States?",
+      "label_source": "dom_wrapping_label",
+      "control_type": "radio_group",
+      "required": false,
+      "options": [
+        "Yes",
+        "No"
+      ],
+      "section": "Are you legally authorized to work in the United States?",
+      "extraction_source": "both"
+    },
+    {
+      "position": 4,
+      "external_field_id": "skill",
+      "raw_label": "Which of these have you used?",
+      "label_source": "dom_aria_labelledby",
+      "control_type": "checkbox_group",
+      "required": false,
+      "options": [
+        "Kubernetes",
+        "Terraform"
+      ],
+      "section": "Which of these have you used?",
+      "extraction_source": "both"
+    },
+    {
+      "position": 5,
+      "external_field_id": "start-date",
+      "raw_label": "Earliest start date",
+      "label_source": "inferred_proximity",
+      "control_type": "text",
+      "required": false,
+      "options": null,
+      "section": "Which of these have you used?",
+      "extraction_source": "dom"
+    },
+    {
+      "position": 6,
+      "external_field_id": "salary",
+      "raw_label": "Desired salary (USD)",
+      "label_source": "dom_label_for",
+      "control_type": "text",
+      "required": false,
+      "options": null,
+      "section": "Compensation",
+      "extraction_source": "both"
+    }
+  ],
+  "warnings": [
+    "generic_discovery"
+  ],
+  "diagnostics": {
+    "total_ms": 0,
+    "navigation_ms": 0,
+    "extraction_ms": 0,
+    "page_title": "Apply - Support Engineer, Example Co",
+    "http_status": 200,
+    "pages_visited": 1,
+    "follows": 0,
+    "navigation": [
+      {
+        "kind": "start",
+        "url": "http://fixture.test/u/labels-vs-headings",
+        "status": 200
+      }
+    ],
+    "candidates": [],
+    "timestamp": "1970-01-01T00:00:00.000Z",
+    "field_count": 7,
+    "unresolved_label_count": 0,
+    "hidden_field_count": 0,
+    "button_count": 1,
+    "classified_as": [
+      "resume_upload"
+    ]
+  }
+}
