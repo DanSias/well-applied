@@ -54,7 +54,13 @@ Rollback at any stage: unset the flag (presentation); the stored liveness record
 - USAJOBS' `closingDate` is a known expiry too but is not wired in (the milestone covers Himalayas and Jobicy); Adzuna and Eightfold have no provider check.
 - Himalayas' cache (10 minutes) can lag a closure; a known expiry date is therefore preferred over an endpoint answer.
 - Filtering the Inbox by JSON path assumes `expiryDate` is numeric; a source that stored it as text would not be filtered (only Himalayas stores it today).
-- The Inbox "left out" count ignores the search box's text (it counts every hidden job in the view).
+
+## 4b. Presentation follow-up (flag on; still default off)
+- **Three kinds of "open" are never confused.** The view carries a `tone`: `ok` = **Confirmed open** (the provider's own endpoint said so; the note gives the day); `neutral` = **Not live-checked** (open only as far as our records go) or **Check inconclusive** (the last check gave no clear answer: explicitly not a sign of closure); `warn` = **Expired**, **Closed**, **May be closed** (a closure reported once, not yet confirmed). Neutral states are never a badge on a list; they appear only as a muted line in a drawer or workspace. Warning styling is used for nothing else.
+- **"N expired or closed jobs left out" counts the same view the list shows**: disposition, source, search, and the inspection, triage and resume filters. "Show them" adds exactly that many (tested across filter combinations).
+- **Protected jobs stay reachable.** Pursued jobs and jobs with an Application are never filtered from Opportunities, Home's open work, the Jobs "all" view or the Inbox (an Application-bearing job); every job opens in its drawer and workspace regardless of freshness, with at most a label.
+- **Display only.** Viewing any freshness surface makes no provider request, no write, no inspection and no resume generation (tested); the "Show them" control is a GET navigation.
+- Flag off: payloads, lists, counts and Home are exactly as before (tested).
 
 ## 5. Offline-testable, and what is not
 Everything above is covered by deterministic fixtures: expiry boundaries, conflicting observations, repeat checks, reopen rules, every error class, provider restrictions, protected jobs, status presentation, the dry run (read-only, no request), and default-off behaviour. Not testable offline: how the live providers actually answer.

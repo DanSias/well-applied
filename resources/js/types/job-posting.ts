@@ -21,6 +21,16 @@ export type JobFreshnessView = {
     label: string;
     actionable: boolean;
     reason: string;
+    /**
+     * How loudly to show it: `ok` = the PROVIDER confirmed the job open; `neutral` = never live-checked (open only as far as our records go) or the last
+     * check was inconclusive; `warn` = a known expiry, a confirmed closure, or a closure reported once and not yet confirmed.
+     */
+    tone: 'ok' | 'neutral' | 'warn';
+    detail: string;
+    /** When the provider last confirmed the job open (ISO), or null. */
+    confirmed_at: string | null;
+    /** Whether any live check with the provider has been recorded. */
+    checked: boolean;
 };
 
 /**

@@ -1,7 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
 import { useRef, useState } from 'react';
 import { InspectionStateBadge } from '@/components/badges';
-import { FreshnessBadge } from '@/components/job-freshness';
+import { FreshnessBadge, FreshnessNote } from '@/components/job-freshness';
 import {
     ProviderCredit,
     sourceLinkLabel,
@@ -467,6 +467,9 @@ export default function OpportunityShow({
                         <ProviderCredit attribution={op.attribution} />
                     </div>
                     <StopPursuingPopover jobId={op.id} company={op.company} />
+                </div>
+                <div className="mt-2">
+                    <FreshnessNote freshness={op.freshness} />
                 </div>
             </header>
 

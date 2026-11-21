@@ -69,8 +69,8 @@ final class PresentHome
 
         $jobs = $profile->jobPostings()
             ->where('status', '!=', JobPostingLifecycleStatus::Closed->value)
-            // Job freshness (OFF by default): a job whose provider-stated expiry has passed is not offered for action here either. A job with an Application is never dropped.
-            ->when(JobFreshness::enabled(), fn ($q) => $q->where(fn ($w) => $w->whereNull('discovery_metadata->discovery->expiryDate')->orWhere('discovery_metadata->discovery->expiryDate', '>', now()->timestamp)->orWhereHas('applications')))
+            // Job freshness (OFF by default): a job whose provider-stated expiry has passed is not offered for action here either. A pursued job or one with an Application is never dropped.
+            ->when(JobFreshness::enabled(), fn ($q) => $q->where(fn ($w) => $w->whereNull('discovery_metadata->discovery->expiryDate')->orWhere('discovery_metadata->discovery->expiryDate', '>', now()->timestamp)->orWhere('disposition', JobDisposition::Pursued->value)->orWhereHas('applications')))
             ->get(['id', 'company', 'title', 'created_at', 'disposition'])
             ->keyBy('id');
 

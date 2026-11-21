@@ -26,6 +26,7 @@ use App\Support\ResumeRevision\JobResumes;
 use App\Support\TailoredResume\PresentTailoredResume;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -87,7 +88,12 @@ class JobPostingController extends Controller
         if (JobFreshness::enabled() && in_array($disposition, ['inbox', 'shortlist'], true)) {
             $active = fn ($q) => $q->where('status', '!=', JobPostingLifecycleStatus::Closed->value)
                 ->where(fn ($e) => $e->whereNull('discovery_metadata->discovery->expiryDate')->orWhere('discovery_metadata->discovery->expiryDate', '>', now()->timestamp));
-            $hiddenInactive = (clone $query)->whereNot(fn ($q) => $active($q))->whereDoesntHave('applications')->count();
+            // Counted over the SAME view the list is: disposition, source, search AND the inspection, triage and resume filters, so the number is exactly what turning
+            // "Show them" on would add.
+            $hiddenQuery = (clone $query)->whereNot(fn ($q) => $active($q))->whereDoesntHave('applications');
+            $hiddenInactive = ($status === 'all' && $triageStages === null && $resume === 'all')
+                ? $hiddenQuery->count()
+                : $this->applyDerivedFilters($hiddenQuery->get(), $status, $triageStages, $resume, $summarizer, $triageSummarizer, $jobResumes)[0]->count();
             if (! $showInactive) {
                 $query->where(fn ($q) => $q->where(fn ($a) => $active($a))->orWhereHas('applications'));
             }
@@ -103,26 +109,7 @@ class JobPostingController extends Controller
             $inspectionStates = $summarizer->forJobPostings($jobs->pluck('id'));
             $triageStates = $triageSummarizer->forJobPostings($jobs->pluck('id'));
         } else {
-            $jobs = $query->get();
-            $inspectionStates = $summarizer->forJobPostings($jobs->pluck('id'));
-            $triageStates = $triageSummarizer->forJobPostings($jobs->pluck('id'));
-
-            if ($status === 'not_inspected') {
-                $jobs = $jobs->filter(fn (JobPosting $job) => $inspectionStates[$job->id]['state'] === 'not_inspected');
-            } elseif ($status === 'inspected') {
-                $jobs = $jobs->filter(fn (JobPosting $job) => in_array($inspectionStates[$job->id]['state'], ['inspected', 'unsupported'], true));
-            }
-
-            if ($triageStages !== null) {
-                $jobs = $jobs->filter(
-                    fn (JobPosting $job) => in_array($triageStates[$job->id]['stage'], $triageStages, true),
-                );
-            }
-
-            if ($resume !== 'all') {
-                $resumeStates = $jobResumes->stateByJob($jobs->pluck('id'));
-                $jobs = $jobs->filter(fn (JobPosting $job) => ($resumeStates[$job->id] ?? null) === $resume);
-            }
+            [$jobs, $inspectionStates, $triageStates] = $this->applyDerivedFilters($query->get(), $status, $triageStages, $resume, $summarizer, $triageSummarizer, $jobResumes);
 
             $total = $jobs->count();
             $page = $this->page($request, $total, $perPage);
@@ -268,6 +255,36 @@ class JobPostingController extends Controller
             'resume_profiles' => $tailoredResume->profiles($jobPosting),
             'approved_evidence' => $approvedEvidence->present($jobPosting),
         ]);
+    }
+
+    /**
+     * The filters that depend on state derived from other tables (inspection, triage, resume work), applied to an already-loaded set of jobs.
+     *
+     * @param  Collection<int, JobPosting>  $jobs
+     * @param  list<string>|null  $triageStages
+     * @return array{0: Collection<int, JobPosting>, 1: array<int, array<string, mixed>>, 2: array<int, array<string, mixed>>}
+     */
+    private function applyDerivedFilters(Collection $jobs, string $status, ?array $triageStages, string $resume, SummarizeInspectionStates $summarizer, SummarizeTriageStates $triageSummarizer, JobResumes $jobResumes): array
+    {
+        $inspectionStates = $summarizer->forJobPostings($jobs->pluck('id'));
+        $triageStates = $triageSummarizer->forJobPostings($jobs->pluck('id'));
+
+        if ($status === 'not_inspected') {
+            $jobs = $jobs->filter(fn (JobPosting $job) => $inspectionStates[$job->id]['state'] === 'not_inspected');
+        } elseif ($status === 'inspected') {
+            $jobs = $jobs->filter(fn (JobPosting $job) => in_array($inspectionStates[$job->id]['state'], ['inspected', 'unsupported'], true));
+        }
+
+        if ($triageStages !== null) {
+            $jobs = $jobs->filter(fn (JobPosting $job) => in_array($triageStates[$job->id]['stage'], $triageStages, true));
+        }
+
+        if ($resume !== 'all') {
+            $resumeStates = $jobResumes->stateByJob($jobs->pluck('id'));
+            $jobs = $jobs->filter(fn (JobPosting $job) => ($resumeStates[$job->id] ?? null) === $resume);
+        }
+
+        return [$jobs, $inspectionStates, $triageStates];
     }
 
     /**

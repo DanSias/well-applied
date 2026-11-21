@@ -19,11 +19,11 @@ enum FreshnessState: string
     public function label(): string
     {
         return match ($this) {
-            self::Active => 'Open',
+            self::Active => 'Confirmed open',
             self::Expired => 'Expired',
             self::Closed => 'Closed',
             self::Uncertain => 'May be closed',
-            self::Unchecked => 'Not checked',
+            self::Unchecked => 'Not live-checked',
         };
     }
 }

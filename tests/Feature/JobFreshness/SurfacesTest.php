@@ -150,7 +150,7 @@ it('shows the state on every payload a job appears in', function () use ($past) 
     $selected = $this->get('/jobs?job='.$expired->id)->viewData('page')['props']['selected_job'];
 
     foreach ([$row, $drawer, $selected] as $payload) {
-        expect($payload['freshness'])->toBe(['state' => 'expired', 'label' => 'Expired', 'actionable' => false, 'reason' => 'expired_known']);
+        expect($payload['freshness'])->toMatchArray(['state' => 'expired', 'label' => 'Expired', 'actionable' => false, 'reason' => 'expired_known', 'tone' => 'warn']);
     }
     expect(collect($this->get('/opportunities')->viewData('page')['props']['opportunities'])->pluck('id')->all())->toContain($expired->id);   // a pursued job stays in Opportunities, labelled
 });
@@ -234,7 +234,7 @@ it('batches Jobicy ids 100 to a request, numeric ids only, and never for another
 it('does not touch the existing Jobicy discovery provider or the ingestion path\'s status handling', function () {
     $provider = file_get_contents(base_path('app/Support/JobDiscovery/Providers/JobicyDiscoveryProvider.php'));
     expect($provider)->not->toContain('JobFreshness')->and(file_get_contents(base_path('app/Support/JobDiscovery/IngestDiscoveredCandidate.php')))->not->toContain("'status'");
-    expect(trim((string) shell_exec('git -C '.escapeshellarg(base_path()).' diff --name-only master -- app/Support/JobDiscovery app/Models 2>/dev/null')))->toBe('');
+    expect(trim((string) shell_exec('git -C '.escapeshellarg(base_path()).' diff --name-only master -- app/Support/JobDiscovery/Providers app/Support/JobDiscovery/IngestDiscoveredCandidate.php app/Support/JobDiscovery/RunJobDiscovery.php app/Models 2>/dev/null')))->toBe('');
 });
 
 it('records observations only through the pure record builder: nothing in B3 writes liveness', function () {

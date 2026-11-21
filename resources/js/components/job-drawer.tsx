@@ -10,7 +10,7 @@ import {
     type DecideFn,
 } from '@/components/job-decisions';
 import { JobDescription } from '@/components/job-description';
-import { FreshnessBadge } from '@/components/job-freshness';
+import { FreshnessBadge, FreshnessNote } from '@/components/job-freshness';
 import {
     ProviderCredit,
     sourceLinkLabel,
@@ -226,6 +226,9 @@ export function JobDrawer({
                             )}
                             <FreshnessBadge freshness={job.freshness} />
                             <ProviderCredit attribution={job.attribution} />
+                        </div>
+                        <div className="mt-1">
+                            <FreshnessNote freshness={job.freshness} />
                         </div>
                     </div>
                 ) : undefined
