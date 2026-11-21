@@ -1,9 +1,9 @@
 // Where a case's InspectionResult comes from. All three kinds are results that already exist in the repository's own
 // contract shape; the harness never runs an extractor itself.
-//   replay        eval/results/<config>/<case>.result.json, produced by the real inspect() over local fixtures (refresh tool,
+//   replay        (basis synthetic_fixture_replay) eval/results/<config>/<case>.result.json, produced by the real inspect() over local fixtures (refresh tool,
 //                 kept honest by a drift test). Changes with the inspector.
-//   snapshot      a committed contract result kept in step by the worker's own tests. Changes with the inspector.
-//   captured_live a stored production run, re-shaped into the contract. FIXED: it cannot reflect a later inspector.
+//   snapshot      (basis offline_provider_schema_snapshot) a committed contract result kept in step by the worker's own tests. Changes with the inspector.
+//   captured_live (basis captured_live_inspection) a stored production run, re-shaped into the contract. FIXED: it cannot reflect a later inspector.
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { sha256 } from './canon.js';
@@ -38,16 +38,16 @@ function capturedRun(verified, root) {
  */
 export function loadResult(testCase, config, verified, root, resultsIndex) {
     const spec = testCase.result;
-    if (spec.kind === 'captured_live') return { status: 'ok', result: capturedRun(verified, root), basis: 'captured_live', evidence: [] };
-    if (spec.kind === 'snapshot') return { status: 'ok', result: readVerifiedJson(verified, spec.evidence_role, root), basis: 'snapshot', evidence: [] };
+    if (spec.kind === 'captured_live') return { status: 'ok', result: capturedRun(verified, root), basis: 'captured_live_inspection', evidence: [] };
+    if (spec.kind === 'snapshot') return { status: 'ok', result: readVerifiedJson(verified, spec.evidence_role, root), basis: 'offline_provider_schema_snapshot', evidence: [] };
     // replay
     const rel = path.join('eval', 'results', config, `${testCase.id}.result.json`);
     const file = path.join(root, rel);
     const expected = resultsIndex?.[config]?.[testCase.id];
-    if (!existsSync(file) || !expected) return { status: 'absent', reason: `no replayed result for configuration ${config}`, basis: 'replay' };
+    if (!existsSync(file) || !expected) return { status: 'absent', reason: `no replayed result for configuration ${config}`, basis: 'synthetic_fixture_replay' };
     const actual = sha256(readFileSync(file));
     const evidence = [{ role: 'replayed_result', path: rel.split(path.sep).join('/'), class: 'observed', sha256: expected, status: actual === expected ? 'verified' : 'altered', actual_sha256: actual }];
-    if (actual !== expected) return { status: 'altered', reason: 'replayed result differs from eval/results/INDEX.json', basis: 'replay', evidence };
+    if (actual !== expected) return { status: 'altered', reason: 'replayed result differs from eval/results/INDEX.json', basis: 'synthetic_fixture_replay', evidence };
 
-    return { status: 'ok', result: JSON.parse(readFileSync(file, 'utf8')), basis: 'replay', evidence };
+    return { status: 'ok', result: JSON.parse(readFileSync(file, 'utf8')), basis: 'synthetic_fixture_replay', evidence };
 }

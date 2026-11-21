@@ -1,8 +1,21 @@
 # Application inspection evaluation
 
-Configuration `generic-off` · manifest 0.1.0 (`0026ac32f6c9`) · inspector `e5761d1fd96b` (source `ada0fb9cebc0`)
+Configuration `generic-off` · manifest 0.1.0 (`b5abb3aa0d91`) · inspector `ac897f9d39ab` (source `ada0fb9cebc0`)
 
 Offline evaluation of committed evidence. Each metric is `value (numerator/denominator, scorable cases)`. A case with missing or inapplicable evidence is **unscored**, never counted as a pass or a failure. Synthetic and real-world cases are reported separately and never pooled.
+
+## What these scores rest on
+
+> 1 of 11 case rests on a captured live inspection result. No live-inspection success rate is measured by this evaluation, and the aggregates below must not be read as one.
+
+| Evidence basis | Live inspection? | Cases | What it is |
+|---|---|---|---|
+| Captured live inspection (`captured_live_inspection`) | yes | real-chainguard-4722145006 | A stored result of a real production inspection run. It is fixed: it cannot reflect a later inspector. |
+| Offline provider-schema snapshot (`offline_provider_schema_snapshot`) | **no** | real-nerdwallet-258 | The output of an offline schema adapter over committed provider-schema evidence. No page was opened and no live inspection took place. |
+| Synthetic fixture replay (`synthetic_fixture_replay`) | **no** | syn-apply-button-nonget, syn-auth-gate-aggregator, syn-combobox-nested-search, syn-conditional-hidden-fields, syn-greenhouse-style-form, syn-labels-vs-headings, syn-multi-step, syn-sensitive-demographics, syn-unknown-ats-form | The real inspector run over a local synthetic fixture. Regression evidence only: it says nothing about real sites. |
+
+- **real-chainguard-4722145006**: A stored production inspection (run #12, Greenhouse) from before generic discovery. It is the only live inspection result in this manifest, and it is a single case.
+- **real-nerdwallet-258**: The scored result is the output of the offline Ashby schema adapter over committed provider-schema evidence, compared with a person's own browser observation. It is NOT a successful live Ashby inspection: the inspector's one live inspection of this application did not reach the form, and the flag-gated Ashby transport has never been enabled.
 
 Evidence integrity: **all files verified**.
 
@@ -14,7 +27,9 @@ None.
 
 - medium **unverified_complete** · real-chainguard-4722145006: claimed complete; the ground truth does not establish whether the form is complete
 
-## Real-world captured evidence (2 cases)
+## Real-world evidence (mixed bases) (2 cases)
+
+> **Mixed evidence** (1 captured_live_inspection, 1 offline_provider_schema_snapshot). These figures pool cases whose results rest on different evidence bases. They are NOT a measured live-inspection success rate. Per-basis figures follow.
 
 | Metric | Result |
 |---|---|
@@ -136,23 +151,78 @@ Provenance of extracted rows: none. Label sources: none.
 
 </details>
 
+## Metrics by evidence basis
+
+The same metrics, never pooled across bases. Read a figure together with its basis.
+
+### Captured live inspection (1 case, live inspection)
+
+| Metric | Result |
+|---|---|
+| application_url_resolution | 100.0% (1/1, 1 case) |
+| platform_classification | 100.0% (1/1, 1 case) |
+| field_precision | 95.0% (19/20, 1 case) |
+| field_recall | 100.0% (19/19, 1 case) |
+| field_f1 | 97.4% (38/39, 1 case) |
+| field_type_accuracy | 52.9% (9/17, 1 case) |
+| required_accuracy | 100.0% (19/19, 1 case) |
+| unresolved_label_rate | 5.0% (1/20, 1 case) |
+| provenance_expectation | 100.0% (20/20, 1 case) |
+| outcome_classification | unscored (0 of 1 cases scorable) |
+| barrier_classification | unscored (0 of 1 cases scorable) |
+| false_barrier_rate | unscored (0 of 1 cases scorable) |
+
+### Offline provider-schema snapshot (1 case, not a live inspection)
+
+| Metric | Result |
+|---|---|
+| application_url_resolution | unscored (0 of 1 cases scorable) |
+| platform_classification | 100.0% (1/1, 1 case) |
+| field_precision | unscored (0 of 1 cases scorable) |
+| field_recall | 100.0% (14/14, 1 case) |
+| field_f1 | unscored (0 of 1 cases scorable) |
+| field_type_accuracy | 100.0% (14/14, 1 case) |
+| required_accuracy | 100.0% (14/14, 1 case) |
+| unresolved_label_rate | 3.5% (1/29, 1 case) |
+| provenance_expectation | 100.0% (29/29, 1 case) |
+| outcome_classification | 100.0% (1/1, 1 case) |
+| barrier_classification | unscored (0 of 1 cases scorable) |
+| false_barrier_rate | 0.0% (0/1, 1 case) |
+
+### Synthetic fixture replay (9 cases, not a live inspection)
+
+| Metric | Result |
+|---|---|
+| application_url_resolution | 66.7% (6/9, 9 cases) |
+| platform_classification | 100.0% (9/9, 9 cases) |
+| field_precision | unscored (0 of 9 cases scorable) |
+| field_recall | 0.0% (0/53, 7 cases) |
+| field_f1 | unscored (0 of 9 cases scorable) |
+| field_type_accuracy | unscored (0 of 9 cases scorable) |
+| required_accuracy | unscored (0 of 9 cases scorable) |
+| unresolved_label_rate | unscored (0 of 9 cases scorable) |
+| provenance_expectation | unscored (0 of 9 cases scorable) |
+| outcome_classification | 22.2% (2/9, 9 cases) |
+| barrier_classification | 100.0% (2/2, 2 cases) |
+| false_barrier_rate | 100.0% (7/7, 7 cases) |
+
 ## Cases
 
-| Case | Origin | Result basis | Claimed outcome | Findings |
+| Case | Origin | Evidence basis | Claimed outcome | Findings |
 |---|---|---|---|---|
-| real-chainguard-4722145006 | real_world | captured_live | complete | unverified_complete |
-| real-nerdwallet-258 | real_world | snapshot | partial | — |
-| syn-apply-button-nonget | synthetic | replay | application_not_found | — |
-| syn-auth-gate-aggregator | synthetic | replay | application_not_found | — |
-| syn-combobox-nested-search | synthetic | replay | application_not_found | — |
-| syn-conditional-hidden-fields | synthetic | replay | application_not_found | — |
-| syn-greenhouse-style-form | synthetic | replay | unsupported | — |
-| syn-labels-vs-headings | synthetic | replay | unsupported | — |
-| syn-multi-step | synthetic | replay | unsupported | — |
-| syn-sensitive-demographics | synthetic | replay | application_not_found | — |
-| syn-unknown-ats-form | synthetic | replay | unsupported | — |
+| real-chainguard-4722145006 | real_world | Captured live inspection | complete | unverified_complete |
+| real-nerdwallet-258 | real_world | Offline provider-schema snapshot (not a live inspection) | partial | — |
+| syn-apply-button-nonget | synthetic | Synthetic fixture replay (not a live inspection) | application_not_found | — |
+| syn-auth-gate-aggregator | synthetic | Synthetic fixture replay (not a live inspection) | application_not_found | — |
+| syn-combobox-nested-search | synthetic | Synthetic fixture replay (not a live inspection) | application_not_found | — |
+| syn-conditional-hidden-fields | synthetic | Synthetic fixture replay (not a live inspection) | application_not_found | — |
+| syn-greenhouse-style-form | synthetic | Synthetic fixture replay (not a live inspection) | unsupported | — |
+| syn-labels-vs-headings | synthetic | Synthetic fixture replay (not a live inspection) | unsupported | — |
+| syn-multi-step | synthetic | Synthetic fixture replay (not a live inspection) | unsupported | — |
+| syn-sensitive-demographics | synthetic | Synthetic fixture replay (not a live inspection) | application_not_found | — |
+| syn-unknown-ats-form | synthetic | Synthetic fixture replay (not a live inspection) | unsupported | — |
 
-A `captured_live` result is a past production run and cannot change with the inspector under evaluation.
+A captured live inspection is a past production run and cannot change with the inspector under evaluation.
 
 ## Evidence
 

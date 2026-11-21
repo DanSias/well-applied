@@ -389,7 +389,8 @@
         }
       ],
       "result": {
-        "kind": "captured_live"
+        "kind": "captured_live",
+        "note": "A stored production inspection (run #12, Greenhouse) from before generic discovery. It is the only live inspection result in this manifest, and it is a single case."
       },
       "truth": {
         "adapter": "chainguard_golden"
@@ -433,7 +434,8 @@
       ],
       "result": {
         "kind": "snapshot",
-        "evidence_role": "contract_result"
+        "evidence_role": "contract_result",
+        "note": "The scored result is the output of the offline Ashby schema adapter over committed provider-schema evidence, compared with a person's own browser observation. It is NOT a successful live Ashby inspection: the inspector's one live inspection of this application did not reach the form, and the flag-gated Ashby transport has never been enabled."
       },
       "truth": {
         "adapter": "ashby_dom"

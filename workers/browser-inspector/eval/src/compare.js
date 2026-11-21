@@ -8,6 +8,8 @@ export function compareReports(a, b) {
     if (!a.integrity.verified || !b.integrity.verified) warnings.push('at least one report has failed evidence integrity checks');
     if (a.inspector.source_sha256 === b.inspector.source_sha256) warnings.push('both runs used identical inspector source: any difference comes from the configuration, not the code');
 
+    const basesOf = (r) => JSON.stringify(Object.fromEntries(Object.entries(r.aggregates_by_origin).map(([o, x]) => [o, x.evidence_basis_composition])));
+    if (basesOf(a) !== basesOf(b)) warnings.push('the evidence bases of the cases differ between the two reports');
     const metrics = [];
     const origins = [...new Set([...Object.keys(a.aggregates_by_origin), ...Object.keys(b.aggregates_by_origin)])].sort();
     for (const origin of origins) {
@@ -51,7 +53,7 @@ export function compareReports(a, b) {
         const p = a.cases.find((x) => x.id === c.id);
         if (!p) cases.push({ case: c.id, change: 'added' });
         else if (p.claimed_outcome !== c.claimed_outcome) cases.push({ case: c.id, change: 'outcome', before: p.claimed_outcome, after: c.claimed_outcome });
-        else if (p.result.basis === 'captured_live') continue;
+        else if (p.result.basis === 'captured_live_inspection') continue;
     }
     for (const p of a.cases) if (!b.cases.some((x) => x.id === p.id)) cases.push({ case: p.id, change: 'removed' });
 

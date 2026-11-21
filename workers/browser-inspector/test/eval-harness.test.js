@@ -119,7 +119,8 @@ describe('the report', () => {
 
     test('keeps the Chainguard run honest: its known extraction errors show, and its claim of complete is flagged as unverified', () => {
         const c = run(ROOT).cases.find((x) => x.id === 'real-chainguard-4722145006');
-        assert.equal(c.result.basis, 'captured_live');
+        assert.equal(c.result.basis, 'captured_live_inspection');
+        assert.equal(c.evidence_basis.live_inspection, true);
         assert.deepEqual(c.matching.extra_rows, [4], 'the duplicated Country control (run #12 row 4) is a spurious row');
         assert.equal(c.metrics.field_type_accuracy.secondary_inferred_truth.denominator, 2);
         assert.deepEqual(c.findings.map((f) => f.code), ['unverified_complete']);
@@ -130,6 +131,58 @@ describe('the report', () => {
         const sample = JSON.parse(readFileSync(path.join(ROOT, 'eval', 'reports', 'sample', 'generic-on', 'report.json'), 'utf8'));
         const r = runEvaluation({ root: ROOT, config: 'generic-on', inspectorCommit: sample.inspector.commit });
         assert.equal(stableJson(r), stableJson(sample), 'regenerate with: node eval/src/cli.js run --config generic-on --out eval/reports/sample/generic-on --inspector-commit <sha>');
+    });
+});
+
+describe('what the scores rest on', () => {
+    const r = run(ROOT);
+    const md = renderMarkdown(r);
+    const byId = (id) => r.cases.find((c) => c.id === id);
+
+    test('every case names its evidence basis in the JSON, with whether it is a live inspection', () => {
+        for (const c of r.cases) {
+            assert.ok(['captured_live_inspection', 'offline_provider_schema_snapshot', 'synthetic_fixture_replay'].includes(c.evidence_basis.id), c.id);
+            assert.equal(c.result.basis, c.evidence_basis.id);
+            assert.equal(typeof c.evidence_basis.live_inspection, 'boolean');
+            assert.ok(c.evidence_basis.statement.length > 20);
+        }
+        assert.deepEqual(r.cases.filter((c) => c.evidence_basis.live_inspection).map((c) => c.id), ['real-chainguard-4722145006']);
+        assert.ok(r.cases.filter((c) => c.origin === 'synthetic').every((c) => c.evidence_basis.id === 'synthetic_fixture_replay'));
+    });
+
+    test('NerdWallet is stated, in JSON and Markdown, to be an offline schema-adapter result and not a live Ashby inspection', () => {
+        const c = byId('real-nerdwallet-258');
+        assert.equal(c.evidence_basis.id, 'offline_provider_schema_snapshot');
+        assert.equal(c.evidence_basis.live_inspection, false);
+        assert.match(c.evidence_basis.case_note, /offline Ashby schema adapter/);
+        assert.match(c.evidence_basis.case_note, /NOT a successful live Ashby inspection/);
+        assert.match(md, /\*\*real-nerdwallet-258\*\*: The scored result is the output of the offline Ashby schema adapter/);
+        assert.match(md, /\| real-nerdwallet-258 \| real_world \| Offline provider-schema snapshot \(not a live inspection\)/);
+    });
+
+    test('the report says outright that no live-inspection success rate is measured, and that pooled figures are not one', () => {
+        assert.equal(r.live_inspection.cases, 1);
+        assert.match(r.live_inspection.statement, /No live-inspection success rate is measured/);
+        assert.match(md, /No live-inspection success rate is measured/);
+        assert.equal(r.aggregates_by_origin.real_world.mixed_evidence, true);
+        assert.match(r.aggregates_by_origin.real_world.interpretation, /NOT a measured live-inspection success rate/);
+        assert.equal(r.aggregates_by_origin.synthetic.mixed_evidence, false);
+        assert.match(md, /\*\*Mixed evidence\*\*/);
+    });
+
+    test('the aggregates are preserved, and the same metrics are also given per evidence basis without pooling', () => {
+        assert.deepEqual(Object.keys(r.aggregates_by_evidence_basis), ['captured_live_inspection', 'offline_provider_schema_snapshot', 'synthetic_fixture_replay']);
+        assert.equal(r.aggregates_by_origin.real_world.metrics.field_recall.denominator, r.aggregates_by_evidence_basis.captured_live_inspection.metrics.field_recall.denominator + r.aggregates_by_evidence_basis.offline_provider_schema_snapshot.metrics.field_recall.denominator);
+        assert.equal(r.aggregates_by_evidence_basis.offline_provider_schema_snapshot.metrics.field_precision.scorable_cases, 0, 'a schema snapshot is never scored for precision here');
+        assert.match(md, /## Metrics by evidence basis/);
+        assert.match(md, /### Captured live inspection \(1 case, live inspection\)/);
+        assert.match(md, /### Offline provider-schema snapshot \(1 case, not a live inspection\)/);
+    });
+
+    test('a different mix of evidence bases is called out by compare', () => {
+        const b = structuredClone(r);
+        b.aggregates_by_origin.real_world.evidence_basis_composition = { captured_live_inspection: 2 };
+        assert.ok(compareReports(r, b).warnings.some((w) => /evidence bases/.test(w)));
     });
 });
 

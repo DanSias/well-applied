@@ -1,7 +1,7 @@
 # Evaluation comparison
 
-Before: `generic-off` · inspector `e5761d1fd96b`
-After: `generic-on` · inspector `e5761d1fd96b`
+Before: `generic-off` · inspector `ac897f9d39ab`
+After: `generic-on` · inspector `ac897f9d39ab`
 
 > both runs used identical inspector source: any difference comes from the configuration, not the code
 

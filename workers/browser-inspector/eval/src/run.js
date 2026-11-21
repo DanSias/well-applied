@@ -1,6 +1,7 @@
 // One evaluation run: manifest + configuration -> a deterministic report object. Offline by construction.
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
+import { BASES, MIXED_EVIDENCE_NOTICE } from './bases.js';
 import { ratio, sha256 } from './canon.js';
 import { verifyEvidence } from './evidence.js';
 import { inspectorProvenance } from './provenance.js';
@@ -9,6 +10,7 @@ import { allUnscored, HIGHER_IS_BETTER, METRICS, scoreCase } from './score.js';
 import { buildTruth } from './truth.js';
 
 export const REPORT_SCHEMA = 'eval-report/1';
+const KIND_TO_BASIS = { replay: 'synthetic_fixture_replay', snapshot: 'offline_provider_schema_snapshot', captured_live: 'captured_live_inspection' };
 const SEVERITY = { high: 0, medium: 1, info: 2 };
 
 export function loadManifest(root) {
@@ -40,8 +42,14 @@ function aggregate(records, metricNames) {
     const dist = { extraction_source: {}, label_source: {} };
     for (const r of records) for (const k of Object.keys(dist)) for (const [v, n] of Object.entries(r.distribution?.[k] ?? {})) dist[k][v] = (dist[k][v] ?? 0) + n;
 
+    const composition = {};
+    for (const r of records) composition[r.result.basis ?? 'not_loaded'] = (composition[r.result.basis ?? 'not_loaded'] ?? 0) + 1;
+
     return {
         cases: records.length,
+        evidence_basis_composition: Object.fromEntries(Object.entries(composition).sort()),
+        mixed_evidence: Object.keys(composition).length > 1,
+        ...(Object.keys(composition).length > 1 ? { interpretation: MIXED_EVIDENCE_NOTICE } : {}),
         metrics,
         false_complete_claims: { numerator: claimsComplete.filter((r) => r.false_complete).length, denominator: claimsComplete.length, scorable_cases: claimsComplete.length, case_ids: claimsComplete.filter((r) => r.false_complete).map((r) => r.id) },
         provenance_distribution: dist,
@@ -66,7 +74,7 @@ export function runEvaluation({ root, config, inspectorCommit = null }) {
         const bad = verified.filter((e) => e.status !== 'verified');
         const base = { id: c.id, origin: c.origin, title: c.title, evidence: verified.map(({ role, path: p, class: cl, sha256: h, status }) => ({ role, path: p, class: cl, sha256: h, status })), truth_allowed_outcomes: null, claimed_outcome: null, distribution: null, false_complete: false, false_complete_evaluable: false };
         let outcome;
-        let resultInfo = { basis: c.result.kind, status: 'not_loaded' };
+        let resultInfo = { basis: KIND_TO_BASIS[c.result.kind], status: 'not_loaded' };
         if (bad.length > 0) {
             outcome = { ...allUnscored(bad.some((e) => e.status === 'altered') ? 'evidence_altered' : 'evidence_missing'), findings: bad.map((e) => ({ severity: 'high', code: e.status === 'altered' ? 'evidence_altered' : 'evidence_missing', message: `${e.role} (${e.path}) is ${e.status}` })) };
         } else {
@@ -78,11 +86,15 @@ export function runEvaluation({ root, config, inspectorCommit = null }) {
                 outcome = { ...scoreCase(truth, res.result), truth_allowed_outcomes: truth.allowed_outcomes?.v ?? null };
             }
         }
-        records.push({ ...base, ...outcome, result: resultInfo, evidence: [...base.evidence, ...(resultInfo.evidence ?? [])], matching: outcome.matching ?? null });
+        const info = BASES[resultInfo.basis];
+        records.push({ ...base, ...outcome, evidence_basis: { id: resultInfo.basis, label: info.label, live_inspection: info.live_inspection, statement: info.statement, ...(c.result.note ? { case_note: c.result.note } : {}) }, result: resultInfo, evidence: [...base.evidence, ...(resultInfo.evidence ?? [])], matching: outcome.matching ?? null });
     }
 
     const groups = {};
     for (const origin of [...new Set(records.map((r) => r.origin))].sort()) groups[origin] = aggregate(records.filter((r) => r.origin === origin), supported);
+    const byBasis = {};
+    for (const id of Object.keys(BASES)) if (records.some((r) => r.evidence_basis.id === id)) byBasis[id] = aggregate(records.filter((r) => r.evidence_basis.id === id), supported);
+    const liveCases = records.filter((r) => r.evidence_basis.live_inspection);
     const findings = records.flatMap((r) => r.findings.map((f) => ({ case: r.id, origin: r.origin, ...f }))).sort((a, b) => SEVERITY[a.severity] - SEVERITY[b.severity] || a.case.localeCompare(b.case) || a.code.localeCompare(b.code));
 
     return {
@@ -94,7 +106,10 @@ export function runEvaluation({ root, config, inspectorCommit = null }) {
         unsupported_metrics: unsupported,
         higher_is_better: Object.fromEntries(supported.map((m) => [m, HIGHER_IS_BETTER[m] ?? true])),
         integrity: { verified: records.every((r) => r.evidence.every((e) => e.status === 'verified')), failures: records.flatMap((r) => r.evidence.filter((e) => e.status !== 'verified').map((e) => ({ case: r.id, role: e.role, path: e.path, status: e.status }))) },
+        evidence_bases: Object.fromEntries(Object.entries(BASES).map(([id, b]) => [id, { label: b.label, live_inspection: b.live_inspection, statement: b.statement, cases: records.filter((r) => r.evidence_basis.id === id).map((r) => r.id) }])),
+        live_inspection: { cases: liveCases.length, case_ids: liveCases.map((r) => r.id), statement: `${liveCases.length} of ${records.length} case${liveCases.length === 1 ? ' rests' : 's rest'} on a captured live inspection result. No live-inspection success rate is measured by this evaluation, and the aggregates below must not be read as one.` },
         aggregates_by_origin: groups,
+        aggregates_by_evidence_basis: byBasis,
         findings,
         cases: records.map(({ distribution, truth_allowed_outcomes, ...r }) => ({ ...r, distribution, truth_allowed_outcomes })),
     };

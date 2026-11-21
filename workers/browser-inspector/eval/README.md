@@ -28,6 +28,20 @@ evidence are separate origins, reported separately and never pooled.**
 
 Results are existing contract results; the scorer never runs or re-implements extraction (it imports nothing from `src/`).
 
+## Evidence bases: what a score rests on
+
+Every case states the kind of result its score rests on, in `report.json` (`evidence_basis`, `evidence_bases`, `live_inspection`) and in `report.md`:
+
+| Basis | Live inspection? | Meaning |
+|---|---|---|
+| `captured_live_inspection` | yes | a stored result of a real production run; fixed |
+| `offline_provider_schema_snapshot` | **no** | offline schema-adapter output over committed provider-schema evidence; no page opened |
+| `synthetic_fixture_replay` | **no** | the real inspector over a local synthetic fixture; regression evidence only |
+
+NerdWallet's scored result is an **offline Ashby schema-adapter snapshot, not a successful live Ashby inspection**. Origin aggregates that
+mix bases are labelled `mixed_evidence` and are **not a live-inspection success rate**; the same metrics are also given per basis
+(`aggregates_by_evidence_basis`), never pooled across bases. Stage 0 has one live-inspection case, and no such rate is measured.
+
 ## Evidence classes
 
 `observed` (seen directly) · `api_derived` (provider data) · `authored` (defined by a synthetic fixture) · `inferred` (reasoned,
@@ -67,7 +81,7 @@ false positive.
 `report.json` (`eval-report/1`) has sorted keys, no timestamps and no environment data: the same inputs give the same bytes.
 It records the manifest version and SHA-256, the inspector commit, `source_tree_modified`, and a hash of `src/` (equal hashes mean
 the same inspector whatever the commit says), the configuration, every case's evidence (role, class, SHA-256, status) and the
-basis of its result (`replay`, `snapshot`, `captured_live`). `report.md` is rendered from it. `compare` judges a metric only when
+evidence basis (below). `report.md` is rendered from it. `compare` judges a metric only when
 both runs scored the same cases, otherwise `not_comparable`.
 
 ## Changing evidence

@@ -1,7 +1,10 @@
 {
-  "aggregates_by_origin": {
-    "real_world": {
-      "cases": 2,
+  "aggregates_by_evidence_basis": {
+    "captured_live_inspection": {
+      "cases": 1,
+      "evidence_basis_composition": {
+        "captured_live_inspection": 1
+      },
       "false_complete_claims": {
         "case_ids": [],
         "denominator": 1,
@@ -13,12 +16,7 @@
           "denominator": 1,
           "numerator": 1,
           "scorable_cases": 1,
-          "unscored": [
-            {
-              "case": "real-nerdwallet-258",
-              "reason": "schema_only_result_carries_no_url"
-            }
-          ],
+          "unscored": [],
           "value": 1
         },
         "barrier_classification": {
@@ -29,7 +27,143 @@
             {
               "case": "real-chainguard-4722145006",
               "reason": "no_ground_truth"
-            },
+            }
+          ],
+          "value": null
+        },
+        "false_barrier_rate": {
+          "denominator": 0,
+          "numerator": 0,
+          "scorable_cases": 0,
+          "unscored": [
+            {
+              "case": "real-chainguard-4722145006",
+              "reason": "no_ground_truth"
+            }
+          ],
+          "value": null
+        },
+        "field_f1": {
+          "denominator": 39,
+          "numerator": 38,
+          "scorable_cases": 1,
+          "unscored": [],
+          "value": 0.9744
+        },
+        "field_precision": {
+          "denominator": 20,
+          "numerator": 19,
+          "scorable_cases": 1,
+          "unscored": [],
+          "value": 0.95
+        },
+        "field_recall": {
+          "denominator": 19,
+          "numerator": 19,
+          "scorable_cases": 1,
+          "unscored": [],
+          "value": 1
+        },
+        "field_type_accuracy": {
+          "denominator": 17,
+          "numerator": 9,
+          "scorable_cases": 1,
+          "secondary_inferred_truth": {
+            "denominator": 2,
+            "numerator": 0,
+            "value": 0
+          },
+          "unscored": [],
+          "value": 0.5294
+        },
+        "outcome_classification": {
+          "denominator": 0,
+          "numerator": 0,
+          "scorable_cases": 0,
+          "unscored": [
+            {
+              "case": "real-chainguard-4722145006",
+              "reason": "no_ground_truth"
+            }
+          ],
+          "value": null
+        },
+        "platform_classification": {
+          "denominator": 1,
+          "numerator": 1,
+          "scorable_cases": 1,
+          "unscored": [],
+          "value": 1
+        },
+        "provenance_expectation": {
+          "denominator": 20,
+          "numerator": 20,
+          "scorable_cases": 1,
+          "unscored": [],
+          "value": 1
+        },
+        "required_accuracy": {
+          "denominator": 19,
+          "numerator": 19,
+          "scorable_cases": 1,
+          "secondary_inferred_truth": {
+            "denominator": 0,
+            "numerator": 0,
+            "value": null
+          },
+          "unscored": [],
+          "value": 1
+        },
+        "unresolved_label_rate": {
+          "denominator": 20,
+          "numerator": 1,
+          "scorable_cases": 1,
+          "unscored": [],
+          "value": 0.05
+        }
+      },
+      "mixed_evidence": false,
+      "outcome_confusion": {},
+      "provenance_distribution": {
+        "extraction_source": {
+          "both": 13,
+          "dom": 7
+        },
+        "label_source": {
+          "dom_label_for": 19,
+          "unresolved": 1
+        }
+      }
+    },
+    "offline_provider_schema_snapshot": {
+      "cases": 1,
+      "evidence_basis_composition": {
+        "offline_provider_schema_snapshot": 1
+      },
+      "false_complete_claims": {
+        "case_ids": [],
+        "denominator": 0,
+        "numerator": 0,
+        "scorable_cases": 0
+      },
+      "metrics": {
+        "application_url_resolution": {
+          "denominator": 0,
+          "numerator": 0,
+          "scorable_cases": 0,
+          "unscored": [
+            {
+              "case": "real-nerdwallet-258",
+              "reason": "schema_only_result_carries_no_url"
+            }
+          ],
+          "value": null
+        },
+        "barrier_classification": {
+          "denominator": 0,
+          "numerator": 0,
+          "scorable_cases": 0,
+          "unscored": [
             {
               "case": "real-nerdwallet-258",
               "reason": "truth_is_not_a_barrier"
@@ -41,87 +175,77 @@
           "denominator": 1,
           "numerator": 0,
           "scorable_cases": 1,
-          "unscored": [
-            {
-              "case": "real-chainguard-4722145006",
-              "reason": "no_ground_truth"
-            }
-          ],
+          "unscored": [],
           "value": 0
         },
         "field_f1": {
-          "denominator": 39,
-          "numerator": 38,
-          "scorable_cases": 1,
+          "denominator": 0,
+          "numerator": 0,
+          "scorable_cases": 0,
           "unscored": [
             {
               "case": "real-nerdwallet-258",
               "reason": "truth_not_exhaustive"
             }
           ],
-          "value": 0.9744
+          "value": null
         },
         "field_precision": {
-          "denominator": 20,
-          "numerator": 19,
-          "scorable_cases": 1,
+          "denominator": 0,
+          "numerator": 0,
+          "scorable_cases": 0,
           "unscored": [
             {
               "case": "real-nerdwallet-258",
               "reason": "truth_not_exhaustive"
             }
           ],
-          "value": 0.95
+          "value": null
         },
         "field_recall": {
-          "denominator": 33,
-          "numerator": 33,
-          "scorable_cases": 2,
+          "denominator": 14,
+          "numerator": 14,
+          "scorable_cases": 1,
           "unscored": [],
           "value": 1
         },
         "field_type_accuracy": {
-          "denominator": 31,
-          "numerator": 23,
-          "scorable_cases": 2,
+          "denominator": 14,
+          "numerator": 14,
+          "scorable_cases": 1,
           "secondary_inferred_truth": {
-            "denominator": 2,
+            "denominator": 0,
             "numerator": 0,
-            "value": 0
+            "value": null
           },
           "unscored": [],
-          "value": 0.7419
+          "value": 1
         },
         "outcome_classification": {
           "denominator": 1,
           "numerator": 1,
           "scorable_cases": 1,
-          "unscored": [
-            {
-              "case": "real-chainguard-4722145006",
-              "reason": "no_ground_truth"
-            }
-          ],
+          "unscored": [],
           "value": 1
         },
         "platform_classification": {
-          "denominator": 2,
-          "numerator": 2,
-          "scorable_cases": 2,
+          "denominator": 1,
+          "numerator": 1,
+          "scorable_cases": 1,
           "unscored": [],
           "value": 1
         },
         "provenance_expectation": {
-          "denominator": 49,
-          "numerator": 49,
-          "scorable_cases": 2,
+          "denominator": 29,
+          "numerator": 29,
+          "scorable_cases": 1,
           "unscored": [],
           "value": 1
         },
         "required_accuracy": {
-          "denominator": 33,
-          "numerator": 33,
-          "scorable_cases": 2,
+          "denominator": 14,
+          "numerator": 14,
+          "scorable_cases": 1,
           "secondary_inferred_truth": {
             "denominator": 0,
             "numerator": 0,
@@ -131,13 +255,14 @@
           "value": 1
         },
         "unresolved_label_rate": {
-          "denominator": 49,
-          "numerator": 2,
-          "scorable_cases": 2,
+          "denominator": 29,
+          "numerator": 1,
+          "scorable_cases": 1,
           "unscored": [],
-          "value": 0.0408
+          "value": 0.0345
         }
       },
+      "mixed_evidence": false,
       "outcome_confusion": {
         "partial": {
           "partial": 1
@@ -145,19 +270,19 @@
       },
       "provenance_distribution": {
         "extraction_source": {
-          "both": 13,
-          "dom": 7,
           "provider_schema": 29
         },
         "label_source": {
-          "dom_label_for": 19,
           "provider_schema": 28,
-          "unresolved": 2
+          "unresolved": 1
         }
       }
     },
-    "synthetic": {
+    "synthetic_fixture_replay": {
       "cases": 9,
+      "evidence_basis_composition": {
+        "synthetic_fixture_replay": 9
+      },
       "false_complete_claims": {
         "case_ids": [],
         "denominator": 0,
@@ -519,6 +644,556 @@
           "value": null
         }
       },
+      "mixed_evidence": false,
+      "outcome_confusion": {
+        "application_not_found": {
+          "application_not_found": 2
+        },
+        "complete": {
+          "application_not_found": 2,
+          "unsupported": 2
+        },
+        "complete|partial": {
+          "application_not_found": 1,
+          "unsupported": 2
+        }
+      },
+      "provenance_distribution": {
+        "extraction_source": {},
+        "label_source": {}
+      }
+    }
+  },
+  "aggregates_by_origin": {
+    "real_world": {
+      "cases": 2,
+      "evidence_basis_composition": {
+        "captured_live_inspection": 1,
+        "offline_provider_schema_snapshot": 1
+      },
+      "false_complete_claims": {
+        "case_ids": [],
+        "denominator": 1,
+        "numerator": 0,
+        "scorable_cases": 1
+      },
+      "interpretation": "These figures pool cases whose results rest on different evidence bases. They are NOT a measured live-inspection success rate.",
+      "metrics": {
+        "application_url_resolution": {
+          "denominator": 1,
+          "numerator": 1,
+          "scorable_cases": 1,
+          "unscored": [
+            {
+              "case": "real-nerdwallet-258",
+              "reason": "schema_only_result_carries_no_url"
+            }
+          ],
+          "value": 1
+        },
+        "barrier_classification": {
+          "denominator": 0,
+          "numerator": 0,
+          "scorable_cases": 0,
+          "unscored": [
+            {
+              "case": "real-chainguard-4722145006",
+              "reason": "no_ground_truth"
+            },
+            {
+              "case": "real-nerdwallet-258",
+              "reason": "truth_is_not_a_barrier"
+            }
+          ],
+          "value": null
+        },
+        "false_barrier_rate": {
+          "denominator": 1,
+          "numerator": 0,
+          "scorable_cases": 1,
+          "unscored": [
+            {
+              "case": "real-chainguard-4722145006",
+              "reason": "no_ground_truth"
+            }
+          ],
+          "value": 0
+        },
+        "field_f1": {
+          "denominator": 39,
+          "numerator": 38,
+          "scorable_cases": 1,
+          "unscored": [
+            {
+              "case": "real-nerdwallet-258",
+              "reason": "truth_not_exhaustive"
+            }
+          ],
+          "value": 0.9744
+        },
+        "field_precision": {
+          "denominator": 20,
+          "numerator": 19,
+          "scorable_cases": 1,
+          "unscored": [
+            {
+              "case": "real-nerdwallet-258",
+              "reason": "truth_not_exhaustive"
+            }
+          ],
+          "value": 0.95
+        },
+        "field_recall": {
+          "denominator": 33,
+          "numerator": 33,
+          "scorable_cases": 2,
+          "unscored": [],
+          "value": 1
+        },
+        "field_type_accuracy": {
+          "denominator": 31,
+          "numerator": 23,
+          "scorable_cases": 2,
+          "secondary_inferred_truth": {
+            "denominator": 2,
+            "numerator": 0,
+            "value": 0
+          },
+          "unscored": [],
+          "value": 0.7419
+        },
+        "outcome_classification": {
+          "denominator": 1,
+          "numerator": 1,
+          "scorable_cases": 1,
+          "unscored": [
+            {
+              "case": "real-chainguard-4722145006",
+              "reason": "no_ground_truth"
+            }
+          ],
+          "value": 1
+        },
+        "platform_classification": {
+          "denominator": 2,
+          "numerator": 2,
+          "scorable_cases": 2,
+          "unscored": [],
+          "value": 1
+        },
+        "provenance_expectation": {
+          "denominator": 49,
+          "numerator": 49,
+          "scorable_cases": 2,
+          "unscored": [],
+          "value": 1
+        },
+        "required_accuracy": {
+          "denominator": 33,
+          "numerator": 33,
+          "scorable_cases": 2,
+          "secondary_inferred_truth": {
+            "denominator": 0,
+            "numerator": 0,
+            "value": null
+          },
+          "unscored": [],
+          "value": 1
+        },
+        "unresolved_label_rate": {
+          "denominator": 49,
+          "numerator": 2,
+          "scorable_cases": 2,
+          "unscored": [],
+          "value": 0.0408
+        }
+      },
+      "mixed_evidence": true,
+      "outcome_confusion": {
+        "partial": {
+          "partial": 1
+        }
+      },
+      "provenance_distribution": {
+        "extraction_source": {
+          "both": 13,
+          "dom": 7,
+          "provider_schema": 29
+        },
+        "label_source": {
+          "dom_label_for": 19,
+          "provider_schema": 28,
+          "unresolved": 2
+        }
+      }
+    },
+    "synthetic": {
+      "cases": 9,
+      "evidence_basis_composition": {
+        "synthetic_fixture_replay": 9
+      },
+      "false_complete_claims": {
+        "case_ids": [],
+        "denominator": 0,
+        "numerator": 0,
+        "scorable_cases": 0
+      },
+      "metrics": {
+        "application_url_resolution": {
+          "denominator": 9,
+          "numerator": 6,
+          "scorable_cases": 9,
+          "unscored": [],
+          "value": 0.6667
+        },
+        "barrier_classification": {
+          "denominator": 2,
+          "numerator": 2,
+          "scorable_cases": 2,
+          "unscored": [
+            {
+              "case": "syn-combobox-nested-search",
+              "reason": "truth_is_not_a_barrier"
+            },
+            {
+              "case": "syn-conditional-hidden-fields",
+              "reason": "truth_is_not_a_barrier"
+            },
+            {
+              "case": "syn-greenhouse-style-form",
+              "reason": "truth_is_not_a_barrier"
+            },
+            {
+              "case": "syn-labels-vs-headings",
+              "reason": "truth_is_not_a_barrier"
+            },
+            {
+              "case": "syn-multi-step",
+              "reason": "truth_is_not_a_barrier"
+            },
+            {
+              "case": "syn-sensitive-demographics",
+              "reason": "truth_is_not_a_barrier"
+            },
+            {
+              "case": "syn-unknown-ats-form",
+              "reason": "truth_is_not_a_barrier"
+            }
+          ],
+          "value": 1
+        },
+        "false_barrier_rate": {
+          "denominator": 7,
+          "numerator": 7,
+          "scorable_cases": 7,
+          "unscored": [
+            {
+              "case": "syn-apply-button-nonget",
+              "reason": "truth_is_a_barrier"
+            },
+            {
+              "case": "syn-auth-gate-aggregator",
+              "reason": "truth_is_a_barrier"
+            }
+          ],
+          "value": 1
+        },
+        "field_f1": {
+          "denominator": 0,
+          "numerator": 0,
+          "scorable_cases": 0,
+          "unscored": [
+            {
+              "case": "syn-apply-button-nonget",
+              "reason": "no_scorable_truth_fields"
+            },
+            {
+              "case": "syn-auth-gate-aggregator",
+              "reason": "no_scorable_truth_fields"
+            },
+            {
+              "case": "syn-combobox-nested-search",
+              "reason": "no_denominator"
+            },
+            {
+              "case": "syn-conditional-hidden-fields",
+              "reason": "no_denominator"
+            },
+            {
+              "case": "syn-greenhouse-style-form",
+              "reason": "no_denominator"
+            },
+            {
+              "case": "syn-labels-vs-headings",
+              "reason": "no_denominator"
+            },
+            {
+              "case": "syn-multi-step",
+              "reason": "no_denominator"
+            },
+            {
+              "case": "syn-sensitive-demographics",
+              "reason": "no_denominator"
+            },
+            {
+              "case": "syn-unknown-ats-form",
+              "reason": "no_denominator"
+            }
+          ],
+          "value": null
+        },
+        "field_precision": {
+          "denominator": 0,
+          "numerator": 0,
+          "scorable_cases": 0,
+          "unscored": [
+            {
+              "case": "syn-apply-button-nonget",
+              "reason": "no_denominator"
+            },
+            {
+              "case": "syn-auth-gate-aggregator",
+              "reason": "no_denominator"
+            },
+            {
+              "case": "syn-combobox-nested-search",
+              "reason": "no_denominator"
+            },
+            {
+              "case": "syn-conditional-hidden-fields",
+              "reason": "no_denominator"
+            },
+            {
+              "case": "syn-greenhouse-style-form",
+              "reason": "no_denominator"
+            },
+            {
+              "case": "syn-labels-vs-headings",
+              "reason": "no_denominator"
+            },
+            {
+              "case": "syn-multi-step",
+              "reason": "no_denominator"
+            },
+            {
+              "case": "syn-sensitive-demographics",
+              "reason": "no_denominator"
+            },
+            {
+              "case": "syn-unknown-ats-form",
+              "reason": "no_denominator"
+            }
+          ],
+          "value": null
+        },
+        "field_recall": {
+          "denominator": 53,
+          "numerator": 0,
+          "scorable_cases": 7,
+          "unscored": [
+            {
+              "case": "syn-apply-button-nonget",
+              "reason": "no_scorable_truth_fields"
+            },
+            {
+              "case": "syn-auth-gate-aggregator",
+              "reason": "no_scorable_truth_fields"
+            }
+          ],
+          "value": 0
+        },
+        "field_type_accuracy": {
+          "denominator": 0,
+          "numerator": 0,
+          "scorable_cases": 0,
+          "unscored": [
+            {
+              "case": "syn-apply-button-nonget",
+              "reason": "no_matched_fields"
+            },
+            {
+              "case": "syn-auth-gate-aggregator",
+              "reason": "no_matched_fields"
+            },
+            {
+              "case": "syn-combobox-nested-search",
+              "reason": "no_matched_fields"
+            },
+            {
+              "case": "syn-conditional-hidden-fields",
+              "reason": "no_matched_fields"
+            },
+            {
+              "case": "syn-greenhouse-style-form",
+              "reason": "no_matched_fields"
+            },
+            {
+              "case": "syn-labels-vs-headings",
+              "reason": "no_matched_fields"
+            },
+            {
+              "case": "syn-multi-step",
+              "reason": "no_matched_fields"
+            },
+            {
+              "case": "syn-sensitive-demographics",
+              "reason": "no_matched_fields"
+            },
+            {
+              "case": "syn-unknown-ats-form",
+              "reason": "no_matched_fields"
+            }
+          ],
+          "value": null
+        },
+        "outcome_classification": {
+          "denominator": 9,
+          "numerator": 2,
+          "scorable_cases": 9,
+          "unscored": [],
+          "value": 0.2222
+        },
+        "platform_classification": {
+          "denominator": 9,
+          "numerator": 9,
+          "scorable_cases": 9,
+          "unscored": [],
+          "value": 1
+        },
+        "provenance_expectation": {
+          "denominator": 0,
+          "numerator": 0,
+          "scorable_cases": 0,
+          "unscored": [
+            {
+              "case": "syn-apply-button-nonget",
+              "reason": "no_rows"
+            },
+            {
+              "case": "syn-auth-gate-aggregator",
+              "reason": "no_rows"
+            },
+            {
+              "case": "syn-combobox-nested-search",
+              "reason": "no_rows"
+            },
+            {
+              "case": "syn-conditional-hidden-fields",
+              "reason": "no_rows"
+            },
+            {
+              "case": "syn-greenhouse-style-form",
+              "reason": "no_rows"
+            },
+            {
+              "case": "syn-labels-vs-headings",
+              "reason": "no_rows"
+            },
+            {
+              "case": "syn-multi-step",
+              "reason": "no_rows"
+            },
+            {
+              "case": "syn-sensitive-demographics",
+              "reason": "no_rows"
+            },
+            {
+              "case": "syn-unknown-ats-form",
+              "reason": "no_rows"
+            }
+          ],
+          "value": null
+        },
+        "required_accuracy": {
+          "denominator": 0,
+          "numerator": 0,
+          "scorable_cases": 0,
+          "unscored": [
+            {
+              "case": "syn-apply-button-nonget",
+              "reason": "no_matched_fields"
+            },
+            {
+              "case": "syn-auth-gate-aggregator",
+              "reason": "no_matched_fields"
+            },
+            {
+              "case": "syn-combobox-nested-search",
+              "reason": "no_matched_fields"
+            },
+            {
+              "case": "syn-conditional-hidden-fields",
+              "reason": "no_matched_fields"
+            },
+            {
+              "case": "syn-greenhouse-style-form",
+              "reason": "no_matched_fields"
+            },
+            {
+              "case": "syn-labels-vs-headings",
+              "reason": "no_matched_fields"
+            },
+            {
+              "case": "syn-multi-step",
+              "reason": "no_matched_fields"
+            },
+            {
+              "case": "syn-sensitive-demographics",
+              "reason": "no_matched_fields"
+            },
+            {
+              "case": "syn-unknown-ats-form",
+              "reason": "no_matched_fields"
+            }
+          ],
+          "value": null
+        },
+        "unresolved_label_rate": {
+          "denominator": 0,
+          "numerator": 0,
+          "scorable_cases": 0,
+          "unscored": [
+            {
+              "case": "syn-apply-button-nonget",
+              "reason": "no_rows"
+            },
+            {
+              "case": "syn-auth-gate-aggregator",
+              "reason": "no_rows"
+            },
+            {
+              "case": "syn-combobox-nested-search",
+              "reason": "no_rows"
+            },
+            {
+              "case": "syn-conditional-hidden-fields",
+              "reason": "no_rows"
+            },
+            {
+              "case": "syn-greenhouse-style-form",
+              "reason": "no_rows"
+            },
+            {
+              "case": "syn-labels-vs-headings",
+              "reason": "no_rows"
+            },
+            {
+              "case": "syn-multi-step",
+              "reason": "no_rows"
+            },
+            {
+              "case": "syn-sensitive-demographics",
+              "reason": "no_rows"
+            },
+            {
+              "case": "syn-unknown-ats-form",
+              "reason": "no_rows"
+            }
+          ],
+          "value": null
+        }
+      },
+      "mixed_evidence": false,
       "outcome_confusion": {
         "application_not_found": {
           "application_not_found": 2
@@ -581,6 +1256,13 @@
           "status": "verified"
         }
       ],
+      "evidence_basis": {
+        "case_note": "A stored production inspection (run #12, Greenhouse) from before generic discovery. It is the only live inspection result in this manifest, and it is a single case.",
+        "id": "captured_live_inspection",
+        "label": "Captured live inspection",
+        "live_inspection": true,
+        "statement": "A stored result of a real production inspection run. It is fixed: it cannot reflect a later inspector."
+      },
       "false_complete": false,
       "false_complete_evaluable": true,
       "findings": [
@@ -814,7 +1496,7 @@
       },
       "origin": "real_world",
       "result": {
-        "basis": "captured_live",
+        "basis": "captured_live_inspection",
         "status": "ok"
       },
       "title": "Chainguard, Principal Software Engineer (Greenhouse), live run #12",
@@ -857,6 +1539,13 @@
           "status": "verified"
         }
       ],
+      "evidence_basis": {
+        "case_note": "The scored result is the output of the offline Ashby schema adapter over committed provider-schema evidence, compared with a person's own browser observation. It is NOT a successful live Ashby inspection: the inspector's one live inspection of this application did not reach the form, and the flag-gated Ashby transport has never been enabled.",
+        "id": "offline_provider_schema_snapshot",
+        "label": "Offline provider-schema snapshot",
+        "live_inspection": false,
+        "statement": "The output of an offline schema adapter over committed provider-schema evidence. No page was opened and no live inspection took place."
+      },
       "false_complete": false,
       "false_complete_evaluable": false,
       "findings": [],
@@ -1052,7 +1741,7 @@
       },
       "origin": "real_world",
       "result": {
-        "basis": "snapshot",
+        "basis": "offline_provider_schema_snapshot",
         "status": "ok"
       },
       "title": "NerdWallet application (Ashby), provider schema versus a person's own browser",
@@ -1092,6 +1781,12 @@
           "status": "verified"
         }
       ],
+      "evidence_basis": {
+        "id": "synthetic_fixture_replay",
+        "label": "Synthetic fixture replay",
+        "live_inspection": false,
+        "statement": "The real inspector run over a local synthetic fixture. Regression evidence only: it says nothing about real sites."
+      },
       "false_complete": false,
       "false_complete_evaluable": false,
       "findings": [],
@@ -1161,7 +1856,7 @@
       },
       "origin": "synthetic",
       "result": {
-        "basis": "replay",
+        "basis": "synthetic_fixture_replay",
         "evidence": [
           {
             "class": "observed",
@@ -1210,6 +1905,12 @@
           "status": "verified"
         }
       ],
+      "evidence_basis": {
+        "id": "synthetic_fixture_replay",
+        "label": "Synthetic fixture replay",
+        "live_inspection": false,
+        "statement": "The real inspector run over a local synthetic fixture. Regression evidence only: it says nothing about real sites."
+      },
       "false_complete": false,
       "false_complete_evaluable": false,
       "findings": [],
@@ -1279,7 +1980,7 @@
       },
       "origin": "synthetic",
       "result": {
-        "basis": "replay",
+        "basis": "synthetic_fixture_replay",
         "evidence": [
           {
             "class": "observed",
@@ -1328,6 +2029,12 @@
           "status": "verified"
         }
       ],
+      "evidence_basis": {
+        "id": "synthetic_fixture_replay",
+        "label": "Synthetic fixture replay",
+        "live_inspection": false,
+        "statement": "The real inspector run over a local synthetic fixture. Regression evidence only: it says nothing about real sites."
+      },
       "false_complete": false,
       "false_complete_evaluable": false,
       "findings": [],
@@ -1411,7 +2118,7 @@
       },
       "origin": "synthetic",
       "result": {
-        "basis": "replay",
+        "basis": "synthetic_fixture_replay",
         "evidence": [
           {
             "class": "observed",
@@ -1460,6 +2167,12 @@
           "status": "verified"
         }
       ],
+      "evidence_basis": {
+        "id": "synthetic_fixture_replay",
+        "label": "Synthetic fixture replay",
+        "live_inspection": false,
+        "statement": "The real inspector run over a local synthetic fixture. Regression evidence only: it says nothing about real sites."
+      },
       "false_complete": false,
       "false_complete_evaluable": false,
       "findings": [],
@@ -1543,7 +2256,7 @@
       },
       "origin": "synthetic",
       "result": {
-        "basis": "replay",
+        "basis": "synthetic_fixture_replay",
         "evidence": [
           {
             "class": "observed",
@@ -1593,6 +2306,12 @@
           "status": "verified"
         }
       ],
+      "evidence_basis": {
+        "id": "synthetic_fixture_replay",
+        "label": "Synthetic fixture replay",
+        "live_inspection": false,
+        "statement": "The real inspector run over a local synthetic fixture. Regression evidence only: it says nothing about real sites."
+      },
       "false_complete": false,
       "false_complete_evaluable": false,
       "findings": [],
@@ -1691,7 +2410,7 @@
       },
       "origin": "synthetic",
       "result": {
-        "basis": "replay",
+        "basis": "synthetic_fixture_replay",
         "evidence": [
           {
             "class": "observed",
@@ -1741,6 +2460,12 @@
           "status": "verified"
         }
       ],
+      "evidence_basis": {
+        "id": "synthetic_fixture_replay",
+        "label": "Synthetic fixture replay",
+        "live_inspection": false,
+        "statement": "The real inspector run over a local synthetic fixture. Regression evidence only: it says nothing about real sites."
+      },
       "false_complete": false,
       "false_complete_evaluable": false,
       "findings": [],
@@ -1827,7 +2552,7 @@
       },
       "origin": "synthetic",
       "result": {
-        "basis": "replay",
+        "basis": "synthetic_fixture_replay",
         "evidence": [
           {
             "class": "observed",
@@ -1876,6 +2601,12 @@
           "status": "verified"
         }
       ],
+      "evidence_basis": {
+        "id": "synthetic_fixture_replay",
+        "label": "Synthetic fixture replay",
+        "live_inspection": false,
+        "statement": "The real inspector run over a local synthetic fixture. Regression evidence only: it says nothing about real sites."
+      },
       "false_complete": false,
       "false_complete_evaluable": false,
       "findings": [],
@@ -1958,7 +2689,7 @@
       },
       "origin": "synthetic",
       "result": {
-        "basis": "replay",
+        "basis": "synthetic_fixture_replay",
         "evidence": [
           {
             "class": "observed",
@@ -2008,6 +2739,12 @@
           "status": "verified"
         }
       ],
+      "evidence_basis": {
+        "id": "synthetic_fixture_replay",
+        "label": "Synthetic fixture replay",
+        "live_inspection": false,
+        "statement": "The real inspector run over a local synthetic fixture. Regression evidence only: it says nothing about real sites."
+      },
       "false_complete": false,
       "false_complete_evaluable": false,
       "findings": [],
@@ -2097,7 +2834,7 @@
       },
       "origin": "synthetic",
       "result": {
-        "basis": "replay",
+        "basis": "synthetic_fixture_replay",
         "evidence": [
           {
             "class": "observed",
@@ -2146,6 +2883,12 @@
           "status": "verified"
         }
       ],
+      "evidence_basis": {
+        "id": "synthetic_fixture_replay",
+        "label": "Synthetic fixture replay",
+        "live_inspection": false,
+        "statement": "The real inspector run over a local synthetic fixture. Regression evidence only: it says nothing about real sites."
+      },
       "false_complete": false,
       "false_complete_evaluable": false,
       "findings": [],
@@ -2231,7 +2974,7 @@
       },
       "origin": "synthetic",
       "result": {
-        "basis": "replay",
+        "basis": "synthetic_fixture_replay",
         "evidence": [
           {
             "class": "observed",
@@ -2258,6 +3001,40 @@
     },
     "name": "generic-off"
   },
+  "evidence_bases": {
+    "captured_live_inspection": {
+      "cases": [
+        "real-chainguard-4722145006"
+      ],
+      "label": "Captured live inspection",
+      "live_inspection": true,
+      "statement": "A stored result of a real production inspection run. It is fixed: it cannot reflect a later inspector."
+    },
+    "offline_provider_schema_snapshot": {
+      "cases": [
+        "real-nerdwallet-258"
+      ],
+      "label": "Offline provider-schema snapshot",
+      "live_inspection": false,
+      "statement": "The output of an offline schema adapter over committed provider-schema evidence. No page was opened and no live inspection took place."
+    },
+    "synthetic_fixture_replay": {
+      "cases": [
+        "syn-apply-button-nonget",
+        "syn-auth-gate-aggregator",
+        "syn-combobox-nested-search",
+        "syn-conditional-hidden-fields",
+        "syn-greenhouse-style-form",
+        "syn-labels-vs-headings",
+        "syn-multi-step",
+        "syn-sensitive-demographics",
+        "syn-unknown-ats-form"
+      ],
+      "label": "Synthetic fixture replay",
+      "live_inspection": false,
+      "statement": "The real inspector run over a local synthetic fixture. Regression evidence only: it says nothing about real sites."
+    }
+  },
   "findings": [
     {
       "case": "real-chainguard-4722145006",
@@ -2282,7 +3059,7 @@
     "unresolved_label_rate": false
   },
   "inspector": {
-    "commit": "e5761d1fd96bafea5b2f76713a00da13ea2e4665",
+    "commit": "ac897f9d39ab23a4fc3c11fdaa08f147b8b85924",
     "source_sha256": "ada0fb9cebc0d107c1d37591343d4993d5599c1826ecfe47e79b246cb9658994",
     "source_tree_modified": false
   },
@@ -2290,9 +3067,16 @@
     "failures": [],
     "verified": true
   },
+  "live_inspection": {
+    "case_ids": [
+      "real-chainguard-4722145006"
+    ],
+    "cases": 1,
+    "statement": "1 of 11 case rests on a captured live inspection result. No live-inspection success rate is measured by this evaluation, and the aggregates below must not be read as one."
+  },
   "manifest": {
     "schema": "eval-manifest/1",
-    "sha256": "0026ac32f6c9545c881ebae21c222ae9dfa3bfe9748a33e280bf5c71e144f461",
+    "sha256": "b5abb3aa0d91899cfce10e6ed92e1ea0fec2d7129463ec4766f95dcd08a6cdbb",
     "version": "0.1.0"
   },
   "metrics_requested": [
