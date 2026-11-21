@@ -65,8 +65,7 @@ On receiving that, the next steps are: create the authorization file with that s
 ## Remaining risks
 
 - The resolver and adapter have only met **synthetic local fixtures**; live pages may behave differently. JavaScript-only Apply buttons are reported, never clicked. Third-party scripts never load (an unapproved host is refused), so a page that builds its Apply link from a third-party script shows none: that fails safe, as `no_apply_link`.
-- **Robots rules are enforced for the source URL and the Apply candidate only.** The guard caches its per-host decision, so a later redirect hop on a host already visited is not re-judged by path. The snapshot is dated and secondhand.
-- A redirect revisiting a host already used earlier **in the same case** is not paced again (same cache).
-- The **pacing sleeps happen inside the guard's pre-request check**; a long wait could exceed Chromium's own navigation timeout and be recorded as a timeout (counted as an infrastructure failure, which stops the batch: a safe failure).
+- **Robots, approval and pacing are decided per request** (including each redirect hop and a host revisited within the case), not once per host; the robots snapshot is dated and secondhand.
+- Pacing waits happen inside the per-request policy, before a navigation is sent. The live navigation timeout is lengthened by one gap (plus 5 s) to allow for it; if one still times out it is recorded as an infrastructure failure, which stops the batch (a safe failure).
 - Stop thresholds are conservative defaults chosen without live data. DNS rebinding between the address check and the connection is the inspector's existing, documented gap.
 - The Jobicy terms ambiguity and the Himalayas prohibition above; the destination sites' terms were not reviewed.

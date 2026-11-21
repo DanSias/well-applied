@@ -7,9 +7,10 @@
 // The CLI never passes it (a test asserts that), so a real run always uses the real DNS/private-address check and the real launcher.
 import { createGuard } from '../../src/guard.js';
 import { launchChromium } from '../../src/browser.js';
+import { NAVIGATION_TIMEOUT_MS } from '../../src/budget.js';
 import { resolvesToPrivateAddress } from '../../src/url-safety.js';
 import { resolveDestination } from '../../src/resolution/resolve.js';
-import { createHostPolicy } from './host-policy.js';
+import { createHostPolicy, withRequestPolicy } from './host-policy.js';
 import { createRobots } from './robots.js';
 
 /**
@@ -35,10 +36,12 @@ export function createLiveAdapter({ reader, robotsSnapshot, signal, testing }) {
             if (robots.disallows(first.hostname, `${first.pathname}${first.search}`)) {
                 return { schema: 'destination-resolution/1', resolver_version: 'live', source: { host: first.hostname }, status: 'unresolved', reason: 'robots_disallowed_requires_review', destination: null, hops: [], apply_candidates: [], needs_human_review: true, review_reason: 'the source URL is a path the host\'s robots.txt disallows: not requested', warnings: [], provenance: { method: 'refused_before_navigation', clicks: 0, form_fields_read: 0 } };
             }
-            const policy = createHostPolicy({ sourceHost: new URL(url).hostname, reviewedHosts: reviewedRedirectHosts, pacer, deadline, addressCheck, robots });
-            // A fresh guard per case, so its per-host address cache never carries one case's approvals into the next.
-            const real = createGuard({ resolve: (u) => policy.check(u) });
-            const guard = testing?.wrapGuard ? testing.wrapGuard(real) : real;
+            const policy = createHostPolicy({ sourceHost: new URL(url).hostname, reviewedHosts: reviewedRedirectHosts, pacer, deadline, robots });
+            // A fresh guard per case. The guard keeps doing exactly what it does (its address check, cached per host, is only a SAFETY check); the per-request
+            // policy is a separate layer on top of it (see host-policy.js), so no decision about approval, robots or pacing relies on that cache.
+            const real = createGuard({ resolve: addressCheck });
+            const layered = withRequestPolicy(real, policy);
+            const guard = testing?.wrapGuard ? testing.wrapGuard(layered) : layered;
             const launch = async () => {
                 const browser = await baseLaunch();
                 const stop = () => browser.close().catch(() => {});
@@ -51,7 +54,8 @@ export function createLiveAdapter({ reader, robotsSnapshot, signal, testing }) {
                 guard,
                 launch,
                 budgetMs,
-                timeouts: testing?.timeouts,
+                // A navigation may wait out a pacing gap inside the policy before it is sent; its timeout allows for that (tests pass their own).
+                timeouts: testing?.timeouts ?? { navigationMs: NAVIGATION_TIMEOUT_MS + pacer.gapMs + 5_000 },
                 allowTrackerRedirects: false,
                 reviewedRedirectHosts,
                 beforeFollow: async (candidate) => {
@@ -59,12 +63,11 @@ export function createLiveAdapter({ reader, robotsSnapshot, signal, testing }) {
                     // The Apply candidate's path is judged against the dated robots snapshot BEFORE it is requested. (The guard caches its per-host decision, so this is the
                     // one place a path can be judged; a later redirect hop on a host already visited is not.)
                     if (robots.disallows(u.hostname, `${u.pathname}${u.search}`)) return 'robots_disallowed_requires_review';
-
-                    return policy.approveDestination(u.hostname);
+                    policy.approveDestination(u.hostname);
                 },
             });
 
-            return { ...resolution, host_policy: { approved_hosts: policy.approvedHosts(), paced_hosts: policy.pacedHosts(), refusals: policy.refusals.map((r) => `${r.reason}:${r.host}`) } };
+            return { ...resolution, host_policy: { approved_hosts: policy.approvedHosts(), paced_hosts: policy.pacedHosts(), navigations_decided: policy.decisions.filter((d) => d.navigation).length, refusals: policy.refusals.map((r) => `${r.reason}:${r.host}`) } };
         },
     };
 }

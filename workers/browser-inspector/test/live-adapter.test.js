@@ -13,6 +13,8 @@ import { openSourceReader } from '../eval/live/source-db.js';
 import { LIVE_CEILINGS, validateAuthorization, AuthorizationRefused } from '../eval/runner/authorization.js';
 import { createPacer } from '../eval/runner/pacer.js';
 import { createLiveAdapter } from '../eval/live/adapter.js';
+import { createHostPolicy } from '../eval/live/host-policy.js';
+import { createRobots } from '../eval/live/robots.js';
 import { loadRobotsSnapshot } from '../eval/live/run-live.js';
 import { startLiveSites } from './support/live-sites.js';
 
@@ -412,5 +414,91 @@ describe('what a live report contains', () => {
         const r = await go(build([[3, 'jobicy.com', '/jobs/302'], [5, 'jobicy.com', '/jobs/309']]));
         assert.deepEqual(r.review_queue.map((q) => q.case).sort(), ['live-3', 'live-5']);
         assert.ok(r.review_queue.every((q) => q.reasons.length > 0));
+    });
+});
+
+// ---- per-request policy: no decision relies on the guard's per-host cache ---------------------------------------------------------------------
+describe('every relevant navigation is decided, including a host revisited within a case and every redirect hop', () => {
+    const direct = async (urlPath, { site = 'jobicy.com', marks = {}, deadlineAfter = Infinity, reviewed = [] } = {}) => {
+        const clock = fakeClock();
+        const pacer = createPacer({ clock, gapMs: GAP });
+        for (const [h, agoMs] of Object.entries(marks)) pacer.mark(h, clock.now() - agoMs);
+        const adapter = createLiveAdapter({ reader: {}, robotsSnapshot: loadRobotsSnapshot(), testing: sites.testing() });
+        const resolution = await adapter.resolve(sites.url(site, urlPath), { pacer, deadline: clock.now() + deadlineAfter, reviewedRedirectHosts: reviewed, budgetMs: 60_000 });
+
+        return { resolution, clock, pacer };
+    };
+
+    test('a host REVISITED within the same case by an Apply link is paced again: the second jobicy.com navigation waits out the gap', async () => {
+        const { resolution, clock } = await direct('/jobs/311');
+        assert.ok(resolution.host_policy.paced_hosts.includes('jobicy.com'), JSON.stringify(resolution.host_policy));
+        assert.deepEqual(clock.sleeps, [GAP], 'a full gap: the first navigation to jobicy.com was marked at the same virtual instant');
+        assert.equal(resolution.host_policy.navigations_decided, 3, 'every navigation was decided (three pages, two of them on one host), not once per host');
+    });
+
+    test('a host REVISITED by an HTTP REDIRECT HOP within the same case is paced before the hop is sent', async () => {
+        const { resolution, clock } = await direct('/jobs/312');
+        assert.ok(resolution.host_policy.paced_hosts.includes('jobicy.com'));
+        assert.ok(clock.sleeps.includes(GAP));
+    });
+
+    test('a redirect hop onto a robots-disallowed path of an already-visited, already-approved host is refused before it is requested', async () => {
+        const hits = sites.hitsOn('jobicy.com', '/go/abc123');
+        const { resolution } = await direct('/jobs/313');
+        assert.deepEqual([resolution.status, resolution.reason, resolution.needs_human_review], ['unresolved', 'robots_disallowed_requires_review', true]);
+        assert.equal(sites.hitsOn('jobicy.com', '/go/abc123'), hits, 'the disallowed path was never requested');
+        assert.ok(resolution.host_policy.refusals.includes('robots_disallowed:jobicy.com'));
+    });
+
+    test('a SUBRESOURCE on an approved host that redirects to an unapproved host is refused at the hop and never requested', async () => {
+        const hits = sites.hitsOn('cdn.thirdparty-example.net');
+        const { resolution } = await direct('/jobs/315');
+        assert.equal(resolution.status, 'proposed_by_resolution', 'the page still resolves');
+        assert.equal(sites.hitsOn('cdn.thirdparty-example.net'), hits);
+        assert.ok(resolution.host_policy.refusals.includes('host_not_approved:cdn.thirdparty-example.net'));
+    });
+
+    test('an unknown redirect destination is refused BEFORE any request, and is never silently approved: the approved set contains no redirect-discovered host', async () => {
+        const hits = sites.hitsOn('go.linkforward-example.io');
+        const { resolution } = await direct('/jobs/302');
+        assert.equal(resolution.reason, 'redirect_host_requires_review');
+        assert.equal(sites.hitsOn('go.linkforward-example.io'), hits);
+        assert.deepEqual(resolution.host_policy.approved_hosts, ['careers.acmecorp.com', 'jobicy.com'], 'only the source host and the Apply destination the resolver chose');
+    });
+
+    test('a refused redirect hop is a REVIEW item for a person, never a silent approval for the next case', async () => {
+        const r = await go(build([[3, 'jobicy.com', '/jobs/302'], [4, 'jobicy.com', '/jobs/302']]));
+        for (const id of [3, 4]) assert.deepEqual([state(r, id).resolution.reason, state(r, id).needs_human_review], ['redirect_host_requires_review', true]);
+        assert.deepEqual(r.config.reviewed_redirect_hosts, [], 'nothing was added to the reviewed list');
+    });
+
+    test('the policy is decided PER REQUEST: the same host is decided again each time, and pacing is serialised across simultaneous navigations', async () => {
+        const clock = fakeClock();
+        const pacer = createPacer({ clock, gapMs: GAP });
+        const policy = createHostPolicy({ sourceHost: 'jobicy.com', pacer, deadline: Infinity, robots: createRobots(loadRobotsSnapshot()) });
+        const u = (p) => new URL(`https://jobicy.com${p}`);
+        const out = await Promise.all([policy.decide(u('/jobs/1'), { navigation: true }), policy.decide(u('/jobs/2'), { navigation: true }), policy.decide(u('/jobs/3'), { navigation: true })]);
+        assert.deepEqual(out.map((o) => o.ok), [true, true, true]);
+        assert.deepEqual(clock.sleeps, [GAP, GAP], 'three simultaneous navigations to one host are spaced one gap apart, not all released together');
+        assert.equal(policy.decisions.filter((d) => d.host === 'jobicy.com').length, 3, 'one decision per navigation');
+        // A subresource is checked for approval on every request too, but is not paced and not robots-judged.
+        assert.deepEqual(await policy.decide(u('/style.css'), { navigation: false }), { ok: true });
+        assert.equal(clock.sleeps.length, 2);
+    });
+
+    test('approval is exact: a subdomain or look-alike of an approved host is not approved, and a redirect target can never be added', async () => {
+        const policy = createHostPolicy({ sourceHost: 'jobicy.com', pacer: createPacer({ clock: fakeClock(), gapMs: GAP }), deadline: Infinity, robots: createRobots(loadRobotsSnapshot()) });
+        for (const h of ['sub.jobicy.com', 'jobicy.com.evil.example', 'jobicy.co', 'xjobicy.com']) assert.equal((await policy.decide(new URL(`https://${h}/x`), { navigation: true })).ok, false, h);
+        assert.equal(typeof policy.approveDestination, 'function');
+        assert.deepEqual(policy.approvedHosts(), ['jobicy.com']);
+        assert.equal((await policy.decide(new URL('https://jobs.lever.co/a/b'), { navigation: false })).ok, true, 'a known ATS host is approved without being named');
+    });
+
+    test('the no-retry, authorization and security-stop boundaries are unchanged: a private-address Apply link still stops the batch, once', async () => {
+        const hits = sites.hitsOn('jobicy.com', '/jobs/307');
+        const r = await go(build([[8, 'jobicy.com', '/jobs/307'], [9, 'jobicy.com', '/jobs/301']]));
+        assert.equal(r.outcome.stop.cause, 'security_refusal');
+        assert.equal(sites.hitsOn('jobicy.com', '/jobs/307') - hits, 1);
+        assert.equal(state(r, 9).state, 'unattempted');
     });
 });

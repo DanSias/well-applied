@@ -15,7 +15,7 @@ const walk = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.is
 
 test('each live module imports only what it needs: the inspector\'s own guard, launcher, address check and resolver, the runner core, and the standard library', () => {
     const allowed = {
-        'adapter.js': ['../../src/guard.js', '../../src/browser.js', '../../src/url-safety.js', '../../src/resolution/resolve.js', './host-policy.js', './robots.js'],
+        'adapter.js': ['../../src/guard.js', '../../src/browser.js', '../../src/budget.js', '../../src/url-safety.js', '../../src/resolution/resolve.js', './host-policy.js', './robots.js'],
         'host-policy.js': ['../../src/resolution/hosts.js', '../runner/pacer.js'],
         'robots.js': [],
         'run-live.js': ['node:fs', 'node:path', 'node:url', '../runner/batch.js', './adapter.js', './source-db.js'],
@@ -36,8 +36,12 @@ test('only the source reader can open a database, and nothing else in the live a
 });
 
 test('the guard is built from the inspector\'s own createGuard with only a REFUSING policy; the GET/HEAD rule, sandbox, isolation and relay are untouched', () => {
-    assert.match(code('adapter.js'), /createGuard\(\{ resolve: \(u\) => policy\.check\(u\) \}\)/);
-    assert.match(code('host-policy.js'), /const address = await addressCheck\(url\);\s+if \(!address\.safe\) return address;/, 'the real address check runs first and a failure is final');
+    assert.match(code('adapter.js'), /const real = createGuard\(\{ resolve: addressCheck \}\);\s+const layered = withRequestPolicy\(real, policy\);/, 'the guard keeps its own address check; the policy is a separate layer on top');
+    const hp = code('host-policy.js');
+    assert.match(hp, /await guard\.install\(context\);\s+await context\.route\('\*\*\/\*'/, 'the policy route is registered AFTER the guard\'s, so it runs first and falls back to it');
+    assert.match(hp, /return route\.fallback\(\);/);
+    assert.match(hp, /await guard\.attach\(page\);/, 'the guard\'s own redirect interception is attached first and left in place');
+    assert.equal(/route\.(continue|fulfill|fetch)\(/.test(hp), false, 'the policy only refuses or falls back; it never sends, answers or alters a request');
     const changed = execFileSync('git', ['diff', '--name-only', 'master', '--', 'src', 'isolation', 'relay', 'compose.yaml', 'Dockerfile', '../application-preparer', 'package.json', 'package-lock.json'], { cwd: ROOT, encoding: 'utf8' }).trim().split('\n').filter(Boolean);
     const ok = (f) => f === 'src/inspect.js' || f.startsWith('src/resolution/');
     assert.deepEqual(changed.filter((f) => !ok(f.replace(/^workers\/browser-inspector\//, ''))), [], 'only the resolver and the observe event the walk emits may differ from master');

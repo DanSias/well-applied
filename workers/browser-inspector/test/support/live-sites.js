@@ -32,6 +32,15 @@ export async function startLiveSites() {
             '/jobs/308': () => ({ hang: true }),
             '/jobs/309': () => ({ body: link('Apply Now', `${origin('click.mailtrack-example.com')}/c?url=${encodeURIComponent(`${origin('careers.acmecorp.com')}/jobs/42`)}`) }),
             '/jobs/310': () => ({ body: link('Apply Now', `${origin('careers.acmecorp.com')}/to-private`) }),
+            // The same host revisited within one case: an Apply link back onto jobicy.com.
+            '/jobs/311': () => ({ body: link('Apply Now', `${origin('jobicy.com')}/jobs/301`) }),
+            // ...reached by an HTTP redirect from another host (a redirect hop onto a host already visited in this case).
+            '/jobs/312': () => ({ body: link('Apply Now', `${origin('careers.acmecorp.com')}/back-to-jobicy`) }),
+            // ...and onto a path robots.txt disallows (the host is already approved and already visited, so only a PER-REQUEST check can refuse it).
+            '/jobs/313': () => ({ body: link('Apply Now', `${origin('careers.acmecorp.com')}/to-jobicy-go`) }),
+            // A subresource on an approved host that redirects to an unapproved host.
+            '/jobs/315': () => ({ body: `${link('Apply Now', `${origin('careers.acmecorp.com')}/jobs/42`)}<img src="/pixel-redir">` }),
+            '/pixel-redir': () => ({ status: 302, headers: { location: `${origin('cdn.thirdparty-example.net')}/pixel.gif` } }),
             '/go/abc123': () => ({ status: 302, headers: { location: `${origin('careers.acmecorp.com')}/jobs/42` } }),
         },
         'himalayas.app': {
@@ -42,6 +51,8 @@ export async function startLiveSites() {
         'careers.acmecorp.com': {
             '/jobs/42': () => ({ body: link('Apply for this job', `${origin('job-boards.greenhouse.io')}/acme/jobs/1?gh_jid=1`) }),
             '/onward': () => ({ status: 302, headers: { location: `${origin('go.linkforward-example.io')}/hop` } }),
+            '/back-to-jobicy': () => ({ status: 302, headers: { location: `${origin('jobicy.com')}/jobs/304` } }),
+            '/to-jobicy-go': () => ({ status: 302, headers: { location: `${origin('jobicy.com')}/go/abc123` } }),
             '/to-private': () => ({ status: 302, headers: { location: 'http://10.0.0.5:81/internal' } }),
         },
         'job-boards.greenhouse.io': { '/acme/jobs/1': () => ({ body: fixture('greenhouse-form.html') }) },
